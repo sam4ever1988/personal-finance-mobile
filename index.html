@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b57d0" />
+<title>Personal Finance Mobile</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#f5f7fb; --card:#fff; --text:#101828; --muted:#667085; --line:#e6eaf0;
+  --blue:#0b57d0; --green:#128a56; --red:#d92d20; --orange:#f79009; --purple:#7a5af8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#dfe5ee;color:var(--text)}
+.phone{max-width:430px;margin:0 auto;background:var(--bg);min-height:100vh;position:relative;padding-bottom:78px}
+.topbar{position:sticky;top:0;z-index:20;background:#fff;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.topline{display:flex;align-items:center;justify-content:space-between}
+.title{font-size:20px;font-weight:800}
+.month{font-size:13px;color:var(--muted);margin-top:3px}
+.iconbtn{border:0;background:#f0f4fa;width:38px;height:38px;border-radius:12px;font-size:18px}
+.content{padding:14px}
+.hero{background:linear-gradient(135deg,#0b57d0,#123b8f);color:#fff;border-radius:22px;padding:18px;box-shadow:0 10px 24px rgba(16,24,40,.12)}
+.hero .small{opacity:.84;font-size:12px}.hero .big{font-size:30px;font-weight:800;margin:5px 0 14px}
+.row{display:flex;gap:10px}.grow{flex:1}
+.metric{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin-top:12px}
+.metric .label{font-size:12px;color:var(--muted)} .metric .value{font-size:18px;font-weight:800;margin-top:5px}
+.section{font-size:16px;font-weight:800;margin:20px 2px 10px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}
+.account{display:flex;align-items:center;gap:11px}
+.badge{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.badge.bank{background:var(--blue)} .badge.cardb{background:var(--purple)} .badge.cash{background:var(--green)}
+.account .name{font-weight:750}.account .sub{color:var(--muted);font-size:12px;margin-top:3px}.amount{margin-left:auto;text-align:right;font-weight:800}
+.red{color:var(--red)} .green{color:var(--green)} .blue{color:var(--blue)}
+.chips{display:flex;gap:8px;overflow:auto;padding:0 0 10px}.chip{white-space:nowrap;padding:8px 12px;border-radius:99px;background:#fff;border:1px solid var(--line);font-size:12px}.chip.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tx{display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.tx:last-child{border-bottom:0}
+.txicon{width:40px;height:40px;border-radius:12px;background:#eef4ff;display:flex;align-items:center;justify-content:center}
+.txname{font-weight:700;font-size:14px}.txsub{color:var(--muted);font-size:11px;margin-top:3px}.txamt{font-weight:800;font-size:13px}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);height:70px;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;z-index:30;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+.nav button{border:0;background:none;color:#667085;font-size:10px;flex:1;padding-top:8px}.nav button span{display:block;font-size:20px;margin-bottom:3px}.nav button.active{color:var(--blue);font-weight:800}
+.view{display:none}.view.active{display:block}
+.chart{display:flex;align-items:flex-end;gap:9px;height:150px;padding:15px 5px 5px}.bar{flex:1;background:#b6cef5;border-radius:8px 8px 3px 3px;position:relative}.bar.current{background:var(--blue)}.bar label{position:absolute;bottom:-20px;width:100%;text-align:center;font-size:10px;color:var(--muted)}
+.donut{width:150px;height:150px;border-radius:50%;margin:6px auto;background:conic-gradient(var(--blue) 0 41%,var(--orange) 41% 61.2%,var(--green) 61.2% 76.3%,var(--purple) 76.3% 84.9%,#98a2b3 84.9% 100%);position:relative}.donut:after{content:"SAR\A22,184";white-space:pre;position:absolute;inset:28px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800}
+.cat{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.dot{width:10px;height:10px;border-radius:50%;margin-right:9px}.cat b{margin-left:auto}
+.cardface{background:linear-gradient(135deg,#111827,#1f2937);color:#fff;border-radius:20px;padding:18px;min-height:180px;position:relative;overflow:hidden}.cardface:before{content:"";position:absolute;width:260px;height:260px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:-100px;top:-120px}.cardface .visa{font-size:26px;font-weight:900;text-align:right}.cardface .num{margin-top:65px;font-size:18px;letter-spacing:1px}.cardface .kind{font-size:12px;opacity:.8;margin-top:6px}
+.detailrow{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}.detailrow:last-child{border-bottom:0}
+.install{display:grid;grid-template-columns:1fr auto;gap:6px;padding:11px 0;border-bottom:1px solid var(--line)}.install:last-child{border-bottom:0}.install .n{font-weight:700}.install .s{font-size:11px;color:var(--muted)}
+.upload{border:2px dashed #b8c5d8;border-radius:18px;padding:25px;text-align:center;background:#fff}.upload input{margin-top:12px;max-width:100%}
+.pill{padding:4px 8px;border-radius:99px;font-size:10px;background:#eef4ff;color:var(--blue);display:inline-block}
+.note{font-size:11px;color:var(--muted);line-height:1.45}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="topbar">
+    <div class="topline"><div><div class="title" id="pageTitle">Dashboard</div><div class="month">June 2026 • All Accounts</div></div><button class="iconbtn">🔔</button></div>
+  </header>
+
+  <main class="content">
+    <section id="home" class="view active">
+      <div class="hero"><div class="small">Estimated Net Position</div><div class="big">SAR 124,850.75</div><div class="row"><div class="grow"><div class="small">Income</div><b>SAR 38,950.00</b></div><div class="grow"><div class="small">Expenses</div><b>SAR 22,184.45</b></div></div></div>
+      <div class="row"><div class="metric grow"><div class="label">Net Cash Flow</div><div class="value green">+16,765.55</div></div><div class="metric grow"><div class="label">Card Due</div><div class="value red">33,425.25</div></div></div>
+      <div class="section">Accounts & Cards</div>
+      <div class="card account"><div class="badge bank">AR</div><div><div class="name">Al Rajhi Bank</div><div class="sub">Current Account • 1234</div></div><div class="amount">28,540.75</div></div>
+      <div class="card account"><div class="badge cardb">V</div><div><div class="name">Primary Card • 0955</div><div class="sub">VISA Infinite • Due 25 Jul</div></div><div class="amount red">-33,425.25</div></div>
+      <div class="card account"><div class="badge cardb">S</div><div><div class="name">Supplementary Card • 9345</div><div class="sub">Separate spending view</div></div><div class="amount red">-8,742.10</div></div>
+      <div class="section">Recent Transactions</div>
+      <div class="card">
+        <div class="tx"><div class="txicon">🛍️</div><div><div class="txname">SM Store - Mall of Asia</div><div class="txsub">Primary Card • 0955 • Shopping</div></div><div class="txamt red">-9,747.45</div></div>
+        <div class="tx"><div class="txicon">🏠</div><div><div class="txname">Airbnb</div><div class="txsub">Primary Card • 0955 • Travel</div></div><div class="txamt red">-2,926.73</div></div>
+        <div class="tx"><div class="txicon">💳</div><div><div class="txname">Advance Payment / Top-up</div><div class="txsub">Card payment • Not counted as spend</div></div><div class="txamt green">+12,679.05</div></div>
+      </div>
+    </section>
+
+    <section id="accounts" class="view">
+      <div class="chips"><div class="chip active">All</div><div class="chip">Banks</div><div class="chip">Cards</div></div>
+      <div class="section">Bank Accounts</div>
+      <div class="card account"><div class="badge bank">AR</div><div><div class="name">Al Rajhi Bank</div><div class="sub">Current Account • 1234</div></div><div class="amount">28,540.75</div></div>
+      <div class="card account"><div class="badge cash">SNB</div><div><div class="name">SNB</div><div class="sub">Current Account • 5678</div></div><div class="amount">16,230.10</div></div>
+      <div class="section">Credit Cards</div>
+      <div class="card account" onclick="show('card')"><div class="badge cardb">V</div><div><div class="name">Primary Card • 0955</div><div class="sub">Al Rajhi • VISA Infinite</div></div><div class="amount red">33,425.25</div></div>
+      <div class="card account"><div class="badge cardb">S</div><div><div class="name">Supplementary Card • 9345</div><div class="sub">Al Rajhi • Supplementary</div></div><div class="amount red">8,742.10</div></div>
+    </section>
+
+    <section id="transactions" class="view">
+      <div class="chips"><div class="chip active">All</div><div class="chip">Expense</div><div class="chip">Income</div><div class="chip">Transfer</div><div class="chip">Card 0955</div><div class="chip">Card 9345</div></div>
+      <div class="card">
+        <div class="tx"><div class="txicon">🛍️</div><div><div class="txname">SM Store - Mall of Asia</div><div class="txsub">31 May • Primary Card • 0955</div></div><div class="txamt red">-9,747.45</div></div>
+        <div class="tx"><div class="txicon">🏠</div><div><div class="txname">Airbnb * HMJE55RWDN</div><div class="txsub">30 May • Primary Card • 0955</div></div><div class="txamt red">-2,926.73</div></div>
+        <div class="tx"><div class="txicon">🏨</div><div><div class="txname">Priceline * Okada Manila</div><div class="txsub">30 May • Supplementary Card • 9345</div></div><div class="txamt red">-1,236.39</div></div>
+        <div class="tx"><div class="txicon">⚡</div><div><div class="txname">Saudi Electricity Company</div><div class="txsub">12 Jun • Primary Card • 0955</div></div><div class="txamt red">-571.47</div></div>
+        <div class="tx"><div class="txicon">💳</div><div><div class="txname">Advance Payment / Top-up</div><div class="txsub">04 Jun • Internal card payment</div></div><div class="txamt green">+12,679.05</div></div>
+      </div>
+    </section>
+
+    <section id="reports" class="view">
+      <div class="metric"><div class="label">Total Spending</div><div class="value">SAR 22,184.45</div><div class="note green">▲ 6.4% vs previous month</div></div>
+      <div class="section">Spending by Category</div>
+      <div class="card"><div class="donut"></div>
+        <div class="cat"><span class="dot" style="background:#0b57d0"></span>Shopping<b>41.0%</b></div>
+        <div class="cat"><span class="dot" style="background:#f79009"></span>Food & Drinks<b>20.2%</b></div>
+        <div class="cat"><span class="dot" style="background:#128a56"></span>Travel<b>15.1%</b></div>
+        <div class="cat"><span class="dot" style="background:#7a5af8"></span>Transport<b>8.6%</b></div>
+      </div>
+      <div class="section">Monthly Trend</div>
+      <div class="card"><div class="chart">
+        <div class="bar" style="height:48%"><label>Jan</label></div><div class="bar" style="height:58%"><label>Feb</label></div><div class="bar" style="height:42%"><label>Mar</label></div><div class="bar" style="height:63%"><label>Apr</label></div><div class="bar" style="height:72%"><label>May</label></div><div class="bar current" style="height:80%"><label>Jun</label></div>
+      </div></div>
+    </section>
+
+    <section id="more" class="view">
+      <div class="section">Statement Import</div>
+      <div class="upload">📄<h3>Upload Statement</h3><div class="note">PDF, Excel or CSV. The final app will detect the bank/card format automatically.</div><input type="file" disabled><div class="pill" style="margin-top:12px">Prototype preview</div></div>
+      <div class="section">Tools</div>
+      <div class="card">
+        <div class="detailrow"><span>🏷️ Categories</span><b>Manage ›</b></div>
+        <div class="detailrow"><span>💰 Budget</span><b>Set budget ›</b></div>
+        <div class="detailrow"><span>🔔 Payment Reminders</span><b>Manage ›</b></div>
+        <div class="detailrow"><span>🔄 Reconciliation</span><b>Auto-match ›</b></div>
+        <div class="detailrow"><span>📤 Export to Power BI</span><b>Export ›</b></div>
+      </div>
+      <p class="note">This is a UI prototype for review. It does not upload or transmit your financial data.</p>
+    </section>
+
+    <section id="card" class="view">
+      <div class="cardface"><div class="visa">VISA</div><div class="num">•••• •••• •••• 0955</div><div class="kind">Primary Card • Al Rajhi</div></div>
+      <div class="card" style="margin-top:12px">
+        <div class="detailrow"><span>Total Amount Due</span><b class="red">SAR 33,425.25</b></div>
+        <div class="detailrow"><span>Minimum Amount Due</span><b>SAR 11,627.15</b></div>
+        <div class="detailrow"><span>Payment Due Date</span><b class="blue">25 Jul 2026</b></div>
+        <div class="detailrow"><span>Credit Limit</span><b>SAR 53,500</b></div>
+        <div class="detailrow"><span>Closing Balance</span><b>SAR 48,172.23</b></div>
+      </div>
+      <div class="section">Installment Plans</div>
+      <div class="card">
+        <div class="install"><div><div class="n">SM Store - Mall of Asia</div><div class="s">2 installments remaining</div></div><b>SAR 6,352.19</b></div>
+        <div class="install"><div><div class="n">SM Appliance SM MOA</div><div class="s">2 installments remaining</div></div><b>SAR 2,182.01</b></div>
+        <div class="install"><div><div class="n">Airbnb</div><div class="s">1 installment remaining</div></div><b>SAR 682.78</b></div>
+      </div>
+      <button onclick="show('accounts')" style="width:100%;border:0;background:#0b57d0;color:#fff;padding:14px;border-radius:14px;font-weight:800">Back to Accounts</button>
+    </section>
+  </main>
+
+  <nav class="nav">
+    <button class="active" data-view="home" onclick="show('home',this)"><span>⌂</span>Home</button>
+    <button data-view="accounts" onclick="show('accounts',this)"><span>▣</span>Accounts</button>
+    <button data-view="transactions" onclick="show('transactions',this)"><span>⇄</span>Transactions</button>
+    <button data-view="reports" onclick="show('reports',this)"><span>▥</span>Reports</button>
+    <button data-view="more" onclick="show('more',this)"><span>•••</span>More</button>
+  </nav>
+</div>
+<script>
+const titles={home:"Dashboard",accounts:"Accounts & Cards",transactions:"Transactions",reports:"Reports & Insights",more:"More",card:"Card Details"};
+function show(id, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('pageTitle').textContent=titles[id]||'Personal Finance';
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
