@@ -728,7 +728,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V76 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V77 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -758,9 +758,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V76 PRODUCTION</span></div>
+  </div><span class="pill green">V77 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V76</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V77</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -961,6 +961,8 @@ const colors=['#2878f0','#39a844','#ff9c1a','#7b55d9','#17a6ad','#ec5d8c','#a96f
 
 let categories=JSON.parse(localStorage.getItem('pf_categories')||'null')||BASE.categoryTree;
 let installments=JSON.parse(localStorage.getItem('pf_installments')||'null')||BASE.initialInstallments;
+let deletedInstallmentIds=new Set(JSON.parse(localStorage.getItem('pf_deleted_installment_ids')||'[]'));
+installments=installments.filter(p=>!deletedInstallmentIds.has(p.id));
 
 const MEEM_SEEDED_PLANS=[
  {id:'meem-plan-793350',cardId:'meem-7102',description:'5290820017 / Ashal installment',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:7933.50,months:6,startMonth:'2026-07',paidInstallments:1,manualRemaining:6809.59,source:'Bank/User confirmed'},
@@ -2204,6 +2206,8 @@ function deleteInstallmentPlan(id){
   const retired=new Set(JSON.parse(localStorage.getItem('pf_retired_installment_seed_ids')||'[]'));
   retired.add(id);localStorage.setItem('pf_retired_installment_seed_ids',JSON.stringify([...retired]));
  }
+ deletedInstallmentIds.add(id);
+ localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
  installments=installments.filter(x=>x.id!==id);
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
@@ -2251,8 +2255,9 @@ function migrateSabAwayFromLegacySeed(){
  // If the browser/cloud lost the user's later edited SAB plan, restore the last
  // confirmed working state that was visible in the app:
  // Original SAR 9,172, 1 installment paid, SAR 6,114.67 remaining over 2 months.
+ const restoredSabId='sab-user-full-9172';
  const hasUserSab=installments.some(p=>p.cardId==='sab-440880' && p.id!==legacyId && !p.completedConfirmed);
- if(!hasUserSab){
+ if(!hasUserSab && !deletedInstallmentIds.has(restoredSabId)){
   installments.push({
    id:'sab-user-full-9172',
    cardId:'sab-440880',
@@ -2281,7 +2286,7 @@ function ensureRequiredInstallmentSeeds(){
  const retired=new Set(JSON.parse(localStorage.getItem('pf_retired_installment_seed_ids')||'[]'));
  const seeds=[...MEEM_SEEDED_PLANS,...REQUIRED_0955_INSTALLMENTS];
  seeds.forEach(p=>{
-  if(!retired.has(p.id)&&!installments.some(x=>x.id===p.id))installments.push({...p,referenceMonth:p.referenceMonth||'2026-08'});
+  if(!retired.has(p.id)&&!deletedInstallmentIds.has(p.id)&&!installments.some(x=>x.id===p.id))installments.push({...p,referenceMonth:p.referenceMonth||'2026-08'});
  });
  localStorage.setItem('pf_installments',JSON.stringify(installments));
 }
@@ -3621,6 +3626,7 @@ function fullCloudSnapshot(extra={}){
   syncSource:extra.syncSource||'',
   categories,
   installments,
+  deletedInstallmentIds:[...deletedInstallmentIds],
   merchantRules,
   txOverrides,
   incomePlan,
@@ -3639,6 +3645,11 @@ function applyCloudSnapshot(d){
  if(!d||typeof d!=='object')return false;
  categories=d.categories||categories;
  installments=d.installments||installments;
+ if(Array.isArray(d.deletedInstallmentIds)){
+  deletedInstallmentIds=new Set(d.deletedInstallmentIds);
+  localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
+  installments=installments.filter(p=>!deletedInstallmentIds.has(p.id));
+ }
  merchantRules=d.merchantRules||merchantRules;
  txOverrides=d.txOverrides||txOverrides;
  incomePlan=d.incomePlan||incomePlan;
@@ -3885,7 +3896,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V76 protection: signing in never overwrites local data and never uploads
+   // V77 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -3919,7 +3930,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV76CloudStatus(){
+function updateV77CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -3931,8 +3942,8 @@ function updateV76CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV76CloudStatus,1200);
-setTimeout(updateV76CloudStatus,300);
+setInterval(updateV77CloudStatus,1200);
+setTimeout(updateV77CloudStatus,300);
 
 </script>
 </body>
