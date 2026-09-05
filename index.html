@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.4 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.5 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1224,7 +1224,7 @@ function undoLastPartialPayment(id){
  const undoSource=last.sourceId==='cash-source'?null:account(last.sourceId);
  if(undoSource?.type==='bank')setTrackedBankBalance(undoSource.id,adjustedBankBalance(undoSource)+Number(last.amount||0));
  p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.duePortion!=null?last.duePortion:last.amount||0));p.paid=false;
- saveCardPaymentPlan();renderPaymentPlanner();renderDashboard();renderAccounts();if(document.querySelector('#incomeplan.active'))renderIncomePlan();
+ saveCardPaymentPlan();renderPaymentPlanner();setTimeout(()=>renderDashboard(),0);renderAccounts();if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 }
 
 function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
