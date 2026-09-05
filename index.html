@@ -208,7 +208,7 @@ button{cursor:pointer}
 .importPreview{max-height:430px;overflow:auto}
 
 .bankLogoBox{width:82px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;border:1px solid #e5e9ef;padding:4px;flex:0 0 auto}.bankLogoBox img{max-width:100%;max-height:100%;object-fit:contain}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
-.payPlanner{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.payCard{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:14px;min-width:0}.payCard .amount{font-size:22px;font-weight:950;margin-top:6px}.payCard.pending .amount{font-size:16px;color:var(--muted)}
+.payPlanner{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.payCard{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:14px;min-width:0}.payCard[data-open-payment-account]{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}.payCard[data-open-payment-account]:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.08)}.payCard[data-open-payment-account]:focus-visible{outline:3px solid rgba(16,185,129,.25);outline-offset:2px}.payCard .amount{font-size:22px;font-weight:950;margin-top:6px}.payCard.pending .amount{font-size:16px;color:var(--muted)}
 .payStatus{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;margin-top:8px}.payStatus.confirmed{background:#e8f7f1;color:#087d68}.payStatus.manual{background:#fff5df;color:#9a6600}.payStatus.estimated{background:#eef4fb;color:#315f91}.payStatus.pending{background:#f1f2f5;color:#687386}.payStatus.overdue{background:#fdecec;color:#b83232}
 .paymentToolbar{display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap}.paymentSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.subcardTags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.subcardTag{font-size:9px;font-weight:850;padding:4px 7px;border-radius:999px;background:#eef4fb;color:#345b7e}.sourceNote{font-size:9px;color:var(--muted);margin-top:5px}
 @media(max-width:1200px){.payPlanner{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.payPlanner,.paymentSummary{grid-template-columns:1fr}.bankLogoBox{width:66px;height:32px}}
@@ -728,7 +728,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V74 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V75 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -758,9 +758,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V74 PRODUCTION</span></div>
+  </div><span class="pill green">V75 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V74</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V75</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -1437,7 +1437,7 @@ function renderPaymentPlanner(){
   const a=account(p.accountId),effective=plannerAmountForRow(p),paid=paymentPaidAmount(p),rem=paymentRemainingAmount(p);
   const displayAmount=effective===null?'Awaiting statement':money(Number.isFinite(rem)?rem:Number(effective));
   const sourceTag=p.upcomingOnly?'UPCOMING • NOT INCLUDED IN THIS MONTH TOTAL':(p.paid?'PAID':paid>0?'PARTIALLY PAID':paymentStatusText(p));
-  return `<div class="payCard ${p.amount===null?'pending':''}">
+  return `<div class="payCard ${p.amount===null?'pending':''}" data-open-payment-account="${p.accountId}" role="button" tabindex="0" aria-label="Open ${a.bank} ${a.name} ending ${a.ending} account and transactions">
    <div style="display:flex;align-items:center;gap:9px">${bankLogoHTML(a)}<div style="min-width:0"><b>${a.bank} • ${a.name} •${a.ending}</b><div class="meta">${p.label}${p.accountId==='ar-0955'&&p.month==='2026-09'?' • Statement confirmed':''}</div></div></div>
    <div class="amount">${displayAmount}</div>
    <div class="meta" style="margin-top:2px">${Number.isFinite(rem)?'Amount still to pay':'Payment amount'}</div>
@@ -1454,6 +1454,19 @@ function renderPaymentPlanner(){
    </div>
   </div>`;
  }).join(''):'<div class="meta">No payment plans for this month.</div>';
+ document.querySelectorAll('[data-open-payment-account]').forEach(card=>{
+  const open=()=>openAccount(card.dataset.openPaymentAccount,'incomeplan');
+  card.addEventListener('click',e=>{
+   if(e.target.closest('button,a,input,select,textarea,label'))return;
+   open();
+  });
+  card.addEventListener('keydown',e=>{
+   if((e.key==='Enter'||e.key===' ')&&!e.target.closest('button,a,input,select,textarea')){
+    e.preventDefault();
+    open();
+   }
+  });
+ });
  document.querySelectorAll('[data-pay-partial]').forEach(b=>b.addEventListener('click',()=>recordPartialPayment(b.dataset.payPartial)));
  document.querySelectorAll('[data-pay-undo]').forEach(b=>b.addEventListener('click',()=>undoLastPartialPayment(b.dataset.payUndo)));
  document.querySelectorAll('[data-pay-edit]').forEach(b=>b.addEventListener('click',()=>{const p=cardPaymentPlan.find(x=>x.id===b.dataset.payEdit);if(!p)return;const a=prompt('Total payment due (SAR). Leave blank if pending.',p.amount??'');if(a===null)return;if(a.trim()==='')p.amount=null;else{const n=Number(a);if(!Number.isFinite(n)||n<0){alert('Enter a valid amount.');return;}p.amount=n;}const d=prompt('Due date (YYYY-MM-DD)',p.due||'');if(d!==null&&d.trim())p.due=d.trim();if(p.source==='pending'&&p.amount!==null)p.source='manual';saveCardPaymentPlan();renderPaymentPlanner();}));
@@ -2816,7 +2829,12 @@ $('balanceOfferForm').addEventListener('submit',e=>{
  localStorage.setItem('pf_installments',JSON.stringify(installments));saveLocal();closeBalanceOffer();renderInstallments();renderAccounts();renderDashboard();openAccount(cardId);
 });
 
-function openAccount(id){
+let accountDetailReturnPage='accounts';
+function openAccount(id,returnPage){
+ if(returnPage)accountDetailReturnPage=returnPage;
+ else if(document.getElementById('incomeplan')?.classList.contains('active'))accountDetailReturnPage='incomeplan';
+ else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
+ else if(document.getElementById('accounts')?.classList.contains('active'))accountDetailReturnPage='accounts';
  const a=account(id),rows=normalizedTx().filter(t=>t.account===id).sort((x,y)=>y.date.localeCompare(x.date));
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div></div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
@@ -2855,7 +2873,7 @@ function openAccount(id){
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
 }
-$('detailBack').addEventListener('click',()=>nav('accounts'));
+$('detailBack').addEventListener('click',()=>nav(accountDetailReturnPage||'accounts'));
 
 
 
@@ -3862,7 +3880,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V74 protection: signing in never overwrites local data and never uploads
+   // V75 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -3896,7 +3914,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV74CloudStatus(){
+function updateV75CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -3908,8 +3926,8 @@ function updateV74CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV74CloudStatus,1200);
-setTimeout(updateV74CloudStatus,300);
+setInterval(updateV75CloudStatus,1200);
+setTimeout(updateV75CloudStatus,300);
 
 </script>
 </body>
