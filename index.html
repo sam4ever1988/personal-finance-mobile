@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.1 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1650,7 +1650,10 @@ function rebuildTransactions(){
   ...manualTransactions.map((t,i)=>({...t,manual:true,_id:t._id||('manual'+i)}))
  ];
 }
-let transactions=[];rebuildTransactions();
+let transactions=[];let resetCardIds=new Set(JSON.parse(localStorage.getItem('pf_reset_card_ids')||'[]'));
+let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'[]')||[];
+
+rebuildTransactions();
 const accounts=BASE.accounts;
 if(!accounts.some(a=>a.id==='cash-wallet')){
  accounts.push({
@@ -1668,8 +1671,7 @@ if(!accounts.some(a=>a.id==='cash-wallet')){
 window.__financeAccountsReady=true;
 let transactionActions=JSON.parse(localStorage.getItem('pf_transaction_actions')||'{}');
 let bankBalanceOverrides=JSON.parse(localStorage.getItem('pf_bank_balance_overrides')||'{}')||{};
-let resetCardIds=new Set(JSON.parse(localStorage.getItem('pf_reset_card_ids')||'[]'));
-let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'[]')||[];
+
 let duplicateDecisions=JSON.parse(localStorage.getItem('pf_duplicate_decisions')||'{}');
 let statementRule=JSON.parse(localStorage.getItem('pf_statement_rule')||'{"cutoffDay":24}');
 let reportDrill={type:'',value:''};
