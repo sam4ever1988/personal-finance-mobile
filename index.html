@@ -745,7 +745,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V80 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V81 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -775,9 +775,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V80 PRODUCTION</span></div>
+  </div><span class="pill green">V81 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V80</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V81</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -1459,6 +1459,22 @@ function syncUpcomingNbdMazeed(){
  upcoming.paymentHistory=(real.paymentHistory||[]).map(x=>({...x}));
  upcoming.paid=!!real.paid;
 }
+function adjustCurrentStatementForInstallment(linkedTx,plan){
+ if(!linkedTx||!plan)return;
+ const cardId=linkedTx.account, originalMonth=paymentMonthForTransaction(cardId,linkedTx.date);
+ const purchase=Math.abs(Number(linkedTx.amount||0)); if(!purchase)return;
+ cardPaymentPlan.filter(r=>r.accountId===cardId && r.month===originalMonth).forEach(r=>{
+  if(r.installmentTransferAdjustments?.[linkedTx._id])return;
+  const paid=paymentPaidAmount(r);
+  r.amount=Math.max(paid,Number(r.amount||0)-purchase);
+  r.installmentTransferAdjustments={...(r.installmentTransferAdjustments||{}),[linkedTx._id]:purchase};
+  r.note=((r.note||'')+` ${money(purchase)} converted to installment and removed from this statement.`).trim();
+ });
+ const next=addMonths(originalMonth,1);
+ if(!plan.startMonth || plan.startMonth<=originalMonth)plan.startMonth=next;
+ ensureMonthlyPlannerRows(plan.startMonth);
+ saveCardPaymentPlan();
+}
 function renderPaymentPlanner(){
  const el=$('paymentMonth');if(!el)return;if(!el.value)el.value=plannerDefaultMonth();
  const month=el.value;
@@ -1686,6 +1702,8 @@ function cardInstallmentRemaining(cardId){return activeInstallmentPlans(cardId).
 function linkedActiveInstallment(txId){
  return installments.find(p=>p.linkedTransactionId===txId && !p.completedConfirmed && ['Active','Review'].includes(planCalc(p).status))||null;
 }
+function isTransactionMovedToInstallment(txId){return !!linkedActiveInstallment(txId)}
+
 function linkedInstallmentPrincipalForCard(cardId){
  return activeInstallmentPlans(cardId)
   .filter(p=>p.linkedTransactionId)
@@ -2769,7 +2787,7 @@ $('installForm').addEventListener('submit',e=>{
  const ix=installments.findIndex(x=>x.id===id);if(ix>=0)installments[ix]=p;else installments.push(p);
  normalizeSabInstallmentPlan();
  const linkedTx=linkedTransactionId?normalizedTx(true).find(t=>t._id===linkedTransactionId):null;
- if(linkedTx)ensureMonthlyPlannerRows(paymentMonthForTransaction(linkedTx.account,linkedTx.date));
+ if(linkedTx){adjustCurrentStatementForInstallment(linkedTx,p);ensureMonthlyPlannerRows(p.startMonth);}
  saveLocal();closeModal('installModal');
  renderInstallments();renderTransactions();renderReports();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();
  if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
@@ -2777,7 +2795,15 @@ $('installForm').addEventListener('submit',e=>{
  }
  if(linkedTx){
   const c=planCalc(p);
-  setTimeout(()=>alert(`Installment plan activated.\n\n${money(Math.abs(Number(linkedTx.amount||0)))} was moved out of the card's current non-installment balance and is now tracked as installment principal.\nRemaining installment principal: ${money(c.remaining)}\nMonthly installment: ${money(c.monthly)}\n\nThe total amount owed to the bank is not double-counted.`),50);
+  setTimeout(()=>alert(`Installment plan activated.
+
+Purchase removed from current statement: ${money(Math.abs(Number(linkedTx.amount||0)))}
+Current statement/payment amount reduced immediately.
+First installment month: ${extraIncomeMonthTitle(p.startMonth)}
+Monthly installment: ${money(c.monthly)}
+Remaining installment principal: ${money(c.remaining)}
+
+The original purchase and installment are not double-counted.`),50);
  }
 });
 function editPlan(id){openInstallment(installments.find(p=>p.id===id))}
@@ -3490,6 +3516,10 @@ function incomeMonthKey(dateValue=new Date()){
  if(Number.isNaN(d.getTime()))return currentYearMonth();
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
+function addMonths(month,delta){
+ const [y,m]=String(month).split('-').map(Number),d=new Date(y,m-1+Number(delta||0),1);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
 function currentIncomeMonth(){return incomeMonthKey(new Date())}
 function accumulatedExtraIncome(month=currentIncomeMonth()){
  return (incomePlan.extraIncomeHistory||[])
@@ -4053,7 +4083,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V80 protection: signing in never overwrites local data and never uploads
+   // V81 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -4087,7 +4117,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV80CloudStatus(){
+function updateV81CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -4099,8 +4129,8 @@ function updateV80CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV80CloudStatus,1200);
-setTimeout(updateV80CloudStatus,300);
+setInterval(updateV81CloudStatus,1200);
+setTimeout(updateV81CloudStatus,300);
 
 </script>
 </body>
