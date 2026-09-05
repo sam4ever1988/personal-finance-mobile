@@ -647,10 +647,10 @@ button{cursor:pointer}
   <div class="flowArrow">→</div>
   <div class="flowBox"><div class="meta">Cash / Other Outgoings</div><div class="big red" id="planOutgoings">SAR 0.00</div></div>
   <div class="flowArrow">→</div>
-  <div class="flowBox"><div class="meta">Available for Credit Card Payments</div><div class="big" id="planAfterLoans">SAR 0.00</div></div>
+  <div class="flowBox"><div class="meta">Remaining for Credit Card Payments</div><div class="big" id="planAfterLoans">SAR 0.00</div></div>
  </div>
  <div class="notice" style="margin-top:10px">
-  <b>Monthly planning formula:</b> Total Income − Fixed Bank Loans − Cash / Other Outgoings = Available for Credit Card Payments.
+  <b>Monthly planning formula:</b> Total Income − Fixed Bank Loans − Cash / Other Outgoings − Card Payments Already Recorded = Remaining Available for Credit Card Payments.
  </div>
 
  <div class="sectionTitle">Fixed Bank Loans</div>
@@ -745,7 +745,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V84 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V85 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -775,9 +775,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V84 PRODUCTION</span></div>
+  </div><span class="pill green">V85 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V84</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V85</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -921,7 +921,8 @@ button{cursor:pointer}
   <div class="field"><label>Payment Amount (SAR)</label><input id="paymentAmountInput" type="number" min="0.01" step="0.01" required></div>
   <div class="field"><label>Paid From</label><select id="paymentSourceSelect" required></select></div>
   <div class="field full"><label>Payment Date</label><input id="paymentDateInput" type="date" required></div>
-  <div class="field full"><div class="notice" id="paymentSourcePreview">Choose the account or card used to make this payment. The source balance will be adjusted automatically.</div></div>
+  <div class="field full"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input id="paymentUseMonthlyIncome" type="checkbox" checked style="width:18px;height:18px"> Deduct this payment from Monthly Planned Income</label><div class="meta" style="margin-top:5px">Keep this checked when the card payment is funded from this month's salary / planned income. Dashboard and Income & Plan remaining cash will decrease immediately.</div></div>
+  <div class="field full"><div class="notice" id="paymentSourcePreview">Choose the actual account or card used to make this payment. Monthly Planned Income is tracked separately.</div></div>
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="cancelPaymentSource">Cancel</button><button class="btn primary" type="submit">Save Payment</button></div>
  </form>
 </div></div>
@@ -1080,13 +1081,23 @@ function paymentSourceImpact(accountId){
   return sum;
  },0);
 }
-function remainingIncomePaymentsTotal(){
+function paymentBudgetMonth(h){
+ const raw=String(h?.date||h?.recordedAt||'').slice(0,10);
+ return raw?incomeMonthKey(raw):currentIncomeMonth();
+}
+function remainingIncomePaymentsTotal(month=currentIncomeMonth()){
  return allPaymentHistory()
-  .filter(h=>h.sourceId==='cash-source')
+  .filter(h=>(h.sourceId==='cash-source'||h.deductFromIncome===true) && paymentBudgetMonth(h)===month)
   .reduce((sum,h)=>sum+Number(h.amount||0),0);
 }
-function remainingIncomeAvailable(){
- return Math.max(0,afterLoansAmount()-remainingIncomePaymentsTotal());
+function remainingIncomeAvailable(month=currentIncomeMonth()){
+ let availableBeforeCardPayments=0;
+ if(month===currentIncomeMonth())availableBeforeCardPayments=afterLoansAmount();
+ else{
+  const plan=incomePlanForMonth(month);
+  availableBeforeCardPayments=plan?monthlyPlanTotal(plan)-totalFixedLoans()-outgoingForMonth(month):0;
+ }
+ return Math.max(0,availableBeforeCardPayments-remainingIncomePaymentsTotal(month));
 }
 
 function manualAccountMovement(accountId){
@@ -1112,7 +1123,7 @@ function paymentCardBalanceImpact(cardId){
  return paymentSourceImpact(cardId);
 }
 function paymentSourceOptions(targetCardId){
- const opts=[...accounts.filter(a=>a.id!==targetCardId).map(a=>({id:a.id,label:`${a.bank} • ${a.name} •${a.ending}${a.type==='card'?' (Credit Card)':' (Bank Account)'}`})),{id:'cash-source',label:'Remaining Income / Cash & Other Expenses'}];
+ const opts=[...accounts.filter(a=>a.id!==targetCardId).map(a=>({id:a.id,label:`${a.bank} • ${a.name} •${a.ending}${a.type==='card'?' (Credit Card)':' (Bank Account)'}`})),{id:'cash-source',label:'Monthly Planned Income / Remaining Available'}];
  return opts;
 }
 function openRecordPayment(id){
@@ -1127,29 +1138,34 @@ function openRecordPayment(id){
  $('paymentAmountInput').removeAttribute('max');
  $('paymentAmountInput').dataset.currentDue=remaining.toFixed(2);
  $('paymentDateInput').value=new Date().toISOString().slice(0,10);
+ if($('paymentUseMonthlyIncome'))$('paymentUseMonthlyIncome').checked=true;
  $('paymentSourceSelect').innerHTML=paymentSourceOptions(p.accountId).map(o=>`<option value="${o.id}">${o.label}</option>`).join('');
  updatePaymentSourcePreview();
  $('paymentSourceModal').classList.add('open');
 }
 function closePaymentSourceModal(){delete $('paymentSourceModal').dataset.incomeCardId;$('paymentSourceModal').classList.remove('open')}
 function sourceAvailableLabel(sourceId){
- if(sourceId==='cash-source')return `Remaining Income / Cash & Other Expenses — available ${money(remainingIncomeAvailable())}`;
+ if(sourceId==='cash-source')return `Monthly Planned Income — available ${money(remainingIncomeAvailable())}`;
  const a=account(sourceId);if(!a)return 'Unknown source';
  if(a.type==='bank')return `${a.bank} • ${a.name} — available ${money(adjustedBankBalance(a))}`;
  const m=cardMetrics(a);return `${a.bank} • ${a.name} •${a.ending} — available credit ${money(m.available)}`;
 }
 function updatePaymentSourcePreview(){
  const id=$('paymentSourceSelect').value,amt=Number($('paymentAmountInput').value||0);
+ const useIncome=$('paymentUseMonthlyIncome')?.checked!==false;
+ const payMonth=incomeMonthKey($('paymentDateInput')?.value||new Date());
  const currentDue=Math.max(0,Number($('paymentAmountInput').dataset.currentDue||0));
  const extra=Math.max(0,amt-currentDue);
- let msg=`Paid from: ${sourceAvailableLabel(id)}. `;
- if(id==='cash-source')msg+=`After this payment, Remaining Income / Cash & Other Expenses will be ${money(Math.max(0,remainingIncomeAvailable()-amt))}.`;
+ let msg=`Actual payment source: ${sourceAvailableLabel(id)}. `;
+ if(id==='cash-source')msg+=`Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
  else{
   const a=account(id);
-  if(a?.type==='bank')msg+=`After this payment, estimated bank balance: ${money(adjustedBankBalance(a)-amt)}.`;
-  else if(a?.type==='card'){const m=cardMetrics(a);msg+=`This uses credit on the source card. Estimated available credit after payment: ${money(Math.max(0,m.available-amt))}.`;}
+  if(a?.type==='bank')msg+=`Estimated bank balance after payment: ${money(adjustedBankBalance(a)-amt)}.`;
+  else if(a?.type==='card'){const m=cardMetrics(a);msg+=`Estimated available credit on source card after payment: ${money(Math.max(0,m.available-amt))}.`;}
+  if(useIncome)msg+=` Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
+  else msg+=` This payment will not be deducted from Monthly Planned Income.`;
  }
- if(extra>0)msg+=` Extra payment: ${money(extra)}. This will not increase this month's amount paid on the dashboard; it will stay on the card as credit and reduce future card transactions.`;
+ if(extra>0)msg+=` Extra payment: ${money(extra)} stays as credit on the target card.`;
  $('paymentSourcePreview').textContent=msg;
 }
 function ensurePartialPaymentFields(){
@@ -1170,7 +1186,7 @@ function recordPartialPayment(id){openRecordPayment(id)}
 function undoLastPartialPayment(id){
  const p=cardPaymentPlan.find(x=>x.id===id);if(!p||!Array.isArray(p.paymentHistory)||!p.paymentHistory.length)return;
  const last=p.paymentHistory[p.paymentHistory.length-1];
- const src=last.sourceId==='cash-source'?'Remaining Income / Cash & Other Expenses':accountName(last.sourceId);
+ const src=last.sourceId==='cash-source'?'Monthly Planned Income':accountName(last.sourceId);
  if(!confirm(`Undo the last payment of ${money(Number(last.amount||0))} from ${src}?`))return;
  p.paymentHistory.pop();
  const undoSource=last.sourceId==='cash-source'?null:account(last.sourceId);
@@ -1960,6 +1976,9 @@ function outgoingOccurrences(o,horizon=120){
 }
 function allOutgoingOccurrences(horizon=120){return outgoings.flatMap(o=>outgoingOccurrences(o,horizon))}
 function currentPlanMonth(){return '2026-08'}
+function outgoingForMonth(month){
+ return allOutgoingOccurrences(36).filter(x=>x.month===month).reduce((s,x)=>s+Number(x.amount||0),0);
+}
 function outgoingThisMonthTotal(){const ym=currentPlanMonth();return allOutgoingOccurrences().filter(x=>x.month===ym).reduce((a,x)=>a+x.amount,0)}
 function foreverOutgoingMonthlyTotal(){return outgoings.filter(o=>o.forever).reduce((a,o)=>a+Number(o.amount||0),0)}
 function openOutgoing(o=null){
@@ -1993,10 +2012,10 @@ function renderDashboard(){
  const obligations=cardMetricsAll.reduce((sum,m)=>sum+m.total,0);
  const currentCardBalance=cardMetricsAll.reduce((sum,m)=>sum+m.current,0);
  const reservedInstallments=cardMetricsAll.reduce((sum,m)=>sum+m.inst,0);
- const monthlyPlannedIncome=totalIncomePlan(), afterFixed=afterLoansAmount();
+ const monthlyPlannedIncome=totalIncomePlan(), monthlyCardPayments=remainingIncomePaymentsTotal(), remainingMonthlyIncome=remainingIncomeAvailable();
  $('dashKpis').innerHTML=[
-  kpiHTML('Monthly Planned Income',money(monthlyPlannedIncome),'Salary + wife salary + extra + other','green'),
-  kpiHTML('Available After Loans & Outgoings',(afterFixed<0?'-':'')+money(afterFixed),'Available for credit-card payments after planned cash outgoings',afterFixed>=0?'green':'red'),
+  kpiHTML('Monthly Planned Income',money(monthlyPlannedIncome),`Card payments recorded this month: ${money(monthlyCardPayments)}`,'green'),
+  kpiHTML('Remaining for Card Payments',money(remainingMonthlyIncome),'After loans, outgoings and card payments already recorded',remainingMonthlyIncome>=0?'green':'red'),
   kpiHTML('Current Card Balance',money(currentCardBalance),`Excludes ${money(reservedInstallments)} reserved in installment plans`,'red'),
   kpiHTML('Total Card Bank Utilization',money(obligations),'Current balance + reserved installment principal','amber')
  ].join('');
@@ -3651,12 +3670,12 @@ function updateIncomePlanPreview(){
  const savedExtra=accumulatedExtraIncome();
  const originalExtra=incomePlan.extraIncome;
  incomePlan.extraIncome=savedExtra+(Number.isFinite(pendingExtra)?pendingExtra:0);
- const income=totalIncomePlan(),loans=totalFixedLoans(),after=afterLoansAmount();
+ const income=totalIncomePlan(),loans=totalFixedLoans(),paidFromIncome=remainingIncomePaymentsTotal();
  incomePlan.extraIncome=originalExtra;
  $('planTotalIncome').textContent=money(income);
  $('planLoans').textContent=money(loans);
  $('planOutgoings').textContent=money(outgoingThisMonthTotal());
- const afterPreview=income-loans-outgoingThisMonthTotal();
+ const afterPreview=income-loans-outgoingThisMonthTotal()-paidFromIncome;
  $('planAfterLoans').textContent=(afterPreview<0?'-':'')+money(afterPreview);
  $('planAfterLoans').className='big '+(afterPreview>=0?'green':'red');
  accounts.filter(a=>a.type==='card').forEach(a=>{
@@ -4051,16 +4070,20 @@ $('closePaymentSource').addEventListener('click',closePaymentSourceModal);
 $('cancelPaymentSource').addEventListener('click',closePaymentSourceModal);
 $('paymentSourceSelect').addEventListener('change',updatePaymentSourcePreview);
 $('paymentAmountInput').addEventListener('input',updatePaymentSourcePreview);
+$('paymentDateInput').addEventListener('change',updatePaymentSourcePreview);
+$('paymentUseMonthlyIncome').addEventListener('change',updatePaymentSourcePreview);
 $('paymentSourceForm').addEventListener('submit',e=>{
  e.preventDefault();
  const id=$('paymentPlanId').value,p=cardPaymentPlan.find(x=>x.id===id);if(!p)return;
  const remaining=paymentRemainingAmount(p),amount=Number($('paymentAmountInput').value||0),sourceId=$('paymentSourceSelect').value,date=$('paymentDateInput').value;
+ const deductFromIncome=sourceId==='cash-source'||$('paymentUseMonthlyIncome')?.checked===true;
+ const budgetMonth=incomeMonthKey(date);
  if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid payment amount.');return;}
  const duePortion=Math.min(amount,Math.max(0,Number(remaining||0)));
  const extraCredit=Math.max(0,amount-duePortion);
  if(!sourceId){alert('Select where the payment came from.');return;}
- if(sourceId==='cash-source'&&amount>remainingIncomeAvailable()+0.005){
-  if(!confirm(`This payment is greater than the currently available Remaining Income / Cash & Other Expenses of ${money(remainingIncomeAvailable())}. Record it anyway?`))return;
+ if(deductFromIncome&&amount>remainingIncomeAvailable(budgetMonth)+0.005){
+  if(!confirm(`This payment is greater than the remaining Monthly Planned Income for ${extraIncomeMonthTitle(budgetMonth)} of ${money(remainingIncomeAvailable(budgetMonth))}. Record it anyway?`))return;
  }
  const source=sourceId==='cash-source'?null:account(sourceId);
  const sourceBankBalanceBefore=source?.type==='bank'?adjustedBankBalance(source):null;
@@ -4069,7 +4092,7 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  }
  p.paidAmount=paymentPaidAmount(p)+duePortion;
  p.paymentHistory=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
- const hist={amount,duePortion,extraCredit,date,sourceId,sourceName:sourceId==='cash-source'?'Remaining Income / Cash & Other Expenses':accountName(sourceId),recordedAt:new Date().toISOString()};
+ const hist={amount,duePortion,extraCredit,date,sourceId,sourceName:sourceId==='cash-source'?'Monthly Planned Income':accountName(sourceId),deductFromIncome,budgetMonth,recordedAt:new Date().toISOString()};
  p.paymentHistory.push(hist);
  if(source?.type==='bank' && Number.isFinite(sourceBankBalanceBefore)){
   setTrackedBankBalance(source.id,sourceBankBalanceBefore-amount);
@@ -4127,7 +4150,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V84 protection: signing in never overwrites local data and never uploads
+   // V85 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -4147,6 +4170,13 @@ async function init(){
  installments.forEach(p=>{if(p.cardId==='sab-440880'&&p.planType==='balance-offer')p.offerScope='full';});
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  normalizeCardPaymentPlan();
+ let incomeBudgetMigrationChanged=false;
+ cardPaymentPlan.forEach(p=>(p.paymentHistory||[]).forEach(h=>{
+  if(h.mirrored)return;
+  const mk=paymentBudgetMonth(h);
+  if(mk===currentIncomeMonth() && h.deductFromIncome===undefined){h.deductFromIncome=true;h.budgetMonth=mk;incomeBudgetMigrationChanged=true;}
+ }));
+ if(incomeBudgetMigrationChanged)saveCardPaymentPlan();
  const reconciledInstallmentStatements=reconcileExistingInstallmentStatementTransfers();
  if(reconciledInstallmentStatements)console.info(`Reconciled ${reconciledInstallmentStatements} existing installment transaction(s) against their original statement.`);
  ensurePartialPaymentFields();
@@ -4163,7 +4193,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV84CloudStatus(){
+function updateV85CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -4175,8 +4205,8 @@ function updateV84CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV84CloudStatus,1200);
-setTimeout(updateV84CloudStatus,300);
+setInterval(updateV85CloudStatus,1200);
+setTimeout(updateV85CloudStatus,300);
 
 </script>
 </body>
