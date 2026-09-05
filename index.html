@@ -728,6 +728,19 @@ button{cursor:pointer}
 <section class="view" id="cloudSync"><div class="sectionTitle">Cloud Database</div><div class="panel" style="max-width:760px"><div class="panelTitle">Supabase Sync</div><div class="meta" id="cloudStatus" style="margin:8px 0 14px">Checking connection…</div><div id="cloudLoggedOut"><div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div><button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button><div class="notice" style="margin-top:12px">Your database password is not stored in this HTML. Access is protected by Supabase authentication and Row Level Security.</div></div><div id="cloudLoggedIn" style="display:none"><div class="meta" id="cloudUser"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="cloudClaim">Claim / Verify Database</button><button class="btn" id="cloudUpload">Upload Current Data</button><button class="btn" id="cloudDownload">Load From Cloud</button><button class="btn" id="cloudSignOut">Sign Out</button></div><div class="notice" id="cloudResult" style="margin-top:12px">Ready.</div></div></div></section>
 <section class="view" id="more">
  <div class="panel" style="margin-bottom:12px">
+  <div class="splitHead"><div>
+   <div class="panelTitle">Application Status</div>
+   <div class="meta">Confirm the live build and cloud connection here.</div>
+  </div><span class="pill green">V73 PRODUCTION</span></div>
+  <div class="kpis" style="margin-top:12px">
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V73</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
+   <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
+   <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v73CloudStatus" style="font-size:18px">Checking…</div></div>
+  </div>
+  <button class="btn" style="margin-top:12px" onclick="nav('cloudSync')">Open Cloud Login / Sync</button>
+ </div>
+ <div class="panel" style="margin-bottom:12px">
   <div class="panelTitle">Import Bank / Card Statement</div>
   <div class="meta" style="margin-top:6px">Upload Al Rajhi or SAB statements in PDF, Excel or CSV format.</div>
   <button class="btn primary" style="margin-top:12px" data-page-jump="importstatements">Import Statement</button>
@@ -3501,7 +3514,7 @@ let cloudAutoSaveQueued=false;
 
 function fullCloudSnapshot(){
  return {
-  version:72,
+  version:73,
   categories,
   installments,
   merchantRules,
@@ -3735,6 +3748,22 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  updateDbStatus(true);
 }
 init();
+
+function updateV73CloudStatus(){
+ const el=document.getElementById('v73CloudStatus'); if(!el)return;
+ const cs=document.getElementById('cloudStatus');
+ const txt=(cs?.textContent||'').toLowerCase();
+ if(/signed in|connected|synced/.test(txt) && !/not connected|signed out/.test(txt)){
+  el.textContent='Connected';el.style.color='var(--green)';
+ }else if(/checking/.test(txt)){
+  el.textContent='Checking…';el.style.color='';
+ }else{
+  el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
+ }
+}
+setInterval(updateV73CloudStatus,1200);
+setTimeout(updateV73CloudStatus,300);
+
 </script>
 </body>
 </html>
