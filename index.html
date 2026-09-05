@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.1 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.3 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1055,17 +1055,23 @@ function normalizeCardPaymentPlan(){
  // Remove legacy meem August row.
  cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-aug');
 
- // Force the current confirmed meem September payment plan to exist.
- const meemDef={id:'p-meem-sep',accountId:'meem-7102',month:'2026-09',amount:3361.92,due:'2026-09-28',label:'Your Excel payment plan',source:'manual',note:'September payment from your meem sheet. Card remaining/available limit is SAR 1,388.75.'};
- const existing=cardPaymentPlan.find(p=>p.id==='p-meem-sep');
- if(existing){
-  Object.assign(existing,meemDef,{paid:!!existing.paid});
+ // V91.3: after meem is reset or an official meem statement is loaded,
+ // the legacy Excel payment row must never be recreated.
+ const meemAccount=account('meem-7102');
+ const meemOfficial=!!meemAccount?.extra?.['Official Meem Statement Loaded'];
+ const rebuildMeem=resetCardIds.has('meem-7102')||meemOfficial;
+ if(rebuildMeem){
+  cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
  }else{
-  cardPaymentPlan.push({...meemDef,paid:false});
+  const meemDef={id:'p-meem-sep',accountId:'meem-7102',month:'2026-09',amount:3361.92,due:'2026-09-28',label:'Your Excel payment plan',source:'manual',note:'September payment from your meem sheet. Card remaining/available limit is SAR 1,388.75.'};
+  const existing=cardPaymentPlan.find(p=>p.id==='p-meem-sep');
+  if(existing)Object.assign(existing,meemDef,{paid:!!existing.paid});
+  else cardPaymentPlan.push({...meemDef,paid:false});
  }
 
- // Re-add any other missing defaults without overwriting user edits.
+ // Re-add other missing defaults, but never re-add the legacy meem row in rebuild mode.
  DEFAULT_CARD_PAYMENT_PLAN.forEach(def=>{
+  if(rebuildMeem && def.accountId==='meem-7102')return;
   if(!cardPaymentPlan.some(p=>p.id===def.id))cardPaymentPlan.push({...def,paid:false});
  });
 
@@ -1074,6 +1080,10 @@ function normalizeCardPaymentPlan(){
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
 }
 normalizeCardPaymentPlan();
+if(resetCardIds.has('meem-7102')){
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
+ saveCardPaymentPlan();
+}
 
 
 function allPaymentHistory(){
@@ -1387,6 +1397,19 @@ function paymentMonthForTransaction(cardId,dateValue){
  const statementMonth=d.getDate()<=Number(cyc.statementDay||1)?txMonth:addMonthsToYM(txMonth,1);
  return Number(cyc.dueDay||25)>=Number(cyc.statementDay||1)?statementMonth:addMonthsToYM(statementMonth,1);
 }
+function resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth){
+ if(!resetCardIds.has(cardId))return null;
+ return normalizedTx().filter(t=>{
+  if(t.account!==cardId)return false;
+  if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
+  if(Number(t.amount||0)>=0)return false;
+  if(['transfer','income'].includes(txType(t)))return false;
+  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
+  const d=String(t.description||'').toLowerCase();
+  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  return true;
+ }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
+}
 function manualCardAmountForPaymentMonth(cardId,paymentMonth){
  return manualTransactions.filter(t=>{
   if(t.account!==cardId)return false;
@@ -1424,15 +1447,51 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
  },0);
 }
 function provisionalPaymentForMonth(cardId,paymentMonth){
- if(cardId==='sab-440880'){
+ if(cardId==='sab-440880' && !resetCardIds.has(cardId)){
   const sabPlans=installments.filter(p=>p.cardId==='sab-440880' && p.planType==='balance-offer' && !p.completedConfirmed);
   if(sabPlans.length){
    return Math.round(sabPlans.reduce((sum,p)=>sum+Number(planCalc(p).monthly||0),0)*100)/100;
   }
  }
- const manual=manualCardAmountForPaymentMonth(cardId,paymentMonth);
+ const transactionAmount=resetCardIds.has(cardId)
+  ? Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0)
+  : manualCardAmountForPaymentMonth(cardId,paymentMonth);
  const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
- return Math.round((manual+installment)*100)/100;
+ return Math.round((transactionAmount+installment)*100)/100;
+}
+function rebuildResetCardPlannerRows(cardId){
+ if(!resetCardIds.has(cardId))return;
+ // Remove legacy/fixed rows for this reset card. New rows are rebuilt from the fresh transactions.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.accountId!==cardId || p.statementOfficial===true);
+
+ const months=new Set();
+ normalizedTx().filter(t=>t.account===cardId).forEach(t=>months.add(paymentMonthForTransaction(cardId,t.date)));
+ installments.filter(p=>p.cardId===cardId && !p.completedConfirmed).forEach(p=>{
+  const start=p.referenceMonth||p.startMonth||currentYearMonth();
+  const c=planCalc(p);
+  for(let i=0;i<Math.max(1,Number(c.remainingCount||1));i++)months.add(addMonthsToYM(start,i));
+ });
+ if(!months.size)months.add(currentYearMonth());
+
+ [...months].sort().forEach(month=>{
+  if(cardPaymentPlan.some(p=>p.accountId===cardId&&p.month===month&&p.statementOfficial===true))return;
+  cardPaymentPlan.push({
+   id:`reset-${cardId}-${month}`,
+   accountId:cardId,
+   month,
+   amount:0,
+   due:dueDateForPaymentMonth(cardId,month),
+   label:'Reset / Date-driven cycle',
+   source:'rolling',
+   note:'Rebuilt from imported/manual transactions using each transaction date and this card statement cycle.',
+   autoGenerated:true,
+   resetDateDriven:true,
+   paid:false,
+   paidAmount:0,
+   paymentHistory:[]
+  });
+ });
+ saveCardPaymentPlan();
 }
 function ensureMonthlyPlannerRows(month){
  accounts.filter(a=>a.type==='card').forEach(a=>{
@@ -1455,9 +1514,12 @@ function ensureMonthlyPlannerRows(month){
 }
 function rollingAdditionForExistingPlan(p){
  if(p.source==='confirmed')return 0;
+ if(resetCardIds.has(p.accountId)){
+  return Number(resetCardTransactionAmountForPaymentMonth(p.accountId,p.month)||0);
+ }
  if(p.accountId==='sab-440880'){
   const sabPlans=installments.filter(x=>x.cardId==='sab-440880' && x.planType==='balance-offer' && !x.completedConfirmed);
-  if(sabPlans.length)return 0; // SAB is handled as installment-only below.
+  if(sabPlans.length)return 0;
  }
  return manualCardAmountForPaymentMonth(p.accountId,p.month);
 }
@@ -3181,7 +3243,7 @@ function openAccount(id,returnPage){
  else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
  else if(document.getElementById('accounts')?.classList.contains('active'))accountDetailReturnPage='accounts';
  const a=account(id),rows=normalizedTx().filter(t=>t.account===id).sort((x,y)=>y.date.localeCompare(x.date));
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • calculations use only data entered/imported after reset':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset This Card</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div></div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • imported/manual transactions are recalculated by transaction date + card statement cycle':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset This Card</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
@@ -3225,7 +3287,7 @@ $('detailBack').addEventListener('click',()=>nav(accountDetailReturnPage||'accou
 
 
 
-let importPreviewRows=[],importPreviewFileName='';
+let importPreviewRows=[],importPreviewFileName='',importStatementMeta=null;
 function importStatus(msg,type='info'){const el=$('importStatus');el.style.display='block';el.className='importStatus '+type;el.textContent=msg}
 function cleanImportText(v){return String(v??'').trim().replace(/\s+/g,' ')}
 function parseImportDate(v){
@@ -3260,7 +3322,7 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
  const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay)}
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
@@ -3322,7 +3384,7 @@ function parsePdfLineHeuristic(line,accountId,forcedStatementMonth=''){
  const mark=(mm[2]||'').toUpperCase();if(mark==='DR')amount=-Math.abs(amount);if(mark==='CR')amount=Math.abs(amount);
  let description=line.slice(0,mm.index).replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g,' ').replace(/\s+/g,' ').trim();if(description.length<3)return null;
  const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&mark!=='CR')amount=-Math.abs(amount);if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- return {account:accountId,date,posting:date,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay)}
+ return {account:accountId,date,posting:date,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 
 function detectWorkbookAccount(wb,currentAccountId){
@@ -3374,6 +3436,132 @@ function detectWorkbookAccount(wb,currentAccountId){
  }
 }
 
+
+function parseMeemOfficialStatementMeta(text,fileName=''){
+ const t=String(text||'').replace(/\s+/g,' ');
+ if(!/(?:meem|Gulf International Bank|GIB VISA PLATINUM)/i.test(t) || !/(?:7102|4399\s*55XX\s*XXXX\s*7102)/i.test(t))return null;
+ const period=t.match(/(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})/);
+ const summary=t.match(/(\d{2}\/\d{2}\/\d{4})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/);
+ const closingMatches=[...t.matchAll(/([\d,]+\.\d{2})\s+(?:الرصيد الختامي|Closing Balance)/gi)];
+ const num=s=>Number(String(s||'').replace(/,/g,''));
+ const iso=d=>parseImportDate(d);
+
+ // This GIB/meem format puts Due Date, Total Amount Due, Minimum Due Amount together.
+ const dueDate=summary?iso(summary[1]):'';
+ const totalDue=summary?num(summary[2]):null;
+ const minimumDue=summary?num(summary[3]):null;
+ const closingBalance=closingMatches.length?num(closingMatches[closingMatches.length-1][1]):null;
+
+ // Official Ashal rows from this statement format. Use exact bank values as source of truth.
+ const plans=[];
+ if(/5290820017/.test(t)){
+  plans.push({
+   id:'meem-official-5290820017',
+   cardId:'meem-7102',
+   description:'5290820017 / Ashal installment',
+   category:'Financial Obligations',subcategory:'Credit Card Payments',
+   fullAmount:7933.50,months:6,startMonth:'2026-07',paidInstallments:1,
+   manualRemaining:6809.59,remainingMonthsOverride:5,referenceMonth:'2026-09',
+   scheduleMode:'remaining-principal',source:'Official meem statement',
+   notes:'Official statement: monthly installment SAR 1,361.92; remaining principal SAR 6,809.59.'
+  });
+ }
+ if(/\bTiqmo\b/i.test(t)){
+  plans.push({
+   id:'meem-official-tiqmo',
+   cardId:'meem-7102',
+   description:'Tiqmo installment',
+   category:'Financial Obligations',subcategory:'Credit Card Payments',
+   fullAmount:3000.00,months:3,startMonth:'2026-06',paidInstallments:2,
+   manualRemaining:1000.00,remainingMonthsOverride:1,referenceMonth:'2026-09',
+   scheduleMode:'remaining-principal',source:'Official meem statement',
+   notes:'Official statement: monthly installment SAR 1,000.00; remaining principal SAR 1,000.00.'
+  });
+ }
+ return {
+  type:'meem-official',
+  accountId:'meem-7102',
+  fileName,
+  statementStart:period?iso(period[1]):'',
+  statementEnd:period?iso(period[2]):'',
+  dueDate,totalDue,minimumDue,closingBalance,
+  plans
+ };
+}
+
+function applyMeemOfficialStatement(meta){
+ if(!meta||meta.type!=='meem-official')return {updated:false};
+ const card=account('meem-7102');if(!card)return {updated:false};
+
+ // Remove legacy/manual/rolling duplicates. Keep historical official rows only if they are for another due month.
+ const payMonth=meta.dueDate?String(meta.dueDate).slice(0,7):'2026-08';
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='meem-7102')return true;
+  if(p.statementOfficial===true && p.month!==payMonth)return true;
+  return false;
+ });
+
+ // Official bank statement is the source of truth for its cycle.
+ if(Number.isFinite(Number(meta.totalDue))){
+  cardPaymentPlan.push({
+   id:`meem-official-${payMonth}`,
+   accountId:'meem-7102',
+   month:payMonth,
+   amount:Number(meta.totalDue),
+   due:meta.dueDate||'',
+   label:'Official meem statement',
+   source:'confirmed',
+   note:`Official GIB/meem statement${meta.statementStart&&meta.statementEnd?` ${meta.statementStart} to ${meta.statementEnd}`:''}. Total amount due ${money(Number(meta.totalDue))}.`,
+   statementOfficial:true,
+   statementOriginalAmount:Number(meta.totalDue),
+   paid:false,paidAmount:0,paymentHistory:[]
+  });
+ }
+
+ // Replace old meem seeded/legacy installment definitions with the exact official statement plans.
+ installments=installments.filter(p=>p.cardId!=='meem-7102' || !(
+  String(p.id||'').startsWith('meem-') ||
+  /Ashal|Tiqmo|5290820017/i.test(String(p.description||'')) ||
+  /Bank\/User confirmed|Official meem statement/i.test(String(p.source||''))
+ ));
+ (meta.plans||[]).forEach(p=>installments.push({...p}));
+
+ card.extra=card.extra||{};
+ card.extra['Official Meem Statement Loaded']=true;
+ if(Number.isFinite(Number(meta.closingBalance)))card.extra['Last Statement Closing Balance']=Number(meta.closingBalance);
+ if(Number.isFinite(Number(meta.totalDue)))card.extra['Last Statement Total Due']=Number(meta.totalDue);
+ if(Number.isFinite(Number(meta.minimumDue)))card.extra['Last Statement Minimum Due']=Number(meta.minimumDue);
+ if(meta.dueDate)card.extra['Last Statement Due Date']=meta.dueDate;
+ if(meta.statementStart)card.extra['Last Statement Start']=meta.statementStart;
+ if(meta.statementEnd)card.extra['Last Statement End']=meta.statementEnd;
+
+ // The reset card remains date-driven for all new activity after this official statement.
+ resetCardIds.add('meem-7102');
+
+ // Remove imported lines that are actually Ashal setup/reversal metadata, not normal spending.
+ importedTransactions.forEach(t=>{
+  if(t.account!=='meem-7102')return;
+  if(/5290820017|Ashal/i.test(String(t.description||''))){
+   transactionActions[t._id]={
+    status:'excluded-duplicate',
+    reason:'Official meem statement installment metadata — excluded from normal transaction spending',
+    updatedAt:new Date().toISOString()
+   };
+  }
+ });
+
+ rebuildTransactions();
+ rebuildResetCardPlannerRows('meem-7102');
+ saveCardPaymentPlan();
+ localStorage.setItem('pf_installments',JSON.stringify(installments));
+ localStorage.setItem('pf_accounts',JSON.stringify(accounts));
+ localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
+ localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
+ saveLocal();
+
+ return {updated:true,amount:Number(meta.totalDue||0),due:meta.dueDate||'',paymentMonth:payMonth};
+}
+
 async function parseStatementFile(file,accountId,statementMonth=''){
  const name=file.name.toLowerCase();
  if(name.endsWith('.csv'))return parseCsvRows(await file.text()).map(r=>normalizeImportedRow(r,accountId,statementMonth)).filter(Boolean);
@@ -3394,7 +3582,48 @@ async function parseStatementFile(file,accountId,statementMonth=''){
   }
   return workbookRows(wb).map(r=>normalizeImportedRow(r,accountId,statementMonth)).filter(Boolean);
  }
- if(name.endsWith('.pdf')){if(typeof pdfjsLib==='undefined')throw new Error('PDF import library is unavailable. Reload while connected to the internet.');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];let firstText='';for(let pp=1;pp<=Math.min(pdf.numPages,2);pp++){const pg0=await pdf.getPage(pp),tc0=await pg0.getTextContent();firstText+=' '+tc0.items.map(x=>x.str).join(' ')}if(/4455\s*21.*0955|445521.*0955/i.test(firstText)&&/credit\s*card\s*statement|كشف حساب البطاقة/i.test(firstText)){throw new Error('Al Rajhi •0955 official PDF detected. This statement contains primary and supplementary card sections, so the generic PDF transaction parser is disabled to prevent incorrect data. Use the Al Rajhi XLS transaction export for transaction import; use this PDF as the official statement/payment source.')}for(let p=1;p<=pdf.numPages;p++){importStatus(`Reading PDF page ${p} of ${pdf.numPages}…`);const pg=await pdf.getPage(p),tc=await pg.getTextContent();pdfLines(tc.items).forEach(line=>{const r=parsePdfLineHeuristic(line,accountId,statementMonth);if(r)out.push(r)})}return out}
+ if(name.endsWith('.pdf')){
+  if(typeof pdfjsLib==='undefined')throw new Error('PDF import library is unavailable. Reload while connected to the internet.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
+  let firstText='',pageTexts=[];
+  for(let pp=1;pp<=Math.min(pdf.numPages,2);pp++){
+   const pg0=await pdf.getPage(pp),tc0=await pg0.getTextContent();
+   const txt=tc0.items.map(x=>x.str).join(' ');
+   pageTexts.push(txt);firstText+=' '+txt;
+  }
+  if(/4455\s*21.*0955|445521.*0955/i.test(firstText)&&/credit\s*card\s*statement|كشف حساب البطاقة/i.test(firstText)){
+   throw new Error('Al Rajhi •0955 official PDF detected. This statement contains primary and supplementary card sections, so the generic PDF transaction parser is disabled to prevent incorrect data. Use the Al Rajhi XLS transaction export for transaction import; use this PDF as the official statement/payment source.');
+  }
+
+  // Official meem/GIB •7102 parser.
+  const meemMeta=parseMeemOfficialStatementMeta(firstText,file.name);
+  if(meemMeta){
+   accountId='meem-7102';
+   if($('importAccount'))$('importAccount').value=accountId;
+   importStatementMeta=meemMeta;
+   // Only import genuine card activity. Ashal setup rows (5290820017) are handled as installment metadata
+   // and must never be imported as normal purchases, otherwise the card is inflated/duplicated.
+   for(let p=1;p<=Math.min(pdf.numPages,2);p++){
+    importStatus(`Reading official meem statement page ${p} of ${pdf.numPages}…`);
+    const pg=await pdf.getPage(p),tc=await pg.getTextContent();
+    pdfLines(tc.items).forEach(line=>{
+     if(/5290820017|Ashal Instalments Program|برنامج أسهل/i.test(line))return;
+     const r=parsePdfLineHeuristic(line,accountId,'');
+     if(r)out.push(r);
+    });
+   }
+   return out;
+  }
+
+  importStatementMeta=null;
+  for(let p=1;p<=pdf.numPages;p++){
+   importStatus(`Reading PDF page ${p} of ${pdf.numPages}…`);
+   const pg=await pdf.getPage(p),tc=await pg.getTextContent();
+   pdfLines(tc.items).forEach(line=>{const r=parsePdfLineHeuristic(line,accountId,statementMonth);if(r)out.push(r)});
+  }
+  return out
+ }
  throw new Error('Unsupported file type.')
 }
 function importFingerprint(t){return [t.account,t.date,Number(t.amount).toFixed(2),cleanImportText(t.description).toLowerCase()].join('|')}
@@ -3554,11 +3783,11 @@ function renderImportHistory(){
 }
 function renderImportPage(){fillAccountSelect($('importAccount'));renderImportPreview();renderImportHistory()}
 async function handleStatementFile(file){
- if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
+ if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];importStatementMeta=null;renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
  try{const rows=await parseStatementFile(file,accountId,$('importStatementMonth').value);if(!rows.length)throw new Error('No transaction rows were recognized. Try Excel/CSV, or send me this statement format so I can add its PDF parser.');importPreviewRows=rows;renderImportPreview();importStatus(`Found ${rows.length} transaction(s) in ${file.name}. Assigned to ${accountName($('importAccount').value)}. Review the preview, then click Import Transactions.`,'success')}catch(e){importStatus(e.message||String(e),'error')}
 }
 $('statementFile').addEventListener('change',e=>{handleStatementFile(e.target.files?.[0]);e.target.value=''});
-$('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';renderImportPreview();$('importStatus').style.display='none'});
+$('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;renderImportPreview();$('importStatus').style.display='none'});
 $('confirmStatementImport').addEventListener('click',()=>{
  if(!importPreviewRows.length)return;
  const activeImported=importedTransactions.filter(t=>!transactionActions[t._id]?.status);
@@ -3567,10 +3796,22 @@ $('confirmStatementImport').addEventListener('click',()=>{
  const fresh=result.fresh,skipped=result.duplicates.length,stamp=Date.now(),batchId=`batch_${stamp}`;
  fresh.forEach((t,i)=>importedTransactions.push({...t,_id:`import${stamp}_${i}`,importBatchId:batchId}));
  importHistory.push({batchId,fileName:importPreviewFileName,accountId:$('importAccount').value,count:fresh.length,skipped,duplicateSkipped:skipped,importedAt:new Date(stamp).toISOString()});
- const plannerUpdate=applyImportedStatementToPaymentPlanner($('importAccount').value,importPreviewFileName,importPreviewRows);
- rebuildTransactions();saveLocal();renderDashboard();renderAccounts();renderTransactions();renderReports();renderReviewAlerts();renderImportHistory();renderPaymentPlanner();
- importStatus(`Imported ${fresh.length} transaction(s)${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${plannerUpdate.updated?` Payment Planner updated to statement-confirmed ${money(plannerUpdate.amount)} due ${paymentFormatDate(plannerUpdate.due)}.`:''}`,'success');
- importPreviewRows=[];renderImportPreview()
+ const importedAccountId=$('importAccount').value;
+ rebuildTransactions();
+ let plannerUpdate;
+ if(importStatementMeta?.type==='meem-official' && importedAccountId==='meem-7102'){
+  plannerUpdate=applyMeemOfficialStatement(importStatementMeta);
+ }else if(resetCardIds.has(importedAccountId)){
+  rebuildResetCardPlannerRows(importedAccountId);
+  plannerUpdate={updated:true,amount:[...new Set(fresh.map(t=>paymentMonthForTransaction(importedAccountId,t.date)))].reduce((s,m)=>s+provisionalPaymentForMonth(importedAccountId,m),0),due:''};
+ }else{
+  plannerUpdate=applyImportedStatementToPaymentPlanner(importedAccountId,importPreviewFileName,importPreviewRows);
+ }
+ saveLocal();
+ renderDashboard();renderAccounts();renderTransactions();renderReports();renderReviewAlerts();renderImportHistory();renderPaymentPlanner();renderInstallments();renderIncomePlan();
+ if(currentAccountDetailId===importedAccountId && document.getElementById('accountDetail')?.classList.contains('active'))openAccount(importedAccountId,accountDetailReturnPage);
+ importStatus(`Imported ${fresh.length} transaction(s)${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${importStatementMeta?.type==='meem-official'?` Official meem statement loaded: ${money(plannerUpdate.amount)} due ${paymentFormatDate(plannerUpdate.due)}. Installments and duplicate planner rows corrected.`:resetCardIds.has(importedAccountId)?' Reset card recalculated from transaction dates and statement cycle.':plannerUpdate.updated?` Payment Planner updated to statement-confirmed ${money(plannerUpdate.amount)} due ${paymentFormatDate(plannerUpdate.due)}.`:''}`,'success');
+ importPreviewRows=[];importStatementMeta=null;renderImportPreview()
 });
 const importDrop=$('importDrop');['dragenter','dragover'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.remove('drag')}));importDrop.addEventListener('drop',e=>handleStatementFile(e.dataTransfer.files?.[0]));
 
