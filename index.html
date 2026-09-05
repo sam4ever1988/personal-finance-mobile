@@ -725,18 +725,45 @@ button{cursor:pointer}
  <div class="panel"><div style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Imported</th><th>File</th><th>Account / Card</th><th>Transactions</th><th>Actions</th></tr></thead><tbody id="importHistoryBody"></tbody></table></div></div>
 </section>
 
-<section class="view" id="cloudSync"><div class="sectionTitle">Cloud Database</div><div class="panel" style="max-width:760px"><div class="panelTitle">Supabase Sync</div><div class="meta" id="cloudStatus" style="margin:8px 0 14px">Checking connection…</div><div id="cloudLoggedOut"><div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div><button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button><div class="notice" style="margin-top:12px">Your database password is not stored in this HTML. Access is protected by Supabase authentication and Row Level Security.</div></div><div id="cloudLoggedIn" style="display:none"><div class="meta" id="cloudUser"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="cloudClaim">Claim / Verify Database</button><button class="btn" id="cloudUpload">Upload Current Data</button><button class="btn" id="cloudDownload">Load From Cloud</button><button class="btn" id="cloudSignOut">Sign Out</button></div><div class="notice" id="cloudResult" style="margin-top:12px">Ready.</div></div></div></section>
+<section class="view" id="cloudSync">
+ <div class="sectionTitle">Cloud Database</div>
+ <div class="panel" style="max-width:820px">
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V74 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div id="cloudLoggedOut" style="margin-top:14px">
+   <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
+   <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
+   <div class="notice" style="margin-top:12px">Your finance data stays on this device until you explicitly complete the first cloud upload. Signing in alone cannot overwrite your MacBook data.</div>
+  </div>
+  <div id="cloudLoggedIn" style="display:none;margin-top:14px">
+   <div class="meta" id="cloudUser"></div>
+   <div class="kpis" style="margin-top:12px">
+    <div class="kpi"><div class="kpiLabel">Initial Sync</div><div class="kpiValue" id="cloudInitialState" style="font-size:17px">Checking…</div></div>
+    <div class="kpi"><div class="kpiLabel">Last Synced</div><div class="kpiValue" id="cloudLastSynced" style="font-size:17px">Never</div></div>
+    <div class="kpi"><div class="kpiLabel">Local Changes</div><div class="kpiValue" id="cloudPendingState" style="font-size:17px">Checking…</div></div>
+    <div class="kpi"><div class="kpiLabel">This Device</div><div class="kpiValue" id="cloudDeviceState" style="font-size:17px">Protected</div></div>
+   </div>
+   <div class="notice" id="cloudLocalSummary" style="margin-top:12px">Preparing local data summary…</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button class="btn primary" id="cloudInitialUpload">Use This Device as First Cloud Source</button>
+    <button class="btn" id="cloudUpload">Sync Now</button>
+    <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
+    <button class="btn" id="cloudSignOut">Sign Out</button>
+   </div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">Safe Sync ready.</div>
+  </div>
+ </div>
+</section>
 <section class="view" id="more">
  <div class="panel" style="margin-bottom:12px">
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V73 PRODUCTION</span></div>
+  </div><span class="pill green">V74 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V73</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V74</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
-   <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v73CloudStatus" style="font-size:18px">Checking…</div></div>
+   <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
   <button class="btn" style="margin-top:12px" onclick="nav('cloudSync')">Open Cloud Login / Sync</button>
  </div>
@@ -3488,7 +3515,7 @@ async function cloudRefreshAuth(){
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
  $('cloudLoggedOut').style.display=on?'none':'block';$('cloudLoggedIn').style.display=on?'block':'none';
- if(on){$('cloudUser').textContent='Signed in as '+(session.user.email||session.user.id);cloudSetStatus('Connected • authenticated • Auto Sync ON');}
+ if(on){$('cloudUser').textContent='Signed in as '+(session.user.email||session.user.id);cloudSetStatus('Connected • authenticated • Safe Sync checking…');}
  else cloudSetStatus('Connected to Supabase • sign in to access your finance database');
  return session;
 }
@@ -3511,10 +3538,64 @@ async function cloudUpsert(table,rows){for(let i=0;i<rows.length;i+=100){const {
 let cloudAutoSaveTimer=null;
 let cloudAutoSaveBusy=false;
 let cloudAutoSaveQueued=false;
+const CLOUD_META_KEY='pf_cloud_sync_meta';
 
-function fullCloudSnapshot(){
+function getCloudMeta(){
+ try{return {...{initialized:false,deviceTrusted:false,lastSyncedAt:'',pending:false},...(JSON.parse(localStorage.getItem(CLOUD_META_KEY)||'{}')||{})};}
+ catch(_){return {initialized:false,deviceTrusted:false,lastSyncedAt:'',pending:false};}
+}
+function setCloudMeta(patch){
+ const next={...getCloudMeta(),...patch};
+ localStorage.setItem(CLOUD_META_KEY,JSON.stringify(next));
+ updateCloudSyncPanel();
+ return next;
+}
+function localSyncSummary(){
+ const tx=normalizedTx(true);
+ const activeTx=tx.filter(t=>transactionActions[t._id]?.status!=='deleted');
  return {
-  version:73,
+  accounts:accounts.length,
+  transactions:activeTx.length,
+  manual:manualTransactions.length,
+  imported:importedTransactions.length,
+  installments:installments.length,
+  paymentRows:cardPaymentPlan.length,
+  outgoings:outgoings.length,
+  categories:Object.keys(categories||{}).length
+ };
+}
+function renderLocalSyncSummary(){
+ const el=$('cloudLocalSummary'); if(!el)return;
+ const x=localSyncSummary();
+ el.innerHTML=`<b>Local data on this device:</b> ${x.accounts} accounts • ${x.transactions} transactions (${x.manual} manual / ${x.imported} imported) • ${x.installments} installments • ${x.paymentRows} payment-plan rows • ${x.outgoings} outgoings • ${x.categories} category groups.`;
+}
+function updateCloudSyncPanel(remoteInitialized=null){
+ const m=getCloudMeta();
+ if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
+ if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
+ if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Cloud Up to Date';
+ if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Trusted for Auto Sync':'Protected';
+ const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
+ if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
+ if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
+ if(loadBtn){loadBtn.disabled=remoteInitialized===false;}
+ renderLocalSyncSummary();
+}
+async function cloudInspectState(){
+ if(!cloudClient)return {initialized:false,value:null,updatedAt:''};
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return {initialized:false,value:null,updatedAt:''};
+ const {data,error}=await cloudClient.from('settings').select('value,updated_at').eq('key','app_state').maybeSingle();
+ if(error){console.warn('Cloud state check failed',error);return {initialized:false,value:null,updatedAt:''};}
+ const value=data?.value||null;
+ return {initialized:!!(value?.syncInitialized),value,updatedAt:data?.updated_at||value?.savedAt||''};
+}
+
+function fullCloudSnapshot(extra={}){
+ return {
+  version:74,
+  syncInitialized:!!extra.syncInitialized,
+  syncSource:extra.syncSource||'',
   categories,
   installments,
   merchantRules,
@@ -3553,21 +3634,25 @@ function applyCloudSnapshot(d){
  ensurePartialPaymentFields();
  return true;
 }
-async function cloudSaveSnapshot(silent=true){
+async function cloudSaveSnapshot(silent=true,forceInitial=false){
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return false;
+ const meta=getCloudMeta();
+ if(!forceInitial && !(meta.initialized&&meta.deviceTrusted))return false;
  if(cloudAutoSaveBusy){cloudAutoSaveQueued=true;return false;}
  cloudAutoSaveBusy=true;
  try{
-  const snap=fullCloudSnapshot();
+  const snap=fullCloudSnapshot({syncInitialized:true,syncSource:forceInitial?'first-device':'trusted-device'});
   const {error}=await cloudClient.from('settings').upsert({key:'app_state',value:snap,updated_at:snap.savedAt});
   if(error)throw error;
-  if($('cloudStatus'))cloudSetStatus(`Cloud synced • ${new Date(snap.savedAt).toLocaleTimeString()}`);
+  setCloudMeta({initialized:true,deviceTrusted:true,lastSyncedAt:snap.savedAt,pending:false});
+  cloudSetStatus(`Cloud synced • ${new Date(snap.savedAt).toLocaleTimeString()}`);
   if($('dbStatus'))$('dbStatus').innerHTML=`<span class="dbDot"></span>Local + Cloud synced • ${new Date(snap.savedAt).toLocaleTimeString()}`;
   return true;
  }catch(e){
-  console.warn('Cloud auto-save failed',e);
+  console.warn('Cloud save failed',e);
+  setCloudMeta({pending:true});
   if(!silent&&$('cloudResult'))$('cloudResult').textContent='Cloud save failed: '+e.message;
   return false;
  }finally{
@@ -3576,20 +3661,22 @@ async function cloudSaveSnapshot(silent=true){
  }
 }
 function scheduleCloudAutoSave(){
+ const meta=getCloudMeta();
+ setCloudMeta({pending:true});
  clearTimeout(cloudAutoSaveTimer);
+ if(!(meta.initialized&&meta.deviceTrusted))return;
  cloudAutoSaveTimer=setTimeout(()=>cloudSaveSnapshot(true),500);
 }
-async function cloudLoadSnapshotIfNewer(localSavedAt=''){
+async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return false;
- const {data,error}=await cloudClient.from('settings').select('value,updated_at').eq('key','app_state').maybeSingle();
- if(error){console.warn('Cloud snapshot load failed',error);return false;}
- if(!data?.value)return false;
- const cloudAt=new Date(data.value.savedAt||data.updated_at||0).getTime();
+ const state=await cloudInspectState();
+ if(!state.initialized||!state.value)return false;
+ const cloudAt=new Date(state.value.savedAt||state.updatedAt||0).getTime();
  const localAt=new Date(localSavedAt||0).getTime();
- if(localAt && cloudAt<=localAt)return false;
- if(!applyCloudSnapshot(data.value))return false;
+ if(!force && localAt && cloudAt<=localAt)return false;
+ if(!applyCloudSnapshot(state.value))return false;
  localStorage.setItem('pf_categories',JSON.stringify(categories));
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  localStorage.setItem('pf_merchant_rules',JSON.stringify(merchantRules));
@@ -3603,13 +3690,47 @@ async function cloudLoadSnapshotIfNewer(localSavedAt=''){
  localStorage.setItem('pf_duplicate_decisions',JSON.stringify(duplicateDecisions));
  localStorage.setItem('pf_statement_rule',JSON.stringify(statementRule));
  localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
+ const loadedAt=state.value.savedAt||state.updatedAt||new Date().toISOString();
+ setCloudMeta({initialized:true,deviceTrusted:true,lastSyncedAt:loadedAt,pending:false});
  await financeDB.save();
  return true;
 }
 
-async function cloudUploadAll(){
+async function cloudInitialUpload(){
+ if(!cloudClient)return;
+ const remote=await cloudInspectState();
+ if(remote.initialized){
+  $('cloudResult').textContent='A cloud database already exists. To protect this device, use “Load Latest Cloud Data” or confirm a normal sync only after reviewing both devices.';
+  updateCloudSyncPanel(true);
+  return;
+ }
+ const x=localSyncSummary();
+ const ok=confirm(`FIRST CLOUD SYNC\n\nThis device will become the source of truth and upload:\n• ${x.transactions} transactions\n• ${x.installments} installments\n• ${x.paymentRows} payment-plan rows\n• ${x.outgoings} outgoings\n\nCloud data will NOT be loaded onto this device first.\n\nContinue?`);
+ if(!ok)return;
  try{
-  $('cloudResult').textContent='Uploading…';
+  $('cloudResult').textContent='Creating first protected cloud snapshot…';
+  await cloudClaim();
+  await cloudUpsert('accounts',cloudAccountRows());
+  await cloudUpsert('transactions',cloudTxRows());
+  await cloudUpsert('installment_plans',cloudInstRows());
+  await cloudUpsert('card_payment_plan',cloudPayRows());
+  const saved=await cloudSaveSnapshot(false,true);
+  if(!saved)throw new Error('Full app-state snapshot was not saved.');
+  $('cloudResult').textContent=`First cloud sync complete. This device is now trusted for Auto Sync. ${x.transactions} transactions, ${x.installments} installments and ${x.paymentRows} payment rows protected in cloud.`;
+  updateCloudSyncPanel(true);
+ }catch(e){
+  setCloudMeta({initialized:false,deviceTrusted:false,pending:true});
+  $('cloudResult').textContent='First sync failed. Local data was kept unchanged. '+e.message;
+ }
+}
+async function cloudUploadAll(){
+ const meta=getCloudMeta();
+ if(!(meta.initialized&&meta.deviceTrusted)){
+  $('cloudResult').textContent='Protected: complete the first cloud sync or load an existing cloud database before using Sync Now.';
+  return;
+ }
+ try{
+  $('cloudResult').textContent='Syncing local changes…';
   await cloudClaim();
   await cloudUpsert('accounts',cloudAccountRows());
   await cloudUpsert('transactions',cloudTxRows());
@@ -3617,38 +3738,51 @@ async function cloudUploadAll(){
   await cloudUpsert('card_payment_plan',cloudPayRows());
   await cloudSaveSnapshot(false);
   $('cloudResult').textContent=`Cloud sync complete: ${cloudTxRows().length} transactions, ${installments.length} installments, ${cardPaymentPlan.length} payment rows + full app state.`;
- }catch(e){$('cloudResult').textContent='Upload failed: '+e.message;}
+ }catch(e){$('cloudResult').textContent='Sync failed: '+e.message;}
 }
 async function cloudDownloadAll(){
  try{
-  $('cloudResult').textContent='Loading…';
-  const loadedSnapshot=await cloudLoadSnapshotIfNewer('');
-  if(loadedSnapshot){
-   renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderPaymentPlanner();renderImportHistory();
-   $('cloudResult').textContent='Latest full finance state loaded from cloud.';
+  const remote=await cloudInspectState();
+  updateCloudSyncPanel(remote.initialized);
+  if(!remote.initialized){
+   $('cloudResult').textContent='No protected cloud database exists yet. Do the first upload from your MacBook/source device.';
    return;
   }
-  const [tr,ir,pr]=await Promise.all([cloudClient.from('transactions').select('*').order('transaction_date',{ascending:true}),cloudClient.from('installment_plans').select('*'),cloudClient.from('card_payment_plan').select('*')]);for(const r of [tr,ir,pr])if(r.error)throw r.error;
- manualTransactions=(tr.data||[]).filter(t=>t.is_manual).map(t=>({_id:t.id,account:t.account_id,physicalCardEnding:t.physical_card_ending,date:t.transaction_date,posting:t.posting_date,description:t.description,amount:Number(t.amount),currency:t.currency,category:t.category,subcategory:t.subcategory,kind:t.kind,source:t.source,note:t.note,statementMonth:t.statement_month,manual:true,imported:!!t.is_imported}));localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
- installments=(ir.data||[]).map(p=>({id:p.id,cardId:p.card_id,linkedTransactionId:p.linked_transaction_id,description:p.description,category:p.category,subcategory:p.subcategory,fullAmount:Number(p.original_amount),months:Number(p.months),startMonth:p.start_month,paidInstallments:Number(p.paid_installments||0),manualRemaining:p.manual_remaining,monthlyFee:Number(p.monthly_fee||0),source:p.source,planType:p.plan_type}));localStorage.setItem('pf_installments',JSON.stringify(installments));
- cardPaymentPlan=(pr.data||[]).map(p=>({id:p.id,accountId:p.account_id,month:p.payment_month,amount:p.amount==null?null:Number(p.amount),due:p.due_date,label:p.label,source:p.source,note:(()=>{try{const x=JSON.parse(p.note||'{}');return x.note||p.note}catch(_){return p.note}})(),paidAmount:(()=>{try{return Number(JSON.parse(p.note||'{}').paidAmount||0)}catch(_){return p.paid?Number(p.amount||0):0}})(),paymentHistory:(()=>{try{return JSON.parse(p.note||'{}').paymentHistory||[]}catch(_){return []}})(),upcomingOnly:(()=>{try{return !!JSON.parse(p.note||'{}').upcomingOnly}catch(_){return false}})(),paid:!!p.paid}));saveCardPaymentPlan();rebuildTransactions();renderDashboard();renderAccounts();renderInstallments();renderPaymentPlanner();saveLocal();$('cloudResult').textContent=`Loaded ${tr.data?.length||0} transactions, ${ir.data?.length||0} installments, ${pr.data?.length||0} payment rows.`;}
- catch(e){$('cloudResult').textContent='Load failed: '+e.message;}
+  const ok=confirm('LOAD FROM CLOUD\n\nThis will replace this browser/device local finance state with the latest protected cloud snapshot.\n\nUse this on a new device (for example your iPhone), or only when you intentionally want cloud to replace local data.\n\nContinue?');
+  if(!ok)return;
+  $('cloudResult').textContent='Loading protected cloud snapshot…';
+  const loadedSnapshot=await cloudLoadSnapshotIfNewer('',true);
+  if(!loadedSnapshot)throw new Error('No cloud snapshot could be loaded.');
+  renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderPaymentPlanner();renderImportHistory();
+  $('cloudResult').textContent='Latest full finance state loaded from cloud. This device is now trusted for Auto Sync.';
+ }catch(e){$('cloudResult').textContent='Load failed. Local data was not intentionally cleared. '+e.message;}
 }
+async function refreshCloudSafetyState(){
+ const session=await cloudRefreshAuth();
+ if(!session){updateCloudSyncPanel(false);return;}
+ const remote=await cloudInspectState();
+ updateCloudSyncPanel(remote.initialized);
+ const meta=getCloudMeta();
+ if(!meta.deviceTrusted){
+  if(remote.initialized){
+   cloudSetStatus('Signed in • protected device • cloud database found');
+   if($('cloudResult'))$('cloudResult').textContent='Cloud data exists, but this device is protected. Choose “Load Latest Cloud Data” to make this device a synced copy.';
+  }else{
+   cloudSetStatus('Signed in • first sync not completed • local data protected');
+   if($('cloudResult'))$('cloudResult').textContent='No protected cloud snapshot exists yet. On your MacBook/source device, review the local summary and choose “Use This Device as First Cloud Source”.';
+  }
+ }else{
+  cloudSetStatus(meta.pending?'Signed in • local changes pending sync':'Signed in • Auto Sync ON');
+ }
+}
+
 if(cloudClient){
  $('cloudSendLink').addEventListener('click',async()=>{const email=$('cloudEmail').value.trim();if(!email)return cloudSetStatus('Enter your email first.');const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});cloudSetStatus(error?'Login error: '+error.message:'Login link sent. Check your email.');});
- $('cloudClaim').addEventListener('click',cloudClaim);
+ if($('cloudInitialUpload'))$('cloudInitialUpload').addEventListener('click',cloudInitialUpload);
  $('cloudUpload').addEventListener('click',cloudUploadAll);
  $('cloudDownload').addEventListener('click',cloudDownloadAll);
- $('cloudSignOut').addEventListener('click',async()=>{await cloudClient.auth.signOut();await cloudRefreshAuth();});
- cloudClient.auth.onAuthStateChange(()=>setTimeout(async()=>{
- const session=await cloudRefreshAuth();
- if(session){
-  const loaded=await cloudLoadSnapshotIfNewer('');
-  if(loaded){
-   renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderPaymentPlanner();renderImportHistory();
-  }else scheduleCloudAutoSave();
- }
-},0));
+ $('cloudSignOut').addEventListener('click',async()=>{await cloudClient.auth.signOut();await cloudRefreshAuth();updateCloudSyncPanel(false);});
+ cloudClient.auth.onAuthStateChange(()=>setTimeout(async()=>{await refreshCloudSafetyState();},0));
 }else{
  $('cloudSendLink').addEventListener('click',()=>cloudSetStatus('Cloud sync is unavailable right now. The dashboard is running normally in local mode.'));
 }
@@ -3719,10 +3853,23 @@ async function init(){
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
  if(session){
-  const cloudWon=await cloudLoadSnapshotIfNewer(localSavedAt);
-  if(cloudWon)migrateSabAwayFromLegacySeed();
-  if(cloudWon)normalizeSabInstallmentPlan();
-  if(!cloudWon) scheduleCloudAutoSave();
+  const meta=getCloudMeta();
+  const remote=await cloudInspectState();
+  updateCloudSyncPanel(remote.initialized);
+  if(meta.initialized&&meta.deviceTrusted&&remote.initialized){
+   const cloudWon=await cloudLoadSnapshotIfNewer(localSavedAt);
+   if(cloudWon)migrateSabAwayFromLegacySeed();
+   if(cloudWon)normalizeSabInstallmentPlan();
+   if(!cloudWon && meta.pending) scheduleCloudAutoSave();
+  }else{
+   // V74 protection: signing in never overwrites local data and never uploads
+   // until this device has been explicitly established as a trusted sync device.
+   if(remote.initialized){
+    cloudSetStatus('Signed in • protected device • cloud database found');
+   }else{
+    cloudSetStatus('Signed in • first sync not completed • local data protected');
+   }
+  }
  }
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
@@ -3749,8 +3896,8 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV73CloudStatus(){
- const el=document.getElementById('v73CloudStatus'); if(!el)return;
+function updateV74CloudStatus(){
+ const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
  if(/signed in|connected|synced/.test(txt) && !/not connected|signed out/.test(txt)){
@@ -3761,8 +3908,8 @@ function updateV73CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV73CloudStatus,1200);
-setTimeout(updateV73CloudStatus,300);
+setInterval(updateV74CloudStatus,1200);
+setTimeout(updateV74CloudStatus,300);
 
 </script>
 </body>
