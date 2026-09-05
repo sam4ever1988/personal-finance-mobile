@@ -745,7 +745,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V81 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V82 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -775,9 +775,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V81 PRODUCTION</span></div>
+  </div><span class="pill green">V82 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V81</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V82</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -1475,6 +1475,22 @@ function adjustCurrentStatementForInstallment(linkedTx,plan){
  ensureMonthlyPlannerRows(plan.startMonth);
  saveCardPaymentPlan();
 }
+function reconcileExistingInstallmentStatementTransfers(){
+ let changed=0;
+ const allTx=normalizedTx(true);
+ installments.filter(p=>p.linkedTransactionId && !p.completedConfirmed).forEach(plan=>{
+  const tx=allTx.find(t=>t._id===plan.linkedTransactionId);if(!tx)return;
+  const originalMonth=paymentMonthForTransaction(tx.account,tx.date);
+  const rows=cardPaymentPlan.filter(r=>r.accountId===tx.account && r.month===originalMonth);
+  const needs=rows.some(r=>!r.installmentTransferAdjustments?.[tx._id]);
+  if(needs){adjustCurrentStatementForInstallment(tx,plan);changed++;}
+ });
+ if(changed){
+  localStorage.setItem('pf_installments',JSON.stringify(installments));
+  saveCardPaymentPlan();
+ }
+ return changed;
+}
 function renderPaymentPlanner(){
  const el=$('paymentMonth');if(!el)return;if(!el.value)el.value=plannerDefaultMonth();
  const month=el.value;
@@ -1505,7 +1521,7 @@ function renderPaymentPlanner(){
     ${p.upcomingOnly?`<button class="btn primary" data-pay-partial="${p.id}">Record Early Payment</button>`:''}
     ${p.paymentHistory?.length?`<button class="btn" data-pay-undo="${p.id}">Undo Last Payment</button>`:''}
     ${p.paymentHistory?.length?`<div class="meta" style="width:100%;margin-top:5px">Last payment from: ${p.paymentHistory[p.paymentHistory.length-1].sourceName||'Previous version / source not recorded'}</div>`:''}
-   ${cardMetrics(a).creditBalance>0?`<div class="meta green" style="width:100%;margin-top:5px"><b>Extra card credit:</b> ${money(cardMetrics(a).creditBalance)} • not included in this month's amount to pay</div>`:''}
+   ${cardMetrics(a).creditBalance>0?`<div class="meta green" style="width:100%;margin-top:5px"><b>Extra card credit:</b> ${money(cardMetrics(a).creditBalance)} • not included in this month's amount to pay</div>`:''}${p.installmentTransferAdjustments&&Object.keys(p.installmentTransferAdjustments).length?`<div class="meta amber" style="width:100%;margin-top:5px"><b>Statement reduced for installments:</b> ${money(Object.values(p.installmentTransferAdjustments).reduce((s,v)=>s+Number(v||0),0))} removed from this cycle</div>`:''}
    </div>
   </div>`;
  }).join(''):'<div class="meta">No payment plans for this month.</div>';
@@ -4083,7 +4099,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V81 protection: signing in never overwrites local data and never uploads
+   // V82 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -4103,6 +4119,8 @@ async function init(){
  installments.forEach(p=>{if(p.cardId==='sab-440880'&&p.planType==='balance-offer')p.offerScope='full';});
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  normalizeCardPaymentPlan();
+ const reconciledInstallmentStatements=reconcileExistingInstallmentStatementTransfers();
+ if(reconciledInstallmentStatements)console.info(`Reconciled ${reconciledInstallmentStatements} existing installment transaction(s) against their original statement.`);
  ensurePartialPaymentFields();
  financeDB.save();
  fillAccountSelect($('txAccount'));fillAccountSelect($('reportAccount'));fillAccountSelect($('importAccount'));fillCategorySelect($('txCategory'));
@@ -4117,7 +4135,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV81CloudStatus(){
+function updateV82CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -4129,8 +4147,8 @@ function updateV81CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV81CloudStatus,1200);
-setTimeout(updateV81CloudStatus,300);
+setInterval(updateV82CloudStatus,1200);
+setTimeout(updateV82CloudStatus,300);
 
 </script>
 </body>
