@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.3 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.4 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1078,11 +1078,6 @@ function normalizeCardPaymentPlan(){
  // De-duplicate by id, preserving first user record.
  cardPaymentPlan=cardPaymentPlan.filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
-}
-normalizeCardPaymentPlan();
-if(resetCardIds.has('meem-7102')){
- cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
- saveCardPaymentPlan();
 }
 
 
@@ -1717,6 +1712,12 @@ let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'
 
 rebuildTransactions();
 const accounts=BASE.accounts;
+normalizeCardPaymentPlan();
+if(resetCardIds.has('meem-7102')){
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
+ saveCardPaymentPlan();
+}
+
 if(!accounts.some(a=>a.id==='cash-wallet')){
  accounts.push({
   id:'cash-wallet',
@@ -3461,9 +3462,9 @@ function parseMeemOfficialStatementMeta(text,fileName=''){
    description:'5290820017 / Ashal installment',
    category:'Financial Obligations',subcategory:'Credit Card Payments',
    fullAmount:7933.50,months:6,startMonth:'2026-07',paidInstallments:1,
-   manualRemaining:6809.59,remainingMonthsOverride:5,referenceMonth:'2026-09',
+   manualRemaining:5447.67,remainingMonthsOverride:4,referenceMonth:'2026-09',
    scheduleMode:'remaining-principal',source:'Official meem statement',
-   notes:'Official statement: monthly installment SAR 1,361.92; remaining principal SAR 6,809.59.'
+   notes:'Official statement: monthly installment SAR 1,361.92; remaining principal SAR 5,447.67.'
   });
  }
  if(/\bTiqmo\b/i.test(t)){
@@ -3473,9 +3474,9 @@ function parseMeemOfficialStatementMeta(text,fileName=''){
    description:'Tiqmo installment',
    category:'Financial Obligations',subcategory:'Credit Card Payments',
    fullAmount:3000.00,months:3,startMonth:'2026-06',paidInstallments:2,
-   manualRemaining:1000.00,remainingMonthsOverride:1,referenceMonth:'2026-09',
+   manualRemaining:0.00,remainingMonthsOverride:0,referenceMonth:'2026-09',
    scheduleMode:'remaining-principal',source:'Official meem statement',
-   notes:'Official statement: monthly installment SAR 1,000.00; remaining principal SAR 1,000.00.'
+   notes:'Official statement: monthly installment SAR 1,000.00; Tiqmo plan completed; remaining principal SAR 0.00.'
   });
  }
  return {
