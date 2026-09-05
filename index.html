@@ -617,6 +617,23 @@ button{cursor:pointer}
   </div>
   <div class="incomeCard"><label>Other Income (SAR)</label><input type="number" min="0" step="0.01" id="incomeOther" placeholder="Other monthly income"></div>
  </div>
+
+ <div class="panel" style="margin-top:12px">
+  <div class="splitHead">
+   <div>
+    <div class="panelTitle">Saved Monthly Income Plans</div>
+    <div class="meta">Each month is stored separately. Salary, wife salary and other income can be different every month. Extra income is taken from that month's Extra Income History.</div>
+   </div>
+   <span class="pill green" id="currentIncomePlanMonth">Current Month</span>
+  </div>
+  <div style="overflow-x:auto;margin-top:10px">
+   <table class="summaryTable">
+    <thead><tr><th>Month</th><th>My Salary</th><th>Wife Salary</th><th>Extra Income</th><th>Other Income</th><th>Total Income</th><th>Saved</th><th></th></tr></thead>
+    <tbody id="monthlyIncomePlansBody"></tbody>
+   </table>
+  </div>
+ </div>
+
  <div class="panel" style="margin-top:12px">
   <div class="splitHead"><div><div class="panelTitle">Extra Income History</div><div class="meta">Each saved extra-income addition is kept separately by month. The current-month total automatically resets to SAR 0.00 when a new month starts.</div></div><button class="btn" type="button" id="clearExtraIncomeHistory">Clear All History</button></div>
   <div style="overflow-x:auto;margin-top:10px"><table class="summaryTable"><thead><tr><th>Date</th><th>Amount</th><th>Running Total</th><th></th></tr></thead><tbody id="extraIncomeHistoryBody"></tbody></table></div>
@@ -728,7 +745,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V77 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V78 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -758,9 +775,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V77 PRODUCTION</span></div>
+  </div><span class="pill green">V78 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V77</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V78</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -948,11 +965,26 @@ let incomePlan=JSON.parse(localStorage.getItem('pf_income_plan')||'null')||{
  allocations:{'ar-0955':0,'ar-5867':0,'sab-440880':0,'nbd-infinite-4411':0,'nbd-mazeed-8652':0,'meem-7102':0}
 };
 if(!Array.isArray(incomePlan.extraIncomeHistory))incomePlan.extraIncomeHistory=[];
+if(!Array.isArray(incomePlan.monthlyPlans))incomePlan.monthlyPlans=[];
 if(Number(incomePlan.extraIncome||0)>0 && incomePlan.extraIncomeHistory.length===0){
  incomePlan.extraIncomeHistory=[{id:'legacy-extra-income',date:'2026-09-03',amount:Number(incomePlan.extraIncome||0),note:'Existing saved extra income'}];
 }
 incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory.map(x=>({...x,month:x.month||String(x.date||new Date().toISOString()).slice(0,7)}));
 incomePlan.extraIncome=(incomePlan.extraIncomeHistory||[]).filter(x=>x.month===new Date().toISOString().slice(0,7)).reduce((sum,x)=>sum+Number(x.amount||0),0);
+if(incomePlan.monthlyPlans.length===0 && (Number(incomePlan.mySalary||0)>0 || Number(incomePlan.wifeSalary||0)>0 || Number(incomePlan.otherIncome||0)>0)){
+ const _m=new Date().toISOString().slice(0,7);
+ incomePlan.monthlyPlans.push({
+  month:_m,
+  mySalary:Number(incomePlan.mySalary||0),
+  wifeSalary:Number(incomePlan.wifeSalary||0),
+  extraIncome:Number(incomePlan.extraIncome||0),
+  otherIncome:Number(incomePlan.otherIncome||0),
+  allocations:{...(incomePlan.allocations||{})},
+  savedAt:new Date().toISOString(),
+  migrated:true
+ });
+ localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));
+}
 let outgoings=JSON.parse(localStorage.getItem('pf_outgoings')||'[]');
 
 const MONEY=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -3243,6 +3275,94 @@ function renderTxHistory(){
  document.querySelectorAll('[data-restore-tx]').forEach(b=>b.addEventListener('click',()=>restoreTx(b.dataset.restoreTx)));
 }
 
+
+function incomePlanForMonth(month=currentIncomeMonth()){
+ incomePlan.monthlyPlans=Array.isArray(incomePlan.monthlyPlans)?incomePlan.monthlyPlans:[];
+ return incomePlan.monthlyPlans.find(p=>p.month===month)||null;
+}
+function monthlyPlanTotal(p){
+ if(!p)return 0;
+ return Number(p.mySalary||0)+Number(p.wifeSalary||0)+Number(p.extraIncome||0)+Number(p.otherIncome||0);
+}
+function applySavedIncomePlanForCurrentMonth(){
+ const month=currentIncomeMonth();
+ const p=incomePlanForMonth(month);
+ if(p){
+  incomePlan.mySalary=Number(p.mySalary||0);
+  incomePlan.wifeSalary=Number(p.wifeSalary||0);
+  incomePlan.otherIncome=Number(p.otherIncome||0);
+  incomePlan.allocations={...(p.allocations||{})};
+ }else{
+  incomePlan.mySalary=0;
+  incomePlan.wifeSalary=0;
+  incomePlan.otherIncome=0;
+  incomePlan.allocations={};
+ }
+ incomePlan.extraIncome=accumulatedExtraIncome(month);
+ return p;
+}
+function saveMonthlyIncomePlan(month=currentIncomeMonth()){
+ incomePlan.monthlyPlans=Array.isArray(incomePlan.monthlyPlans)?incomePlan.monthlyPlans:[];
+ const snap={
+  month,
+  mySalary:Number(incomePlan.mySalary||0),
+  wifeSalary:Number(incomePlan.wifeSalary||0),
+  extraIncome:Number(accumulatedExtraIncome(month)||0),
+  otherIncome:Number(incomePlan.otherIncome||0),
+  allocations:{...(incomePlan.allocations||{})},
+  savedAt:new Date().toISOString()
+ };
+ const idx=incomePlan.monthlyPlans.findIndex(p=>p.month===month);
+ if(idx>=0)incomePlan.monthlyPlans[idx]={...incomePlan.monthlyPlans[idx],...snap};
+ else incomePlan.monthlyPlans.push(snap);
+ return snap;
+}
+function renderMonthlyIncomePlans(){
+ const body=$('monthlyIncomePlansBody');if(!body)return;
+ const current=currentIncomeMonth();
+ if($('currentIncomePlanMonth'))$('currentIncomePlanMonth').textContent=extraIncomeMonthTitle(current);
+ const plans=(incomePlan.monthlyPlans||[]).slice().sort((a,b)=>String(b.month).localeCompare(String(a.month)));
+ body.innerHTML=plans.length?plans.map(p=>`<tr>
+  <td><b>${extraIncomeMonthTitle(p.month)}</b>${p.month===current?'<div class="meta">Current month</div>':''}</td>
+  <td>${money(Number(p.mySalary||0))}</td>
+  <td>${money(Number(p.wifeSalary||0))}</td>
+  <td>${money(Number(p.extraIncome||0))}</td>
+  <td>${money(Number(p.otherIncome||0))}</td>
+  <td><b>${money(monthlyPlanTotal(p))}</b></td>
+  <td>${p.savedAt?new Date(p.savedAt).toLocaleString():'—'}</td>
+  <td><div style="display:flex;gap:7px;flex-wrap:wrap">
+   <button class="btn small" type="button" data-edit-income-month="${p.month}">Edit</button>
+   <button class="btn small danger" type="button" data-delete-income-month="${p.month}">Delete</button>
+  </div></td>
+ </tr>`).join(''):'<tr><td colspan="8">No monthly income plans saved yet.</td></tr>';
+
+ document.querySelectorAll('[data-edit-income-month]').forEach(b=>b.addEventListener('click',()=>{
+  const p=incomePlanForMonth(b.dataset.editIncomeMonth);if(!p)return;
+  const mine=prompt(`My Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.mySalary||0)));if(mine===null)return;
+  const wife=prompt(`Wife Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.wifeSalary||0)));if(wife===null)return;
+  const other=prompt(`Other Income for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.otherIncome||0)));if(other===null)return;
+  const vals=[Number(mine),Number(wife),Number(other)];
+  if(vals.some(v=>!Number.isFinite(v)||v<0)){alert('Please enter valid non-negative amounts.');return;}
+  p.mySalary=vals[0];p.wifeSalary=vals[1];p.otherIncome=vals[2];
+  p.extraIncome=accumulatedExtraIncome(p.month);
+  p.savedAt=new Date().toISOString();
+  if(p.month===currentIncomeMonth()){
+   incomePlan.mySalary=p.mySalary;incomePlan.wifeSalary=p.wifeSalary;incomePlan.otherIncome=p.otherIncome;
+  }
+  localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveLocal();renderIncomePlan();
+ }));
+
+ document.querySelectorAll('[data-delete-income-month]').forEach(b=>b.addEventListener('click',()=>{
+  const month=b.dataset.deleteIncomeMonth;
+  if(!confirm(`Delete the saved income plan for ${extraIncomeMonthTitle(month)}?\n\nExtra Income History entries are kept separately and will not be deleted.`))return;
+  incomePlan.monthlyPlans=(incomePlan.monthlyPlans||[]).filter(p=>p.month!==month);
+  if(month===currentIncomeMonth()){
+   incomePlan.mySalary=0;incomePlan.wifeSalary=0;incomePlan.otherIncome=0;incomePlan.allocations={};
+  }
+  localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveLocal();renderIncomePlan();
+ }));
+}
+
 function totalFixedLoans(){return FIXED_PLAN.loans.reduce((sum,l)=>sum+(loanCalc(l).status==='Active'?Number(l.monthly||0):0),0)}
 function totalIncomePlan(){return Number(incomePlan.mySalary||0)+Number(incomePlan.wifeSalary||0)+Number(accumulatedExtraIncome()||0)+Number(incomePlan.otherIncome||0)}
 function afterLoansAmount(){return totalIncomePlan()-totalFixedLoans()-outgoingThisMonthTotal()}
@@ -3390,10 +3510,12 @@ function addExtraIncomeFromInput(){
  return true;
 }
 function renderIncomePlan(){
+ applySavedIncomePlanForCurrentMonth();
  $('incomeMySalary').value=incomePlan.mySalary||'';
  $('incomeWifeSalary').value=incomePlan.wifeSalary||'';
  $('incomeExtra').value='';
  renderExtraIncomeHistory();
+ renderMonthlyIncomePlans();
  $('incomeOther').value=incomePlan.otherIncome||'';
  incomePlan.allocations=incomePlan.allocations||{};
  renderCreditCardCalendar();
@@ -3483,13 +3605,15 @@ if($('clearExtraIncomeHistory'))$('clearExtraIncomeHistory').addEventListener('c
  saveLocal();renderIncomePlan();
 });
 if($('saveIncomePlan'))$('saveIncomePlan').addEventListener('click',()=>{
+ const month=currentIncomeMonth();
  const added=addExtraIncomeFromInput();
  readIncomePlanInputs();
- incomePlan.extraIncome=accumulatedExtraIncome();
+ incomePlan.extraIncome=accumulatedExtraIncome(month);
+ const saved=saveMonthlyIncomePlan(month);
  localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));
  saveLocal();
  renderIncomePlan();
- alert(added?`Plan saved. Extra income added. Accumulated Extra Income: ${money(incomePlan.extraIncome)}.`:'Monthly income and payment plan saved.');
+ alert(`${extraIncomeMonthTitle(month)} income plan saved.${added?` Extra income added; this month's extra income is ${money(saved.extraIncome)}.`:''}`);
 });
 
 function openModal(id){$(id).classList.add('open')}function closeModal(id){$(id).classList.remove('open')}
@@ -3896,7 +4020,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V77 protection: signing in never overwrites local data and never uploads
+   // V78 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -3930,7 +4054,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV77CloudStatus(){
+function updateV78CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -3942,8 +4066,8 @@ function updateV77CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV77CloudStatus,1200);
-setTimeout(updateV77CloudStatus,300);
+setInterval(updateV78CloudStatus,1200);
+setTimeout(updateV78CloudStatus,300);
 
 </script>
 </body>
