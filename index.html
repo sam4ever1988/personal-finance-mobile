@@ -728,7 +728,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V75 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V76 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -758,9 +758,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V75 PRODUCTION</span></div>
+  </div><span class="pill green">V76 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V75</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V76</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -2671,6 +2671,9 @@ $('manualTxForm').addEventListener('submit',e=>{
  const makePlan=$('manualTxInstallment').checked&&isEligibleInstallmentTx(tx);
  ensureMonthlyPlannerRows(paymentMonthForTransaction(tx.account,tx.date));
  renderTransactions();renderReports();renderDashboard();renderAccounts();renderPaymentPlanner();
+ if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage);
+ }
  if(makePlan)openInstallment({cardId:tx.account,description:tx.description,category:tx.category,subcategory:tx.subcategory,fullAmount:Math.abs(tx.amount),months:3,startMonth:tx.date.slice(0,7),paidInstallments:0,linkedTransactionId:tx._id,source:'Converted from manual transaction'});
 });
 
@@ -2830,7 +2833,9 @@ $('balanceOfferForm').addEventListener('submit',e=>{
 });
 
 let accountDetailReturnPage='accounts';
+let currentAccountDetailId=null;
 function openAccount(id,returnPage){
+ currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
  else if(document.getElementById('incomeplan')?.classList.contains('active'))accountDetailReturnPage='incomeplan';
  else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
@@ -3880,7 +3885,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V75 protection: signing in never overwrites local data and never uploads
+   // V76 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -3914,7 +3919,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV75CloudStatus(){
+function updateV76CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -3926,8 +3931,8 @@ function updateV75CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV75CloudStatus,1200);
-setTimeout(updateV75CloudStatus,300);
+setInterval(updateV76CloudStatus,1200);
+setTimeout(updateV76CloudStatus,300);
 
 </script>
 </body>
