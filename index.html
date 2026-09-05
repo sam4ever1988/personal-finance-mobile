@@ -745,7 +745,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V78 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V80 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -775,9 +775,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V78 PRODUCTION</span></div>
+  </div><span class="pill green">V80 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V78</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V80</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">05 Sep 2026</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -1070,7 +1070,7 @@ normalizeCardPaymentPlan();
 
 
 function allPaymentHistory(){
- return cardPaymentPlan.flatMap(p=>(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).map(h=>({...h,targetCardId:p.accountId,paymentPlanId:p.id})));
+ return cardPaymentPlan.flatMap(p=>(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored).map(h=>({...h,targetCardId:p.accountId,paymentPlanId:p.id})));
 }
 function paymentSourceImpact(accountId){
  return allPaymentHistory().reduce((sum,h)=>{
@@ -1114,7 +1114,8 @@ function openRecordPayment(id){
  $('paymentPlanId').value=id;
  $('paymentTargetCard').value=`${a.bank} • ${a.name} •${a.ending}`;
  $('paymentAmountInput').value=remaining.toFixed(2);
- $('paymentAmountInput').max=remaining.toFixed(2);
+ $('paymentAmountInput').removeAttribute('max');
+ $('paymentAmountInput').dataset.currentDue=remaining.toFixed(2);
  $('paymentDateInput').value=new Date().toISOString().slice(0,10);
  $('paymentSourceSelect').innerHTML=paymentSourceOptions(p.accountId).map(o=>`<option value="${o.id}">${o.label}</option>`).join('');
  updatePaymentSourcePreview();
@@ -1129,6 +1130,8 @@ function sourceAvailableLabel(sourceId){
 }
 function updatePaymentSourcePreview(){
  const id=$('paymentSourceSelect').value,amt=Number($('paymentAmountInput').value||0);
+ const currentDue=Math.max(0,Number($('paymentAmountInput').dataset.currentDue||0));
+ const extra=Math.max(0,amt-currentDue);
  let msg=`Paid from: ${sourceAvailableLabel(id)}. `;
  if(id==='cash-source')msg+=`After this payment, Remaining Income / Cash & Other Expenses will be ${money(Math.max(0,remainingIncomeAvailable()-amt))}.`;
  else{
@@ -1136,6 +1139,7 @@ function updatePaymentSourcePreview(){
   if(a?.type==='bank')msg+=`After this payment, estimated bank balance: ${money(adjustedBankBalance(a)-amt)}.`;
   else if(a?.type==='card'){const m=cardMetrics(a);msg+=`This uses credit on the source card. Estimated available credit after payment: ${money(Math.max(0,m.available-amt))}.`;}
  }
+ if(extra>0)msg+=` Extra payment: ${money(extra)}. This will not increase this month's amount paid on the dashboard; it will stay on the card as credit and reduce future card transactions.`;
  $('paymentSourcePreview').textContent=msg;
 }
 function ensurePartialPaymentFields(){
@@ -1158,7 +1162,7 @@ function undoLastPartialPayment(id){
  const last=p.paymentHistory[p.paymentHistory.length-1];
  const src=last.sourceId==='cash-source'?'Remaining Income / Cash & Other Expenses':accountName(last.sourceId);
  if(!confirm(`Undo the last payment of ${money(Number(last.amount||0))} from ${src}?`))return;
- p.paymentHistory.pop();p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.amount||0));p.paid=false;
+ p.paymentHistory.pop();p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.duePortion!=null?last.duePortion:last.amount||0));p.paid=false;
  saveCardPaymentPlan();renderPaymentPlanner();renderDashboard();renderAccounts();if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 }
 
@@ -1334,7 +1338,7 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
   if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
-  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
+  // Converted purchases are removed from normal card spending; only their installment monthly commitment is due.\n  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
   const d=String(t.description||'').toLowerCase();
   if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
   return true;
@@ -1485,6 +1489,7 @@ function renderPaymentPlanner(){
     ${p.upcomingOnly?`<button class="btn primary" data-pay-partial="${p.id}">Record Early Payment</button>`:''}
     ${p.paymentHistory?.length?`<button class="btn" data-pay-undo="${p.id}">Undo Last Payment</button>`:''}
     ${p.paymentHistory?.length?`<div class="meta" style="width:100%;margin-top:5px">Last payment from: ${p.paymentHistory[p.paymentHistory.length-1].sourceName||'Previous version / source not recorded'}</div>`:''}
+   ${cardMetrics(a).creditBalance>0?`<div class="meta green" style="width:100%;margin-top:5px"><b>Extra card credit:</b> ${money(cardMetrics(a).creditBalance)} • not included in this month's amount to pay</div>`:''}
    </div>
   </div>`;
  }).join(''):'<div class="meta">No payment plans for this month.</div>';
@@ -1678,6 +1683,14 @@ function reconcileRemainingPrincipalPlans(){
 function activeInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&['Active','Review'].includes(planCalc(p).status));}
 function completedInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&p.completedConfirmed===true);}
 function cardInstallmentRemaining(cardId){return activeInstallmentPlans(cardId).reduce((sum,p)=>sum+planCalc(p).remaining,0)}
+function linkedActiveInstallment(txId){
+ return installments.find(p=>p.linkedTransactionId===txId && !p.completedConfirmed && ['Active','Review'].includes(planCalc(p).status))||null;
+}
+function linkedInstallmentPrincipalForCard(cardId){
+ return activeInstallmentPlans(cardId)
+  .filter(p=>p.linkedTransactionId)
+  .reduce((sum,p)=>sum+Math.max(0,Number(planCalc(p).remaining||0)),0);
+}
 function cardMonthlyCommitment(cardId){return activeInstallmentPlans(cardId).reduce((sum,p)=>sum+planCalc(p).monthly,0)}
 function loanCalc(loan){
  const elapsed=elapsedMonths(loan.referenceMonth||'2026-09');
@@ -1736,11 +1749,13 @@ function cardMetrics(a){
   bankUtilized=explicitOutstanding!=null?Number(explicitOutstanding):Math.max(0,limit-bankAvailable);
  }
  const paymentImpact=paymentCardBalanceImpact(a.id);
- bankUtilized=Math.max(0,Math.min(limit,bankUtilized-paymentImpact));
- bankAvailable=Math.max(0,limit-bankUtilized);
+ const rawUtilizedAfterPayments=bankUtilized-paymentImpact;
+ const creditBalance=Math.max(0,-rawUtilizedAfterPayments);
+ bankUtilized=Math.max(0,Math.min(limit,rawUtilizedAfterPayments));
+ bankAvailable=Math.max(0,limit-bankUtilized)+creditBalance;
  futureReserved=Math.min(bankUtilized,Math.max(0,futureReserved));
  const current=Math.max(0,bankUtilized-futureReserved),availableBeforeInstallments=bankAvailable+futureReserved,total=bankUtilized,utilization=limit?bankUtilized/limit*100:0,inst=futureReserved,util=utilization;
- return {limit,currentBalance:current,remainingInstallments:futureReserved,totalObligation:total,available:bankAvailable,bankAvailable,futureReserved,availableBeforeInstallments,bankUtilized,utilization,current,inst,total,util};
+ return {limit,currentBalance:current,remainingInstallments:futureReserved,totalObligation:total,available:bankAvailable,bankAvailable,futureReserved,availableBeforeInstallments,bankUtilized,utilization,current,inst,total,util,creditBalance,netPosition:bankUtilized-creditBalance};
 }
 function currentBankBalance(){const a=accounts.find(a=>a.id==='ar-current');return a?adjustedBankBalance(a):0}
 function summaryData(rows=normalizedTx()){
@@ -1924,13 +1939,17 @@ function renderOutgoings(){
 }
 
 function renderDashboard(){
- const s=summaryData(), obligations=accounts.filter(a=>a.type==='card').reduce((sum,a)=>sum+cardMetrics(a).total,0);
+ const s=summaryData();
+ const cardMetricsAll=accounts.filter(a=>a.type==='card').map(a=>cardMetrics(a));
+ const obligations=cardMetricsAll.reduce((sum,m)=>sum+m.total,0);
+ const currentCardBalance=cardMetricsAll.reduce((sum,m)=>sum+m.current,0);
+ const reservedInstallments=cardMetricsAll.reduce((sum,m)=>sum+m.inst,0);
  const monthlyPlannedIncome=totalIncomePlan(), afterFixed=afterLoansAmount();
  $('dashKpis').innerHTML=[
   kpiHTML('Monthly Planned Income',money(monthlyPlannedIncome),'Salary + wife salary + extra + other','green'),
-  kpiHTML('Fixed Monthly Loans',money(totalFixedLoans()),'Al Rajhi + Alinma','red'),
   kpiHTML('Available After Loans & Outgoings',(afterFixed<0?'-':'')+money(afterFixed),'Available for credit-card payments after planned cash outgoings',afterFixed>=0?'green':'red'),
-  kpiHTML('Total Card Bank Utilization',money(obligations),'Includes bank-reserved installment amounts','amber')
+  kpiHTML('Current Card Balance',money(currentCardBalance),`Excludes ${money(reservedInstallments)} reserved in installment plans`,'red'),
+  kpiHTML('Total Card Bank Utilization',money(obligations),'Current balance + reserved installment principal','amber')
  ].join('');
  $('sideBalance').textContent=money(currentBankBalance());
  $('dashAccounts').innerHTML=accounts.map(accountCardHTML).join('');
@@ -1942,12 +1961,12 @@ function renderDashboard(){
 function accountCardHTML(a){
  if(a.type==='card'){
   const m=cardMetrics(a),meta=`Ending •${a.ending} • Available ${money(m.available)}`,sub=a.id==='ar-0955'?`<div class="subcardTags"><span class="subcardTag">Primary •0955</span><span class="subcardTag">Supplementary •9345</span><span class="subcardTag">Supplementary •9634</span></div>`:'';
-  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${meta}${a.id==='sab-440880'?' • Manual balance source':''}</div>${sub}</div><div><div class="amount red">${money(m.total)}</div><div class="meta" style="text-align:right">Outstanding / utilized</div></div></div>`;
+  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${meta}${a.id==='sab-440880'?' • Manual balance source':''}</div>${sub}</div><div style="text-align:right"><div class="amount red">${money(m.current)}</div><div class="meta">Current non-installment balance</div>${m.inst>0?`<div class="meta amber" style="margin-top:3px">Installments reserved ${money(m.inst)}</div>`:''}${m.creditBalance>0?`<div class="meta green" style="margin-top:3px">Card credit / extra paid ${money(m.creditBalance)}</div>`:''}<div class="meta">Total utilized ${money(m.total)}</div></div></div>`;
  }
  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${a.ending?`Ending •${a.ending}`:'Cash account'}</div></div><div><div class="amount green">${money(adjustedBankBalance(a))}</div><div class="meta" style="text-align:right">${a.balanceLabel||'Balance'}</div></div></div>`;
 }
 function bindAccountCards(){document.querySelectorAll('[data-account]').forEach(el=>el.addEventListener('click',()=>openAccount(el.dataset.account)))}
-function txRow5(t){return `<tr class="clickable" data-tx="${t._id}"><td>${t.date}</td><td><b>${t.description}</b><div class="meta">${accountName(t.account)}</div></td><td>${t.category}</td><td>${account(t.account)?.ending||''}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`}
+function txRow5(t){const ip=linkedActiveInstallment(t._id);return `<tr class="clickable" data-tx="${t._id}"><td>${t.date}</td><td><b>${t.description}</b>${ip?'<span class="badge active" style="margin-left:6px">Installment</span>':''}<div class="meta">${accountName(t.account)}${ip?` • ${money(planCalc(ip).remaining)} reserved`:''}</div></td><td>${t.category}</td><td>${account(t.account)?.ending||''}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`}
 const selectedTxIds=new Set();
 function txRow6(t){
  const group=possibleDuplicateGroups(false).find(g=>g.a._id===t._id||g.b._id===t._id);
@@ -1956,9 +1975,11 @@ function txRow6(t){
  const thisLabel=t.manual?'Keep Manual':'Keep This Transaction';
  const otherLabel=other?(other.manual?'Keep Manual':'Keep Imported / Statement'):'';
  const reviewBadge=group?.similarAmountReview?'<span class="similarBadge">Similar amount review</span>':(dup?'<span class="dupBadge">Possible duplicate</span>':'');
+ const linkedPlan=linkedActiveInstallment(t._id);
+ const installmentBadge=linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'';
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable" data-tx="${t._id}"><td><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}<div><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span></div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable" data-tx="${t._id}"><td><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span></div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -2747,7 +2768,17 @@ $('installForm').addEventListener('submit',e=>{
  const p={...(oldPlan||{}),id,cardId:$('instCard').value,description:$('instDesc').value.trim(),category:$('instCategory').value,subcategory:$('instSubcategory').value,fullAmount:Number($('instAmount').value),months:paid+remainingMonths,remainingMonthsOverride:remainingMonths,manualRemaining:remainingAmount,startMonth:oldPlan?.startMonth||$('instStart').value,referenceMonth:$('instStart').value,paidInstallments:paid,linkedTransactionId,source:e.currentTarget.dataset.editId?(oldPlan?.source||'Manual'):(linkedTransactionId?'Converted from transaction':'Manual'),scheduleMode:'remaining-principal'};
  const ix=installments.findIndex(x=>x.id===id);if(ix>=0)installments[ix]=p;else installments.push(p);
  normalizeSabInstallmentPlan();
- saveLocal();closeModal('installModal');renderInstallments();renderReports();renderAccounts();renderDashboard();renderPaymentPlanner();
+ const linkedTx=linkedTransactionId?normalizedTx(true).find(t=>t._id===linkedTransactionId):null;
+ if(linkedTx)ensureMonthlyPlannerRows(paymentMonthForTransaction(linkedTx.account,linkedTx.date));
+ saveLocal();closeModal('installModal');
+ renderInstallments();renderTransactions();renderReports();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();
+ if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage);
+ }
+ if(linkedTx){
+  const c=planCalc(p);
+  setTimeout(()=>alert(`Installment plan activated.\n\n${money(Math.abs(Number(linkedTx.amount||0)))} was moved out of the card's current non-installment balance and is now tracked as installment principal.\nRemaining installment principal: ${money(c.remaining)}\nMonthly installment: ${money(c.monthly)}\n\nThe total amount owed to the bank is not double-counted.`),50);
+ }
 });
 function editPlan(id){openInstallment(installments.find(p=>p.id===id))}
 
@@ -2811,7 +2842,7 @@ function cardPositionHero(a,m){
     <div class="cardMetricBox"><span>Credit Limit</span><b>${money(m.limit)}</b></div>
     <div class="cardMetricBox"><span>${is0955?'Bank Available':'Available Credit'}</span><b class="green">${money(m.available)}</b></div>
     <div class="cardMetricBox"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
-    <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>
+    <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>${m.creditBalance>0?`<div class="cardMetricBox"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance)}</b></div>`:''}
    </div>
    ${a.id==='sab-440880'?`<div class="reconcileBox">
     <b>SAB balance reconciliation</b>
@@ -2878,7 +2909,7 @@ function openAccount(id,returnPage){
  else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
  else if(document.getElementById('accounts')?.classList.contains('active'))accountDetailReturnPage='accounts';
  const a=account(id),rows=normalizedTx().filter(t=>t.account===id).sort((x,y)=>y.date.localeCompare(x.date));
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div></div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div></div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
@@ -3955,7 +3986,8 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  const id=$('paymentPlanId').value,p=cardPaymentPlan.find(x=>x.id===id);if(!p)return;
  const remaining=paymentRemainingAmount(p),amount=Number($('paymentAmountInput').value||0),sourceId=$('paymentSourceSelect').value,date=$('paymentDateInput').value;
  if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid payment amount.');return;}
- if(amount>remaining+0.005){alert(`Payment cannot be greater than the remaining amount ${money(remaining)}.`);return;}
+ const duePortion=Math.min(amount,Math.max(0,Number(remaining||0)));
+ const extraCredit=Math.max(0,amount-duePortion);
  if(!sourceId){alert('Select where the payment came from.');return;}
  if(sourceId==='cash-source'&&amount>remainingIncomeAvailable()+0.005){
   if(!confirm(`This payment is greater than the currently available Remaining Income / Cash & Other Expenses of ${money(remainingIncomeAvailable())}. Record it anyway?`))return;
@@ -3964,9 +3996,9 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  if(source?.type==='bank'&&amount>adjustedBankBalance(source)+0.005){
   if(!confirm(`This payment is greater than the current tracked balance of ${money(adjustedBankBalance(source))} in ${source.bank} • ${source.name}. Record it anyway?`))return;
  }
- p.paidAmount=paymentPaidAmount(p)+amount;
+ p.paidAmount=paymentPaidAmount(p)+duePortion;
  p.paymentHistory=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
- const hist={amount,date,sourceId,sourceName:sourceId==='cash-source'?'Remaining Income / Cash & Other Expenses':accountName(sourceId),recordedAt:new Date().toISOString()};
+ const hist={amount,duePortion,extraCredit,date,sourceId,sourceName:sourceId==='cash-source'?'Remaining Income / Cash & Other Expenses':accountName(sourceId),recordedAt:new Date().toISOString()};
  p.paymentHistory.push(hist);
  p.paid=paymentRemainingAmount(p)<=0.005;
  const incomeCardId=$('paymentSourceModal').dataset.incomeCardId||'';
@@ -3981,14 +4013,15 @@ $('paymentSourceForm').addEventListener('submit',e=>{
   const real=cardPaymentPlan.find(x=>x.id==='p-nbdmazeed-oct');
   if(real){
    real.paymentHistory=Array.isArray(real.paymentHistory)?real.paymentHistory:[];
-   real.paymentHistory.push({...hist});
-   real.paidAmount=paymentPaidAmount(real)+amount;
+   real.paymentHistory.push({...hist,mirrored:true});
+   real.paidAmount=paymentPaidAmount(real)+duePortion;
    real.paid=paymentRemainingAmount(real)<=0.005;
   }
  }
  saveCardPaymentPlan();closePaymentSourceModal();
  saveLocal();
  renderPaymentPlanner();renderDashboard();renderAccounts();
+ if(extraCredit>0)setTimeout(()=>alert(`Payment recorded.\n\nAmount due applied: ${money(duePortion)}\nExtra paid to card: ${money(extraCredit)}\nDashboard remaining for this payment: ${money(paymentRemainingAmount(p)||0)}\n\nThe extra amount is stored as card credit and will reduce future card usage/transactions.`),40);
  if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 });
 
@@ -4020,7 +4053,7 @@ async function init(){
    if(cloudWon)normalizeSabInstallmentPlan();
    if(!cloudWon && meta.pending) scheduleCloudAutoSave();
   }else{
-   // V78 protection: signing in never overwrites local data and never uploads
+   // V80 protection: signing in never overwrites local data and never uploads
    // until this device has been explicitly established as a trusted sync device.
    if(remote.initialized){
     cloudSetStatus('Signed in • protected device • cloud database found');
@@ -4054,7 +4087,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 }
 init();
 
-function updateV78CloudStatus(){
+function updateV80CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
  const cs=document.getElementById('cloudStatus');
  const txt=(cs?.textContent||'').toLowerCase();
@@ -4066,8 +4099,8 @@ function updateV78CloudStatus(){
   el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
  }
 }
-setInterval(updateV78CloudStatus,1200);
-setTimeout(updateV78CloudStatus,300);
+setInterval(updateV80CloudStatus,1200);
+setTimeout(updateV80CloudStatus,300);
 
 </script>
 </body>
