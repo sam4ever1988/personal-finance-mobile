@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.6 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.8 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1955,6 +1955,37 @@ function cardMetrics(a){
  const activePlans=activeInstallmentPlans(a.id);
  let futureReserved=activePlans.reduce((z,p)=>z+Math.max(0,Number(planCalc(p).remaining||0)),0);
  if(!installments.some(p=>p.cardId===a.id)&&a.extra?.['Future Installment Reserve']!=null)futureReserved=Number(a.extra['Future Installment Reserve']);
+
+ // meem / GIB Saudi •7102: bank-confirmed position.
+ // Installment edits only redistribute the utilized balance between
+ // current usage and reserved installments; they do not change bank available/utilized.
+ if(a.id==='meem-7102'){
+  const fixedTotal=8611.25;
+  const fixedAvailable=1388.75;
+  const inst=Math.min(fixedTotal,Math.max(0,futureReserved));
+  const current=Math.max(0,fixedTotal-inst);
+  const utilization=fixedTotal/10000*100;
+  return {
+   limit:10000,
+   currentBalance:current,
+   remainingInstallments:inst,
+   totalObligation:fixedTotal,
+   available:fixedAvailable,
+   bankAvailable:fixedAvailable,
+   futureReserved:inst,
+   availableBeforeInstallments:fixedAvailable+inst,
+   bankUtilized:fixedTotal,
+   utilization,
+   current,
+   inst,
+   total:fixedTotal,
+   util:utilization,
+   creditBalance:0,
+   netPosition:fixedTotal,
+   anchorCurrent:current,
+   bankConfirmed:true
+  };
+ }
 
  // Bank/source anchor before the app's post-anchor card payments.
  let anchorUtilized;
@@ -3252,7 +3283,7 @@ function openAccount(id,returnPage){
  else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
  else if(document.getElementById('accounts')?.classList.contains('active'))accountDetailReturnPage='accounts';
  const a=account(id),rows=normalizedTx().filter(t=>t.account===id).sort((x,y)=>y.date.localeCompare(x.date));
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • imported/manual transactions are recalculated by transaction date + card statement cycle':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset This Card</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transaction dates drive cycles; meem available/utilized remain bank-confirmed':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset This Card</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
