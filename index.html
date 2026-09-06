@@ -1801,8 +1801,6 @@ let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'
 
 rebuildTransactions();
 const accounts=BASE.accounts;
-normalizeCardPaymentPlan();
-removeUnbackedOfficialStatementRows();
 if(resetCardIds.has('meem-7102')){
  cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
  // Startup-safe persistence only. Do NOT call saveCardPaymentPlan()/saveLocal here:
@@ -1835,11 +1833,12 @@ let selectedCategory=Object.keys(categories)[0]||'';
 let editingTxId=null, simpleMode=null;
 window.__financeStateInitialized=true;
 
-// V103 startup-order fix:
-// normalizedTx() needs statementRule + transactionActions, so the date-driven
-// meem planner rebuild must happen only after the complete finance state exists.
+// V103: safe post-initialization planner cleanup/rebuild.
+// These functions can read normalized transactions and statement rules,
+// so they must not run until every finance-state binding above exists.
+normalizeCardPaymentPlan();
+removeUnbackedOfficialStatementRows();
 rebuildResetCardPlannerRows('meem-7102');
-
 
 const financeDB={
  name:'PersonalFinanceDB',version:1,store:'app_state',
@@ -2173,10 +2172,6 @@ function nav(page){
 }
 
 let lastMobileNavAt=0;
-
-// V96 startup-order fix: this must run only after statementRule, transactionActions,
-// accounts, reset-card state, and mobile navigation state have all been initialized.
-rebuildResetCardPlannerRows('meem-7102');
 
 function mobileNavigate(event,page){
  if(event){
