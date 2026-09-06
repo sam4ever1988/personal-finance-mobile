@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V93 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V94 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -3298,11 +3298,21 @@ function cardMonthLabel(ym){
  return new Date(y,m-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
 }
 function cardTransactionsForDetail(cardId){
- const rows=normalizedTx().filter(t=>t.account===cardId);
- if(!accountDetailTxFilter.month)return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
- return rows
-  .filter(t=>cardTransactionStatementMonth(cardId,t)===accountDetailTxFilter.month)
-  .sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ let rows=normalizedTx().filter(t=>t.account===cardId);
+
+ if(accountDetailTxFilter.month){
+  rows=rows.filter(t=>cardTransactionStatementMonth(cardId,t)===accountDetailTxFilter.month);
+ }
+
+ if(accountDetailTxFilter.fromDate){
+  rows=rows.filter(t=>String(t.date||'').slice(0,10)>=accountDetailTxFilter.fromDate);
+ }
+
+ if(accountDetailTxFilter.toDate){
+  rows=rows.filter(t=>String(t.date||'').slice(0,10)<=accountDetailTxFilter.toDate);
+ }
+
+ return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 }
 
 function resetCardData(cardId){
@@ -3425,7 +3435,7 @@ function resetCardData(cardId){
  renderIncomePlan();
  renderImportHistory();
 
- accountDetailTxFilter.month=selectedMonth;
+ accountDetailTxFilter={...accountDetailTxFilter,month:selectedMonth};
  if(document.getElementById('accountDetail')?.classList.contains('active')){
   openAccount(cardId,accountDetailReturnPage);
  }
@@ -3435,7 +3445,7 @@ function resetCardData(cardId){
 
 let accountDetailReturnPage='accounts';
 let currentAccountDetailId=null;
-let accountDetailTxFilter={month:''};
+let accountDetailTxFilter={month:'',fromDate:'',toDate:''};
 function openAccount(id,returnPage){
  currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
@@ -3445,6 +3455,11 @@ function openAccount(id,returnPage){
  const a=account(id);
  const txMonths=cardTransactionMonths(id);
  if(accountDetailTxFilter.month && !txMonths.includes(accountDetailTxFilter.month))accountDetailTxFilter.month='';
+ if(accountDetailTxFilter.fromDate && accountDetailTxFilter.toDate && accountDetailTxFilter.fromDate>accountDetailTxFilter.toDate){
+  const tmp=accountDetailTxFilter.fromDate;
+  accountDetailTxFilter.fromDate=accountDetailTxFilter.toDate;
+  accountDetailTxFilter.toDate=tmp;
+ }
  const rows=cardTransactionsForDetail(id);
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Current Usage + This Month Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
@@ -3473,12 +3488,67 @@ function openAccount(id,returnPage){
   <td><span class="badge ${c.status.toLowerCase()}">${c.status}</span></td>
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
-})()}</div><div class="splitHead" style="margin-top:18px"><div><div class="sectionTitle" style="margin:0">Transactions</div><div class="meta">${accountDetailTxFilter.month?`Statement / payment month: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statement months'}</div></div><div><select id="cardTxStatementFilter" class="input" style="min-width:220px"><option value="">All Statements</option>${txMonths.map(m=>`<option value="${m}" ${accountDetailTxFilter.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}</select></div></div>
-<div class="meta" style="margin:6px 0 9px">Filter this card by its statement/payment month. Reset Card Month uses the selected month.</div><div class="panel"><table class="txTable"><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="6">No transactions for this statement month.</td></tr>'}</tbody></table></div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
+})()}</div>
+<div class="splitHead" style="margin-top:18px">
+ <div>
+  <div class="sectionTitle" style="margin:0">Transactions</div>
+  <div class="meta">${[
+   accountDetailTxFilter.month?`Statement: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statements',
+   accountDetailTxFilter.fromDate?`From ${accountDetailTxFilter.fromDate}`:'',
+   accountDetailTxFilter.toDate?`To ${accountDetailTxFilter.toDate}`:''
+  ].filter(Boolean).join(' • ')}</div>
+ </div>
+</div>
+<div class="panel" style="margin-top:8px">
+ <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,.7fr) minmax(180px,.7fr) auto;gap:10px;align-items:end">
+  <div class="field" style="margin:0">
+   <label>Statement / Payment Month</label>
+   <select id="cardTxStatementFilter" class="input">
+    <option value="">All Statements</option>
+    ${txMonths.map(m=>`<option value="${m}" ${accountDetailTxFilter.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}
+   </select>
+  </div>
+  <div class="field" style="margin:0">
+   <label>From Date</label>
+   <input id="cardTxFromDate" type="date" class="input" value="${accountDetailTxFilter.fromDate||''}">
+  </div>
+  <div class="field" style="margin:0">
+   <label>To Date</label>
+   <input id="cardTxToDate" type="date" class="input" value="${accountDetailTxFilter.toDate||''}">
+  </div>
+  <button class="btn" id="clearCardTxFilters" type="button">Clear Filters</button>
+ </div>
+ <div class="meta" style="margin-top:8px">Statement and date filters work together. Reset Card Month still uses only the selected statement/payment month.</div>
+</div>
+<div class="panel"><table class="txTable"><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="6">No transactions match the selected filters.</td></tr>'}</tbody></table></div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
  if($('detailResetCard'))$('detailResetCard').addEventListener('click',()=>resetCardData(id));
  const statementFilter=$('cardTxStatementFilter');
  if(statementFilter)statementFilter.addEventListener('change',()=>{
   accountDetailTxFilter.month=statementFilter.value||'';
+  openAccount(id,accountDetailReturnPage);
+ });
+
+ const fromDateFilter=$('cardTxFromDate');
+ if(fromDateFilter)fromDateFilter.addEventListener('change',()=>{
+  accountDetailTxFilter.fromDate=fromDateFilter.value||'';
+  if(accountDetailTxFilter.toDate && accountDetailTxFilter.fromDate>accountDetailTxFilter.toDate){
+   accountDetailTxFilter.toDate=accountDetailTxFilter.fromDate;
+  }
+  openAccount(id,accountDetailReturnPage);
+ });
+
+ const toDateFilter=$('cardTxToDate');
+ if(toDateFilter)toDateFilter.addEventListener('change',()=>{
+  accountDetailTxFilter.toDate=toDateFilter.value||'';
+  if(accountDetailTxFilter.fromDate && accountDetailTxFilter.toDate<accountDetailTxFilter.fromDate){
+   accountDetailTxFilter.fromDate=accountDetailTxFilter.toDate;
+  }
+  openAccount(id,accountDetailReturnPage);
+ });
+
+ const clearTxFilters=$('clearCardTxFilters');
+ if(clearTxFilters)clearTxFilters.addEventListener('click',()=>{
+  accountDetailTxFilter={month:'',fromDate:'',toDate:''};
   openAccount(id,accountDetailReturnPage);
  });
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
