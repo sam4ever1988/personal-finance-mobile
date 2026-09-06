@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.8 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.9 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1064,17 +1064,38 @@ function normalizeCardPaymentPlan(){
  const meemAccount=account('meem-7102');
  const meemOfficial=!!meemAccount?.extra?.['Official Meem Statement Loaded'];
  const rebuildMeem=resetCardIds.has('meem-7102')||meemOfficial;
- if(rebuildMeem){
-  cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
- }else{
-  const meemDef={id:'p-meem-sep',accountId:'meem-7102',month:'2026-09',amount:3361.92,due:'2026-09-28',label:'Your Excel payment plan',source:'manual',note:'September payment from your meem sheet. Card remaining/available limit is SAR 1,388.75.'};
-  const existing=cardPaymentPlan.find(p=>p.id==='p-meem-sep');
-  if(existing)Object.assign(existing,meemDef,{paid:!!existing.paid});
-  else cardPaymentPlan.push({...meemDef,paid:false});
- }
 
- // Re-add other missing defaults, but never re-add the legacy meem row in rebuild mode.
+ // V91.9: the current official meem statement is the September 2026 source of truth.
+ // Statement period 03 Aug–02 Sep 2026; total amount due SAR 3,361.92 on 27 Sep 2026.
+ // Keep exactly ONE September meem row, even after card reset.
+ const existingOfficialSep=cardPaymentPlan.find(p=>p.accountId==='meem-7102'&&p.month==='2026-09'&&p.statementOfficial===true);
+ const preservedHistory=existingOfficialSep?.paymentHistory||[];
+ const preservedPaid=Number(existingOfficialSep?.paidAmount||0);
+ const preservedOverride=Number.isFinite(Number(existingOfficialSep?.manualOverrideAmount))
+  ? Number(existingOfficialSep.manualOverrideAmount)
+  : null;
+
+ cardPaymentPlan=cardPaymentPlan.filter(p=>!(p.accountId==='meem-7102'&&p.month==='2026-09'));
+ cardPaymentPlan.push({
+  id:'meem-official-2026-09',
+  accountId:'meem-7102',
+  month:'2026-09',
+  amount:3361.92,
+  statementOriginalAmount:3361.92,
+  due:'2026-09-27',
+  label:'Official meem statement',
+  source:'confirmed',
+  note:'Official GIB/meem statement 03 Aug–02 Sep 2026. Total amount due SAR 3,361.92.',
+  statementOfficial:true,
+  manualOverrideAmount:preservedOverride,
+  paidAmount:preservedPaid,
+  paymentHistory:preservedHistory,
+  paid:false
+ });
+
+ // Re-add other missing defaults, but never re-add legacy/default meem September rows.
  DEFAULT_CARD_PAYMENT_PLAN.forEach(def=>{
+  if(def.accountId==='meem-7102'&&def.month==='2026-09')return;
   if(rebuildMeem && def.accountId==='meem-7102')return;
   if(!cardPaymentPlan.some(p=>p.id===def.id))cardPaymentPlan.push({...def,paid:false});
  });
@@ -1541,6 +1562,10 @@ function adjustedConfirmedStatementAmount(p){
  return Math.max(0,Math.round((original-moved)*100)/100);
 }
 function plannerAmountForRow(p){
+ // User edit overrides the amount currently planned to pay, but does not overwrite the
+ // bank statement amount kept in statementOriginalAmount.
+ if(Number.isFinite(Number(p.manualOverrideAmount)))return Number(p.manualOverrideAmount);
+
  // Highest-priority rule: once a transaction from a statement is converted to an installment,
  // the original purchase must be removed from that statement immediately, regardless of how
  // an older version labelled the row (confirmed/manual/pending).
@@ -1581,6 +1606,9 @@ function plannerAmountForRow(p){
  return Math.round((base+manualAddition)*100)/100;
 }
 function plannerAmountExplanation(p){
+ if(p.statementOfficial===true&&p.accountId==='meem-7102'&&p.month==='2026-09'){
+  return `Official meem statement: ${money(Number(p.statementOriginalAmount||3361.92))} due 27 Sep 2026.${Number.isFinite(Number(p.manualOverrideAmount))?` Current edited payment amount: ${money(Number(p.manualOverrideAmount))}.`:''}`;
+ }
  if(p.source==='confirmed'){
   return `Statement-confirmed cycle: ${money(Number(p.amount||0))} due ${paymentFormatDate(p.due)}. New manual transactions after this statement cycle roll automatically to the next payment month.`;
  }
@@ -1671,7 +1699,7 @@ function renderPaymentPlanner(){
    <div class="amount">${displayAmount}</div>
    <div class="meta" style="margin-top:2px">${p.upcomingOnly?'Amount due in selected month':(Number.isFinite(rem)?'Amount still to pay':'Payment amount')}</div>
    <div class="meta" style="margin-top:4px">${p.due?'Due '+paymentFormatDate(p.due):'Due date pending'}</div>
-   ${p.upcomingOnly?`<div class="meta" style="margin-top:7px"><b>September due:</b> ${money(0)} &nbsp; • &nbsp; <b>Upcoming 01 Oct:</b> ${money(Number(effective||0))}${paid>0?` &nbsp; • &nbsp; <b>Early paid:</b> ${money(paid)}`:''}</div>`:(Number.isFinite(rem)?`<div class="meta" style="margin-top:7px">${statementAdjustmentTotal(p)>0?`<b>Original statement:</b> ${money(inferStatementOriginalAmount(p))} &nbsp; • &nbsp; <b>Adjusted due:</b> ${money(Number(effective||0))}`:`<b>Original due:</b> ${money(Number(effective||0))}`} &nbsp; • &nbsp; <b>Paid so far:</b> ${money(paid)} &nbsp; • &nbsp; <b>Remaining:</b> ${money(rem)}</div>`:'')}
+   ${p.upcomingOnly?`<div class="meta" style="margin-top:7px"><b>September due:</b> ${money(0)} &nbsp; • &nbsp; <b>Upcoming 01 Oct:</b> ${money(Number(effective||0))}${paid>0?` &nbsp; • &nbsp; <b>Early paid:</b> ${money(paid)}`:''}</div>`:(Number.isFinite(rem)?`<div class="meta" style="margin-top:7px">${p.statementOfficial===true?`<b>Official statement:</b> ${money(Number(p.statementOriginalAmount||p.amount||0))}${Number.isFinite(Number(p.manualOverrideAmount))?` &nbsp; • &nbsp; <b>Edited payment amount:</b> ${money(Number(p.manualOverrideAmount))}`:''}`:statementAdjustmentTotal(p)>0?`<b>Original statement:</b> ${money(inferStatementOriginalAmount(p))} &nbsp; • &nbsp; <b>Adjusted due:</b> ${money(Number(effective||0))}`:`<b>Original due:</b> ${money(Number(effective||0))}`} &nbsp; • &nbsp; <b>Paid so far:</b> ${money(paid)} &nbsp; • &nbsp; <b>Remaining:</b> ${money(rem)}</div>`:'')}
    <span class="payStatus ${p.upcomingOnly?'estimated':paymentStatusClass(p)}">${sourceTag}</span>
    <div class="sourceNote">${p.upcomingOnly?`September amount due is ${money(0)}. The ${money(Number(effective||0))} payment belongs to 01 Oct 2026 and is shown only for visibility. It is not added to September totals.`:plannerAmountExplanation(p)}</div>
    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">
@@ -1699,7 +1727,24 @@ function renderPaymentPlanner(){
  });
  document.querySelectorAll('[data-pay-partial]').forEach(b=>b.addEventListener('click',()=>recordPartialPayment(b.dataset.payPartial)));
  document.querySelectorAll('[data-pay-undo]').forEach(b=>b.addEventListener('click',()=>undoLastPartialPayment(b.dataset.payUndo)));
- document.querySelectorAll('[data-pay-edit]').forEach(b=>b.addEventListener('click',()=>{const p=cardPaymentPlan.find(x=>x.id===b.dataset.payEdit);if(!p)return;const a=prompt('Total payment due (SAR). Leave blank if pending.',p.amount??'');if(a===null)return;if(a.trim()==='')p.amount=null;else{const n=Number(a);if(!Number.isFinite(n)||n<0){alert('Enter a valid amount.');return;}p.amount=n;}const d=prompt('Due date (YYYY-MM-DD)',p.due||'');if(d!==null&&d.trim())p.due=d.trim();if(p.source==='pending'&&p.amount!==null)p.source='manual';saveCardPaymentPlan();renderPaymentPlanner();}));
+ document.querySelectorAll('[data-pay-edit]').forEach(b=>b.addEventListener('click',()=>{
+  const p=cardPaymentPlan.find(x=>x.id===b.dataset.payEdit);if(!p)return;
+  const current=plannerAmountForRow(p);
+  const a=prompt('Payment amount to use (SAR). Leave blank to return to the official statement amount.',Number.isFinite(Number(current))?Number(current).toFixed(2):'');
+  if(a===null)return;
+  if(a.trim()===''){
+   delete p.manualOverrideAmount;
+  }else{
+   const n=Number(a);
+   if(!Number.isFinite(n)||n<0){alert('Enter a valid amount.');return;}
+   if(p.source==='confirmed'||p.statementOfficial===true)p.manualOverrideAmount=n;
+   else p.amount=n;
+  }
+  const d=prompt('Due date (YYYY-MM-DD)',p.due||'');
+  if(d!==null&&d.trim())p.due=d.trim();
+  if(p.source==='pending'&&p.amount!==null)p.source='manual';
+  saveCardPaymentPlan();renderPaymentPlanner();
+ }));
 }
 
 let importedTransactions=JSON.parse(localStorage.getItem('pf_imported_transactions')||'[]');
