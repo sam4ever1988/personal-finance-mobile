@@ -519,7 +519,7 @@ button{cursor:pointer}
  <div class="sectionTitle">Accounts & Cards</div>
  <div class="accountGrid" id="accountsGrid"></div>
  <div class="sectionTitle">Credit Card Obligation Summary</div><div class="notice" style="margin:10px 0 14px"><b>Special balance rules:</b> SAB Cashback starts from your reconciled SAR 28,627.50 balance and every new manual payment/credit reduces it while every new manual purchase/fee increases it. Al Rajhi •0955 is one SAR 53,500 facility with physical cards •0955, •9345 and •9634; the XLS lands under the main account and the bank PDF is used later to assign spending to the correct card.</div><div class="reconcileCard" style="margin:12px 0"><b>Al Rajhi •0955</b><div class="meta" style="margin-top:5px">SAR 6,807.25 bank available + SAR 8,852.17 reserved installments = <b>SAR 15,659.42 available before installment reservations</b>.</div></div>
- <div class="panel"><table class="summaryTable"><thead><tr><th>Card</th><th>Current Usage</th><th>Reserved Installments</th><th>Bank Utilized / Reserved</th><th>Credit Limit</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="cardSummaryBody"></tbody></table></div>
+ <div class="panel"><table class="summaryTable"><thead><tr><th>Card</th><th>Current Usage</th><th>Future Reserved Installments</th><th>Bank Utilized / Reserved</th><th>Credit Limit</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="cardSummaryBody"></tbody></table></div>
  <div class="notice" style="margin-top:12px">Al Rajhi card balances are estimated from the uploaded transaction-period extracts because those PDFs do not contain a statement closing balance. SAB uses the statement total amount due.</div>
 </section>
 
@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V91.9 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V93 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -2001,34 +2001,65 @@ function cardMetrics(a){
  let futureReserved=activePlans.reduce((z,p)=>z+Math.max(0,Number(planCalc(p).remaining||0)),0);
  if(!installments.some(p=>p.cardId===a.id)&&a.extra?.['Future Installment Reserve']!=null)futureReserved=Number(a.extra['Future Installment Reserve']);
 
- // meem / GIB Saudi •7102: bank-confirmed position.
- // Installment edits only redistribute the utilized balance between
- // current usage and reserved installments; they do not change bank available/utilized.
+ // meem / GIB Saudi •7102 live calculation.
+ // User rule:
+ //   Current Usage = fresh card transactions + CURRENT monthly installment amount(s)
+ //   Future Future Reserved Installments = remaining installment principal - current monthly installment(s)
+ //   Outstanding / Utilized = Current Usage + Future Future Reserved Installments
+ //   Available Credit = Credit Limit - Outstanding / Utilized
+ //
+ // Deleting/editing an installment therefore immediately changes Reserved, Outstanding and Available.
  if(a.id==='meem-7102'){
-  const fixedTotal=8611.25;
-  const fixedAvailable=1388.75;
-  const inst=Math.min(fixedTotal,Math.max(0,futureReserved));
-  const current=Math.max(0,fixedTotal-inst);
-  const utilization=fixedTotal/10000*100;
+  const cardLimit=10000.00;
+
+  // Only actual card activity counts as normal usage.
+  // Converted-to-installment transactions are excluded so they are never double-counted.
+  const freshTx=normalizedTx(true).filter(t=>
+   t.account===a.id &&
+   !linkedActiveInstallment(t._id) &&
+   !['transfer','income'].includes(txType(t))
+  );
+  const normalUsage=Math.max(0,freshTx.reduce((sum,t)=>sum-Number(t.amount||0),0));
+
+  let currentMonthlyInstallments=0;
+  let futureInstallmentReserve=0;
+
+  activePlans.forEach(p=>{
+   const c=planCalc(p);
+   const remaining=Math.max(0,Number(c.remaining||0));
+   const currentMonthly=Math.min(remaining,Math.max(0,Number(c.monthly||0)));
+
+   currentMonthlyInstallments+=currentMonthly;
+   futureInstallmentReserve+=Math.max(0,remaining-currentMonthly);
+  });
+
+  const current=Math.max(0,normalUsage+currentMonthlyInstallments);
+  const inst=Math.max(0,futureInstallmentReserve);
+  const total=Math.min(cardLimit,Math.max(0,current+inst));
+  const bankAvailable=Math.max(0,cardLimit-total);
+  const utilization=cardLimit?total/cardLimit*100:0;
+
   return {
-   limit:10000,
+   limit:cardLimit,
    currentBalance:current,
    remainingInstallments:inst,
-   totalObligation:fixedTotal,
-   available:fixedAvailable,
-   bankAvailable:fixedAvailable,
+   totalObligation:total,
+   available:bankAvailable,
+   bankAvailable,
    futureReserved:inst,
-   availableBeforeInstallments:fixedAvailable+inst,
-   bankUtilized:fixedTotal,
+   availableBeforeInstallments:bankAvailable+inst,
+   bankUtilized:total,
    utilization,
    current,
    inst,
-   total:fixedTotal,
+   total,
    util:utilization,
    creditBalance:0,
-   netPosition:fixedTotal,
-   anchorCurrent:current,
-   bankConfirmed:true
+   netPosition:total,
+   anchorCurrent:normalUsage,
+   currentMonthlyInstallments,
+   normalUsage,
+   liveInstallmentModel:true
   };
  }
 
@@ -2593,7 +2624,10 @@ function deleteInstallmentPlan(id){
  renderInstallments();
  renderAccounts();
  renderDashboard();
- if(document.querySelector('.view#accountDetail.active')&&a)openAccount(a.id);
+ renderPaymentPlanner();
+ renderIncomePlan();
+ renderReports();
+ if(document.querySelector('.view#accountDetail.active')&&a)openAccount(a.id,accountDetailReturnPage);
 }
 
 
@@ -2605,7 +2639,7 @@ function confirmInstallmentCompleted(id){
  p.completedAt=new Date().toISOString().slice(0,10);
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
- renderInstallments();renderAccounts();renderDashboard();
+ renderInstallments();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();renderReports();
  if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 }
 function keepInstallmentActive(id){
@@ -2617,7 +2651,7 @@ function keepInstallmentActive(id){
  p.completedConfirmed=false;
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
- renderInstallments();renderAccounts();renderDashboard();
+ renderInstallments();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();renderReports();
 }
 
 function migrateSabAwayFromLegacySeed(){
@@ -3183,7 +3217,7 @@ function cardPositionHero(a,m){
    <div class="cardMetricGrid">
     <div class="cardMetricBox"><span>Credit Limit</span><b>${money(m.limit)}</b></div>
     <div class="cardMetricBox"><span>${is0955?'Bank Available':'Available Credit'}</span><b class="green">${money(m.available)}</b></div>
-    <div class="cardMetricBox"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
+    <div class="cardMetricBox"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
     <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>${m.creditBalance>0?`<div class="cardMetricBox"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance)}</b></div>`:''}
    </div>
    ${a.id==='sab-440880'?`<div class="reconcileBox">
@@ -3242,93 +3276,177 @@ $('balanceOfferForm').addEventListener('submit',e=>{
  localStorage.setItem('pf_installments',JSON.stringify(installments));saveLocal();closeBalanceOffer();renderInstallments();renderAccounts();renderDashboard();openAccount(cardId);
 });
 
+
+function cardTransactionStatementMonth(cardId,t){
+ if(!t)return '';
+ // For card views use the card's own statement/payment cycle.
+ // This keeps a transaction in the same month used by the Payment Planner.
+ return paymentMonthForTransaction(cardId,t.date);
+}
+function cardTransactionMonths(cardId){
+ const months=new Set();
+ normalizedTx(true).filter(t=>t.account===cardId).forEach(t=>{
+  const m=cardTransactionStatementMonth(cardId,t);
+  if(m)months.add(m);
+ });
+ return [...months].sort().reverse();
+}
+function cardMonthLabel(ym){
+ if(!ym)return 'All Statements';
+ const [y,m]=String(ym).split('-').map(Number);
+ if(!Number.isFinite(y)||!Number.isFinite(m))return ym;
+ return new Date(y,m-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+}
+function cardTransactionsForDetail(cardId){
+ const rows=normalizedTx().filter(t=>t.account===cardId);
+ if(!accountDetailTxFilter.month)return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ return rows
+  .filter(t=>cardTransactionStatementMonth(cardId,t)===accountDetailTxFilter.month)
+  .sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+
 function resetCardData(cardId){
  const a=account(cardId);if(!a||a.type!=='card')return;
  const label=`${a.bank} • ${a.name} •${a.ending}`;
- const baseRows=BASE.transactions.map((t,i)=>({...t,_id:'tx'+i})).filter(t=>t.account===cardId);
- const manualRows=manualTransactions.filter(t=>t.account===cardId);
- const importedRows=importedTransactions.filter(t=>t.account===cardId);
- const ids=new Set([...baseRows,...manualRows,...importedRows].map(t=>t._id).filter(Boolean));
- const instCount=installments.filter(p=>p.cardId===cardId).length;
- const plannerCount=cardPaymentPlan.filter(p=>p.accountId===cardId).length;
+ const months=cardTransactionMonths(cardId);
 
- if(!confirm(`Reset ${label}?
+ if(!months.length){
+  alert(`No transaction statements are available to reset for ${label}.`);
+  return;
+ }
 
-This clears this card's financial data so you can rebuild it:
-• ${baseRows.length+manualRows.length+importedRows.length} transactions
-• ${instCount} installment plan(s)
-• ${plannerCount} payment-plan row(s)
-• payments where this card was either the paid card or the payment source
+ // If the user is currently filtering the card by a statement month, reset that month.
+ // Otherwise ask which statement month should be reset.
+ let selectedMonth=accountDetailTxFilter.month;
+ if(!selectedMonth || !months.includes(selectedMonth)){
+  const answer=prompt(
+   `Choose the statement/payment month to reset for ${label}.\n\n`+
+   months.map(m=>`${m} — ${cardMonthLabel(m)}`).join('\n')+
+   `\n\nEnter YYYY-MM:`,
+   months[0]
+  );
+  if(answer===null)return;
+  selectedMonth=String(answer||'').trim();
+ }
 
-The card itself, credit limit and statement-cycle settings stay.
+ if(!months.includes(selectedMonth)){
+  alert('Please choose one of the available statement months.');
+  return;
+ }
 
-After reset, enter/import the transactions again. Each transaction date will determine the correct statement/payment month.
+ const baseRows=BASE.transactions.map((t,i)=>({...t,_id:'tx'+i}))
+  .filter(t=>t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth);
+ const manualRows=manualTransactions
+  .filter(t=>t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth);
+ const importedRows=importedTransactions
+  .filter(t=>t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth);
 
-Continue?`))return;
+ const allResetRows=[...baseRows,...manualRows,...importedRows];
+ const ids=new Set(allResetRows.map(t=>t._id).filter(Boolean));
 
- resetCardIds.add(cardId);
- manualTransactions=manualTransactions.filter(t=>t.account!==cardId);
- importedTransactions=importedTransactions.filter(t=>t.account!==cardId);
- installments=installments.filter(p=>p.cardId!==cardId);
+ const linkedPlans=installments.filter(p=>
+  p.cardId===cardId && p.linkedTransactionId && ids.has(p.linkedTransactionId)
+ );
+ const plannerRows=cardPaymentPlan.filter(p=>p.accountId===cardId && p.month===selectedMonth);
 
- // Remove own planner rows and cross-card payment histories involving this card.
- cardPaymentPlan=cardPaymentPlan.filter(p=>p.accountId!==cardId);
+ const ok=confirm(
+  `Reset ${label} — ${cardMonthLabel(selectedMonth)}?\n\n`+
+  `This will delete ONLY this statement month's:\n`+
+  `• ${allResetRows.length} transaction(s)\n`+
+  `• ${linkedPlans.length} installment plan(s) created from those transactions\n`+
+  `• ${plannerRows.length} payment-plan row(s)\n\n`+
+  `Other months/statements on this card will remain unchanged.`
+ );
+ if(!ok)return;
+
+ // Built-in/base transactions are suppressed with a delete action.
+ baseRows.forEach(t=>{
+  transactionActions[t._id]={
+   status:'deleted',
+   reason:`Reset ${label} — ${selectedMonth}`,
+   updatedAt:new Date().toISOString()
+  };
+ });
+
+ // User/import transactions are physically removed only for the selected statement month.
+ manualTransactions=manualTransactions.filter(t=>!(
+  t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth
+ ));
+ importedTransactions=importedTransactions.filter(t=>!(
+  t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth
+ ));
+
+ // Remove only installment plans linked to transactions from this reset month.
+ installments=installments.filter(p=>!(
+  p.cardId===cardId && p.linkedTransactionId && ids.has(p.linkedTransactionId)
+ ));
+
+ // Remove only this card's planner row for this month.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>!(p.accountId===cardId && p.month===selectedMonth));
+
+ // Remove only payment history in this month where this card was target/source.
  cardPaymentPlan.forEach(p=>{
-  p.paymentHistory=(p.paymentHistory||[]).filter(h=>h.sourceId!==cardId && h.targetCardId!==cardId);
-  p.paidAmount=(p.paymentHistory||[]).filter(h=>!h.mirrored).reduce((s,h)=>s+Number(h.duePortion!=null?h.duePortion:h.amount||0),0);
+  p.paymentHistory=(p.paymentHistory||[]).filter(h=>{
+   const historyMonth=paymentBudgetMonth(h);
+   const related=(p.accountId===cardId || h.sourceId===cardId || h.targetCardId===cardId);
+   return !(related && historyMonth===selectedMonth);
+  });
+  p.paidAmount=(p.paymentHistory||[]).filter(h=>!h.mirrored)
+   .reduce((s,h)=>s+Number(h.duePortion!=null?h.duePortion:h.amount||0),0);
   p.paid=paymentRemainingAmount(p)<=0.005;
  });
 
- ids.forEach(id=>delete transactionActions[id]);
-
- // Remove stale card-specific anchors. From now on fresh transactions + fresh installments drive the figures.
- if(a.extra){
-  delete a.extra['Bank Available'];
-  delete a.extra['Current Outstanding'];
-  delete a.extra['Current Non-Installment Usage'];
-  delete a.extra['Future Installment Reserve'];
- }
- delete bankBalanceOverrides[cardId];
-
  cardResetHistory.unshift({
-  cardId,label,resetAt:new Date().toISOString(),
-  removedTransactions:baseRows.length+manualRows.length+importedRows.length,
-  removedInstallments:instCount,removedPlannerRows:plannerCount
+  cardId,label,month:selectedMonth,
+  resetAt:new Date().toISOString(),
+  removedTransactions:allResetRows.length,
+  removedInstallments:linkedPlans.length,
+  removedPlannerRows:plannerRows.length
  });
  cardResetHistory=cardResetHistory.slice(0,100);
 
- localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
  localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
  localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
  localStorage.setItem('pf_imported_transactions',JSON.stringify(importedTransactions));
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
  localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
- localStorage.setItem('pf_accounts',JSON.stringify(accounts));
 
  rebuildTransactions();
- ensureMonthlyPlannerRows(currentYearMonth());
- ensureMonthlyPlannerRows(addMonthsToYM(currentYearMonth(),1));
+ ensureMonthlyPlannerRows(selectedMonth);
  saveLocal();
 
- renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderReports();renderPaymentPlanner();renderIncomePlan();renderImportHistory();
- if(document.getElementById('accountDetail')?.classList.contains('active'))openAccount(cardId,accountDetailReturnPage);
+ renderDashboard();
+ renderAccounts();
+ renderTransactions();
+ renderInstallments();
+ renderReports();
+ renderPaymentPlanner();
+ renderIncomePlan();
+ renderImportHistory();
 
- alert(`${label} is reset.
+ accountDetailTxFilter.month=selectedMonth;
+ if(document.getElementById('accountDetail')?.classList.contains('active')){
+  openAccount(cardId,accountDetailReturnPage);
+ }
 
-Enter/import its transactions again. The app will place them into payment months according to each transaction date and this card's statement cycle.`);
+ alert(`${label} — ${cardMonthLabel(selectedMonth)} was reset. Other statement months were not changed.`);
 }
 
 let accountDetailReturnPage='accounts';
 let currentAccountDetailId=null;
+let accountDetailTxFilter={month:''};
 function openAccount(id,returnPage){
  currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
  else if(document.getElementById('incomeplan')?.classList.contains('active'))accountDetailReturnPage='incomeplan';
  else if(document.getElementById('dashboard')?.classList.contains('active'))accountDetailReturnPage='dashboard';
  else if(document.getElementById('accounts')?.classList.contains('active'))accountDetailReturnPage='accounts';
- const a=account(id),rows=normalizedTx().filter(t=>t.account===id).sort((x,y)=>y.date.localeCompare(x.date));
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transaction dates drive cycles; meem available/utilized remain bank-confirmed':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset This Card</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Normal Usage Outside Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ const a=account(id);
+ const txMonths=cardTransactionMonths(id);
+ if(accountDetailTxFilter.month && !txMonths.includes(accountDetailTxFilter.month))accountDetailTxFilter.month='';
+ const rows=cardTransactionsForDetail(id);
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Manual tracked balance • updates with each manual transaction':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Current Usage + This Month Installments</span><b class="red">${money(m.current)}</b></div><div class="miniMetric"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
@@ -3355,9 +3473,14 @@ function openAccount(id,returnPage){
   <td><span class="badge ${c.status.toLowerCase()}">${c.status}</span></td>
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
-})()}</div><div class="sectionTitle">Transactions</div>
-<div class="meta" style="margin:-6px 0 9px">These transactions are the amounts currently used to reconcile this card's tracked usage. Imported/manual duplicate review still applies globally.</div><div class="panel"><table class="txTable"><tbody>${rows.map(txRow6).join('')}</tbody></table></div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
+})()}</div><div class="splitHead" style="margin-top:18px"><div><div class="sectionTitle" style="margin:0">Transactions</div><div class="meta">${accountDetailTxFilter.month?`Statement / payment month: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statement months'}</div></div><div><select id="cardTxStatementFilter" class="input" style="min-width:220px"><option value="">All Statements</option>${txMonths.map(m=>`<option value="${m}" ${accountDetailTxFilter.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}</select></div></div>
+<div class="meta" style="margin:6px 0 9px">Filter this card by its statement/payment month. Reset Card Month uses the selected month.</div><div class="panel"><table class="txTable"><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="6">No transactions for this statement month.</td></tr>'}</tbody></table></div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
  if($('detailResetCard'))$('detailResetCard').addEventListener('click',()=>resetCardData(id));
+ const statementFilter=$('cardTxStatementFilter');
+ if(statementFilter)statementFilter.addEventListener('change',()=>{
+  accountDetailTxFilter.month=statementFilter.value||'';
+  openAccount(id,accountDetailReturnPage);
+ });
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
  document.querySelectorAll('[data-detail-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.detailDeletePlan)));
  document.querySelectorAll('[data-open-installments-page]').forEach(b=>b.addEventListener('click',()=>{renderInstallments();nav('installments');window.scrollTo({top:0,behavior:'smooth'});}));}
