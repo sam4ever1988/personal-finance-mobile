@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V107 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V108 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -781,10 +781,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V107 PRODUCTION</span></div>
+  </div><span class="pill green">V108 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V107</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V107-20260906</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V108</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V108-20260906</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -2098,6 +2098,22 @@ function installmentOriginalPrincipalForCard(cardId){
  return installments.filter(p=>p.cardId===cardId)
   .reduce((sum,p)=>sum+Math.max(0,Number(p.fullAmount||0)),0);
 }
+
+function activeManualCardBalanceDelta(cardId){
+ // User-entered card transactions after the baseline statement/bank position:
+ // negative amount = purchase/fee -> increases utilization
+ // positive amount = payment/credit -> decreases utilization / increases available credit
+ // Transactions moved into active installments are excluded to avoid double counting.
+ return normalizedTx()
+  .filter(t=>t.account===cardId && t.manual && !linkedActiveInstallment(t._id))
+  .reduce((sum,t)=>sum-Number(t.amount||0),0);
+}
+function activeManualCardCredits(cardId){
+ return normalizedTx()
+  .filter(t=>t.account===cardId && t.manual && Number(t.amount||0)>0)
+  .reduce((sum,t)=>sum+Number(t.amount||0),0);
+}
+
 function cardMetrics(a){
  const limit=Number(a.extra?.['Credit Limit']||0),explicitAvailable=a.extra?.['Bank Available'],explicitOutstanding=a.extra?.['Current Outstanding'];
  const activePlans=activeInstallmentPlans(a.id);
@@ -2124,6 +2140,7 @@ function cardMetrics(a){
    !['transfer','income'].includes(txType(t))
   );
   const normalUsage=Math.max(0,freshTx.reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0));
+  const manualCredits=activeManualCardCredits(a.id);
 
   let currentMonthlyInstallments=0;
   let futureInstallmentReserve=0;
@@ -2137,10 +2154,16 @@ function cardMetrics(a){
    futureInstallmentReserve+=Math.max(0,remaining-currentMonthly);
   });
 
-  const current=Math.max(0,normalUsage+currentMonthlyInstallments);
+  const grossCurrent=Math.max(0,normalUsage+currentMonthlyInstallments);
   const inst=Math.max(0,futureInstallmentReserve);
-  const total=Math.min(cardLimit,Math.max(0,current+inst));
-  const bankAvailable=Math.max(0,cardLimit-total);
+  const grossTotal=Math.max(0,grossCurrent+inst);
+
+  // Manual positive transactions are extra payments/credits on the card.
+  // They reduce utilized balance immediately and therefore increase available credit.
+  const total=Math.min(cardLimit,Math.max(0,grossTotal-manualCredits));
+  const overCredit=Math.max(0,manualCredits-grossTotal);
+  const current=Math.max(0,total-Math.min(total,inst));
+  const bankAvailable=Math.max(0,cardLimit-total)+overCredit;
   const utilization=cardLimit?total/cardLimit*100:0;
 
   return {
@@ -2158,8 +2181,8 @@ function cardMetrics(a){
    inst,
    total,
    util:utilization,
-   creditBalance:0,
-   netPosition:total,
+   creditBalance:manualCredits+overCredit,
+   netPosition:total-overCredit,
    anchorCurrent:normalUsage,
    currentMonthlyInstallments,
    normalUsage,
@@ -2180,13 +2203,19 @@ function cardMetrics(a){
  // accounting method used conceptually for Al Rajhi •0955: current usage + remaining reserve.
  let anchorCurrent;
  if(resetCardIds.has(a.id)){
-  const fresh=normalizedTx(true).filter(t=>t.account===a.id && !linkedActiveInstallment(t._id));
+  const fresh=normalizedTx().filter(t=>t.account===a.id && !linkedActiveInstallment(t._id));
   anchorCurrent=Math.max(0,fresh.reduce((sum,t)=>sum-Number(t.amount||0),0));
  }else if(a.extra?.['Current Non-Installment Usage']!=null){
   anchorCurrent=Math.max(0,Number(a.extra['Current Non-Installment Usage']));
  }else{
   const originalReserve=installmentOriginalPrincipalForCard(a.id);
   anchorCurrent=Math.max(0,anchorUtilized-Math.min(anchorUtilized,originalReserve));
+ }
+
+ // For non-reset cards, user-entered transactions happen after the baseline statement/bank position.
+ // SAB already applies them inside sabManualBalanceAdjustment(), so exclude it here.
+ if(!resetCardIds.has(a.id) && a.id!=='sab-440880'){
+  anchorCurrent+=activeManualCardBalanceDelta(a.id);
  }
 
  // Payments made TO this card reduce current usage. Using this card as a payment source increases it.
@@ -2205,7 +2234,8 @@ function cardMetrics(a){
  const inst=Math.min(total,futureReserved);
  const availableBeforeInstallments=bankAvailable+inst;
  const utilization=limit?total/limit*100:0;
- return {limit,currentBalance:current,remainingInstallments:inst,totalObligation:total,available:bankAvailable,bankAvailable,futureReserved:inst,availableBeforeInstallments,bankUtilized:total,utilization,current,inst,total,util:utilization,creditBalance,netPosition:total-creditBalance,anchorCurrent};
+ const manualCredits=activeManualCardCredits(a.id);
+ return {limit,currentBalance:current,remainingInstallments:inst,totalObligation:total,available:bankAvailable,bankAvailable,futureReserved:inst,availableBeforeInstallments,bankUtilized:total,utilization,current,inst,total,util:utilization,creditBalance:Math.max(creditBalance,manualCredits),netPosition:total-creditBalance,anchorCurrent};
 }
 function currentBankBalance(){const a=accounts.find(a=>a.id==='ar-current');return a?adjustedBankBalance(a):0}
 function summaryData(rows=normalizedTx()){
@@ -2472,7 +2502,8 @@ function bulkDeleteSelected(){
  const now=new Date().toISOString();
  ids.forEach(id=>transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now});
  selectedTxIds.clear();
- saveLocal();renderTransactions();renderReports();renderDashboard();renderAccounts();renderReviewAlerts();renderTxHistory();
+ saveLocal();
+ refreshAfterTransactionChange();
 }
 function bindTxRows(){
  document.querySelectorAll('[data-select-tx]').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
@@ -2539,13 +2570,34 @@ function fillStatementMonthFilter(){
  if(vals.includes(keep))sel.value=keep;
 }
 
+
+function refreshAfterTransactionChange(accountId=''){
+ rebuildTransactions();
+ renderTransactions();
+ renderReports();
+ renderDashboard();
+ renderAccounts();
+ renderPaymentPlanner();
+ renderIncomePlan();
+ renderInstallments();
+ renderReviewAlerts();
+ renderTxHistory();
+ if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage);
+ }
+}
+
 function setTxAction(id,status,reason='',pairedWith=''){
+ const t=normalizedTx(true).find(x=>x._id===id);
  transactionActions[id]={status,reason,pairedWith,updatedAt:new Date().toISOString()};
- saveLocal();renderTransactions();renderReports();renderDashboard();renderAccounts();renderReviewAlerts();
+ saveLocal();
+ refreshAfterTransactionChange(t?.account||'');
 }
 function restoreTx(id){
+ const t=normalizedTx(true).find(x=>x._id===id);
  delete transactionActions[id];
- saveLocal();renderTransactions();renderReports();renderDashboard();renderAccounts();renderReviewAlerts();renderTxHistory();
+ saveLocal();
+ refreshAfterTransactionChange(t?.account||'');
 }
 function deleteTransactionRecord(id){
  const t=normalizedTx(true).find(x=>x._id===id);if(!t)return;
@@ -2560,7 +2612,7 @@ function resolveDuplicate(aId,bId,keepId){
  duplicateDecisions[duplicatePairKey(a,b)]='duplicate';
  transactionActions[removeId]={status:'excluded-duplicate',reason:`Duplicate of ${keep.description}`,pairedWith:keepId,updatedAt:new Date().toISOString()};
  if(transactionActions[keepId]?.status==='excluded-duplicate')delete transactionActions[keepId];
- saveLocal();renderTransactions();renderReports();renderDashboard();renderAccounts();renderReviewAlerts();
+ saveLocal();refreshAfterTransactionChange(remove.account);
  alert(`Duplicate resolved.\n\nKept: ${keep.description}\nExcluded: ${remove.description}\n\nThe excluded item will no longer count in totals, reports or cash flow, but remains available in history.`);
 }
 
@@ -3210,10 +3262,7 @@ $('manualTxForm').addEventListener('submit',e=>{
  saveLocal();closeModal('manualTxModal');
  const makePlan=$('manualTxInstallment').checked&&isEligibleInstallmentTx(tx);
  ensureMonthlyPlannerRows(paymentMonthForTransaction(tx.account,tx.date));
- renderTransactions();renderReports();renderDashboard();renderAccounts();renderPaymentPlanner();
- if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
-  openAccount(currentAccountDetailId,accountDetailReturnPage);
- }
+ refreshAfterTransactionChange(tx.account);
  if(makePlan)openInstallment({cardId:tx.account,description:tx.description,category:tx.category,subcategory:tx.subcategory,fullAmount:Math.abs(tx.amount),months:3,startMonth:tx.date.slice(0,7),paidInstallments:0,linkedTransactionId:tx._id,source:'Converted from manual transaction'});
 });
 
