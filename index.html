@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V94 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V95 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1056,55 +1056,31 @@ function saveCardPaymentPlan(){
 }
 
 function normalizeCardPaymentPlan(){
- // Remove legacy meem August row.
- cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-aug');
+ // Remove obsolete legacy meem rows that were hard-coded in older versions.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-aug' && p.id!=='p-meem-sep');
 
- // V91.3: after meem is reset or an official meem statement is loaded,
- // the legacy Excel payment row must never be recreated.
- const meemAccount=account('meem-7102');
- const meemOfficial=!!meemAccount?.extra?.['Official Meem Statement Loaded'];
- const rebuildMeem=resetCardIds.has('meem-7102')||meemOfficial;
-
- // V91.9: the current official meem statement is the September 2026 source of truth.
- // Statement period 03 Aug–02 Sep 2026; total amount due SAR 3,361.92 on 27 Sep 2026.
- // Keep exactly ONE September meem row, even after card reset.
- const existingOfficialSep=cardPaymentPlan.find(p=>p.accountId==='meem-7102'&&p.month==='2026-09'&&p.statementOfficial===true);
- const preservedHistory=existingOfficialSep?.paymentHistory||[];
- const preservedPaid=Number(existingOfficialSep?.paidAmount||0);
- const preservedOverride=Number.isFinite(Number(existingOfficialSep?.manualOverrideAmount))
-  ? Number(existingOfficialSep.manualOverrideAmount)
-  : null;
-
- cardPaymentPlan=cardPaymentPlan.filter(p=>!(p.accountId==='meem-7102'&&p.month==='2026-09'));
- cardPaymentPlan.push({
-  id:'meem-official-2026-09',
-  accountId:'meem-7102',
-  month:'2026-09',
-  amount:3361.92,
-  statementOriginalAmount:3361.92,
-  due:'2026-09-27',
-  label:'Official meem statement',
-  source:'confirmed',
-  note:'Official GIB/meem statement 03 Aug–02 Sep 2026. Total amount due SAR 3,361.92.',
-  statementOfficial:true,
-  manualOverrideAmount:preservedOverride,
-  paidAmount:preservedPaid,
-  paymentHistory:preservedHistory,
-  paid:false
- });
-
- // Re-add other missing defaults, but never re-add legacy/default meem September rows.
+ // V95: Official statement rows are NEVER manufactured here.
+ // A statementOfficial row may exist only when an actual statement file was imported.
+ // If no official row exists for a cycle, Payment Planner falls back to date-driven
+ // manual/imported transactions + active installment monthly commitment.
  DEFAULT_CARD_PAYMENT_PLAN.forEach(def=>{
-  if(def.accountId==='meem-7102'&&def.month==='2026-09')return;
-  if(rebuildMeem && def.accountId==='meem-7102')return;
+  if(def.accountId==='meem-7102')return; // meem is fully statement/date-driven now.
   if(!cardPaymentPlan.some(p=>p.id===def.id))cardPaymentPlan.push({...def,paid:false});
  });
 
- // De-duplicate by id, preserving first user record.
- cardPaymentPlan=cardPaymentPlan.filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+ // Remove duplicate rows for the same card/month:
+ // priority = official statement > explicit manual row > rolling/auto row.
+ const priority=p=>p.statementOfficial===true?3:(p.source==='manual'?2:1);
+ const grouped=new Map();
+ cardPaymentPlan.forEach(p=>{
+  const key=`${p.accountId}|${p.month}`;
+  const existing=grouped.get(key);
+  if(!existing || priority(p)>priority(existing))grouped.set(key,p);
+ });
+ cardPaymentPlan=[...grouped.values()];
+
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
 }
-
 
 function allPaymentHistory(){
  return cardPaymentPlan.flatMap(p=>(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored).map(h=>({...h,targetCardId:p.accountId,paymentPlanId:p.id})));
@@ -1414,11 +1390,21 @@ function paymentMonthForTransaction(cardId,dateValue){
  const d=new Date(String(dateValue||'')+'T00:00:00');
  if(Number.isNaN(d.getTime()))return currentYearMonth();
  const txMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
- const statementMonth=d.getDate()<=Number(cyc.statementDay||1)?txMonth:addMonthsToYM(txMonth,1);
- return Number(cyc.dueDay||25)>=Number(cyc.statementDay||1)?statementMonth:addMonthsToYM(statementMonth,1);
+
+ // meem / GIB Saudi •7102 statement period is the 3rd through the 2nd.
+ // Example: 03 Aug–02 Sep belongs to the September statement.
+ const cutoffDay=cardId==='meem-7102'?2:Number(cyc.statementDay||1);
+ const statementMonth=d.getDate()<=cutoffDay?txMonth:addMonthsToYM(txMonth,1);
+
+ // meem due date is within the same statement month (27th).
+ if(cardId==='meem-7102')return statementMonth;
+
+ return Number(cyc.dueDay||25)>=Number(cyc.statementDay||1)
+  ? statementMonth
+  : addMonthsToYM(statementMonth,1);
 }
 function resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth){
- if(!resetCardIds.has(cardId))return null;
+ if(!resetCardIds.has(cardId) && cardId!=='meem-7102')return null;
  return normalizedTx().filter(t=>{
   if(t.account!==cardId)return false;
   if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
@@ -1467,6 +1453,11 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
  },0);
 }
 function provisionalPaymentForMonth(cardId,paymentMonth){
+ if(cardId==='meem-7102'){
+  const transactionAmount=Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0);
+  const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
+  return Math.round((transactionAmount+installment)*100)/100;
+ }
  if(cardId==='sab-440880' && !resetCardIds.has(cardId)){
   const sabPlans=installments.filter(p=>p.cardId==='sab-440880' && p.planType==='balance-offer' && !p.completedConfirmed);
   if(sabPlans.length){
@@ -1480,7 +1471,7 @@ function provisionalPaymentForMonth(cardId,paymentMonth){
  return Math.round((transactionAmount+installment)*100)/100;
 }
 function rebuildResetCardPlannerRows(cardId){
- if(!resetCardIds.has(cardId))return;
+ if(!resetCardIds.has(cardId) && cardId!=='meem-7102')return;
  // Remove legacy/fixed rows for this reset card. New rows are rebuilt from the fresh transactions.
  cardPaymentPlan=cardPaymentPlan.filter(p=>p.accountId!==cardId || p.statementOfficial===true);
 
@@ -1491,6 +1482,7 @@ function rebuildResetCardPlannerRows(cardId){
   const c=planCalc(p);
   for(let i=0;i<Math.max(1,Number(c.remainingCount||1));i++)months.add(addMonthsToYM(start,i));
  });
+ if(cardId==='meem-7102')months.add(currentYearMonth());
  if(!months.size)months.add(currentYearMonth());
 
  [...months].sort().forEach(month=>{
@@ -1606,8 +1598,8 @@ function plannerAmountForRow(p){
  return Math.round((base+manualAddition)*100)/100;
 }
 function plannerAmountExplanation(p){
- if(p.statementOfficial===true&&p.accountId==='meem-7102'&&p.month==='2026-09'){
-  return `Official meem statement: ${money(Number(p.statementOriginalAmount||3361.92))} due 27 Sep 2026.${Number.isFinite(Number(p.manualOverrideAmount))?` Current edited payment amount: ${money(Number(p.manualOverrideAmount))}.`:''}`;
+ if(p.statementOfficial===true&&p.accountId==='meem-7102'){
+  return `Official meem statement uploaded for ${cardMonthLabel(p.month)}: ${money(Number(p.statementOriginalAmount||p.amount||0))}${p.due?` due ${paymentFormatDate(p.due)}`:''}.${Number.isFinite(Number(p.manualOverrideAmount))?` Current edited payment amount: ${money(Number(p.manualOverrideAmount))}.`:''}`;
  }
  if(p.source==='confirmed'){
   return `Statement-confirmed cycle: ${money(Number(p.amount||0))} due ${paymentFormatDate(p.due)}. New manual transactions after this statement cycle roll automatically to the next payment month.`;
@@ -1620,9 +1612,11 @@ function plannerAmountExplanation(p){
   }
  }
  if(p.autoGenerated || p.source==='rolling'){
-  const manual=manualCardAmountForPaymentMonth(p.accountId,p.month);
+  const activity=p.accountId==='meem-7102'
+   ? Number(resetCardTransactionAmountForPaymentMonth(p.accountId,p.month)||0)
+   : manualCardAmountForPaymentMonth(p.accountId,p.month);
   const installment=installmentAmountForPaymentMonth(p.accountId,p.month);
-  return `Rolling cycle: ${money(manual)} new manual card activity + ${money(installment)} installment commitment = ${money(plannerAmountForRow(p))}. A released statement will replace/freeze this cycle.`;
+  return `${p.accountId==='meem-7102'?'Date-driven cycle':'Rolling cycle'}: ${money(activity)} transaction activity + ${money(installment)} installment commitment = ${money(plannerAmountForRow(p))}. ${p.accountId==='meem-7102'?'If an official statement is uploaded for this cycle, the statement amount will replace this estimate.':'A released statement will replace/freeze this cycle.'}`;
  }
  const manual=rollingAdditionForExistingPlan(p);
  return `${p.label||'Planned cycle'}: base ${money(Number(p.amount||0))}${manual>0?` + ${money(manual)} new manual activity`:''} = ${money(plannerAmountForRow(p))}.`;
@@ -1738,7 +1732,11 @@ function renderPaymentPlanner(){
    const n=Number(a);
    if(!Number.isFinite(n)||n<0){alert('Enter a valid amount.');return;}
    if(p.source==='confirmed'||p.statementOfficial===true)p.manualOverrideAmount=n;
-   else p.amount=n;
+   else{
+    p.manualOverrideAmount=n;
+    p.source='manual';
+    p.label=p.accountId==='meem-7102'?'Manual payment amount':'Manual payment plan';
+   }
   }
   const d=prompt('Due date (YYYY-MM-DD)',p.due||'');
   if(d!==null&&d.trim())p.due=d.trim();
@@ -1762,6 +1760,7 @@ let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'
 rebuildTransactions();
 const accounts=BASE.accounts;
 normalizeCardPaymentPlan();
+rebuildResetCardPlannerRows('meem-7102');
 if(resetCardIds.has('meem-7102')){
  cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-sep');
  // Startup-safe persistence only. Do NOT call saveCardPaymentPlan()/saveLocal here:
@@ -3391,8 +3390,23 @@ function resetCardData(cardId){
   p.cardId===cardId && p.linkedTransactionId && ids.has(p.linkedTransactionId)
  ));
 
- // Remove only this card's planner row for this month.
+ // Remove only this card's planner/official-statement row for this month.
  cardPaymentPlan=cardPaymentPlan.filter(p=>!(p.accountId===cardId && p.month===selectedMonth));
+
+ // If the reset month was the last uploaded meem official statement, remove its metadata too.
+ if(cardId==='meem-7102'){
+  const card=account(cardId);
+  if(card?.extra?.['Last Official Meem Statement Month']===selectedMonth){
+   delete card.extra['Last Official Meem Statement Month'];
+   delete card.extra['Last Statement Total Due'];
+   delete card.extra['Last Statement Minimum Due'];
+   delete card.extra['Last Statement Due Date'];
+   delete card.extra['Last Statement Start'];
+   delete card.extra['Last Statement End'];
+   delete card.extra['Last Statement Closing Balance'];
+   localStorage.setItem('pf_accounts',JSON.stringify(accounts));
+  }
+ }
 
  // Remove only payment history in this month where this card was target/source.
  cardPaymentPlan.forEach(p=>{
@@ -3771,13 +3785,13 @@ function applyMeemOfficialStatement(meta){
  if(!meta||meta.type!=='meem-official')return {updated:false};
  const card=account('meem-7102');if(!card)return {updated:false};
 
- // Remove legacy/manual/rolling duplicates. Keep historical official rows only if they are for another due month.
- const payMonth=meta.dueDate?String(meta.dueDate).slice(0,7):'2026-08';
- cardPaymentPlan=cardPaymentPlan.filter(p=>{
-  if(p.accountId!=='meem-7102')return true;
-  if(p.statementOfficial===true && p.month!==payMonth)return true;
-  return false;
- });
+ // Link this uploaded statement only to its own payment/statement month.
+ const payMonth=meta.dueDate
+  ? String(meta.dueDate).slice(0,7)
+  : (meta.statementEnd?String(meta.statementEnd).slice(0,7):currentYearMonth());
+
+ // Replace only meem rows for THIS cycle. Other statement months stay untouched.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>!(p.accountId==='meem-7102' && p.month===payMonth));
 
  // Official bank statement is the source of truth for its cycle.
  if(Number.isFinite(Number(meta.totalDue))){
@@ -3792,6 +3806,10 @@ function applyMeemOfficialStatement(meta){
    note:`Official GIB/meem statement${meta.statementStart&&meta.statementEnd?` ${meta.statementStart} to ${meta.statementEnd}`:''}. Total amount due ${money(Number(meta.totalDue))}.`,
    statementOfficial:true,
    statementOriginalAmount:Number(meta.totalDue),
+   statementFileName:meta.fileName||'',
+   statementStart:meta.statementStart||'',
+   statementEnd:meta.statementEnd||'',
+   importedAt:new Date().toISOString(),
    paid:false,paidAmount:0,paymentHistory:[]
   });
  }
@@ -3805,7 +3823,7 @@ function applyMeemOfficialStatement(meta){
  (meta.plans||[]).forEach(p=>installments.push({...p}));
 
  card.extra=card.extra||{};
- card.extra['Official Meem Statement Loaded']=true;
+ card.extra['Last Official Meem Statement Month']=payMonth;
  if(Number.isFinite(Number(meta.closingBalance)))card.extra['Last Statement Closing Balance']=Number(meta.closingBalance);
  if(Number.isFinite(Number(meta.totalDue)))card.extra['Last Statement Total Due']=Number(meta.totalDue);
  if(Number.isFinite(Number(meta.minimumDue)))card.extra['Last Statement Minimum Due']=Number(meta.minimumDue);
