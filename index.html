@@ -751,7 +751,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V108 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V109 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -781,10 +781,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V108 PRODUCTION</span></div>
+  </div><span class="pill green">V109 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V108</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V108-20260906</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V109</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V109-20260907</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -880,6 +880,25 @@ button{cursor:pointer}
   <div class="field"><label>Recurring Option</label><label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:800"><input type="checkbox" id="outgoingForever"> Forever — repeat every month</label><div class="hint">When enabled, this outgoing continues monthly until you edit or delete it.</div></div>
   <div class="field full"><label>Notes</label><input id="outgoingNotes" placeholder="Optional"></div>
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="outgoingModal">Cancel</button><button class="btn primary" type="submit">Save Outgoing</button></div>
+ </form>
+</div></div>
+
+<div class="modalBack" id="outgoingPaymentModal"><div class="modal">
+ <div class="modalHead"><div class="modalTitle">Pay Scheduled Outgoing</div><button class="closeBtn" data-close="outgoingPaymentModal">✕</button></div>
+ <form id="outgoingPaymentForm" class="formGrid">
+  <input type="hidden" id="outgoingPaymentOutgoingId">
+  <input type="hidden" id="outgoingPaymentMonth">
+  <div class="field full"><label>Outgoing</label><input id="outgoingPaymentLabel" readonly></div>
+  <div class="field"><label>Scheduled Month</label><input id="outgoingPaymentMonthLabel" readonly></div>
+  <div class="field"><label>Payment Amount (SAR)</label><input id="outgoingPaymentAmount" type="number" min="0.01" step="0.01" required></div>
+  <div class="field"><label>Paid From</label><select id="outgoingPaymentSource" required></select></div>
+  <div class="field"><label>Payment Date</label><input id="outgoingPaymentDate" type="date" required></div>
+  <div class="field full"><div class="notice" id="outgoingPaymentPreview">Choose where this outgoing was paid from.</div></div>
+  <div class="field full"><div class="hint"><b>Monthly Planned Income:</b> the outgoing stays deducted from that month's planned cash. <b>Bank/Card:</b> the actual bank/card balance is reduced/increased, and the outgoing is no longer deducted from Monthly Planned Income for that month.</div></div>
+  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
+   <button type="button" class="btn" data-close="outgoingPaymentModal">Cancel</button>
+   <button class="btn primary" type="submit">Save Payment</button>
+  </div>
  </form>
 </div></div>
 
@@ -2387,19 +2406,54 @@ function monthAdd(ym,offset){
  const d=new Date(Date.UTC(y,m-1+offset,1));
  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
 }
+
+function outgoingPaymentRecord(outgoingId,month){
+ const o=outgoings.find(x=>x.id===outgoingId);
+ return o?.payments?.[month]||null;
+}
+function outgoingOccurrencePaid(x){
+ return !!outgoingPaymentRecord(x.outgoingId,x.month);
+}
+function outgoingPaymentSourceLabel(p){
+ if(!p)return 'Unpaid';
+ if(p.sourceId==='cash-source')return 'Monthly Planned Income';
+ return accountName(p.sourceId);
+}
+function outgoingBudgetUsesMonthlyIncome(x){
+ const p=outgoingPaymentRecord(x.outgoingId,x.month);
+ // Before payment, reserve it from Monthly Planned Income.
+ // After payment, only keep that deduction if the chosen source is Monthly Planned Income.
+ return !p || p.sourceId==='cash-source';
+}
+function outgoingPaidTotalForMonth(month){
+ return allOutgoingOccurrences(36)
+  .filter(x=>x.month===month && outgoingOccurrencePaid(x))
+  .reduce((s,x)=>s+Number(outgoingPaymentRecord(x.outgoingId,x.month)?.amount||0),0);
+}
+function outgoingUnpaidTotalForMonth(month){
+ return allOutgoingOccurrences(36)
+  .filter(x=>x.month===month && !outgoingOccurrencePaid(x))
+  .reduce((s,x)=>s+Number(x.amount||0),0);
+}
+
 function outgoingOccurrences(o,horizon=120){
  const n=o.forever?Math.max(1,horizon):Math.max(1,Math.min(60,Number(o.months||1)));
  return Array.from({length:n},(_,i)=>{
   const month=monthAdd(o.startMonth,i);
-  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-01`,description:o.description,amount:Number(o.amount||0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||''};
+  const payment=o.payments?.[month]||null;
+  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-01`,description:o.description,amount:Number(o.amount||0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||'',payment,paid:!!payment};
  });
 }
 function allOutgoingOccurrences(horizon=120){return outgoings.flatMap(o=>outgoingOccurrences(o,horizon))}
 function currentPlanMonth(){return '2026-08'}
 function outgoingForMonth(month){
- return allOutgoingOccurrences(36).filter(x=>x.month===month).reduce((s,x)=>s+Number(x.amount||0),0);
+ // Planned/unpaid outgoings reserve Monthly Planned Income.
+ // Once paid from a bank/card, that month is funded from that source instead.
+ return allOutgoingOccurrences(36)
+  .filter(x=>x.month===month && outgoingBudgetUsesMonthlyIncome(x))
+  .reduce((s,x)=>s+Number(x.amount||0),0);
 }
-function outgoingThisMonthTotal(){const ym=currentPlanMonth();return allOutgoingOccurrences().filter(x=>x.month===ym).reduce((a,x)=>a+x.amount,0)}
+function outgoingThisMonthTotal(){const ym=currentPlanMonth();return outgoingForMonth(ym)}
 function foreverOutgoingMonthlyTotal(){return outgoings.filter(o=>o.forever).reduce((a,o)=>a+Number(o.amount||0),0)}
 function openOutgoing(o=null){
  const firstCat=Object.keys(categories)[0]||'Miscellaneous';
@@ -2416,16 +2470,184 @@ function openOutgoing(o=null){
  $('outgoingNotes').value=p.notes||'';
  openModal('outgoingModal');
 }
+
+function outgoingPaymentSourceOptions(){
+ return [
+  ...accounts.map(a=>({
+   id:a.id,
+   label:`${a.bank} • ${a.name}${a.ending?` •${a.ending}`:''}${a.type==='card'?' (Credit Card)':' (Bank/Cash Account)'}`
+  })),
+  {id:'cash-source',label:'Monthly Planned Income / Cash Available'}
+ ];
+}
+function openOutgoingPayment(outgoingId,month){
+ const o=outgoings.find(x=>x.id===outgoingId);if(!o)return;
+ const existing=outgoingPaymentRecord(outgoingId,month);
+ $('outgoingPaymentOutgoingId').value=outgoingId;
+ $('outgoingPaymentMonth').value=month;
+ $('outgoingPaymentLabel').value=o.description;
+ $('outgoingPaymentMonthLabel').value=cardMonthLabel(month);
+ $('outgoingPaymentAmount').value=Number(existing?.amount||o.amount||0).toFixed(2);
+ $('outgoingPaymentSource').innerHTML=outgoingPaymentSourceOptions().map(x=>`<option value="${x.id}">${x.label}</option>`).join('');
+ $('outgoingPaymentSource').value=existing?.sourceId||'cash-source';
+ $('outgoingPaymentDate').value=existing?.date||`${month}-01`;
+ updateOutgoingPaymentPreview();
+ openModal('outgoingPaymentModal');
+}
+function updateOutgoingPaymentPreview(){
+ const sourceId=$('outgoingPaymentSource')?.value||'cash-source';
+ const amount=Number($('outgoingPaymentAmount')?.value||0);
+ const month=$('outgoingPaymentMonth')?.value||currentIncomeMonth();
+ let text='';
+ if(sourceId==='cash-source'){
+  text=`Paid from Monthly Planned Income. ${money(amount)} remains part of ${cardMonthLabel(month)} Cash / Other Outgoings and is not deducted twice.`;
+ }else{
+  const a=account(sourceId);
+  if(a?.type==='bank'){
+   text=`Paid from ${accountName(sourceId)}. Estimated bank balance after payment: ${money(adjustedBankBalance(a)-amount)}. This outgoing will no longer reduce Monthly Planned Income for ${cardMonthLabel(month)}.`;
+  }else if(a?.type==='card'){
+   const m=cardMetrics(a);
+   text=`Paid using ${accountName(sourceId)}. Estimated available credit after payment: ${money(Math.max(0,m.available-amount))}. The card purchase will be added to that card's transactions.`;
+  }else{
+   text=`Paid from ${accountName(sourceId)}.`;
+  }
+ }
+ $('outgoingPaymentPreview').textContent=text;
+}
+function refreshAfterOutgoingPayment(){
+ rebuildTransactions();
+ renderOutgoings();
+ renderDashboard();
+ renderIncomePlan();
+ renderReports();
+ renderAccounts();
+ renderTransactions();
+ renderPaymentPlanner();
+}
+function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
+ const o=outgoings.find(x=>x.id===outgoingId);if(!o)return false;
+ o.payments=o.payments||{};
+
+ // If replacing an existing payment, undo its source effect first.
+ if(o.payments[month])undoOutgoingPayment(outgoingId,month,false);
+
+ const paymentId=`outpay-${outgoingId}-${month}-${Date.now()}`;
+ const p={id:paymentId,amount:Number(amount),sourceId,date,month,recordedAt:new Date().toISOString()};
+ o.payments[month]=p;
+
+ const src=sourceId==='cash-source'?null:account(sourceId);
+ if(src?.type==='bank'){
+  setTrackedBankBalance(src.id,adjustedBankBalance(src)-Number(amount));
+ }else if(src?.type==='card'){
+  const txId=`outgoing-${paymentId}`;
+  const tx={
+   _id:txId,
+   account:src.id,
+   date,
+   posting:date,
+   description:`Outgoing: ${o.description}`,
+   amount:-Math.abs(Number(amount)),
+   category:o.category,
+   subcategory:o.subcategory,
+   kind:'expense',
+   currency:'SAR',
+   original:null,
+   manual:true,
+   outgoingPaymentId:paymentId,
+   outgoingId,
+   outgoingMonth:month
+  };
+  manualTransactions.push(tx);
+  p.generatedTransactionId=txId;
+ }
+
+ saveLocal();
+ refreshAfterOutgoingPayment();
+ return true;
+}
+function undoOutgoingPayment(outgoingId,month,refresh=true){
+ const o=outgoings.find(x=>x.id===outgoingId);if(!o?.payments?.[month])return false;
+ const p=o.payments[month];
+ const src=p.sourceId==='cash-source'?null:account(p.sourceId);
+
+ if(src?.type==='bank'){
+  setTrackedBankBalance(src.id,adjustedBankBalance(src)+Number(p.amount||0));
+ }
+ if(p.generatedTransactionId){
+  manualTransactions=manualTransactions.filter(t=>t._id!==p.generatedTransactionId);
+  delete transactionActions[p.generatedTransactionId];
+ }
+
+ delete o.payments[month];
+ saveLocal();
+ if(refresh)refreshAfterOutgoingPayment();
+ return true;
+}
+
 function renderOutgoings(){
  const grid=$('outgoingGrid'),body=$('outgoingScheduleBody'),k=$('outgoingKpis');if(!grid||!body||!k)return;
  const occ=allOutgoingOccurrences(24),current=outgoingThisMonthTotal(),foreverMonthly=foreverOutgoingMonthlyTotal();
- k.innerHTML=[kpiHTML('Planned Outgoings',String(outgoings.length),'One-time + recurring','blue'),kpiHTML('August Outgoings',money(current),'Deducted from monthly available cash','red'),kpiHTML('Forever Monthly',money(foreverMonthly),'Repeats every month until deleted','amber')].join('');
- grid.innerHTML=outgoings.map(o=>`<div class="outgoingCard"><div class="meta">${o.method||'Cash'}</div><div style="font-weight:900">${o.description}</div><div class="outAmount">${money(o.amount)}</div><span class="outgoingBadge">${o.forever?'Forever • Monthly':`${o.months} month${Number(o.months)===1?'':'s'}`}</span><div class="outMeta" style="margin-top:8px">${o.category} → ${o.subcategory}<br>Starts ${o.startMonth}${o.forever?'<br>Continues until you edit or delete it':''}</div><div class="outActions"><button class="btn small" data-edit-outgoing="${o.id}">Edit</button><button class="btn small danger" data-del-outgoing="${o.id}">Delete</button></div></div>`).join('')||'<div class="panel"><div class="meta">No cash or recurring outgoings yet.</div></div>';
- body.innerHTML=occ.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(x=>`<tr><td>${x.month}</td><td><b>${x.description}</b><div class="meta">${x.method}</div></td><td>${x.category}</td><td>${x.subcategory}</td><td class="red">${money(x.amount)}</td><td>${x.forever?'Monthly • Forever':`#${x.occurrence} of #${x.total}`}</td></tr>`).join('')||'<tr><td colspan="6">No scheduled outgoings.</td></tr>';
- document.querySelectorAll('[data-edit-outgoing]').forEach(b=>b.addEventListener('click',()=>openOutgoing(outgoings.find(x=>x.id===b.dataset.editOutgoing))));
- document.querySelectorAll('[data-del-outgoing]').forEach(b=>b.addEventListener('click',()=>{const o=outgoings.find(x=>x.id===b.dataset.delOutgoing);if(o&&confirm(`Delete "${o.description}" and its whole schedule?`)){outgoings=outgoings.filter(x=>x.id!==o.id);saveLocal();renderOutgoings();renderImportPage();renderDashboard();renderIncomePlan();renderReports();}}));
-}
+ const activeMonth=currentIncomeMonth();
+ const paidMonth=outgoingPaidTotalForMonth(activeMonth),unpaidMonth=outgoingUnpaidTotalForMonth(activeMonth);
 
+ k.innerHTML=[
+  kpiHTML('Planned Outgoings',String(outgoings.length),'One-time + recurring','blue'),
+  kpiHTML(`${cardMonthLabel(activeMonth)} Cash Impact`,money(outgoingForMonth(activeMonth)),'Reserved/deducted from Monthly Planned Income','red'),
+  kpiHTML('Paid This Month',money(paidMonth),`${money(unpaidMonth)} still unpaid`,'green'),
+  kpiHTML('Forever Monthly',money(foreverMonthly),'Repeats every month until deleted','amber')
+ ].join('');
+
+ grid.innerHTML=outgoings.map(o=>{
+  const thisPay=o.payments?.[activeMonth];
+  return `<div class="outgoingCard">
+   <div class="meta">${o.method||'Cash'}</div>
+   <div style="font-weight:900">${o.description}</div>
+   <div class="outAmount">${money(o.amount)}</div>
+   <span class="outgoingBadge">${o.forever?'Forever • Monthly':`${o.months} month${Number(o.months)===1?'':'s'}`}</span>
+   <div class="outMeta" style="margin-top:8px">${o.category} → ${o.subcategory}<br>Starts ${o.startMonth}${o.forever?'<br>Continues until you edit or delete it':''}</div>
+   ${thisPay?`<div class="meta green" style="margin-top:8px"><b>${cardMonthLabel(activeMonth)} paid</b> • ${outgoingPaymentSourceLabel(thisPay)}</div>`:''}
+   <div class="outActions">
+    <button class="btn small" data-edit-outgoing="${o.id}">Edit</button>
+    <button class="btn small danger" data-del-outgoing="${o.id}">Delete</button>
+   </div>
+  </div>`;
+ }).join('')||'<div class="panel"><div class="meta">No cash or recurring outgoings yet.</div></div>';
+
+ body.innerHTML=occ.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(x=>{
+  const p=outgoingPaymentRecord(x.outgoingId,x.month);
+  return `<tr>
+   <td>${x.month}</td>
+   <td><b>${x.description}</b><div class="meta">${x.method}</div></td>
+   <td>${x.category}</td>
+   <td>${x.subcategory}</td>
+   <td class="red">${money(x.amount)}</td>
+   <td>${x.forever?'Monthly • Forever':`#${x.occurrence} of #${x.total}`}</td>
+   <td>${p?`<span class="badge active">Paid</span><div class="meta">${outgoingPaymentSourceLabel(p)}<br>${paymentFormatDate(p.date)}</div>`:`<span class="badge pending">Unpaid</span>`}</td>
+   <td>${p
+    ?`<button class="btn small" data-undo-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}">Undo Payment</button>`
+    :`<button class="btn small primary" data-pay-outgoing="${x.outgoingId}" data-pay-month="${x.month}">Pay</button>`}
+   </td>
+  </tr>`;
+ }).join('')||'<tr><td colspan="8">No scheduled outgoings.</td></tr>';
+
+ document.querySelectorAll('[data-edit-outgoing]').forEach(b=>b.addEventListener('click',()=>openOutgoing(outgoings.find(x=>x.id===b.dataset.editOutgoing))));
+ document.querySelectorAll('[data-del-outgoing]').forEach(b=>b.addEventListener('click',()=>{
+  const o=outgoings.find(x=>x.id===b.dataset.delOutgoing);
+  if(o&&confirm(`Delete "${o.description}" and its whole schedule? Existing payment history for this outgoing will also be removed.`)){
+   // Reverse paid source effects before deleting the schedule.
+   Object.keys(o.payments||{}).forEach(month=>undoOutgoingPayment(o.id,month,false));
+   outgoings=outgoings.filter(x=>x.id!==o.id);
+   saveLocal();refreshAfterOutgoingPayment();renderImportPage();
+  }
+ }));
+ document.querySelectorAll('[data-pay-outgoing]').forEach(b=>b.addEventListener('click',()=>openOutgoingPayment(b.dataset.payOutgoing,b.dataset.payMonth)));
+ document.querySelectorAll('[data-undo-outgoing-pay]').forEach(b=>b.addEventListener('click',()=>{
+  const o=outgoings.find(x=>x.id===b.dataset.undoOutgoingPay);
+  if(o&&confirm(`Undo ${cardMonthLabel(b.dataset.payMonth)} payment for "${o.description}"?`)){
+   undoOutgoingPayment(o.id,b.dataset.payMonth,true);
+  }
+ }));
+}
 function dedupeDashboardErrorAlerts(){
  const seen=new Set();
  document.querySelectorAll('#reviewAlerts .alert, #reviewAlerts .reviewAlert, [data-dashboard-error]').forEach(el=>{
@@ -3273,11 +3495,28 @@ $('outgoingForever').addEventListener('change',()=>{$('outgoingMonths').disabled
 $('outgoingForm').addEventListener('submit',e=>{
  e.preventDefault();
  const id=$('outgoingEditId').value||`out-${Date.now()}`;
- const o={id,description:$('outgoingDesc').value.trim(),amount:Number($('outgoingAmount').value||0),method:$('outgoingMethod').value,category:$('outgoingCategory').value,subcategory:$('outgoingSubcategory').value,startMonth:$('outgoingStart').value,months:Math.max(1,Math.min(60,Number($('outgoingMonths').value||1))),forever:$('outgoingForever').checked,notes:$('outgoingNotes').value.trim()};
+ const existingOutgoing=outgoings.find(x=>x.id===id);
+ const o={id,description:$('outgoingDesc').value.trim(),amount:Number($('outgoingAmount').value||0),method:$('outgoingMethod').value,category:$('outgoingCategory').value,subcategory:$('outgoingSubcategory').value,startMonth:$('outgoingStart').value,months:Math.max(1,Math.min(60,Number($('outgoingMonths').value||1))),forever:$('outgoingForever').checked,notes:$('outgoingNotes').value.trim(),payments:{...(existingOutgoing?.payments||{})}};
  if(!o.description||o.amount<=0||!o.startMonth)return;
  const i=outgoings.findIndex(x=>x.id===id);if(i>=0)outgoings[i]=o;else outgoings.push(o);
  saveLocal();closeModal('outgoingModal');renderOutgoings();renderDashboard();renderIncomePlan();renderReports();
 });
+
+$('outgoingPaymentSource').addEventListener('change',updateOutgoingPaymentPreview);
+$('outgoingPaymentAmount').addEventListener('input',updateOutgoingPaymentPreview);
+$('outgoingPaymentForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const outgoingId=$('outgoingPaymentOutgoingId').value;
+ const month=$('outgoingPaymentMonth').value;
+ const amount=Math.max(0,Number($('outgoingPaymentAmount').value||0));
+ const sourceId=$('outgoingPaymentSource').value;
+ const date=$('outgoingPaymentDate').value;
+ if(!outgoingId||!month||amount<=0||!sourceId||!date)return;
+ if(recordOutgoingPayment(outgoingId,month,amount,sourceId,date)){
+  closeModal('outgoingPaymentModal');
+ }
+});
+
 
 $('installmentBankFilter').addEventListener('change',renderInstallments);
 $('addInstallment').addEventListener('click',()=>openInstallment());$('quickInstallment').addEventListener('click',()=>openInstallment());
