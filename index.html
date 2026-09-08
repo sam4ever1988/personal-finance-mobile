@@ -659,6 +659,22 @@ button{cursor:pointer}
   <div style="overflow-x:auto;margin-top:10px"><table class="summaryTable"><thead><tr><th>Date</th><th>Card</th><th>Paid From</th><th>Amount</th></tr></thead><tbody id="incomePaymentBreakdownBody"></tbody></table></div>
  </div>
 
+ <div class="panel" style="margin-top:12px">
+  <div class="splitHead">
+   <div>
+    <div class="panelTitle">Outgoing Payments This Month</div>
+    <div class="meta">All paid recurring/one-time outgoings are shown here. Only payments made from Monthly Planned Income reduce this month's income balance. Card-funded outgoings are recorded as transactions on the selected card.</div>
+   </div>
+   <div class="pill green" id="incomeOutgoingPaymentCount">0 payments</div>
+  </div>
+  <div style="overflow-x:auto;margin-top:10px">
+   <table class="summaryTable">
+    <thead><tr><th>Date</th><th>Outgoing</th><th>Paid From</th><th>Income Impact</th><th>Amount</th></tr></thead>
+    <tbody id="incomeOutgoingPaymentBody"></tbody>
+   </table>
+  </div>
+ </div>
+
  <div class="sectionTitle">Fixed Bank Loans</div>
  <div class="loanGrid">
   <div class="loanCard">
@@ -751,7 +767,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V109 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V111 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -781,10 +797,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V109 PRODUCTION</span></div>
+  </div><span class="pill green">V111 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V109</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V109-20260907</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V111</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V111-20260907</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -981,6 +997,9 @@ const CLOUD_META_KEY='pf_cloud_sync_meta';
 var cloudAutoSaveTimer=null;
 var cloudAutoSaveBusy=false;
 var cloudAutoSaveQueued=false;
+var cloudAutoSyncTimer=null;
+var cloudAutoSyncBusy=false;
+var cloudLastAutoCheckAt=0;
 window.addEventListener('error',e=>{
  try{
   const box=document.getElementById('reviewAlerts');
@@ -1885,6 +1904,7 @@ let reportDrill={type:'',value:''};
 let selectedCategory=Object.keys(categories)[0]||'';
 let editingTxId=null, simpleMode=null;
 window.__financeStateInitialized=true;
+startCloudAutoSyncWatchers();
 
 // V103 startup-order fix:
 // normalizedTx() needs statementRule + transactionActions, so the date-driven
@@ -1931,6 +1951,8 @@ function saveLocal(){
  localStorage.setItem('pf_statement_rule',JSON.stringify(statementRule));
  localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
  localStorage.setItem('pf_bank_balance_overrides',JSON.stringify(bankBalanceOverrides));
+ const localSavedAt=new Date().toISOString();
+ setCloudMeta({pending:true,lastLocalSavedAt:localSavedAt});
  financeDB.save();
  scheduleCloudAutoSave();
 }
@@ -2425,6 +2447,33 @@ function outgoingBudgetUsesMonthlyIncome(x){
  // After payment, only keep that deduction if the chosen source is Monthly Planned Income.
  return !p || p.sourceId==='cash-source';
 }
+
+function outgoingPaymentsForMonth(month=currentIncomeMonth()){
+ const rows=[];
+ outgoings.forEach(o=>{
+  const p=o.payments?.[month];
+  if(!p)return;
+  rows.push({
+   outgoingId:o.id,
+   description:o.description,
+   category:o.category,
+   subcategory:o.subcategory,
+   amount:Number(p.amount||0),
+   sourceId:p.sourceId,
+   date:p.date||`${month}-01`,
+   month,
+   paymentId:p.id,
+   generatedTransactionId:p.generatedTransactionId||''
+  });
+ });
+ return rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+function outgoingPaidFromMonthlyIncomeTotal(month=currentIncomeMonth()){
+ return outgoingPaymentsForMonth(month)
+  .filter(x=>x.sourceId==='cash-source')
+  .reduce((s,x)=>s+Number(x.amount||0),0);
+}
+
 function outgoingPaidTotalForMonth(month){
  return allOutgoingOccurrences(36)
   .filter(x=>x.month===month && outgoingOccurrencePaid(x))
@@ -2516,6 +2565,7 @@ function updateOutgoingPaymentPreview(){
 }
 function refreshAfterOutgoingPayment(){
  rebuildTransactions();
+ ensureMonthlyPlannerRows(currentIncomeMonth());
  renderOutgoings();
  renderDashboard();
  renderIncomePlan();
@@ -2523,6 +2573,10 @@ function refreshAfterOutgoingPayment(){
  renderAccounts();
  renderTransactions();
  renderPaymentPlanner();
+ renderInstallments();
+ if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage);
+ }
 }
 function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o)return false;
@@ -2555,7 +2609,8 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
    manual:true,
    outgoingPaymentId:paymentId,
    outgoingId,
-   outgoingMonth:month
+   outgoingMonth:month,
+   notes:`Paid outgoing "${o.description}" from ${accountName(src.id)}`
   };
   manualTransactions.push(tx);
   p.generatedTransactionId=txId;
@@ -4870,17 +4925,45 @@ function updateIncomePlanPreview(){
  const originalExtra=incomePlan.extraIncome;
  incomePlan.extraIncome=savedExtra+(Number.isFinite(pendingExtra)?pendingExtra:0);
  const income=totalIncomePlan(),loans=totalFixedLoans(),paidFromIncome=remainingIncomePaymentsTotal();
+ const planMonth=currentIncomeMonth();
+ const outgoingIncomeImpact=outgoingForMonth(planMonth);
+ const outgoingPayments=outgoingPaymentsForMonth(planMonth);
+ const outgoingPaidFromIncome=outgoingPaidFromMonthlyIncomeTotal(planMonth);
  incomePlan.extraIncome=originalExtra;
+
  $('planTotalIncome').textContent=money(income);
  $('planLoans').textContent=money(loans);
- $('planOutgoings').textContent=money(outgoingThisMonthTotal());
+ $('planOutgoings').textContent=money(outgoingIncomeImpact);
  if($('planCardPayments'))$('planCardPayments').textContent=money(paidFromIncome);
- const afterPreview=income-loans-outgoingThisMonthTotal()-paidFromIncome;
+
+ // Outgoing income impact already includes an unpaid planned outgoing OR a paid-from-income
+ // outgoing exactly once. Card/bank-funded outgoings do not reduce Monthly Planned Income.
+ const afterPreview=income-loans-outgoingIncomeImpact-paidFromIncome;
  $('planAfterLoans').textContent=(afterPreview<0?'-':'')+money(Math.abs(afterPreview));
  $('planAfterLoans').className='big '+(afterPreview>=0?'green':'red');
  const paymentRows=plannedIncomePaymentHistory();
  if($('incomePaymentCount'))$('incomePaymentCount').textContent=`${paymentRows.length} payment${paymentRows.length===1?'':'s'} • ${money(paidFromIncome)}`;
  if($('incomePaymentBreakdownBody'))$('incomePaymentBreakdownBody').innerHTML=paymentRows.length?paymentRows.map(h=>`<tr><td>${h._budgetLegacy?'Reconciled':(h.date||'—')}</td><td>${accountName(h.targetCardId)}</td><td>${h.sourceName||accountName(h.sourceId)||'—'}</td><td class="red"><b>${money(Number(h.amount||0))}</b></td></tr>`).join(''):'<tr><td colspan="4">No card payments deducted from this month yet.</td></tr>';
+
+ if($('incomeOutgoingPaymentCount')){
+  $('incomeOutgoingPaymentCount').textContent=`${outgoingPayments.length} payment${outgoingPayments.length===1?'':'s'} • ${money(outgoingPayments.reduce((s,x)=>s+Number(x.amount||0),0))}`;
+ }
+ if($('incomeOutgoingPaymentBody')){
+  $('incomeOutgoingPaymentBody').innerHTML=outgoingPayments.length
+   ? outgoingPayments.map(x=>{
+      const fromIncome=x.sourceId==='cash-source';
+      const sourceLabel=fromIncome?'Monthly Planned Income':accountName(x.sourceId);
+      const impact=fromIncome?`<span class="red"><b>Deducted</b></span>`:`<span class="green"><b>Not deducted</b></span>`;
+      const note=!fromIncome&&account(x.sourceId)?.type==='card'
+       ? `<div class="meta">Recorded as a transaction on this card</div>`
+       : (!fromIncome&&account(x.sourceId)?.type==='bank'
+          ? `<div class="meta">Deducted from bank balance</div>`
+          : '');
+      return `<tr><td>${x.date||'—'}</td><td><b>${x.description}</b></td><td>${sourceLabel}${note}</td><td>${impact}</td><td class="red"><b>${money(x.amount)}</b></td></tr>`;
+     }).join('')
+   : '<tr><td colspan="5">No outgoing payments recorded for this month yet.</td></tr>';
+ }
+
  accounts.filter(a=>a.type==='card').forEach(a=>{
   const m=cardMetrics(a),el=$('obligation_'+a.id);
   if(!el)return;
@@ -4891,8 +4974,9 @@ function updateIncomePlanPreview(){
   el.textContent=txt;
  });
  const allocated=Object.values(incomePlan.allocations||{}).reduce((sum,v)=>sum+Number(v||0),0);
- const paidFromRemainingIncome=remainingIncomePaymentsTotal();
- const unallocated=afterPreview-paidFromRemainingIncome-allocated;
+ // afterPreview already subtracts all card payments funded from Monthly Planned Income.
+ // Do not subtract them a second time here.
+ const unallocated=afterPreview-allocated;
  $('unallocatedAmount').textContent=(unallocated<0?'-':'')+money(unallocated);
  $('unallocatedAmount').className=unallocated>=0?'green':'red';
  const warn=$('allocationWarning');
@@ -4987,8 +5071,11 @@ async function cloudRefreshAuth(){
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
  $('cloudLoggedOut').style.display=on?'none':'block';$('cloudLoggedIn').style.display=on?'block':'none';
- if(on){$('cloudUser').textContent='Signed in as '+(session.user.email||session.user.id);cloudSetStatus('Connected • authenticated • Safe Sync checking…');}
- else cloudSetStatus('Connected to Supabase • sign in to access your finance database');
+ if(on){
+  $('cloudUser').textContent='Signed in as '+(session.user.email||session.user.id);
+  cloudSetStatus('Connected • authenticated • Auto Sync checking…');
+  setTimeout(()=>cloudAutoReconcile('auth-refresh'),100);
+ }else cloudSetStatus('Connected to Supabase • sign in to access your finance database');
  return session;
 }
 async function cloudClaim(){
@@ -5045,8 +5132,8 @@ function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
- if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Cloud Up to Date';
- if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Trusted for Auto Sync':'Protected';
+ if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Auto Sync Up to Date';
+ if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Trusted • Auto Sync On':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
@@ -5132,7 +5219,14 @@ async function cloudSaveSnapshot(silent=true,forceInitial=false){
   const snap=fullCloudSnapshot({syncInitialized:true,syncSource:forceInitial?'first-device':'trusted-device'});
   const {error}=await cloudClient.from('settings').upsert({key:'app_state',value:snap,updated_at:snap.savedAt});
   if(error)throw error;
-  setCloudMeta({initialized:true,deviceTrusted:true,lastSyncedAt:snap.savedAt,pending:false});
+  setCloudMeta({
+   initialized:true,
+   deviceTrusted:true,
+   lastSyncedAt:snap.savedAt,
+   lastLocalSavedAt:snap.savedAt,
+   pending:false,
+   lastAutoSyncAt:new Date().toISOString()
+  });
   cloudSetStatus(`Cloud synced • ${new Date(snap.savedAt).toLocaleTimeString()}`);
   if($('dbStatus'))$('dbStatus').innerHTML=`<span class="dbDot"></span>Local + Cloud synced • ${new Date(snap.savedAt).toLocaleTimeString()}`;
   return true;
@@ -5155,8 +5249,107 @@ function scheduleCloudAutoSave(){
  setCloudMeta({pending:true});
  clearTimeout(cloudAutoSaveTimer);
  if(!(meta.initialized&&meta.deviceTrusted))return;
- cloudAutoSaveTimer=setTimeout(()=>cloudSaveSnapshot(true),500);
+ cloudAutoSaveTimer=setTimeout(()=>cloudSaveSnapshot(true),350);
 }
+
+function cloudLocalLastSavedAt(){
+ const meta=getCloudMeta();
+ return meta.lastLocalSavedAt||meta.lastSyncedAt||'';
+}
+
+async function cloudAutoReconcile(reason='auto'){
+ if(cloudAutoSyncBusy || window.__financeStateInitialized!==true || !cloudClient)return false;
+ cloudAutoSyncBusy=true;
+ try{
+  const {data:{session}}=await cloudClient.auth.getSession();
+  if(!session)return false;
+
+  const meta=getCloudMeta();
+  if(!(meta.initialized&&meta.deviceTrusted))return false;
+
+  const now=Date.now();
+  cloudLastAutoCheckAt=now;
+
+  // If this device has unsynced local changes, local edits win for this pass.
+  // Save them first instead of loading cloud data over them.
+  if(meta.pending===true){
+   const saved=await cloudSaveSnapshot(true);
+   if(saved){
+    setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason});
+    return true;
+   }
+   return false;
+  }
+
+  // No local changes are waiting. It is safe to pull a newer cloud snapshot.
+  const state=await cloudInspectState();
+  if(!state.initialized||!state.value)return false;
+
+  const cloudAt=new Date(state.value.savedAt||state.updatedAt||0).getTime();
+  const localAt=new Date(meta.lastSyncedAt||0).getTime();
+
+  if(cloudAt>localAt+500){
+   const loaded=await cloudLoadSnapshotIfNewer(meta.lastSyncedAt||'',false);
+   if(loaded){
+    rebuildTransactions();
+    renderDashboard();
+    renderAccounts();
+    renderTransactions();
+    renderReports();
+    renderPaymentPlanner();
+    renderIncomePlan();
+    renderInstallments();
+    renderOutgoings();
+    updateCloudSyncPanel(true);
+    setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason});
+    cloudSetStatus(`Auto Sync loaded newer cloud data • ${new Date().toLocaleTimeString()}`);
+    return true;
+   }
+  }
+
+  setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason,pending:false});
+  cloudSetStatus(`Auto Sync up to date • ${new Date().toLocaleTimeString()}`);
+  return true;
+ }catch(e){
+  console.warn('Auto Sync reconcile failed',e);
+  cloudSetStatus('Auto Sync retry pending • '+e.message);
+  return false;
+ }finally{
+  cloudAutoSyncBusy=false;
+ }
+}
+
+function schedulePeriodicCloudAutoSync(){
+ clearInterval(cloudAutoSyncTimer);
+ cloudAutoSyncTimer=setInterval(()=>{
+  if(document.visibilityState==='visible' && navigator.onLine!==false){
+   cloudAutoReconcile('periodic');
+  }
+ },30000);
+}
+
+function startCloudAutoSyncWatchers(){
+ schedulePeriodicCloudAutoSync();
+
+ window.addEventListener('online',()=>cloudAutoReconcile('back-online'));
+
+ document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')cloudAutoReconcile('tab-visible');
+ });
+
+ window.addEventListener('focus',()=>{
+  if(Date.now()-cloudLastAutoCheckAt>5000)cloudAutoReconcile('window-focus');
+ });
+
+ // Push local edits as the page is leaving whenever the browser permits it.
+ window.addEventListener('pagehide',()=>{
+  const meta=getCloudMeta();
+  if(meta.pending===true && meta.initialized&&meta.deviceTrusted){
+   cloudSaveSnapshot(true);
+  }
+ });
+}
+
 async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
@@ -5181,7 +5374,14 @@ async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
  localStorage.setItem('pf_statement_rule',JSON.stringify(statementRule));
  localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
  const loadedAt=state.value.savedAt||state.updatedAt||new Date().toISOString();
- setCloudMeta({initialized:true,deviceTrusted:true,lastSyncedAt:loadedAt,pending:false});
+ setCloudMeta({
+  initialized:true,
+  deviceTrusted:true,
+  lastSyncedAt:loadedAt,
+  lastLocalSavedAt:loadedAt,
+  pending:false,
+  lastAutoSyncAt:new Date().toISOString()
+ });
  await financeDB.save();
  return true;
 }
