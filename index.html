@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V131 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V132 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V131 PRODUCTION</span></div>
+  </div><span class="pill green">V132 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V131</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V131-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V132</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V132-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1165,7 +1165,7 @@ let txOverrides=JSON.parse(localStorage.getItem('pf_tx_overrides')||'{}');
 let manualTransactions=JSON.parse(localStorage.getItem('pf_manual_transactions')||'[]');
 
 const DEFAULT_CARD_PAYMENT_PLAN=[
- {id:'p-ar0955-aug',accountId:'ar-0955',month:'2026-08',amount:45429.75,due:'2026-08-25',label:'July statement',source:'confirmed',note:'Previous Al Rajhi statement. Verify if already paid.'},
+ 
  
  {id:'p-meem-sep',accountId:'meem-7102',month:'2026-09',amount:3361.92,due:'2026-09-28',label:'Your Excel payment plan',source:'manual',note:'September payment from your meem sheet. Card remaining/available limit is SAR 1,388.75.'},
  {id:'p-nbdinf-sep',accountId:'nbd-infinite-4411',month:'2026-09',amount:11025,due:'2026-09-01',label:'Statement payment',source:'confirmed',note:'Pay on or before 01 Sep 2026.'},
@@ -1938,6 +1938,34 @@ function cardReleasedStatementBalance(cardId){
 
 
 
+function liveCreditRegressionAudit(){
+ return accounts.filter(a=>a.type==='card').map(a=>{
+  const m=cardMetrics(a);
+  return {
+   cardId:a.id,
+   card:`${a.bank} • ${a.name} •${a.ending}`,
+   limit:m.limit,
+   liveTransactions:m.liveTransactionUsage,
+   remainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
+   fundedOtherCards:m.fundedOtherCards,
+   paymentsAndCredits:m.totalCardCredits,
+   utilized:m.total,
+   available:m.available,
+   releasedAmountToPay:m.releasedStatementBalance,
+   releasedExcludedFromUtilization:m.releasedExcludedFromLiveUtilization===true,
+   installmentIncludedInUtilized:m.installmentIncludedInUtilized,
+   limitReconciles:Math.abs((m.total+Math.min(m.available,m.limit))-m.limit)<0.02 || m.available>m.limit
+  };
+ });
+}
+
+function legacyTestDataAudit(){
+ return cardPaymentPlan.filter(p=>
+  (p.accountId==='ar-0955' && Math.abs(Number(p.amount||0)-45429.75)<0.01) ||
+  (p.accountId==='sab-440880' && Math.abs(Number(p.amount||0)-28627.50)<0.01)
+ ).map(p=>({id:p.id,accountId:p.accountId,month:p.month,amount:p.amount,label:p.label,source:p.source,official:p.statementOfficial===true}));
+}
+
 function allCardStatementRegressionAudit(){
  return accounts.filter(a=>a.type==='card').map(a=>{
   const rows=canonicalReleasedPaymentRows(a.id).map(p=>{
@@ -2014,6 +2042,30 @@ function cardReleasedStatementBreakdown(cardId){
  }));
 }
 
+
+function purgeAr0955JulyTestStatement(){
+ const before=cardPaymentPlan.length;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='ar-0955')return true;
+  if(p.statementOfficial===true && officialStatementImportMatches(p))return true;
+
+  const isKnownTest=
+   String(p.id||'')==='p-ar0955-aug' ||
+   (
+    p.month==='2026-08' &&
+    Math.abs(Number(p.amount||0)-45429.75)<0.01 &&
+    String(p.label||'').toLowerCase().includes('july statement') &&
+    String(p.note||'').toLowerCase().includes('verify if already paid')
+   );
+
+  return !isKnownTest;
+ });
+
+ if(cardPaymentPlan.length!==before){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+ }
+ return before-cardPaymentPlan.length;
+}
 
 function purgeLegacySabAnchorRows(){
  const before=cardPaymentPlan.length;
@@ -2515,6 +2567,7 @@ let selectedCategory=Object.keys(categories)[0]||'';
 let editingTxId=null, simpleMode=null;
 window.__financeStateInitialized=true;
 repairStatementMonthOverrides();
+purgeAr0955JulyTestStatement();
 startCloudAutoSyncWatchers();
 
 // V103 startup-order fix:
@@ -2926,13 +2979,19 @@ function excelCardAccounting(a){
  // If this card funded another card payment, that is utilization on this card.
  const fundedOtherCards=Math.max(0,creditBreakdown.cardFundedPayments);
 
- // LIVE CARD POSITION:
- // confirmed statement balances
- // + unreleased imported/manual transactions
- // + remaining installment principal
+ // V132 LIVE CREDIT POSITION:
+ // Released / Amount to Pay is a PAYMENT obligation and is displayed separately.
+ // It must not be added again to current card utilization.
+ //
+ // Live utilization contains:
+ //   unreleased/current transactions
+ // + remaining installment principal (already part of utilized; never add twice)
  // + card-to-card payments funded from this card
  // - payments/credits received by this card.
- const grossOccupied=Math.max(0,released+liveTransactions+remainingPrincipal+fundedOtherCards);
+ //
+ // This separation prevents historical/released statement obligations from
+ // forcing a card to 100% utilized after the card has already been paid.
+ const grossOccupied=Math.max(0,liveTransactions+remainingPrincipal+fundedOtherCards);
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
@@ -2972,7 +3031,11 @@ function excelCardAccounting(a){
   currentMonthlyInstallments:currentInstallment,
   nextInstallmentScheduled:currentInstallment,
   excelAccountingModel:true,
-  grossOccupied
+  grossOccupied,
+  normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
+  installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
+  releasedExcludedFromLiveUtilization:true,
+  creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
 function cardMetrics(a){
@@ -3722,6 +3785,7 @@ function repairStatementMonthOverrides(){
 
 function refreshAfterTransactionChange(accountId=''){
  repairStatementMonthOverrides();
+ purgeAr0955JulyTestStatement();
  purgeLegacySabAnchorRows();
  if(accountId==='sab-440880'||!accountId)cleanupSabLegacyBalanceState();
  rebuildTransactions();
@@ -4956,7 +5020,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Confirmed/Released Statement Balance − Unreleased Imported/Manual Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Importing, adding, deleting, restoring, or moving a transaction to another statement/payment month recalculates this card and both affected payment cycles immediately.</div>
+<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Live Unreleased/Current Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Released / Amount to Pay is tracked separately and is not added again to utilization. Importing, adding, deleting, restoring, or moving a transaction to another statement/payment month recalculates this card and both affected payment cycles immediately.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
