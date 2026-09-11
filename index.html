@@ -675,6 +675,23 @@ button{cursor:pointer}
   </div>
  </div>
 
+
+ <div class="panel" style="margin-top:12px">
+  <div class="splitHead">
+   <div>
+    <div class="panelTitle">Monthly Cash Flow Usage Ledger</div>
+    <div class="meta">Permanent audit trail showing where Monthly Planned Income and other payment sources were used. It is stored separately from card statement/payment-plan rows.</div>
+   </div>
+   <div class="pill blue" id="cashFlowLedgerCount">0 entries</div>
+  </div>
+  <div style="overflow-x:auto;margin-top:10px">
+   <table class="summaryTable">
+    <thead><tr><th>Date</th><th>Type</th><th>Used For</th><th>Paid From</th><th>Monthly Income Impact</th><th>Amount</th></tr></thead>
+    <tbody id="cashFlowLedgerBody"></tbody>
+   </table>
+  </div>
+ </div>
+
  <div class="sectionTitle">Fixed Bank Loans</div>
  <div class="loanGrid">
   <div class="loanCard">
@@ -767,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V120 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V122 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -797,9 +814,9 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V120 PRODUCTION</span></div>
+  </div><span class="pill green">V122 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V120</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V122</div></div>
    <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V111-20260907</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
@@ -984,10 +1001,11 @@ var financeDB={
  open(){return new Promise((resolve,reject)=>{const r=indexedDB.open(this.name,this.version);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(this.store))db.createObjectStore(this.store)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
  async put(key,value){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readwrite');tx.objectStore(this.store).put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})},
  async get(key){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readonly');const r=tx.objectStore(this.store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
- snapshot(){return {categories,installments,merchantRules,txOverrides,incomePlan,manualTransactions,importedTransactions,importHistory,outgoings,duplicateDecisions,statementRule,transactionActions,cardPaymentPlan,savedAt:new Date().toISOString()}},
+ snapshot(){return {categories,installments,merchantRules,txOverrides,incomePlan,manualTransactions,importedTransactions,importHistory,outgoings,duplicateDecisions,statementRule,transactionActions,cardPaymentPlan,cashFlowLedger,savedAt:new Date().toISOString()}},
  async save(){try{await this.put('finance_state',this.snapshot());updateDbStatus(true)}catch(e){console.warn('IndexedDB save failed',e);updateDbStatus(false)}},
  async restore(){try{const d=await this.get('finance_state');if(!d)return false;
-   categories=d.categories||categories;installments=d.installments||installments;merchantRules=d.merchantRules||merchantRules;txOverrides=d.txOverrides||txOverrides;incomePlan=d.incomePlan||incomePlan;manualTransactions=d.manualTransactions||manualTransactions;importedTransactions=d.importedTransactions||importedTransactions;importHistory=d.importHistory||importHistory;outgoings=d.outgoings||outgoings;duplicateDecisions=d.duplicateDecisions||duplicateDecisions;statementRule=d.statementRule||statementRule;transactionActions=d.transactionActions||transactionActions;cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;
+   categories=d.categories||categories;installments=d.installments||installments;merchantRules=d.merchantRules||merchantRules;txOverrides=d.txOverrides||txOverrides;incomePlan=d.incomePlan||incomePlan;manualTransactions=d.manualTransactions||manualTransactions;importedTransactions=d.importedTransactions||importedTransactions;importHistory=d.importHistory||importHistory;outgoings=d.outgoings||outgoings;duplicateDecisions=d.duplicateDecisions||duplicateDecisions;statementRule=d.statementRule||statementRule;transactionActions=d.transactionActions||transactionActions;cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;
+ purgeLegacyAr5867SeedRows();
  purgeLegacySabAnchorRows();
    normalizeCardPaymentPlan();
    rebuildTransactions();
@@ -1081,7 +1099,7 @@ let manualTransactions=JSON.parse(localStorage.getItem('pf_manual_transactions')
 
 const DEFAULT_CARD_PAYMENT_PLAN=[
  {id:'p-ar0955-aug',accountId:'ar-0955',month:'2026-08',amount:45429.75,due:'2026-08-25',label:'July statement',source:'confirmed',note:'Previous Al Rajhi statement. Verify if already paid.'},
- {id:'p-ar5867-aug',accountId:'ar-5867',month:'2026-08',amount:40,due:'2026-08-26',label:'July statement',source:'confirmed',note:'Previous statement amount due.'},
+ 
  {id:'p-meem-sep',accountId:'meem-7102',month:'2026-09',amount:3361.92,due:'2026-09-28',label:'Your Excel payment plan',source:'manual',note:'September payment from your meem sheet. Card remaining/available limit is SAR 1,388.75.'},
  {id:'p-nbdinf-sep',accountId:'nbd-infinite-4411',month:'2026-09',amount:11025,due:'2026-09-01',label:'Statement payment',source:'confirmed',note:'Pay on or before 01 Sep 2026.'},
  
@@ -1092,6 +1110,7 @@ const DEFAULT_CARD_PAYMENT_PLAN=[
  {id:'p-nbdmazeed-oct',accountId:'nbd-mazeed-8652',month:'2026-10',amount:9321,due:'2026-10-01',label:'Current cycle',source:'manual',note:'Pay on or before 01 Oct 2026.'}
 ];
 let cardPaymentPlan=JSON.parse(localStorage.getItem('pf_card_payment_plan')||'null')||DEFAULT_CARD_PAYMENT_PLAN.map(x=>({...x,paid:false}));
+let cashFlowLedger=JSON.parse(localStorage.getItem('pf_cash_flow_ledger')||'[]')||[];
 const oldMeem=cardPaymentPlan.find(x=>x.id==='p-meem-aug');
 if(oldMeem){
  oldMeem.id='p-meem-sep';
@@ -1146,7 +1165,64 @@ function officialStatementAmountForCardMonth(cardId,month){
  return backed?Number(backed.statementOriginalAmount??backed.amount??0):0;
 }
 
+
+function purgeLegacyAr5867SeedRows(){
+ let removed=0;
+
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='ar-5867')return true;
+
+  const id=String(p.id||'');
+  const amount=Number(p.amount||0);
+  const label=String(p.label||'').toLowerCase();
+  const note=String(p.note||'').toLowerCase();
+
+  // Retired historical SAR 40 seed from older builds.
+  // A genuine imported official statement is never removed.
+  const legacy40 =
+    Math.abs(amount-40)<0.01 &&
+    p.statementOfficial!==true &&
+    (
+      id==='p-ar5867-aug' ||
+      label.includes('july statement') ||
+      note.includes('advance payment') ||
+      (p.source==='confirmed' && p.month==='2026-08')
+    );
+
+  if(legacy40){removed++; return false;}
+  return true;
+ });
+
+ // Suppress only the exact built-in legacy +SAR 40 transaction if still present in BASE.
+ // Imported/manual user transactions are not touched.
+ try{
+  BASE.transactions.forEach((t,i)=>{
+   const isLegacy=
+    t.account==='ar-5867' &&
+    String(t.date||'').slice(0,10)==='2026-08-01' &&
+    Math.abs(Number(t.amount||0)-40)<0.01 &&
+    /advance payment|top[- ]?up/i.test(String(t.description||''));
+   if(isLegacy){
+    const id='tx'+i;
+    transactionActions[id]={
+     status:'deleted',
+     reason:'V121 retired legacy Al Rajhi •5867 SAR 40 seed',
+     updatedAt:new Date().toISOString()
+    };
+    removed++;
+   }
+  });
+ }catch(e){}
+
+ if(removed){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+  try{localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));}catch(e){}
+ }
+ return removed;
+}
+
 function normalizeCardPaymentPlan(){
+ purgeLegacyAr5867SeedRows();
  // V119 permanent migration: every local/IndexedDB/cloud restore passes through this
  // function. Remove the retired SAB SAR 28,627.50 historical anchor HERE so a
  // synced/older snapshot cannot reintroduce it after startup.
@@ -1194,6 +1270,113 @@ function normalizeCardPaymentPlan(){
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
 }
 
+
+function cashFlowLedgerKey(x){
+ return [
+  x.type||'',
+  x.referenceId||'',
+  x.date||'',
+  Number(x.amount||0).toFixed(2),
+  x.sourceId||'',
+  x.targetId||''
+ ].join('|');
+}
+function addCashFlowLedgerEntry(entry,persist=true){
+ const row={
+  id:entry.id||`cfl-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+  type:entry.type||'other',
+  date:entry.date||new Date().toISOString().slice(0,10),
+  month:entry.month||incomeMonthKey(entry.date||new Date()),
+  description:entry.description||'',
+  amount:Number(entry.amount||0),
+  sourceId:entry.sourceId||'',
+  sourceName:entry.sourceName||'',
+  targetId:entry.targetId||'',
+  targetName:entry.targetName||'',
+  deductFromIncome:entry.deductFromIncome===true,
+  referenceId:entry.referenceId||'',
+  referenceType:entry.referenceType||'',
+  status:entry.status||'active',
+  createdAt:entry.createdAt||new Date().toISOString()
+ };
+ const key=cashFlowLedgerKey(row);
+ if(!cashFlowLedger.some(x=>cashFlowLedgerKey(x)===key))cashFlowLedger.push(row);
+ if(persist)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
+ return row;
+}
+function reverseCashFlowLedgerByReference(referenceId){
+ let changed=false;
+ cashFlowLedger.forEach(x=>{
+  if(x.referenceId===referenceId && x.status!=='reversed'){
+   x.status='reversed';
+   x.reversedAt=new Date().toISOString();
+   changed=true;
+  }
+ });
+ if(changed)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
+ return changed;
+}
+function migrateCashFlowLedger(){
+ let added=0;
+
+ // Rebuild ledger from any surviving card-payment history.
+ cardPaymentPlan.forEach(p=>{
+  (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach((h,i)=>{
+   const before=cashFlowLedger.length;
+   addCashFlowLedgerEntry({
+    type:'card-payment',
+    date:h.date||String(h.recordedAt||'').slice(0,10),
+    month:paymentBudgetMonth(h),
+    description:`Card payment • ${accountName(p.accountId)}`,
+    amount:Number(h.amount||0),
+    sourceId:h.sourceId||'',
+    sourceName:h.sourceName||'',
+    targetId:p.accountId,
+    targetName:accountName(p.accountId),
+    deductFromIncome:h.sourceId==='cash-source'||h.deductFromIncome===true,
+    referenceId:`payment:${p.id}:${h.recordedAt||h.date||i}:${Number(h.amount||0).toFixed(2)}`,
+    referenceType:'card-payment-history',
+    createdAt:h.recordedAt||new Date().toISOString()
+   },false);
+   if(cashFlowLedger.length>before)added++;
+  });
+ });
+
+ // Rebuild outgoing payments as well.
+ outgoings.forEach(o=>{
+  Object.entries(o.payments||{}).forEach(([month,p])=>{
+   const before=cashFlowLedger.length;
+   addCashFlowLedgerEntry({
+    type:'outgoing-payment',
+    date:p.date||`${month}-01`,
+    month,
+    description:o.description,
+    amount:Number(p.amount||0),
+    sourceId:p.sourceId||'',
+    sourceName:p.sourceId==='cash-source'?'Monthly Planned Income':accountName(p.sourceId),
+    targetId:o.id,
+    targetName:o.description,
+    deductFromIncome:p.sourceId==='cash-source',
+    referenceId:`outgoing:${o.id}:${month}`,
+    referenceType:'outgoing-payment',
+    createdAt:p.recordedAt||new Date().toISOString()
+   },false);
+   if(cashFlowLedger.length>before)added++;
+  });
+ });
+
+ if(added)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
+ return added;
+}
+function cashFlowLedgerRows(month=currentIncomeMonth(),activeOnly=true){
+ return cashFlowLedger
+  .filter(x=>(!activeOnly||x.status!=='reversed') && (x.month||incomeMonthKey(x.date))===month)
+  .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+function monthlyIncomeLedgerRows(month=currentIncomeMonth()){
+ return cashFlowLedgerRows(month).filter(x=>x.deductFromIncome===true);
+}
+
 function allPaymentHistory(){
  return cardPaymentPlan.flatMap(p=>(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored).map(h=>({...h,targetCardId:p.accountId,paymentPlanId:p.id})));
 }
@@ -1212,11 +1395,22 @@ function paymentBudgetMonth(h){
  return currentIncomeMonth();
 }
 function plannedIncomePaymentHistory(month=currentIncomeMonth()){
- // V91: Monthly Planned Income is reduced only by an explicit user choice.
- // Paying one card from another card must never consume salary/planned-income budget automatically.
- return allPaymentHistory()
-  .filter(h=>(h.sourceId==='cash-source'||h.deductFromIncome===true) && paymentBudgetMonth(h)===month)
-  .map(h=>({...h,_budgetLegacy:false}))
+ // V122: use independent cash-flow ledger so card planner cleanup/reset cannot erase
+ // a Monthly Planned Income payment from the monthly cash-flow history.
+ migrateCashFlowLedger();
+ return monthlyIncomeLedgerRows(month)
+  .filter(x=>x.type==='card-payment')
+  .map(x=>({
+   amount:x.amount,
+   date:x.date,
+   sourceId:x.sourceId,
+   sourceName:x.sourceName||'Monthly Planned Income',
+   targetCardId:x.targetId,
+   deductFromIncome:true,
+   budgetMonth:x.month,
+   ledgerId:x.id,
+   _budgetLegacy:false
+  }))
   .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
 }
 function remainingIncomePaymentsTotal(month=currentIncomeMonth()){
@@ -1334,6 +1528,8 @@ function undoLastPartialPayment(id){
  const src=last.sourceId==='cash-source'?'Monthly Planned Income':accountName(last.sourceId);
  if(!confirm(`Undo the last payment of ${money(Number(last.amount||0))} from ${src}?`))return;
  p.paymentHistory.pop();
+ const undoRef=`payment:${p.id}:${last.recordedAt||last.date||''}:${Number(last.amount||0).toFixed(2)}`;
+ reverseCashFlowLedgerByReference(undoRef);
  const undoSource=last.sourceId==='cash-source'?null:account(last.sourceId);
  if(undoSource?.type==='bank')setTrackedBankBalance(undoSource.id,adjustedBankBalance(undoSource)+Number(last.amount||0));
  p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.duePortion!=null?last.duePortion:last.amount||0));p.paid=false;
@@ -1565,6 +1761,12 @@ function releasedPaymentRowPriority(p){
 
 
 function isGenuineReleasedStatementRow(p){
+ if(p?.accountId==='ar-5867' &&
+    Math.abs(Number(p?.amount||0)-40)<0.01 &&
+    p?.statementOfficial!==true &&
+    (String(p?.id||'')==='p-ar5867-aug' ||
+     String(p?.label||'').toLowerCase().includes('july statement') ||
+     (p?.source==='confirmed' && p?.month==='2026-08')))return false;
  if(!p || p.upcomingOnly===true)return false;
 
  // Highest confidence: user-confirmed imported official statement.
@@ -1613,6 +1815,21 @@ function canonicalReleasedPaymentRows(cardId){
 function cardReleasedStatementBalance(cardId){
  return canonicalReleasedPaymentRows(cardId)
   .reduce((sum,p)=>sum+Math.max(0,Number(paymentRemainingAmount(p)||0)),0);
+}
+
+
+function releasedAmountProvenance(cardId){
+ return canonicalReleasedPaymentRows(cardId).map(p=>({
+  id:p.id,
+  month:p.month,
+  due:p.due||'',
+  label:p.label||'',
+  amount:Number(paymentRemainingAmount(p)||0),
+  source:p.source||'',
+  official:p.statementOfficial===true,
+  importBacked:p.statementOfficial===true?officialStatementImportMatches(p):false,
+  file:p.statementFileName||p.statementImportedFile||''
+ }));
 }
 
 function cardReleasedStatementBreakdown(cardId){
@@ -2148,6 +2365,7 @@ function saveLocal(){
    localStorage.setItem('pf_imported_transactions',JSON.stringify(importedTransactions));
    localStorage.setItem('pf_import_history',JSON.stringify(importHistory));
    localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+   localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
    localStorage.setItem('pf_outgoings',JSON.stringify(outgoings));
    localStorage.setItem('pf_duplicate_decisions',JSON.stringify(duplicateDecisions));
    localStorage.setItem('pf_statement_rule',JSON.stringify(statementRule));
@@ -2164,6 +2382,7 @@ function saveLocal(){
  localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
  localStorage.setItem('pf_imported_transactions',JSON.stringify(importedTransactions));
  localStorage.setItem('pf_import_history',JSON.stringify(importHistory));localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+ localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
  localStorage.setItem('pf_outgoings',JSON.stringify(outgoings));
  localStorage.setItem('pf_duplicate_decisions',JSON.stringify(duplicateDecisions));
  localStorage.setItem('pf_statement_rule',JSON.stringify(statementRule));
@@ -2462,6 +2681,19 @@ function cardMetrics(a){
   creditBalance:0,netPosition:0,anchorCurrent:0,currentCycleUsage:0,
   releasedStatementBalance:0,activeCycleMonth:cardActiveCycleMonth(a.id),
   currentMonthlyInstallments:0,nextInstallmentScheduled:0,excelAccountingModel:true
+ };
+}
+
+
+function ar5867LegacyAudit(){
+ return {
+  plannerRows:cardPaymentPlan.filter(p=>p.accountId==='ar-5867').map(p=>({
+   id:p.id,month:p.month,amount:Number(p.amount||0),label:p.label||'',
+   source:p.source||'',official:p.statementOfficial===true
+  })),
+  visibleTransactions:normalizedTx().filter(t=>t.account==='ar-5867').map(t=>({
+   id:t._id,date:t.date,description:t.description,amount:Number(t.amount||0)
+  }))
  };
 }
 
@@ -2818,6 +3050,21 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
  const paymentId=`outpay-${outgoingId}-${month}-${Date.now()}`;
  const p={id:paymentId,amount:Number(amount),sourceId,date,month,recordedAt:new Date().toISOString()};
  o.payments[month]=p;
+ addCashFlowLedgerEntry({
+  type:'outgoing-payment',
+  date,
+  month,
+  description:o.description,
+  amount:Number(amount),
+  sourceId,
+  sourceName:sourceId==='cash-source'?'Monthly Planned Income':accountName(sourceId),
+  targetId:o.id,
+  targetName:o.description,
+  deductFromIncome:sourceId==='cash-source',
+  referenceId:`outgoing:${o.id}:${month}`,
+  referenceType:'outgoing-payment',
+  createdAt:p.recordedAt
+ });
 
  const src=sourceId==='cash-source'?null:account(sourceId);
  if(src?.type==='bank'){
@@ -2853,6 +3100,7 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
 function undoOutgoingPayment(outgoingId,month,refresh=true){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o?.payments?.[month])return false;
  const p=o.payments[month];
+ reverseCashFlowLedgerByReference(`outgoing:${outgoingId}:${month}`);
  const src=p.sourceId==='cash-source'?null:account(p.sourceId);
 
  if(src?.type==='bank'){
@@ -4188,6 +4436,7 @@ function resetCardData(cardId){
  // V118: never allow the retired SAB SAR 28,627.50 seed to return after reset.
  normalizeCardPaymentPlan();
  purgeLegacySabAnchorRows();
+ purgeLegacyAr5867SeedRows();
  rebuildTransactions();
  ensureMonthlyPlannerRows(selectedMonth);
  // Persist the cleaned planner before cloud auto-sync snapshots the state.
@@ -4229,7 +4478,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b><small>${cardMonthLabel(m.activeCycleMonth||cardActiveCycleMonth(a.id))} open cycle only</small></div><div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b><small>Added to this month's transactions</small></div><div class="miniMetric"><span>Current Cycle Amount</span><b class="red">${money(m.currentCycleUsage||0)}</b><small>Transactions + installment</small></div><div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b><small>${cardReleasedStatementBreakdown(a.id).length?`${cardReleasedStatementBreakdown(a.id).length} payable cycle${cardReleasedStatementBreakdown(a.id).length===1?'':'s'} • `:''}Payment Planner balance</small></div><div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst)}</b><small>Remaining principal after this month's installment</small></div><div class="miniMetric"><span>Installment Plan Remaining</span><b class="amber">${money(m.fullRemainingInstallmentPrincipal||0)}</b><small>Full plan principal before this month's commitment is consumed</small></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="notice" style="margin:10px 0"><b>Monthly card formula:</b> Current Cycle Amount = Current Cycle Transactions + Current Cycle Installment. Available Credit = Card Limit − Released / Amount to Pay − Current Cycle Amount − Future Installment Reserve + Card Credits / Extra Payments. The Future Installment Reserve excludes the installment already charged to the current cycle.</div><div class="notice" style="margin:10px 0"><b>Released statement rule:</b> Only a confirmed official statement or an explicit manual statement amount is included in Released / Amount to Pay. Auto-generated installment schedule rows remain estimates in the Payment Planner and do not consume the card limit a second time.</div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b><small>${cardMonthLabel(m.activeCycleMonth||cardActiveCycleMonth(a.id))} open cycle only</small></div><div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b><small>Added to this month's transactions</small></div><div class="miniMetric"><span>Current Cycle Amount</span><b class="red">${money(m.currentCycleUsage||0)}</b><small>Transactions + installment</small></div><div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b><small>${cardReleasedStatementBreakdown(a.id).length?`${cardReleasedStatementBreakdown(a.id).length} payable cycle${cardReleasedStatementBreakdown(a.id).length===1?'':'s'} • `:''}Payment Planner balance</small>${releasedAmountProvenance(a.id).length?`<small>${releasedAmountProvenance(a.id).map(x=>`${x.label||x.id} • ${x.source}${x.importBacked?' • imported official':''}`).join('<br>')}</small>`:''}</div><div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst)}</b><small>Remaining principal after this month's installment</small></div><div class="miniMetric"><span>Installment Plan Remaining</span><b class="amber">${money(m.fullRemainingInstallmentPrincipal||0)}</b><small>Full plan principal before this month's commitment is consumed</small></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="notice" style="margin:10px 0"><b>Monthly card formula:</b> Current Cycle Amount = Current Cycle Transactions + Current Cycle Installment. Available Credit = Card Limit − Released / Amount to Pay − Current Cycle Amount − Future Installment Reserve + Card Credits / Extra Payments. The Future Installment Reserve excludes the installment already charged to the current cycle.</div><div class="notice" style="margin:10px 0"><b>Released statement rule:</b> Only a confirmed official statement or an explicit manual statement amount is included in Released / Amount to Pay. Auto-generated installment schedule rows remain estimates in the Payment Planner and do not consume the card limit a second time.</div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
@@ -5259,6 +5508,19 @@ function updateIncomePlanPreview(){
    : '<tr><td colspan="5">No outgoing payments recorded for this month yet.</td></tr>';
  }
 
+ const ledgerRows=cashFlowLedgerRows(planMonth);
+ if($('cashFlowLedgerCount'))$('cashFlowLedgerCount').textContent=`${ledgerRows.length} entr${ledgerRows.length===1?'y':'ies'} • ${money(ledgerRows.reduce((s,x)=>s+Number(x.amount||0),0))}`;
+ if($('cashFlowLedgerBody'))$('cashFlowLedgerBody').innerHTML=ledgerRows.length
+  ? ledgerRows.map(x=>{
+     const type=x.type==='card-payment'?'Card Payment':x.type==='outgoing-payment'?'Outgoing Payment':x.type;
+     const source=x.sourceName||(x.sourceId==='cash-source'?'Monthly Planned Income':accountName(x.sourceId));
+     const impact=x.deductFromIncome
+       ? '<span class="red"><b>Deducted</b></span>'
+       : '<span class="green"><b>Not deducted</b></span>';
+     return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td></tr>`;
+    }).join('')
+  : '<tr><td colspan="6">No cash-flow usage recorded for this month.</td></tr>';
+
  accounts.filter(a=>a.type==='card').forEach(a=>{
   const m=cardMetrics(a),el=$('obligation_'+a.id);
   if(!el)return;
@@ -5494,7 +5756,8 @@ function applyCloudSnapshot(d){
  if(Array.isArray(d.resetCardIds)){resetCardIds=new Set(d.resetCardIds);localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));}
  cardResetHistory=d.cardResetHistory||cardResetHistory;
  localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
- cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;
+ cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;
+ purgeLegacyAr5867SeedRows();
  normalizeCardPaymentPlan();
  purgeLegacySabAnchorRows();
  rebuildTransactions();
@@ -5802,6 +6065,22 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  p.paymentHistory=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
  const hist={amount,duePortion,extraCredit,date,sourceId,sourceName:sourceId==='cash-source'?'Monthly Planned Income':accountName(sourceId),deductFromIncome,budgetMonth,incomeDecisionVersion:'V91',recordedAt:new Date().toISOString()};
  p.paymentHistory.push(hist);
+ const ledgerRef=`payment:${p.id}:${hist.recordedAt}:${Number(amount).toFixed(2)}`;
+ addCashFlowLedgerEntry({
+  type:'card-payment',
+  date,
+  month:budgetMonth,
+  description:`Card payment • ${accountName(p.accountId)}`,
+  amount,
+  sourceId,
+  sourceName:hist.sourceName,
+  targetId:p.accountId,
+  targetName:accountName(p.accountId),
+  deductFromIncome,
+  referenceId:ledgerRef,
+  referenceType:'card-payment-history',
+  createdAt:hist.recordedAt
+ });
  if(source?.type==='bank' && Number.isFinite(sourceBankBalanceBefore)){
   setTrackedBankBalance(source.id,sourceBankBalanceBefore-amount);
  }
@@ -5878,6 +6157,7 @@ async function init(){
  installments.forEach(p=>{if(p.cardId==='sab-440880'&&p.planType==='balance-offer')p.offerScope='full';});
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  normalizeCardPaymentPlan();
+ migrateCashFlowLedger();
  let incomeBudgetMigrationChanged=false;
  cardPaymentPlan.forEach(p=>(p.paymentHistory||[]).forEach(h=>{
   if(h.mirrored)return;
