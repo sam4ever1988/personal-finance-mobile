@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V125 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V126 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V125 PRODUCTION</span></div>
+  </div><span class="pill green">V126 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V125</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V111-20260907</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V126</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V126-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -931,6 +931,73 @@ button{cursor:pointer}
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
    <button type="button" class="btn" data-close="outgoingPaymentModal">Cancel</button>
    <button class="btn primary" type="submit">Save Payment</button>
+  </div>
+ </form>
+</div></div>
+
+
+<div class="modalBack" id="importPreviewEditModal"><div class="modal">
+ <div class="modalHead">
+  <div>
+   <div class="modalTitle">Edit Statement Transaction</div>
+   <div class="meta" style="margin-top:4px">Correct the transaction before it is imported.</div>
+  </div>
+  <button class="closeBtn" data-close="importPreviewEditModal">✕</button>
+ </div>
+ <form id="importPreviewEditForm" class="formGrid">
+  <input type="hidden" id="importPreviewEditIndex">
+
+  <div class="field">
+   <label>Account / Card</label>
+   <select id="importPreviewEditAccount" required></select>
+  </div>
+
+  <div class="field">
+   <label>Date</label>
+   <input type="date" id="importPreviewEditDate" required>
+  </div>
+
+  <div class="field full">
+   <label>Description</label>
+   <input id="importPreviewEditDescription" required placeholder="Merchant, bill, payment...">
+  </div>
+
+  <div class="field">
+   <label>Transaction Type</label>
+   <select id="importPreviewEditType">
+    <option value="expense">Expense / Purchase</option>
+    <option value="transfer">Card Payment / Transfer</option>
+    <option value="income">Income / Credit</option>
+    <option value="fee">Fee</option>
+    <option value="obligation">Loan / Obligation</option>
+   </select>
+  </div>
+
+  <div class="field">
+   <label>Amount (SAR)</label>
+   <input type="number" id="importPreviewEditAmount" min="0.01" step="0.01" required>
+   <div class="hint">Enter the amount as a positive value. Transaction Type determines debit/credit direction.</div>
+  </div>
+
+  <div class="field">
+   <label>Category</label>
+   <select id="importPreviewEditCategory" required></select>
+  </div>
+
+  <div class="field">
+   <label>Subcategory</label>
+   <select id="importPreviewEditSubcategory" required></select>
+  </div>
+
+  <div class="field full">
+   <div class="notice" id="importPreviewEditCycle">
+    Payment/statement cycle will be recalculated from the transaction date and selected card.
+   </div>
+  </div>
+
+  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
+   <button type="button" class="btn" data-close="importPreviewEditModal">Cancel</button>
+   <button class="btn primary" type="submit">Save Changes</button>
   </div>
  </form>
 </div></div>
@@ -5136,43 +5203,49 @@ function cleanupExistingImportedStatementDuplicates(){
 }
 
 
+function importPreviewTypeFromRow(row){
+ const kind=String(row?.kind||txType(row)||'expense').toLowerCase();
+ if(['expense','transfer','income','fee','obligation'].includes(kind))return kind;
+ return Number(row?.amount||0)>=0?'income':'expense';
+}
+
+function updateImportPreviewEditCycle(){
+ const accountId=$('importPreviewEditAccount')?.value||'';
+ const date=$('importPreviewEditDate')?.value||'';
+ const box=$('importPreviewEditCycle');
+ if(!box)return;
+ if(!accountId||!date){
+  box.textContent='Choose an account/card and date to calculate the payment/statement cycle.';
+  return;
+ }
+ const month=paymentMonthForTransaction(accountId,date);
+ box.innerHTML=`This transaction will be assigned to <b>${cardMonthLabel(month)}</b> payment/statement cycle.`;
+}
+
 function editImportPreviewRow(index){
  const row=importPreviewRows[index];
  if(!row)return;
 
- const date=prompt('Transaction date (YYYY-MM-DD):',row.date||'');
- if(date===null)return;
- const parsedDate=parseImportDate(date);
- if(!parsedDate){alert('Enter a valid transaction date.');return;}
+ $('importPreviewEditIndex').value=String(index);
+ $('importPreviewEditAccount').innerHTML=accounts.map(a=>
+  `<option value="${a.id}">${a.bank} • ${a.name}${a.ending?` •${a.ending}`:''}</option>`
+ ).join('');
+ $('importPreviewEditAccount').value=row.account||$('importAccount')?.value||'';
 
- const description=prompt('Description:',row.description||'');
- if(description===null)return;
- if(!String(description).trim()){alert('Description cannot be blank.');return;}
+ $('importPreviewEditDate').value=row.date||'';
+ $('importPreviewEditDescription').value=row.description||'';
 
- const amountRaw=prompt('Amount (SAR). Use negative for purchase/expense and positive for payment/credit:',String(Number(row.amount||0)));
- if(amountRaw===null)return;
- const amount=Number(String(amountRaw).replace(/,/g,'').trim());
- if(!Number.isFinite(amount)||amount===0){alert('Enter a valid non-zero amount.');return;}
+ const typ=importPreviewTypeFromRow(row);
+ $('importPreviewEditType').value=typ;
+ $('importPreviewEditAmount').value=Math.abs(Number(row.amount||0)).toFixed(2);
 
- const category=prompt('Category:',row.category||'Miscellaneous');
- if(category===null)return;
- const subcategory=prompt('Subcategory:',row.subcategory||'Unexpected Expenses');
- if(subcategory===null)return;
+ fillCategorySelect($('importPreviewEditCategory'),false);
+ const category=(categories[row.category] ? row.category : (Object.keys(categories)[0]||'Miscellaneous'));
+ $('importPreviewEditCategory').value=category;
+ fillSubcategorySelect($('importPreviewEditSubcategory'),category,row.subcategory||'');
 
- const accountId=$('importAccount')?.value||row.account;
- row.date=parsedDate;
- row.posting=row.posting||parsedDate;
- row.description=String(description).trim();
- row.amount=amount;
- row.category=String(category).trim()||'Miscellaneous';
- row.subcategory=String(subcategory).trim()||'Unexpected Expenses';
- row.account=accountId;
- row.kind=amount>0 ? (row.kind==='transfer'?'transfer':'income') : (row.kind==='transfer'?'transfer':'expense');
- row.paymentMonth=paymentMonthForTransaction(accountId,parsedDate);
- row.statementMonth=row.paymentMonth;
- row.previewEdited=true;
-
- renderImportPreview();
+ updateImportPreviewEditCycle();
+ openModal('importPreviewEditModal');
 }
 function deleteImportPreviewRow(index){
  const row=importPreviewRows[index];
@@ -5190,15 +5263,74 @@ function bindImportPreviewActions(){
  );
 }
 
+$('importPreviewEditCategory').addEventListener('change',()=>{
+ const cat=$('importPreviewEditCategory').value;
+ fillSubcategorySelect($('importPreviewEditSubcategory'),cat,'');
+});
+
+$('importPreviewEditAccount').addEventListener('change',updateImportPreviewEditCycle);
+$('importPreviewEditDate').addEventListener('change',updateImportPreviewEditCycle);
+
+$('importPreviewEditForm').addEventListener('submit',e=>{
+ e.preventDefault();
+
+ const index=Number($('importPreviewEditIndex').value);
+ const row=importPreviewRows[index];
+ if(!row)return;
+
+ const accountId=$('importPreviewEditAccount').value;
+ const date=$('importPreviewEditDate').value;
+ const description=$('importPreviewEditDescription').value.trim();
+ const type=$('importPreviewEditType').value;
+ const absAmount=Math.abs(Number($('importPreviewEditAmount').value||0));
+ const category=$('importPreviewEditCategory').value;
+ const subcategory=$('importPreviewEditSubcategory').value;
+
+ if(!accountId||!date||!description||!Number.isFinite(absAmount)||absAmount<=0||!category){
+  alert('Please complete all required transaction fields.');
+  return;
+ }
+
+ let amount=absAmount;
+ if(['expense','fee','obligation'].includes(type))amount=-absAmount;
+ else if(['income','transfer'].includes(type))amount=absAmount;
+
+ const paymentMonth=paymentMonthForTransaction(accountId,date);
+
+ Object.assign(row,{
+  account:accountId,
+  date,
+  posting:row.posting||date,
+  description,
+  amount,
+  category,
+  subcategory,
+  kind:type,
+  paymentMonth,
+  statementMonth:paymentMonth,
+  previewEdited:true
+ });
+
+ // Keep the selected card in the main import selector aligned when the user
+ // intentionally corrects the account/card in the edit modal.
+ if($('importAccount') && importPreviewRows.every(r=>r===row || r.account===accountId)){
+  $('importAccount').value=accountId;
+ }
+
+ closeModal('importPreviewEditModal');
+ renderImportPreview();
+});
+
+
 function renderImportPreview(){
  $('importPreviewMeta').textContent=importPreviewRows.length
-  ?`${importPreviewRows.length} transaction(s) found in ${importPreviewFileName}. Review, edit or delete any incorrect rows before importing.`
+  ?`${importPreviewRows.length} transaction(s) found in ${importPreviewFileName}. Review, edit or delete any incorrect rows before importing. Edit opens the full transaction form with Category and Subcategory dropdowns.`
   :'Choose a statement to begin.';
 
  $('importPreviewBody').innerHTML=importPreviewRows.length
   ?importPreviewRows.slice(0,300).map((t,index)=>`<tr>
     <td>${t.date}${t.previewEdited?'<div class="meta green">Edited</div>':''}</td>
-    <td><b>${t.description}</b></td>
+    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(t.paymentMonth||paymentMonthForTransaction(t.account,t.date))}</div></td>
     <td>${t.category}<div class="meta">${t.subcategory}</div></td>
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
