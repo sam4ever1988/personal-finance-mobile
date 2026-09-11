@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V128 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V129 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V128 PRODUCTION</span></div>
+  </div><span class="pill green">V129 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V128</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V128-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V129</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V129-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1028,7 +1028,7 @@ button{cursor:pointer}
  <div class="modalHead"><div class="modalTitle">Edit Transaction Category</div><button class="closeBtn" data-close="txEditModal">✕</button></div>
  <form id="txEditForm" class="formGrid">
   <div class="field full"><label>Transaction</label><div class="panel" id="txEditInfo"></div></div>
-  <div class="field"><label>Statement Month</label><input type="month" id="editStatementMonth"><div class="hint">Assign this transaction to the statement it belongs to. You can move a July transaction into the August statement, or vice versa.</div></div>
+  <div class="field"><label>Statement Month</label><input type="month" id="editStatementMonth"><div class="hint">Assign this transaction to the statement/payment month it belongs to. This assignment drives the dashboard, Current Cycle Transactions, Available Credit and Payment Planner.</div></div>
   <div class="field"><label>Statement Assignment</label><label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800"><input type="checkbox" id="editStatementManual"> Manual override for this transaction</label><div class="hint">If checked, the bulk cutoff rule will not overwrite this transaction.</div></div>
   <div class="field"><label>Category</label><select id="editCategory"></select></div>
   <div class="field"><label>Subcategory</label><select id="editSubcategory"></select></div>
@@ -1788,7 +1788,7 @@ function cardActiveCycleMonth(cardId,asOfDate=new Date()){
 function transactionAmountForPaymentMonthAll(cardId,paymentMonth){
  return liveCardTransactions().filter(t=>{
   if(t.account!==cardId)return false;
-  const assignedMonth=t.paymentMonth||paymentMonthForTransaction(cardId,t.date);
+  const assignedMonth=assignedTransactionPaymentMonth(cardId,t);
   if(assignedMonth!==paymentMonth)return false;
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
@@ -2110,7 +2110,7 @@ function ensureImportedTransactionPlannerRows(cardId,rows=[]){
  const months=[...new Set(
   (rows||[])
    .filter(t=>t.account===cardId)
-   .map(t=>t.paymentMonth||paymentMonthForTransaction(cardId,t.date))
+   .map(t=>assignedTransactionPaymentMonth(cardId,t))
    .filter(Boolean)
  )];
 
@@ -2436,6 +2436,7 @@ let reportDrill={type:'',value:''};
 let selectedCategory=Object.keys(categories)[0]||'';
 let editingTxId=null, simpleMode=null;
 window.__financeStateInitialized=true;
+repairStatementMonthOverrides();
 startCloudAutoSyncWatchers();
 
 // V103 startup-order fix:
@@ -2766,7 +2767,7 @@ function liveUnreleasedTransactionUsage(cardId){
 
  liveCardTransactions().forEach(t=>{
   if(t.account!==cardId)return;
-  const month=t.paymentMonth||paymentMonthForTransaction(cardId,t.date);
+  const month=assignedTransactionPaymentMonth(cardId,t);
   if(!month)return;
 
   // Once a real statement/manual confirmed cycle exists, the statement balance
@@ -2790,7 +2791,7 @@ function liveTransactionUsageByMonth(cardId){
  const out={};
  liveCardTransactions().forEach(t=>{
   if(t.account!==cardId)return;
-  const month=t.paymentMonth||paymentMonthForTransaction(cardId,t.date);
+  const month=assignedTransactionPaymentMonth(cardId,t);
   if(!month || cardCycleHasStatement(cardId,month))return;
   if(Number(t.amount||0)>=0)return;
   if(['transfer','income'].includes(txType(t)))return;
@@ -3621,7 +3622,23 @@ function rebuildCardAfterStatementMonthMove(cardId,oldMonth,newMonth){
  saveCardPaymentPlan();
 }
 
+
+function repairStatementMonthOverrides(){
+ let changed=false;
+ Object.entries(txOverrides||{}).forEach(([id,ov])=>{
+  if(ov?.statementMonthManual===true && ov?.statementMonth && ov.paymentMonth!==ov.statementMonth){
+   ov.paymentMonth=ov.statementMonth;
+   changed=true;
+  }
+ });
+ if(changed){
+  try{localStorage.setItem('pf_tx_overrides',JSON.stringify(txOverrides));}catch(e){}
+ }
+ return changed;
+}
+
 function refreshAfterTransactionChange(accountId=''){
+ repairStatementMonthOverrides();
  purgeLegacySabAnchorRows();
  if(accountId==='sab-440880'||!accountId)cleanupSabLegacyBalanceState();
  rebuildTransactions();
@@ -4428,15 +4445,20 @@ $('txEditForm').addEventListener('submit',e=>{
  const original=normalizedTx(true).find(t=>t._id===editingTxId) || transactions.find(t=>t._id===editingTxId);
  if(!original)return;
 
- const oldMonth=original.paymentMonth || original.statementMonth || paymentMonthForTransaction(original.account,original.date);
- const newMonth=$('editStatementMonth').value || paymentMonthForTransaction(original.account,original.date);
+ const oldMonth=assignedTransactionPaymentMonth(original.account,original);
+ const newMonth=$('editStatementManual').checked ? ($('editStatementMonth').value || paymentMonthForTransaction(original.account,original.date)) : paymentMonthForTransaction(original.account,original.date);
  const val={
   category:$('editCategory').value,
   subcategory:$('editSubcategory').value,
   statementMonth:newMonth,
+  paymentMonth:newMonth,
   statementMonthManual:$('editStatementManual').checked
  };
 
+ if(!val.statementMonthManual){
+  delete val.statementMonth;
+  delete val.paymentMonth;
+ }
  txOverrides[editingTxId]=val;
  if($('rememberMerchant').checked&&original){
   // Merchant rules remember categorization only. A statement-month move is
@@ -4555,11 +4577,27 @@ $('balanceOfferForm').addEventListener('submit',e=>{
 });
 
 
-function cardTransactionStatementMonth(cardId,t){
+
+function assignedTransactionPaymentMonth(cardId,t){
  if(!t)return '';
- // Imported statement rows are stamped with their actual payment month at import.
- // Otherwise derive it from this card's own statement cycle.
- return t.paymentMonth||paymentMonthForTransaction(cardId,t.date);
+
+ // A user-edited statement month is authoritative and must drive EVERY
+ // calculation: dashboard, current cycle, card balance, filters and planner.
+ if(t.statementMonthManual===true && t.statementMonth)return t.statementMonth;
+
+ // Backward compatibility: if an override explicitly supplied a statementMonth,
+ // use it even if older versions did not also update paymentMonth.
+ const ov=t._id ? txOverrides?.[t._id] : null;
+ if(ov?.statementMonthManual===true && ov?.statementMonth)return ov.statementMonth;
+
+ // Imported rows may already carry a paymentMonth.
+ if(t.paymentMonth)return t.paymentMonth;
+
+ return paymentMonthForTransaction(cardId,t.date);
+}
+
+function cardTransactionStatementMonth(cardId,t){
+ return assignedTransactionPaymentMonth(cardId,t);
 }
 function cardTransactionMonths(cardId){
  const months=new Set();
@@ -5453,7 +5491,7 @@ function renderImportPreview(){
  $('importPreviewBody').innerHTML=importPreviewRows.length
   ?importPreviewRows.slice(0,300).map((t,index)=>`<tr>
     <td>${t.date}${t.previewEdited?'<div class="meta green">Edited</div>':''}</td>
-    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(t.paymentMonth||paymentMonthForTransaction(t.account,t.date))}</div></td>
+    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}</div></td>
     <td>${t.category}<div class="meta">${t.subcategory}</div></td>
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
@@ -5472,7 +5510,7 @@ function importBatchReconciliation(index){
  const h=importHistory[index];
  if(!h)return null;
  const rows=importBatchRows(h);
- const months=[...new Set(rows.map(t=>t.paymentMonth||paymentMonthForTransaction(t.account,t.date)).filter(Boolean))];
+ const months=[...new Set(rows.map(t=>assignedTransactionPaymentMonth(t.account,t)).filter(Boolean))];
  return {
   file:h.fileName,
   accountId:h.accountId,
@@ -5481,7 +5519,7 @@ function importBatchReconciliation(index){
   paymentMonths:months,
   amountsByMonth:Object.fromEntries(months.map(m=>[
    m,
-   rows.filter(t=>(t.paymentMonth||paymentMonthForTransaction(t.account,t.date))===m)
+   rows.filter(t=>(assignedTransactionPaymentMonth(t.account,t))===m)
        .filter(t=>Number(t.amount||0)<0 && !['transfer','income'].includes(txType(t)))
        .reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)
   ])),
