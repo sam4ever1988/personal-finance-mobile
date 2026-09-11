@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V133 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V134 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V133 PRODUCTION</span></div>
+  </div><span class="pill green">V134 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V133</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V133-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V134</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V134-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1978,7 +1978,9 @@ function liveCardBalanceTrace(cardId){
   releasedAmountToPay:m.releasedStatementBalance,
   paymentsAndCredits:m.totalCardCredits,
   utilized:m.total,
-  available:m.available
+  available:m.available,
+  expectedUtilized:Math.round((m.releasedStatementBalance+m.liveTransactionUsage+m.fullRemainingInstallmentPrincipal+m.fundedOtherCards)*100)/100,
+  statementPaymentsAlreadyApplied:true
  };
 }
 
@@ -1996,7 +1998,7 @@ function liveCreditRegressionAudit(){
    utilized:m.total,
    available:m.available,
    releasedAmountToPay:m.releasedStatementBalance,
-   releasedExcludedFromUtilization:m.releasedExcludedFromLiveUtilization===true,
+   releasedIncludedInUtilization:m.releasedIncludedInLiveUtilization===true,
    installmentIncludedInUtilized:m.installmentIncludedInUtilized,
    limitReconciles:Math.abs((m.total+Math.min(m.available,m.limit))-m.limit)<0.02 || m.available>m.limit
   };
@@ -3072,8 +3074,20 @@ function excelCardAccounting(a){
  //
  // This separation prevents historical/released statement obligations from
  // forcing a card to 100% utilized after the card has already been paid.
- const grossOccupied=Math.max(0,liveTransactions+remainingPrincipal+fundedOtherCards);
- const occupied=Math.max(0,grossOccupied-totalCredits);
+ // V134 CARD UTILIZATION:
+ // Unpaid released statement balance remains part of the bank's utilized credit
+ // until it is actually paid. Payment history is already reflected inside
+ // releasedStatementBalance, so recorded payments (e.g. SAR 250 from Monthly
+ // Planned Income) MUST NOT be deducted again here.
+ //
+ // Current/unreleased statement transactions are added separately. Once their
+ // official statement is released, cardCycleHasStatement() removes those rows
+ // from liveTransactions and the released balance replaces them.
+ //
+ // Remaining installment principal is included once. Card-funded payments are
+ // counted separately only when no matching source-card transaction exists.
+ const grossOccupied=Math.max(0,released+liveTransactions+remainingPrincipal+fundedOtherCards);
+ const occupied=Math.max(0,grossOccupied);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
  const available=Math.max(0,limit-total)+overCredit;
@@ -3115,7 +3129,7 @@ function excelCardAccounting(a){
   grossOccupied,
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
-  releasedExcludedFromLiveUtilization:true,
+  releasedIncludedInLiveUtilization:true,
   creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
@@ -5087,7 +5101,7 @@ function openAccount(id,returnPage){
    <div class="miniMetric"><span>Included Live Transactions</span><b class="red">${money(tr.includedLiveTransactionTotal)}</b></div>
    <div class="miniMetric"><span>Remaining Installment Principal</span><b class="amber">${money(tr.remainingInstallmentPrincipal)}</b><small>Included once in utilized</small></div>
    <div class="miniMetric"><span>Unmatched Card-Funded Payments</span><b class="red">${money(tr.separatelyCountedFundedPayments)}</b><small>Matched bank transactions are not counted twice</small></div>
-   <div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(tr.releasedAmountToPay)}</b><small>Payment obligation only — excluded from live utilization</small></div>
+   <div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(tr.releasedAmountToPay)}</b><small>Unpaid statement obligation — included in utilized until paid</small></div>
   </div>
   <div style="overflow-x:auto;margin-top:10px">
    <table class="summaryTable">
@@ -5125,7 +5139,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Live Unreleased/Current Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Released / Amount to Pay is tracked separately and is not added again to utilization. Importing, adding, deleting, restoring, or moving a transaction to another statement/payment month recalculates this card and both affected payment cycles immediately.</div>
+<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Unpaid Released Statement Balance − Current/Unreleased Transaction Usage − Remaining Installment Principal − Unmatched Payments Funded From This Card. Recorded statement payments are already reflected in Released / Amount to Pay and are never deducted or added a second time. Importing, adding, deleting, restoring, or moving a transaction to another statement/payment month recalculates this card and both affected payment cycles immediately.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
