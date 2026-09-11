@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V126 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V127 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V126 PRODUCTION</span></div>
+  </div><span class="pill green">V127 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V126</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V126-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V127</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V127-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -2701,6 +2701,44 @@ function activeManualCardBalanceDelta(cardId){
   .filter(t=>t.account===cardId && t.manual && !linkedActiveInstallment(t._id))
   .reduce((sum,t)=>sum-Number(t.amount||0),0);
 }
+
+function recordedCardPaymentCredit(cardId){
+ let credit=0;
+
+ cardPaymentPlan
+  .filter(p=>p.accountId===cardId)
+  .forEach(p=>{
+   const genuineReleased=isGenuineReleasedStatementRow(p);
+   (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
+    const amount=Math.max(0,Number(h.amount||0));
+    const extra=Math.max(0,Number(h.extraCredit||0));
+
+    // Confirmed/released statement remaining already falls when paid.
+    // Only any overpayment should remain as separate card credit.
+    if(genuineReleased)credit+=extra;
+    else credit+=amount;
+   });
+  });
+
+ return Math.round(credit*100)/100;
+}
+
+function cardFundedPaymentUsage(cardId){
+ const usage=allPaymentHistory()
+  .filter(h=>h.sourceId===cardId && h.targetCardId!==cardId)
+  .reduce((sum,h)=>sum+Math.max(0,Number(h.amount||0)),0);
+
+ return Math.round(usage*100)/100;
+}
+
+function cardCreditBreakdown(cardId){
+ return {
+  manualCredits:Math.max(0,activeManualCardCredits(cardId)),
+  recordedPaymentCredits:Math.max(0,recordedCardPaymentCredit(cardId)),
+  cardFundedPayments:Math.max(0,cardFundedPaymentUsage(cardId))
+ };
+}
+
 function activeManualCardCredits(cardId){
  return normalizedTx()
   .filter(t=>t.account===cardId && t.manual && Number(t.amount||0)>0)
@@ -2798,17 +2836,26 @@ function excelCardAccounting(a){
  const futureReserve=Math.max(0,Math.round((remainingPrincipal-currentInstallment)*100)/100);
  const currentCycle=Math.max(0,Math.round((currentTransactions+currentInstallment)*100)/100);
 
- // Explicit extra payments/credits increase card availability.
- const manualCredits=Math.max(0,activeManualCardCredits(a.id));
+ // Recorded payments must restore available credit on the target card.
+ // Do not double-count payments already reflected in a confirmed statement's
+ // remaining balance; recordedCardPaymentCredit() handles that distinction.
+ const creditBreakdown=cardCreditBreakdown(a.id);
+ const manualCredits=creditBreakdown.manualCredits;
+ const recordedPaymentCredits=creditBreakdown.recordedPaymentCredits;
+ const totalCredits=Math.max(0,manualCredits+recordedPaymentCredits);
+
+ // If this card funded another card payment, that is utilization on this card.
+ const fundedOtherCards=Math.max(0,creditBreakdown.cardFundedPayments);
 
  // LIVE CARD POSITION:
  // confirmed statement balances
- // + transactions not yet represented by a statement
- // + all remaining installment principal
- // - extra card credits/payments.
- const grossOccupied=Math.max(0,released+liveTransactions+remainingPrincipal);
- const occupied=Math.max(0,grossOccupied-manualCredits);
- const overCredit=Math.max(0,manualCredits-grossOccupied);
+ // + unreleased imported/manual transactions
+ // + remaining installment principal
+ // + card-to-card payments funded from this card
+ // - payments/credits received by this card.
+ const grossOccupied=Math.max(0,released+liveTransactions+remainingPrincipal+fundedOtherCards);
+ const occupied=Math.max(0,grossOccupied-totalCredits);
+ const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
  const available=Math.max(0,limit-total)+overCredit;
  const utilization=limit?total/limit*100:0;
@@ -2829,7 +2876,11 @@ function excelCardAccounting(a){
   inst:futureReserve,
   total,
   util:utilization,
-  creditBalance:manualCredits+overCredit,
+  creditBalance:totalCredits+overCredit,
+  manualCardCredits:manualCredits,
+  recordedPaymentCredits,
+  fundedOtherCards,
+  totalCardCredits:totalCredits,
   netPosition:total-overCredit,
   anchorCurrent:currentCycle,
   currentCycleTransactions:currentTransactions,
@@ -2853,7 +2904,7 @@ function cardMetrics(a){
   limit,currentBalance:0,remainingInstallments:0,totalObligation:0,
   available:limit,bankAvailable:limit,futureReserved:0,availableBeforeInstallments:limit,
   bankUtilized:0,utilization:0,current:0,inst:0,total:0,util:0,
-  creditBalance:0,netPosition:0,anchorCurrent:0,currentCycleUsage:0,
+  creditBalance:0,manualCardCredits:0,recordedPaymentCredits:0,fundedOtherCards:0,totalCardCredits:0,netPosition:0,anchorCurrent:0,currentCycleUsage:0,
   releasedStatementBalance:0,activeCycleMonth:cardActiveCycleMonth(a.id),
   currentMonthlyInstallments:0,nextInstallmentScheduled:0,excelAccountingModel:true
  };
@@ -2902,6 +2953,9 @@ function liveCardBalanceAudit(cardId){
   transactionUsageByMonth:m.liveTransactionUsageByMonth,
   remainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
   cardCredits:m.creditBalance,
+  manualCardCredits:m.manualCardCredits,
+  recordedPaymentCredits:m.recordedPaymentCredits,
+  fundedOtherCards:m.fundedOtherCards,
   utilized:m.total,
   available:m.available,
   activeTransactionCount:liveCardTransactions().filter(t=>t.account===cardId).length
@@ -2922,6 +2976,9 @@ function releasedBalanceAudit(){
    installmentReserve:m.inst,
    fullRemainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
    cardCredits:m.creditBalance,
+   manualCardCredits:m.manualCardCredits,
+   recordedPaymentCredits:m.recordedPaymentCredits,
+   fundedOtherCards:m.fundedOtherCards,
    totalUtilized:m.total,
    available:m.available,
    rows:cardReleasedStatementBreakdown(a.id)
@@ -3407,7 +3464,7 @@ function renderDashboard(){
 function accountCardHTML(a){
  if(a.type==='card'){
   const m=cardMetrics(a),meta=`Ending •${a.ending} • Available ${money(m.available)}`,sub=a.id==='ar-0955'?`<div class="subcardTags"><span class="subcardTag">Primary •0955</span><span class="subcardTag">Supplementary •9345</span><span class="subcardTag">Supplementary •9634</span></div>`:'';
-  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${meta}${a.id==='sab-440880'?'':''}${resetCardIds.has(a.id)?' • RESET / DATE-DRIVEN':''}</div>${sub}</div><div style="text-align:right"><div class="amount red">${money(m.currentCycleUsage||0)}</div><div class="meta">Current cycle amount</div><div class="meta">${money(m.currentCycleTransactions||0)} transactions${Number(m.currentCycleInstallment||0)>0?` + ${money(m.currentCycleInstallment)} installment`:''}</div>${Number(m.releasedStatementBalance||0)>0?`<div class="meta blue" style="margin-top:3px">Released / amount to pay ${money(m.releasedStatementBalance)}${cardReleasedStatementBreakdown(a.id).length>1?` • ${cardReleasedStatementBreakdown(a.id).length} cycles`:''}</div>`:''}${m.inst>0?`<div class="meta amber" style="margin-top:3px">Future installment reserve ${money(m.inst)}</div>`:''}${m.creditBalance>0?`<div class="meta green" style="margin-top:3px">Card credit / extra paid ${money(m.creditBalance)}</div>`:''}<div class="meta"><b>Total utilized ${money(m.total)}</b> • Bank/card position</div><button class="btn small danger" type="button" data-reset-card="${a.id}" style="margin-top:8px">Reset Card</button></div></div>`;
+  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${meta}${a.id==='sab-440880'?'':''}${resetCardIds.has(a.id)?' • RESET / DATE-DRIVEN':''}</div>${sub}</div><div style="text-align:right"><div class="amount red">${money(m.currentCycleUsage||0)}</div><div class="meta">Current cycle amount</div><div class="meta">${money(m.currentCycleTransactions||0)} transactions${Number(m.currentCycleInstallment||0)>0?` + ${money(m.currentCycleInstallment)} installment`:''}</div>${Number(m.releasedStatementBalance||0)>0?`<div class="meta blue" style="margin-top:3px">Released / amount to pay ${money(m.releasedStatementBalance)}${cardReleasedStatementBreakdown(a.id).length>1?` • ${cardReleasedStatementBreakdown(a.id).length} cycles`:''}</div>`:''}${m.inst>0?`<div class="meta amber" style="margin-top:3px">Future installment reserve ${money(m.inst)}</div>`:''}${m.creditBalance>0?`<div class="meta green" style="margin-top:3px">Card credit / payments received ${money(m.creditBalance)}</div>`:''}<div class="meta"><b>Total utilized ${money(m.total)}</b> • Bank/card position</div><button class="btn small danger" type="button" data-reset-card="${a.id}" style="margin-top:8px">Reset Card</button></div></div>`;
  }
  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${a.ending?`Ending •${a.ending}`:'Cash account'}</div></div><div><div class="amount green">${money(adjustedBankBalance(a))}</div><div class="meta" style="text-align:right">${a.balanceLabel||'Balance'}</div></div></div>`;
 }
@@ -4373,12 +4430,12 @@ function cardPositionHero(a,m){
     <div class="cardMetricBox"><span>Credit Limit</span><b>${money(m.limit)}</b></div>
     <div class="cardMetricBox"><span>${is0955?'Bank Available':'Available Credit'}</span><b class="green">${money(m.available)}</b></div>
     <div class="cardMetricBox"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
-    <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>${m.creditBalance>0?`<div class="cardMetricBox"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance)}</b></div>`:''}
+    <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>${m.creditBalance>0?`<div class="cardMetricBox"><span>Card Credit / Payments Received</span><b class="green">${money(m.totalCardCredits||0)}</b></div>`:''}
    </div>
    ${a.id==='sab-440880'?`<div class="reconcileBox">
      <b>SAB live balance reconciliation • V119</b>
      <div class="formula">${money(m.available)} + ${money(m.total)} = <b>${money(m.limit)}</b></div>
-     <div class="formula" style="margin-top:6px">${money(m.releasedStatementBalance||0)} released + ${money(m.currentCycleUsage||0)} current cycle + ${money(m.inst||0)} future reserve - ${money(m.creditBalance||0)} credits = <b>${money(m.total)}</b> utilized</div>
+     <div class="formula" style="margin-top:6px">${money(m.releasedStatementBalance||0)} released + ${money(m.liveTransactionUsage||0)} live transactions + ${money(m.fullRemainingInstallmentPrincipal||0)} installment principal + ${money(m.fundedOtherCards||0)} funded card payments - ${money(m.totalCardCredits||0)} credits = <b>${money(m.total)}</b> utilized</div>
      <div class="cardDetailSub">No legacy/manual SAB balance anchor is used. Resetting a month removes that month's transactions/statement effect from the live balance.</div>
     </div>`:''}
    ${is0955?`<div class="reconcileBox">
@@ -4677,7 +4734,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Live Transaction Usage</span><b class="red">${money(m.liveTransactionUsage||0)}</b><small>Imported + manual transactions not yet replaced by a confirmed statement</small></div><div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b><small>${cardMonthLabel(m.activeCycleMonth||cardActiveCycleMonth(a.id))} open cycle only</small></div><div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b><small>Added to this month's transactions</small></div><div class="miniMetric"><span>Current Cycle Amount</span><b class="red">${money(m.currentCycleUsage||0)}</b><small>Transactions + installment</small></div><div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b><small>${cardReleasedStatementBreakdown(a.id).length?`${cardReleasedStatementBreakdown(a.id).length} payable cycle${cardReleasedStatementBreakdown(a.id).length===1?'':'s'} • `:''}Payment Planner balance</small>${releasedAmountProvenance(a.id).length?`<small>${releasedAmountProvenance(a.id).map(x=>`${x.label||x.id} • ${x.source}${x.importBacked?' • imported official':''}`).join('<br>')}</small>`:''}</div><div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst)}</b><small>Remaining principal after this month's installment</small></div><div class="miniMetric"><span>Installment Plan Remaining</span><b class="amber">${money(m.fullRemainingInstallmentPrincipal||0)}</b><small>Full plan principal before this month's commitment is consumed</small></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Extra Paid</span><b class="green">${money(m.creditBalance||0)}</b></div><div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="notice" style="margin:10px 0"><b>Monthly card formula:</b> Current Cycle Amount = Current Cycle Transactions + Current Cycle Installment. Available Credit = Card Limit − Released / Amount to Pay − Current Cycle Amount − Future Installment Reserve + Card Credits / Extra Payments. The Future Installment Reserve excludes the installment already charged to the current cycle.</div><div class="notice" style="margin:10px 0"><b>Released statement rule:</b> Only a confirmed official statement or an explicit manual statement amount is included in Released / Amount to Pay. Auto-generated installment schedule rows remain estimates in the Payment Planner and do not consume the card limit a second time.</div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px"><div class="miniMetric"><span>Live Transaction Usage</span><b class="red">${money(m.liveTransactionUsage||0)}</b><small>Imported + manual transactions not yet replaced by a confirmed statement</small></div><div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b><small>${cardMonthLabel(m.activeCycleMonth||cardActiveCycleMonth(a.id))} open cycle only</small></div><div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b><small>Added to this month's transactions</small></div><div class="miniMetric"><span>Current Cycle Amount</span><b class="red">${money(m.currentCycleUsage||0)}</b><small>Transactions + installment</small></div><div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b><small>${cardReleasedStatementBreakdown(a.id).length?`${cardReleasedStatementBreakdown(a.id).length} payable cycle${cardReleasedStatementBreakdown(a.id).length===1?'':'s'} • `:''}Payment Planner balance</small>${releasedAmountProvenance(a.id).length?`<small>${releasedAmountProvenance(a.id).map(x=>`${x.label||x.id} • ${x.source}${x.importBacked?' • imported official':''}`).join('<br>')}</small>`:''}</div><div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst)}</b><small>Remaining principal after this month's installment</small></div><div class="miniMetric"><span>Installment Plan Remaining</span><b class="amber">${money(m.fullRemainingInstallmentPrincipal||0)}</b><small>Full plan principal before this month's commitment is consumed</small></div><div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div><div class="miniMetric"><span>Card Credit / Payments Received</span><b class="green">${money(m.totalCardCredits||0)}</b><small>${money(m.recordedPaymentCredits||0)} recorded payments + ${money(m.manualCardCredits||0)} manual credits</small></div>${Number(m.fundedOtherCards||0)>0?`<div class="miniMetric"><span>Payments Funded From This Card</span><b class="red">${money(m.fundedOtherCards||0)}</b><small>Payments made to another card using this card as the source</small></div>`:'' }<div class="miniMetric"><span>Bank Available</span><b class="green">${money(m.available)}</b></div><div class="miniMetric"><span>Utilization</span><b>${m.util.toFixed(1)}%</b></div>${a.id==='meem-7102'&&a.extra?.['Official Meem Statement Loaded']?`<div class="miniMetric"><span>Last Statement Due</span><b>${money(Number(a.extra['Last Statement Total Due']||0))}</b><div class="meta">${a.extra['Last Statement Due Date']?paymentFormatDate(a.extra['Last Statement Due Date']):''}</div></div><div class="notice" style="margin:10px 0"><b>Monthly card formula:</b> Current Cycle Amount = Current Cycle Transactions + Current Cycle Installment. Available Credit = Card Limit − Released / Amount to Pay − Current Cycle Amount − Future Installment Reserve + Card Credits / Extra Payments. The Future Installment Reserve excludes the installment already charged to the current cycle.</div><div class="notice" style="margin:10px 0"><b>Released statement rule:</b> Only a confirmed official statement or an explicit manual statement amount is included in Released / Amount to Pay. Auto-generated installment schedule rows remain estimates in the Payment Planner and do not consume the card limit a second time.</div><div class="miniMetric"><span>Statement Closing Balance</span><b>${money(Number(a.extra['Last Statement Closing Balance']||0))}</b></div>`:''}</div></div><div class="sectionTitle">Active Installments</div><div class="meta" style="margin:-6px 0 9px">Installment payments already completed reduce the adjusted card balance automatically. Remaining principal stays reserved. If you settle a plan early, confirm/delete it so future commitments stop.</div><div class="panel">${(()=>{
  const activePlans=plans.filter(p=>planCalc(p).status==='Active');
  const totalRemaining=activePlans.reduce((z,p)=>z+planCalc(p).remaining,0);
  const monthlyCommitment=activePlans.reduce((z,p)=>z+planCalc(p).monthly,0);
@@ -4705,7 +4762,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Confirmed/Released Statement Balance − Unreleased Imported/Manual Transaction Usage − Remaining Installment Principal + Card Credits. Importing, adding, deleting or restoring a transaction recalculates this card immediately.</div>
+<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Confirmed/Released Statement Balance − Unreleased Imported/Manual Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Importing, adding, deleting or restoring a transaction recalculates this card immediately.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
@@ -6484,7 +6541,14 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  }
  saveCardPaymentPlan();closePaymentSourceModal();
  saveLocal();
- renderPaymentPlanner();renderDashboard();renderAccounts();
+
+ // V127: recalculate the target card immediately so recorded payments
+ // restore its available credit without requiring a browser refresh.
+ refreshAfterTransactionChange(p.accountId);
+
+ // If another credit card funded this payment, update that source card too.
+ if(source?.type==='card')refreshAfterTransactionChange(source.id);
+
  if(extraCredit>0)setTimeout(()=>alert(`Payment recorded.\n\nAmount due applied: ${money(duePortion)}\nExtra paid to card: ${money(extraCredit)}\nDashboard remaining for this payment: ${money(paymentRemainingAmount(p)||0)}\n\nThe extra amount is stored as card credit and will reduce future card usage/transactions.`),40);
  if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 });
