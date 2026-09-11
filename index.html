@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V130 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V131 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V130 PRODUCTION</span></div>
+  </div><span class="pill green">V131 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V130</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V130-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V131</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V131-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1622,9 +1622,21 @@ function ensurePartialPaymentFields(){
 function paymentPaidAmount(p){
  return Math.max(0,Number(p?.paidAmount||0),durableLedgerPaidAmountForPlan(p));
 }
+function releasedStatementAudit(p){
+ const original=Math.max(0,Number(inferStatementOriginalAmount(p)||0));
+ const installmentAdjustment=Math.min(original,Math.max(0,Number(statementAdjustmentTotal(p)||0)));
+ const adjusted=Math.max(0,Math.round((original-installmentAdjustment)*100)/100);
+ const paid=Math.max(0,Math.round(Number(paymentPaidAmount(p)||0)*100)/100);
+ const remaining=Math.max(0,Math.round((adjusted-paid)*100)/100);
+ return {original,installmentAdjustment,adjusted,paid,remaining};
+}
+
 function paymentRemainingAmount(p){
+ if(isGenuineReleasedStatementRow(p) || importedOfficialPlannerRow(p.accountId,p.month)){
+  return releasedStatementAudit(p).remaining;
+ }
  const due=Number(plannerAmountForRow(p));
- return Number.isFinite(due)?Math.max(0,due-paymentPaidAmount(p)):null;
+ return Number.isFinite(due)?Math.max(0,Math.round((due-paymentPaidAmount(p))*100)/100):null;
 }
 function recordPartialPayment(id){openRecordPayment(id)}
 function undoLastPartialPayment(id){
@@ -1925,6 +1937,20 @@ function cardReleasedStatementBalance(cardId){
 
 
 
+
+function allCardStatementRegressionAudit(){
+ return accounts.filter(a=>a.type==='card').map(a=>{
+  const rows=canonicalReleasedPaymentRows(a.id).map(p=>{
+   const s=releasedStatementAudit(p);
+   return {id:p.id,month:p.month,original:s.original,installmentAdjustment:s.installmentAdjustment,
+    adjustedStatement:s.adjusted,paid:s.paid,remaining:s.remaining,
+    statementInvariantOK:Math.abs(s.remaining-Math.max(0,s.adjusted-s.paid))<0.011};
+  });
+  const m=cardMetrics(a);
+  return {cardId:a.id,card:`${a.bank} • ${a.name} •${a.ending}`,releasedStatements:rows,
+   available:Number(m.available||0),utilized:Number(m.utilized||0)};
+ });
+}
 
 function transactionCycleAudit(cardId,month){
  return liveCardTransactions(true)
@@ -2289,25 +2315,16 @@ function plannerDisplayLabel(p){
 }
 
 function plannerAmountForRow(p){
- // V123 universal dashboard priority:
- // imported official statement > explicit user override > date-driven cycle calculation.
-
+ // V131: released statement obligation is fixed independently from payments.
  const official=importedOfficialPlannerRow(p.accountId,p.month);
  if(official){
   if(Number.isFinite(Number(official.manualOverrideAmount)))return Number(official.manualOverrideAmount);
-  if(statementAdjustmentTotal(official)>0 && Number.isFinite(inferStatementOriginalAmount(official))){
-   return adjustedConfirmedStatementAmount(official);
-  }
-  return Number(official.statementOriginalAmount??official.amount??0);
+  return adjustedConfirmedStatementAmount(official);
  }
-
- // A direct user edit is intentional and remains authoritative until an imported
- // official statement for this card/month is confirmed.
- if(Number.isFinite(Number(p.manualOverrideAmount)))return Number(p.manualOverrideAmount);
-
- // No official imported statement:
- // calculate the payment month from the actual card transactions + installment due.
- // This intentionally ignores old hard-coded estimated/manual seed amounts.
+ if(isGenuineReleasedStatementRow(p)){
+  if(Number.isFinite(Number(p.manualOverrideAmount)))return Number(p.manualOverrideAmount);
+  return adjustedConfirmedStatementAmount(p);
+ }
  return calculatedPaymentCycleAmount(p.accountId,p.month);
 }
 function plannerAmountExplanation(p){
@@ -6675,6 +6692,7 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  if(source?.type==='bank'&&amount>adjustedBankBalance(source)+0.005){
   if(!confirm(`This payment is greater than the current tracked balance of ${money(adjustedBankBalance(source))} in ${source.bank} • ${source.name}. Record it anyway?`))return;
  }
+ // V131: payment updates ledger only; statement base stays unchanged.
  p.paidAmount=paymentPaidAmount(p)+duePortion;
  p.paymentHistory=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
  const hist={amount,duePortion,extraCredit,date,sourceId,sourceName:sourceId==='cash-source'?'Monthly Planned Income':accountName(sourceId),deductFromIncome,budgetMonth,incomeDecisionVersion:'V91',recordedAt:new Date().toISOString()};
