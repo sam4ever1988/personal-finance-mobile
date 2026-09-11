@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V127 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V128 Safe Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -814,10 +814,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V127 PRODUCTION</span></div>
+  </div><span class="pill green">V128 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V127</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V127-20260911</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V128</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V128-20260911</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3591,6 +3591,36 @@ function cleanupSabLegacyBalanceState(){
  }
 }
 
+
+function rebuildCardAfterStatementMonthMove(cardId,oldMonth,newMonth){
+ const months=[oldMonth,newMonth].filter(Boolean);
+
+ // A date-driven planner row must never keep a stale manual amount after
+ // the transaction was explicitly moved to another statement/payment month.
+ cardPaymentPlan.forEach(p=>{
+  if(p.accountId!==cardId || !months.includes(p.month))return;
+  if(p.statementOfficial===true && officialStatementImportMatches(p))return;
+  if(p.source==='confirmed')return;
+
+  delete p.manualOverrideAmount;
+  p.source='calculated';
+  p.label=`Calculated ${cardMonthLabel(p.month)} payment cycle`;
+ });
+
+ rebuildTransactions();
+
+ // Rebuild both the old and new cycle from the edited transaction assignment.
+ const rows=liveCardTransactions().filter(t=>t.account===cardId);
+ ensureImportedTransactionPlannerRows(cardId,rows);
+ months.forEach(m=>ensureMonthlyPlannerRows(m));
+ ensureReleasedCyclePlannerRows();
+ normalizeReleasedPaymentAliases();
+
+ // Keep recorded payments attached, but their remaining/extra-credit result
+ // is now calculated against the rebuilt cycle amount.
+ saveCardPaymentPlan();
+}
+
 function refreshAfterTransactionChange(accountId=''){
  purgeLegacySabAnchorRows();
  if(accountId==='sab-440880'||!accountId)cleanupSabLegacyBalanceState();
@@ -4392,7 +4422,43 @@ $('convertToInstallment').addEventListener('click',()=>{
  });
 });
 
-$('txEditForm').addEventListener('submit',e=>{e.preventDefault();const original=transactions.find(t=>t._id===editingTxId);const val={category:$('editCategory').value,subcategory:$('editSubcategory').value,statementMonth:$('editStatementMonth').value,statementMonthManual:$('editStatementManual').checked};txOverrides[editingTxId]=val;if($('rememberMerchant').checked&&original){merchantRules[original.description]=val}saveLocal();closeModal('txEditModal');renderTransactions();renderReports();renderCategories();renderDashboard()});
+$('txEditForm').addEventListener('submit',e=>{
+ e.preventDefault();
+
+ const original=normalizedTx(true).find(t=>t._id===editingTxId) || transactions.find(t=>t._id===editingTxId);
+ if(!original)return;
+
+ const oldMonth=original.paymentMonth || original.statementMonth || paymentMonthForTransaction(original.account,original.date);
+ const newMonth=$('editStatementMonth').value || paymentMonthForTransaction(original.account,original.date);
+ const val={
+  category:$('editCategory').value,
+  subcategory:$('editSubcategory').value,
+  statementMonth:newMonth,
+  statementMonthManual:$('editStatementManual').checked
+ };
+
+ txOverrides[editingTxId]=val;
+ if($('rememberMerchant').checked&&original){
+  // Merchant rules remember categorization only. A statement-month move is
+  // transaction-specific and must not silently move every matching merchant.
+  merchantRules[original.description]={
+   category:val.category,
+   subcategory:val.subcategory
+  };
+ }
+
+ saveLocal();
+ closeModal('txEditModal');
+
+ if(oldMonth!==newMonth){
+  rebuildCardAfterStatementMonthMove(original.account,oldMonth,newMonth);
+ }
+
+ // Full refresh is required even if only category changed because the card
+ // detail, planner, dashboard, reports and current-cycle metrics share state.
+ refreshAfterTransactionChange(original.account);
+ renderCategories();
+});
 
 
 function cardPositionHero(a,m){
@@ -4762,7 +4828,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Confirmed/Released Statement Balance − Unreleased Imported/Manual Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Importing, adding, deleting or restoring a transaction recalculates this card immediately.</div>
+<div class="notice" style="margin:12px 0"><b>Live card balance:</b> Available Credit = Card Limit − Confirmed/Released Statement Balance − Unreleased Imported/Manual Transaction Usage − Remaining Installment Principal − Payments Funded From This Card + Recorded Payments/Credits Received. Importing, adding, deleting, restoring, or moving a transaction to another statement/payment month recalculates this card and both affected payment cycles immediately.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
