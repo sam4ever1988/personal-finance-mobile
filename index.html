@@ -834,10 +834,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V142 PRODUCTION</span></div>
+  </div><span class="pill green">V143 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V142</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V142-20260912</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V143</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V143-20260912</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -7396,7 +7396,7 @@ async function cloudAutoReconcile(reason='auto'){
   const now=Date.now();
   cloudLastAutoCheckAt=now;
 
-  // V142 PAYMENT CYCLE INTEGRITY — CLOUD-FIRST CONFLICT GUARD
+  // V143 INSTALLMENT CREDIT HOLD — CLOUD-FIRST CONFLICT GUARD
   // Always inspect the cloud BEFORE uploading pending local changes.
   // This prevents an older iMac/PC browser from overwriting a newer MacBook
   // snapshot simply because its local browser timestamp changed.
