@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V143 Unified Card Engine</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V144 Linked Card Payments</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -833,10 +833,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V143 PRODUCTION</span></div>
+  </div><span class="pill green">V144 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V143</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V143-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V144</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V144-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1947,6 +1947,10 @@ function transactionAmountForPaymentMonthAll(cardId,paymentMonth){
   if(assignedMonth!==paymentMonth)return false;
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
+
+  // V144: completed historical card-to-card payments are not purchases.
+  if(isCreditCardPaymentTx(t) && linkedPaymentCycleClosedForTx(t))return false;
+
   if(linkedActiveInstallment(t._id))return false;
   const d=String(t.description||'').toLowerCase();
   if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
@@ -3246,6 +3250,47 @@ function isUserLiveTransaction(t){
  if(!t)return false;
  // Only real user-entered or statement-imported activity drives live utilization.
  return t.manual===true || t.imported===true;
+}
+
+
+function isCreditCardPaymentTx(t){
+ if(!t)return false;
+ const cat=String(t.category||'').toLowerCase();
+ const sub=String(t.subcategory||'').toLowerCase();
+ const desc=String(t.description||'').toLowerCase();
+ return (
+  sub.includes('credit card payment') ||
+  (cat.includes('financial obligations') && /card payment|credit card|visa|master|sadad bill payment/.test(desc))
+ );
+}
+
+function matchedCardPaymentLedgerRowForTx(t){
+ if(!t || !isCreditCardPaymentTx(t) || Number(t.amount||0)>=0)return null;
+ const amt=Math.abs(Number(t.amount||0));
+ const date=String(t.date||'').slice(0,10);
+ return (cashFlowLedger||[]).find(x=>{
+  if(x.type!=='card-payment' || x.status==='reversed')return false;
+  if(x.sourceId!==t.account)return false;
+  if(Math.abs(Number(x.amount||0)-amt)>0.01)return false;
+  if(String(x.date||'').slice(0,10)!==date)return false;
+  return true;
+ })||null;
+}
+
+function linkedPaymentCycleClosedForTx(t){
+ const ledger=matchedCardPaymentLedgerRowForTx(t);
+ if(!ledger)return false;
+
+ const targetPlan=cardPaymentPlan.find(p=>
+  p.accountId===ledger.targetId &&
+  (
+   (ledger.targetPaymentMonth && p.month===ledger.targetPaymentMonth) ||
+   String(ledger.referenceId||'').startsWith(`payment:${p.id}:`)
+  )
+ );
+
+ if(!targetPlan)return true;
+ return paymentRemainingAmount(targetPlan)<=0.005 || targetPlan.paid===true;
 }
 
 function liveUnreleasedTransactionRows(cardId){
@@ -7221,7 +7266,7 @@ async function cloudAutoReconcile(reason='auto'){
   const now=Date.now();
   cloudLastAutoCheckAt=now;
 
-  // V143 UNIFIED CARD ENGINE — CLOUD-FIRST CONFLICT GUARD
+  // V144 LINKED CARD PAYMENTS — CLOUD-FIRST CONFLICT GUARD
   // Always inspect the cloud BEFORE uploading pending local changes.
   // This prevents an older iMac/PC browser from overwriting a newer MacBook
   // snapshot simply because its local browser timestamp changed.
