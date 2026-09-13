@@ -784,7 +784,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V144 Linked Card Payments</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">SAFE FIRST SYNC</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V145 Realtime Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -824,7 +824,7 @@ button{cursor:pointer}
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">Recovery Sync ready • cloud-first sync with automatic local rollback snapshots.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">Realtime Sync ready • Supabase records are the master; local data is cache/recovery only.</div>
   </div>
  </div>
 </section>
@@ -833,11 +833,11 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V144 PRODUCTION</span></div>
+  </div><span class="pill green">V145 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V144</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V144-20260913</div></div>
-   <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Local + Supabase Cloud</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V145</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">06 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V145-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
   <button class="btn" style="margin-top:12px" onclick="nav('cloudSync')">Open Cloud Login / Sync</button>
@@ -854,7 +854,7 @@ button{cursor:pointer}
  </div>
 
  <div class="panel" style="margin-bottom:12px">
-  <div class="splitHead"><div><div class="panelTitle">Local Finance Database</div><div class="meta">All edits are saved instantly to IndexedDB/localStorage and automatically synchronized to your Supabase cloud database when signed in.</div></div><div class="dbStatus" id="dbStatus"><span class="dbDot"></span>Database active</div></div>
+  <div class="splitHead"><div><div class="panelTitle">Local Finance Database</div><div class="meta">Supabase is the master database. Local storage is only a fast cache/recovery copy. Changes synchronize between signed-in devices in realtime.</div></div><div class="dbStatus" id="dbStatus"><span class="dbDot"></span>Database active</div></div>
  </div>
 
  <div class="panel" style="margin-bottom:12px">
@@ -6739,20 +6739,312 @@ function runtimeSelfTest(){
 const SUPABASE_URL='https://qxayaygycgqwrerhrrlq.supabase.co', SUPABASE_PUBLISHABLE_KEY='sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2';
 const cloudClient=window.supabase?.createClient?window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;
 function cloudSetStatus(x){if($('cloudStatus'))$('cloudStatus').textContent=x;}
+
+// ===================== V145 REALTIME RECORD SYNC =====================
+// Supabase is the canonical database. Browser storage is a cache/recovery layer.
+const RECORD_SYNC_TABLE='finance_sync_records';
+const RECORD_SYNC_SINGLETON='singleton';
+var recordSyncReady=false;
+var recordSyncApplying=false;
+var recordSyncPushTimer=null;
+var recordSyncPushBusy=false;
+var recordSyncPullBusy=false;
+var recordSyncChannel=null;
+var recordSyncLastEventAt=0;
+
+function syncStableId(section,x,i=0){
+ if(x && (x._id!=null || x.id!=null))return String(x._id??x.id);
+ if(section==='import_history')return String(x?.id ?? `${x?.fileName||x?.file_name||'file'}|${x?.importedAt||x?.imported_at||i}`);
+ if(section==='cash_flow_ledger')return String(x?.id ?? cashFlowLedgerKey(x||{}));
+ if(section==='outgoings')return String(x?.id ?? `${x?.description||'out'}|${x?.startMonth||x?.start_month||''}|${i}`);
+ return String(i);
+}
+
+function buildRecordSyncRowsFromState(){
+ const rows=[];
+ const add=(section,record_id,data)=>rows.push({section,record_id:String(record_id),data});
+
+ // Singleton/object sections.
+ add('categories',RECORD_SYNC_SINGLETON,categories||{});
+ add('merchant_rules',RECORD_SYNC_SINGLETON,merchantRules||{});
+ add('tx_overrides',RECORD_SYNC_SINGLETON,txOverrides||{});
+ add('income_plan',RECORD_SYNC_SINGLETON,incomePlan||{});
+ add('duplicate_decisions',RECORD_SYNC_SINGLETON,duplicateDecisions||{});
+ add('statement_rule',RECORD_SYNC_SINGLETON,statementRule||{});
+ add('transaction_actions',RECORD_SYNC_SINGLETON,transactionActions||{});
+ add('bank_balance_overrides',RECORD_SYNC_SINGLETON,bankBalanceOverrides||{});
+ add('reset_card_ids',RECORD_SYNC_SINGLETON,[...resetCardIds]);
+ add('card_reset_history',RECORD_SYNC_SINGLETON,cardResetHistory||[]);
+ add('deleted_installment_ids',RECORD_SYNC_SINGLETON,[...deletedInstallmentIds]);
+
+ // Record sections.
+ (manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
+ (importedTransactions||[]).forEach((x,i)=>add('imported_transactions',syncStableId('imported_transactions',x,i),x));
+ (importHistory||[]).forEach((x,i)=>add('import_history',syncStableId('import_history',x,i),x));
+ (cashFlowLedger||[]).forEach((x,i)=>add('cash_flow_ledger',syncStableId('cash_flow_ledger',x,i),x));
+ (outgoings||[]).forEach((x,i)=>add('outgoings',syncStableId('outgoings',x,i),x));
+ (installments||[]).forEach((x,i)=>add('installments',syncStableId('installments',x,i),x));
+ (cardPaymentPlan||[]).forEach((x,i)=>add('card_payment_plan',syncStableId('card_payment_plan',x,i),x));
+
+ return rows;
+}
+
+function recordRowsFromSnapshot(s){
+ if(!s||typeof s!=='object')return [];
+ const rows=[];
+ const add=(section,record_id,data)=>rows.push({section,record_id:String(record_id),data});
+
+ add('categories',RECORD_SYNC_SINGLETON,s.categories||{});
+ add('merchant_rules',RECORD_SYNC_SINGLETON,s.merchantRules||{});
+ add('tx_overrides',RECORD_SYNC_SINGLETON,s.txOverrides||{});
+ add('income_plan',RECORD_SYNC_SINGLETON,s.incomePlan||{});
+ add('duplicate_decisions',RECORD_SYNC_SINGLETON,s.duplicateDecisions||{});
+ add('statement_rule',RECORD_SYNC_SINGLETON,s.statementRule||{});
+ add('transaction_actions',RECORD_SYNC_SINGLETON,s.transactionActions||{});
+ add('bank_balance_overrides',RECORD_SYNC_SINGLETON,s.bankBalanceOverrides||{});
+ add('reset_card_ids',RECORD_SYNC_SINGLETON,Array.isArray(s.resetCardIds)?s.resetCardIds:[]);
+ add('card_reset_history',RECORD_SYNC_SINGLETON,s.cardResetHistory||[]);
+ add('deleted_installment_ids',RECORD_SYNC_SINGLETON,Array.isArray(s.deletedInstallmentIds)?s.deletedInstallmentIds:[]);
+
+ (s.manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
+ (s.importedTransactions||[]).forEach((x,i)=>add('imported_transactions',syncStableId('imported_transactions',x,i),x));
+ (s.importHistory||[]).forEach((x,i)=>add('import_history',syncStableId('import_history',x,i),x));
+ (s.cashFlowLedger||[]).forEach((x,i)=>add('cash_flow_ledger',syncStableId('cash_flow_ledger',x,i),x));
+ (s.outgoings||[]).forEach((x,i)=>add('outgoings',syncStableId('outgoings',x,i),x));
+ (s.installments||[]).forEach((x,i)=>add('installments',syncStableId('installments',x,i),x));
+ (s.cardPaymentPlan||[]).forEach((x,i)=>add('card_payment_plan',syncStableId('card_payment_plan',x,i),x));
+
+ return rows;
+}
+
+function applyRecordSyncRows(rows){
+ if(!Array.isArray(rows))return false;
+ recordSyncApplying=true;
+ try{
+  const active=rows.filter(r=>!r.deleted_at);
+  const singleton=(section,fallback)=>{
+   const r=active.find(x=>x.section===section&&x.record_id===RECORD_SYNC_SINGLETON);
+   return r?r.data:fallback;
+  };
+  const list=section=>active.filter(x=>x.section===section).map(x=>x.data);
+
+  categories=singleton('categories',categories);
+  merchantRules=singleton('merchant_rules',merchantRules);
+  txOverrides=singleton('tx_overrides',txOverrides);
+  incomePlan=singleton('income_plan',incomePlan);
+  duplicateDecisions=singleton('duplicate_decisions',duplicateDecisions);
+  statementRule=singleton('statement_rule',statementRule);
+  transactionActions=singleton('transaction_actions',transactionActions);
+  bankBalanceOverrides=singleton('bank_balance_overrides',bankBalanceOverrides);
+
+  const resetIds=singleton('reset_card_ids',[...resetCardIds]);
+  resetCardIds=new Set(Array.isArray(resetIds)?resetIds:[]);
+  cardResetHistory=singleton('card_reset_history',cardResetHistory);
+  const deletedIds=singleton('deleted_installment_ids',[...deletedInstallmentIds]);
+  deletedInstallmentIds=new Set(Array.isArray(deletedIds)?deletedIds:[]);
+
+  manualTransactions=list('manual_transactions');
+  importedTransactions=list('imported_transactions');
+  importHistory=list('import_history');
+  cashFlowLedger=list('cash_flow_ledger');
+  outgoings=list('outgoings');
+  installments=list('installments').filter(p=>!deletedInstallmentIds.has(p.id));
+  cardPaymentPlan=list('card_payment_plan');
+
+  purgeLegacyAr5867SeedRows();
+  purgeLegacySabAnchorRows();
+  normalizeCardPaymentPlan();
+  rebuildTransactions();
+  ensureRequiredInstallmentSeeds();
+  normalizeBalanceOffers();
+  ensurePartialPaymentFields();
+  ensureLedgerBackedPlannerRows();
+  rebuildAllPlannerPaymentsFromLedger();
+
+  persistRecoveredState();
+  financeDB.save();
+  return true;
+ }finally{
+  recordSyncApplying=false;
+ }
+}
+
+async function recordFetchAll(){
+ if(!cloudClient)return [];
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return [];
+ const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
+   .select('section,record_id,data,updated_at,deleted_at')
+   .order('updated_at',{ascending:true});
+ if(error)throw error;
+ return data||[];
+}
+
+async function recordSeedFromLegacyCloudIfNeeded(){
+ const existing=await recordFetchAll();
+ if(existing.length)return existing;
+
+ // One-time migration: use the existing Supabase app_state snapshot as the
+ // canonical starting point, NOT whichever device happens to open V145 first.
+ const legacy=await cloudInspectState();
+ const seedRows=(legacy.initialized&&legacy.value)
+   ? recordRowsFromSnapshot(legacy.value)
+   : buildRecordSyncRowsFromState();
+
+ if(!seedRows.length)return [];
+
+ const payload=seedRows.map(r=>({...r,deleted_at:null}));
+ const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
+   .upsert(payload,{onConflict:'section,record_id'});
+ if(error)throw error;
+
+ return await recordFetchAll();
+}
+
+async function recordPullAll(reason='pull'){
+ if(recordSyncPullBusy || recordSyncApplying || !cloudClient)return false;
+ recordSyncPullBusy=true;
+ try{
+  const {data:{session}}=await cloudClient.auth.getSession();
+  if(!session)return false;
+
+  const rows=await recordSeedFromLegacyCloudIfNeeded();
+  if(rows.length){
+   try{saveRecoverySnapshot(`before-realtime-${reason}`);}catch(_){}
+   applyRecordSyncRows(rows);
+   refreshAllFinanceScreens();
+   updateCloudSyncPanel(true);
+   const latest=rows.reduce((m,r)=>Math.max(m,new Date(r.updated_at||0).getTime()),0);
+   setCloudMeta({
+    initialized:true,
+    deviceTrusted:true,
+    pending:false,
+    lastSyncedAt:latest?new Date(latest).toISOString():new Date().toISOString(),
+    lastAutoSyncAt:new Date().toISOString(),
+    lastAutoSyncReason:`record-${reason}`
+   });
+   cloudSetStatus(`Realtime cloud synchronized • ${new Date().toLocaleTimeString()}`);
+   return true;
+  }
+  return false;
+ }catch(e){
+  console.warn('Realtime pull failed',e);
+  cloudSetStatus('Realtime sync retry pending • '+e.message);
+  return false;
+ }finally{
+  recordSyncPullBusy=false;
+ }
+}
+
+async function recordPushAll(reason='edit'){
+ if(recordSyncPushBusy || recordSyncApplying || !recordSyncReady || !cloudClient)return false;
+ recordSyncPushBusy=true;
+ try{
+  const {data:{session}}=await cloudClient.auth.getSession();
+  if(!session)return false;
+
+  // Before publishing, make sure this device has completed its canonical startup pull.
+  const current=buildRecordSyncRowsFromState();
+  const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
+  const cloudRows=await recordFetchAll();
+
+  const upserts=current.map(r=>({...r,deleted_at:null}));
+  if(upserts.length){
+   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
+     .upsert(upserts,{onConflict:'section,record_id'});
+   if(error)throw error;
+  }
+
+  // Tombstones make deletions propagate instead of reappearing on another device.
+  const removed=cloudRows
+   .filter(r=>!r.deleted_at && !currentKeys.has(`${r.section}|${r.record_id}`))
+   .map(r=>({section:r.section,record_id:r.record_id,data:r.data||{},deleted_at:new Date().toISOString()}));
+
+  if(removed.length){
+   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
+     .upsert(removed,{onConflict:'section,record_id'});
+   if(error)throw error;
+  }
+
+  setCloudMeta({
+   initialized:true,
+   deviceTrusted:true,
+   pending:false,
+   lastSyncedAt:new Date().toISOString(),
+   lastAutoSyncAt:new Date().toISOString(),
+   lastAutoSyncReason:`record-${reason}`
+  });
+  cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
+  return true;
+ }catch(e){
+  console.warn('Realtime push failed',e);
+  setCloudMeta({pending:true});
+  cloudSetStatus('Realtime publish retry pending • '+e.message);
+  return false;
+ }finally{
+  recordSyncPushBusy=false;
+ }
+}
+
+function scheduleRecordPush(reason='edit'){
+ if(window.__financeStateInitialized!==true || recordSyncApplying)return;
+ setCloudMeta({pending:true});
+ clearTimeout(recordSyncPushTimer);
+ recordSyncPushTimer=setTimeout(()=>recordPushAll(reason),250);
+}
+
+async function startRealtimeRecordSync(){
+ if(!cloudClient)return false;
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session){
+  recordSyncReady=false;
+  return false;
+ }
+
+ // Canonical cloud pull always happens before this device is allowed to publish.
+ await recordPullAll('startup');
+ recordSyncReady=true;
+
+ if(recordSyncChannel){
+  try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){}
+ }
+ recordSyncChannel=cloudClient
+  .channel('finance-sync-records-live')
+  .on('postgres_changes',
+      {event:'*',schema:'public',table:RECORD_SYNC_TABLE},
+      payload=>{
+       recordSyncLastEventAt=Date.now();
+       // Pull the canonical record set for inserts/updates/deletes from any device.
+       setTimeout(()=>recordPullAll('realtime-event'),80);
+      })
+  .subscribe(status=>{
+    if(status==='SUBSCRIBED'){
+     cloudSetStatus(`Realtime connected • ${new Date().toLocaleTimeString()}`);
+    }
+  });
+
+ return true;
+}
+// ===================================================================
+
 async function cloudRefreshAuth(){
  if(!cloudClient){
   if($('cloudLoggedOut'))$('cloudLoggedOut').style.display='block';
   if($('cloudLoggedIn'))$('cloudLoggedIn').style.display='none';
-  cloudSetStatus('Dashboard opened in local mode • Cloud sync library is unavailable. Your finance pages still work.');
+  cloudSetStatus('Local cache mode • Realtime cloud library unavailable.');
   return null;
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
- $('cloudLoggedOut').style.display=on?'none':'block';$('cloudLoggedIn').style.display=on?'block':'none';
+ $('cloudLoggedOut').style.display=on?'none':'block';
+ $('cloudLoggedIn').style.display=on?'block':'none';
  if(on){
   $('cloudUser').textContent='Signed in as '+(session.user.email||session.user.id);
-  cloudSetStatus('Connected • authenticated • Auto Sync checking…');
-  setTimeout(()=>cloudAutoReconcile('auth-refresh'),100);
- }else cloudSetStatus('Connected to Supabase • sign in to access your finance database');
+  cloudSetStatus('Authenticated • loading canonical realtime cloud data…');
+  setTimeout(()=>startRealtimeRecordSync(),50);
+ }else{
+  recordSyncReady=false;
+  cloudSetStatus('Connected to Supabase • sign in to access your finance database');
+ }
  return session;
 }
 async function cloudClaim(){
@@ -6880,8 +7172,8 @@ function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
- if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Auto Sync Up to Date • Verify Below';
- if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Trusted • Auto Sync On • Cloud First':'Protected';
+ if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Realtime Sync Up to Date • Verify Below';
+ if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Realtime • Supabase Master':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
@@ -7237,15 +7529,8 @@ async function cloudSaveSnapshot(silent=true,forceInitial=false){
  }
 }
 function scheduleCloudAutoSave(){
- // Never start cloud autosave while application state is still being constructed.
- // This prevents startup saves/rebuilds from touching cloud state too early.
- if(window.__financeStateInitialized!==true)return;
-
- const meta=getCloudMeta();
- setCloudMeta({pending:true});
- clearTimeout(cloudAutoSaveTimer);
- if(!(meta.initialized&&meta.deviceTrusted))return;
- cloudAutoSaveTimer=setTimeout(()=>cloudSaveSnapshot(true),350);
+ // V145: all normal edits publish as row-based records.
+ scheduleRecordPush('local-edit');
 }
 
 function cloudLocalLastSavedAt(){
@@ -7254,70 +7539,20 @@ function cloudLocalLastSavedAt(){
 }
 
 async function cloudAutoReconcile(reason='auto'){
- if(cloudAutoSyncBusy || window.__financeStateInitialized!==true || !cloudClient)return false;
- cloudAutoSyncBusy=true;
- try{
-  const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session)return false;
+ if(!cloudClient || window.__financeStateInitialized!==true)return false;
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return false;
 
-  const meta=getCloudMeta();
-  if(!(meta.initialized&&meta.deviceTrusted))return false;
-
-  const now=Date.now();
-  cloudLastAutoCheckAt=now;
-
-  // V144 LINKED CARD PAYMENTS — CLOUD-FIRST CONFLICT GUARD
-  // Always inspect the cloud BEFORE uploading pending local changes.
-  // This prevents an older iMac/PC browser from overwriting a newer MacBook
-  // snapshot simply because its local browser timestamp changed.
-  const state=await cloudInspectState();
-  if(!state.initialized||!state.value)return false;
-
-  const cloudAt=new Date(state.value.savedAt||state.updatedAt||0).getTime();
-  const lastSyncedAt=new Date(meta.lastSyncedAt||0).getTime();
-
-  // Another device has published a newer cloud revision since this device's
-  // last successful sync. Pull that master revision first.
-  if(cloudAt>lastSyncedAt+500){
-   const loaded=await cloudLoadSnapshotIfNewer(meta.lastSyncedAt||'',false);
-   if(loaded){
-    rebuildTransactions();
-    renderDashboard();
-    renderAccounts();
-    renderTransactions();
-    renderReports();
-    renderPaymentPlanner();
-    renderIncomePlan();
-    renderInstallments();
-    renderOutgoings();
-    updateCloudSyncPanel(true);
-    setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason,pending:false});
-    cloudSetStatus(`Auto Sync loaded latest cloud data • ${new Date().toLocaleTimeString()}`);
-    return true;
-   }
-  }
-
-  // Cloud has not changed since this device last synced, so local pending
-  // changes are based on the current cloud revision and are safe to publish.
-  if(meta.pending===true){
-   const saved=await cloudSaveSnapshot(true);
-   if(saved){
-    setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason});
-    return true;
-   }
-   return false;
-  }
-
-  setCloudMeta({lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:reason,pending:false});
-  cloudSetStatus(`Auto Sync up to date • ${new Date().toLocaleTimeString()}`);
+ if(!recordSyncReady){
+  await startRealtimeRecordSync();
   return true;
- }catch(e){
-  console.warn('Auto Sync reconcile failed',e);
-  cloudSetStatus('Auto Sync retry pending • '+e.message);
-  return false;
- }finally{
-  cloudAutoSyncBusy=false;
  }
+
+ const meta=getCloudMeta();
+ if(meta.pending===true){
+  await recordPushAll(reason);
+ }
+ return await recordPullAll(reason);
 }
 
 function schedulePeriodicCloudAutoSync(){
@@ -7342,11 +7577,11 @@ function startCloudAutoSyncWatchers(){
   if(Date.now()-cloudLastAutoCheckAt>5000)cloudAutoReconcile('window-focus');
  });
 
- // Push local edits as the page is leaving whenever the browser permits it.
+ // Best-effort publish of pending local edits before leaving.
  window.addEventListener('pagehide',()=>{
   const meta=getCloudMeta();
-  if(meta.pending===true && meta.initialized&&meta.deviceTrusted){
-   cloudSaveSnapshot(true);
+  if(meta.pending===true && recordSyncReady){
+   recordPushAll('pagehide');
   }
  });
 }
@@ -7414,68 +7649,39 @@ async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
 }
 
 async function cloudInitialUpload(){
- if(!cloudClient)return;
- const remote=await cloudInspectState();
- if(remote.initialized){
-  $('cloudResult').textContent='A cloud database already exists. To protect this device, use “Load Latest Cloud Data” or confirm a normal sync only after reviewing both devices.';
-  updateCloudSyncPanel(true);
-  return;
- }
- const x=localSyncSummary();
- const ok=confirm(`FIRST CLOUD SYNC\n\nThis device will become the source of truth and upload:\n• ${x.transactions} transactions\n• ${x.installments} installments\n• ${x.paymentRows} payment-plan rows\n• ${x.outgoings} outgoings\n\nCloud data will NOT be loaded onto this device first.\n\nContinue?`);
- if(!ok)return;
  try{
-  $('cloudResult').textContent='Creating first protected cloud snapshot…';
+  $('cloudResult').textContent='Initializing realtime cloud records…';
   await cloudClaim();
-  await cloudUpsert('accounts',cloudAccountRows());
-  await cloudUpsert('transactions',cloudTxRows());
-  await cloudUpsert('installment_plans',cloudInstRows());
-  await cloudUpsert('card_payment_plan',cloudPayRows());
-  const saved=await cloudSaveSnapshot(false,true);
-  if(!saved)throw new Error('Full app-state snapshot was not saved.');
-  $('cloudResult').textContent=`First cloud sync complete. This device is now trusted for Auto Sync. ${x.transactions} active transactions + ${x.deletedAuditRows} deleted audit rows, ${x.installments} installments, ${x.paymentRows} payment rows and ${x.cashFlowRows} cash-flow rows protected in cloud.`;
-  await renderCloudReconciliation();
+  await startRealtimeRecordSync();
+  if(!(await recordFetchAll()).length){
+   await recordPushAll('first-device');
+  }
+  const s=localSyncSummary();
+  $('cloudResult').textContent=`Realtime cloud initialized: ${s.transactions} active transactions, ${s.installments} installments, ${s.paymentRows} payment rows.`;
   updateCloudSyncPanel(true);
  }catch(e){
-  setCloudMeta({initialized:false,deviceTrusted:false,pending:true});
-  $('cloudResult').textContent='First sync failed. Local data was kept unchanged. '+e.message;
+  $('cloudResult').textContent='Realtime initialization failed. Local data was kept unchanged. '+e.message;
  }
 }
 async function cloudUploadAll(){
- const meta=getCloudMeta();
- if(!(meta.initialized&&meta.deviceTrusted)){
-  $('cloudResult').textContent='Protected: complete the first cloud sync or load an existing cloud database before using Sync Now.';
-  return;
- }
  try{
-  $('cloudResult').textContent='Syncing local changes…';
-  await cloudClaim();
-  await cloudUpsert('accounts',cloudAccountRows());
-  await cloudUpsert('transactions',cloudTxRows());
-  await cloudUpsert('installment_plans',cloudInstRows());
-  await cloudUpsert('card_payment_plan',cloudPayRows());
-  await cloudSaveSnapshot(false);
+  $('cloudResult').textContent='Publishing current records to realtime cloud…';
+  if(!recordSyncReady)await startRealtimeRecordSync();
+  await recordPushAll('manual-sync');
+  await recordPullAll('manual-verify');
   const s=localSyncSummary();
-  $('cloudResult').textContent=`Cloud sync complete: ${s.transactions} active transactions + ${s.deletedAuditRows} deleted audit rows, ${s.installments} installments, ${s.paymentRows} payment rows, ${s.cashFlowRows} cash-flow rows + full app state.`;
+  $('cloudResult').textContent=`Realtime sync complete: ${s.transactions} active transactions, ${s.installments} installments, ${s.paymentRows} payment rows, ${s.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
- }catch(e){$('cloudResult').textContent='Sync failed: '+e.message;}
+ }catch(e){
+  $('cloudResult').textContent='Realtime sync failed: '+e.message;
+ }
 }
 async function cloudDownloadAll(){
  try{
-  const remote=await cloudInspectState();
-  updateCloudSyncPanel(remote.initialized);
-  if(!remote.initialized){
-   $('cloudResult').textContent='No protected cloud database exists yet. Do the first upload from your MacBook/source device.';
-   return;
-  }
-  const ok=confirm('LOAD FROM CLOUD\n\nThis will replace this browser/device local finance state with the latest protected cloud snapshot.\n\nUse this on a new device (for example your iPhone), or only when you intentionally want cloud to replace local data.\n\nContinue?');
-  if(!ok)return;
-  $('cloudResult').textContent='Loading protected cloud snapshot…';
-  const loadedSnapshot=await cloudLoadSnapshotIfNewer('',true);
-  if(!loadedSnapshot)throw new Error('No cloud snapshot could be loaded.');
-  renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderPaymentPlanner();renderImportHistory();
-  $('cloudResult').textContent='Latest full finance state loaded from cloud. This device is now trusted for Auto Sync.';
- }catch(e){$('cloudResult').textContent='Load failed. Local data was not intentionally cleared. '+e.message;}
+  $('cloudResult').textContent='Loading latest realtime cloud records…';
+  await recordPullAll('manual-load');
+  $('cloudResult').textContent='Latest realtime cloud data loaded.';
+ }catch(e){$('cloudResult').textContent='Cloud load failed: '+e.message;}
 }
 async function refreshCloudSafetyState(){
  const session=await cloudRefreshAuth();
