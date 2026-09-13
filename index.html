@@ -207,7 +207,7 @@ button{cursor:pointer}
 .importStatus.info{background:#eef4fb;color:#345b7e}.importStatus.success{background:#e9f7f3;color:#087d68}.importStatus.error{background:#fdecec;color:#b83232}
 .importPreview{max-height:430px;overflow:auto}
 
-.bankLogoBox{width:82px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;border:1px solid #e5e9ef;padding:4px;flex:0 0 auto}.bankLogoBox img{max-width:100%;max-height:100%;object-fit:contain}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
+.bankLogoBox{width:96px;height:54px;display:flex;align-items:center;justify-content:center;overflow:hidden;width:82px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;border:1px solid #e5e9ef;padding:4px;flex:0 0 auto}.bankLogoBox img{max-width:100%;max-height:100%;object-fit:contain}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
 .payPlanner{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.payCard{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:14px;min-width:0}.payCard[data-open-payment-account]{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}.payCard[data-open-payment-account]:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.08)}.payCard[data-open-payment-account]:focus-visible{outline:3px solid rgba(16,185,129,.25);outline-offset:2px}.payCard .amount{font-size:22px;font-weight:950;margin-top:6px}.payCard.pending .amount{font-size:16px;color:var(--muted)}
 .payStatus{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;margin-top:8px}.payStatus.confirmed{background:#e8f7f1;color:#087d68}.payStatus.manual{background:#fff5df;color:#9a6600}.payStatus.estimated{background:#eef4fb;color:#315f91}.payStatus.pending{background:#f1f2f5;color:#687386}.payStatus.overdue{background:#fdecec;color:#b83232}
 .paymentToolbar{display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap}.paymentSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.subcardTags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.subcardTag{font-size:9px;font-weight:850;padding:4px 7px;border-radius:999px;background:#eef4fb;color:#345b7e}.sourceNote{font-size:9px;color:var(--muted);margin-top:5px}
@@ -821,6 +821,9 @@ button{cursor:pointer}
   <div class="meta" style="margin-bottom:10px">Add, edit, close or delete loans. Draft changes stay on this page until you leave or press Save Settings.</div>
   <div id="loanSettingsRows"></div>
   <button class="btn" type="button" id="addLoanSetting" style="margin-top:10px">+ Add Loan</button>
+  <div class="sectionTitle" style="margin-top:20px">Saved Loans</div>
+  <div class="meta" style="margin-bottom:10px">Saved loans roll forward once per month. When the balance month moves forward, Remaining Months decreases and the monthly payment is deducted from Remaining Amount.</div>
+  <div id="savedLoanSummary"></div>
   <div class="sectionTitle" style="margin-top:22px">Credit Card Statement / Due Dates</div>
   <div class="meta" style="margin-bottom:10px">Set statement cutoff day and payment due day for each card.</div>
   <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div>
@@ -833,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V156 PRODUCTION</span></div>
+  </div><span class="pill green">V158 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V156</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V156-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V158</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V158-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1139,7 +1142,13 @@ let financeSettingsDirty=false;
 let financeSettingsEditing=false;
 function cardCycleSetting(cardId){return financeSettings.cardCycles?.[cardId]||DEFAULT_CARD_CYCLE_SETTINGS[cardId]||{statementDay:1,dueDay:25};}
 function persistFinanceSettingsDraft(){localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));financeSettingsDirty=true;saveLocal();}
-function saveFinanceSettings(showMessage=true){persistFinanceSettingsDraft();if(showMessage)alert('Finance settings saved and queued for realtime cloud sync.');}
+function saveFinanceSettings(showMessage=true){
+ rollAllLoansToMonth(currentYearMonth());
+ persistFinanceSettingsDraft();
+ renderSavedLoanSummary();
+ renderIncomeLoanGrid();
+ if(showMessage)alert('Finance settings saved. Loan balances will roll forward once when a new month begins.');
+}
 const FIXED_PLAN={get loans(){return financeSettings.loans||[]},get cardCycles(){return financeSettings.cardCycles||{}}};
 let incomePlan=JSON.parse(localStorage.getItem('pf_income_plan')||'null')||{
  mySalary:0,wifeSalary:0,extraIncome:0,extraIncomeHistory:[],otherIncome:0,
@@ -1765,9 +1774,33 @@ function undoLastPartialPayment(id){
 }
 
 function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
-const BANK_LOGO_URLS={'Emirates NBD':'data:image/gif;base64,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'};
-function bankLogoURL(a){return BANK_LOGO_URLS[String(a?.bank||'').trim()]||a?.logo||'';}
-function bankLogoHTML(a){const logo=bankLogoURL(a);const isNBD=String(a?.bank||'').trim()==='Emirates NBD';const boxStyle=isNBD?'background:#062b5c;border-color:#062b5c;padding:4px 7px;':'';return `<div class="bankLogoBox" style="${boxStyle}">${logo?`<img src="${logo}" alt="${escapeHtml(a?.bank||'Bank')} logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}<div class="bankLogoFallback" style="${logo?'display:none':''}${isNBD?'color:#fff;':''}">${escapeHtml(a?.bank||'Bank')}</div></div>`;}
+const BANK_LOGO_URLS={
+ 'Al Rajhi Bank':'https://upload.wikimedia.org/wikipedia/commons/f/f1/Al_Rajhi_Bank_Logo.svg',
+ 'SAB':'https://upload.wikimedia.org/wikipedia/commons/5/52/SAB_logo_%28since_2023%29.svg',
+ 'meem / GIB Saudi':'https://pbs.twimg.com/profile_images/1972280844992565248/dufPEB2l_400x400.jpg',
+ 'Emirates NBD':'data:image/gif;base64,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'
+};
+const CENTRAL_BANK_LOGO_BANKS=new Set(Object.keys(BANK_LOGO_URLS));
+function bankLogoURL(a){
+ const bank=String(a?.bank||'').trim();
+ if(CENTRAL_BANK_LOGO_BANKS.has(bank))return BANK_LOGO_URLS[bank]||'';
+ return a?.logo||'';
+}
+function bankLogoHTML(a){
+ const bank=String(a?.bank||'').trim();
+ const logo=bankLogoURL(a);
+ const isNBD=bank==='Emirates NBD';
+ const isMeem=bank==='meem / GIB Saudi';
+ const boxStyle=isNBD
+  ?'background:#072447;border-color:#072447;padding:4px 7px;'
+  :isMeem
+   ?'background:#fff;border-color:#ded6f7;padding:4px 7px;'
+   :'background:#fff;padding:4px 7px;';
+ return `<div class="bankLogoBox" style="${boxStyle}">
+  ${logo?`<img src="${logo}" alt="${escapeHtml(bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
+  <div class="bankLogoFallback" style="${logo?'display:none;':'display:flex;'}${isNBD?'color:#fff;':''}align-items:center;justify-content:center;width:100%;height:100%;font-weight:800;font-size:10px;text-align:center">${escapeHtml(bank||'Bank')}</div>
+ </div>`;
+}
 function paymentStatusClass(p){if(p.paid)return'confirmed';const t=new Date();t.setHours(0,0,0,0);const d=p.due?new Date(p.due+'T00:00:00'):null;if(d&&d<t)return'overdue';return p.source||'pending';}
 function paymentStatusText(p){
  if(p.paid)return'PAID';
@@ -6491,14 +6524,62 @@ function financeSettingCards(){
  const labels={'ar-0955':{bank:'Al Rajhi Bank',name:'Visa Infinite',ending:'0955'},'ar-5867':{bank:'Al Rajhi Bank',name:'Visa Platinum',ending:'5867'},'sab-440880':{bank:'SAB',name:'Cashback Credit Card',ending:'440880'},'nbd-infinite-4411':{bank:'Emirates NBD',name:'Infinite Visa',ending:'4411'},'nbd-mazeed-8652':{bank:'Emirates NBD',name:'Mazeed Platinum Visa',ending:'8652'},'meem-7102':{bank:'meem / GIB Saudi',name:'Visa Platinum',ending:'7102'}};
  return Object.keys(DEFAULT_CARD_CYCLE_SETTINGS).map(id=>{const live=(Array.isArray(accounts)?accounts:[]).find(a=>a.id===id);return live||{id,type:'card',...(labels[id]||{bank:'Credit Card',name:id,ending:''})};});
 }
+function loanMonthIndex(ym){
+ const m=String(ym||'').match(/^(\d{4})-(\d{2})$/);
+ if(!m)return null;
+ return Number(m[1])*12+(Number(m[2])-1);
+}
+function loanMonthDiff(fromYm,toYm){
+ const a=loanMonthIndex(fromYm),b=loanMonthIndex(toYm);
+ if(a===null||b===null)return 0;
+ return Math.max(0,b-a);
+}
+function rollLoanToMonth(loan,targetMonth){
+ if(!loan||loan.status==='closed')return false;
+ targetMonth=targetMonth||currentYearMonth();
+ if(!loan.referenceMonth){loan.referenceMonth=targetMonth;return true;}
+ const diff=loanMonthDiff(loan.referenceMonth,targetMonth);
+ if(diff<=0)return false;
+ const monthly=Math.max(0,Number(loan.monthly||0));
+ const oldMonths=Math.max(0,Number(loan.remainingMonths||0));
+ const oldAmount=Math.max(0,Number(loan.remainingAmount||0));
+ const payableSteps=Math.min(diff,oldMonths||diff);
+ loan.remainingMonths=Math.max(0,oldMonths-diff);
+ loan.remainingAmount=Math.max(0,Math.round((oldAmount-(monthly*payableSteps))*100)/100);
+ loan.referenceMonth=targetMonth;
+ loan.updatedAt=new Date().toISOString();
+ if(loan.remainingMonths<=0||loan.remainingAmount<=0.005){
+  loan.remainingMonths=0;
+  loan.remainingAmount=0;
+  loan.status='closed';
+ }
+ return true;
+}
+function rollAllLoansToMonth(targetMonth=currentYearMonth()){
+ let changed=false;
+ (financeSettings.loans||[]).forEach(l=>{if(rollLoanToMonth(l,targetMonth))changed=true;});
+ if(changed){
+  localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+  financeSettingsDirty=true;
+  scheduleRecordPush('loan-month-rollover');
+ }
+ return changed;
+}
+function renderSavedLoanSummary(){
+ const box=$('savedLoanSummary');
+ if(!box)return;
+ const rows=financeSettings.loans||[];
+ box.innerHTML=rows.length?rows.map(l=>`<div class="panel" style="padding:12px;margin:8px 0"><div class="splitHead"><div><b>${escapeHtml(l.name||'Loan')}</b><div class="meta">Balance as of ${escapeHtml(l.referenceMonth||currentYearMonth())}</div></div><span class="badge ${l.status==='closed'?'completed':'active'}">${l.status==='closed'?'Closed':'Active'}</span></div><div class="cardMetricGrid" style="grid-template-columns:repeat(3,1fr);margin-top:10px"><div class="miniMetric"><span>Monthly Payment</span><b class="red">${money(Number(l.monthly||0))}</b></div><div class="miniMetric"><span>Remaining Months</span><b>${Number(l.remainingMonths||0)}</b></div><div class="miniMetric"><span>Remaining Amount</span><b>${money(Number(l.remainingAmount||0))}</b></div></div></div>`).join(''):'<div class="notice">No saved loans yet.</div>';
+}
 function loanCalc(loan){if(!loan||loan.status==='closed')return {remainingMonths:0,remainingAmount:0,status:'Completed'};const remainingMonths=Math.max(0,Number(loan.remainingMonths||0));const remainingAmount=Math.max(0,Number(loan.remainingAmount||0));return {remainingMonths,remainingAmount,status:(remainingMonths>0||remainingAmount>0)?'Active':'Completed'};}
-function totalFixedLoans(){return (financeSettings.loans||[]).reduce((sum,l)=>sum+(l.status!=='closed'&&loanCalc(l).status==='Active'?Math.max(0,Number(l.monthly||0)):0),0);}
+function totalFixedLoans(){rollAllLoansToMonth(currentYearMonth());return (financeSettings.loans||[]).reduce((sum,l)=>sum+(l.status!=='closed'&&loanCalc(l).status==='Active'?Math.max(0,Number(l.monthly||0)):0),0);}
 function renderFinanceSettings(force=false){
+ rollAllLoansToMonth(currentYearMonth());
  if(!force && financeSettingsEditing && document.getElementById('financeSettings')?.classList.contains('active'))return;
  const loansBox=$('loanSettingsRows');
  if(loansBox){
   const rows=financeSettings.loans||[];
-  loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
+  loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field"><label>Balance As Of Month</label><input type="month" data-loan-field="referenceMonth" value="${escapeHtml(l.referenceMonth||currentYearMonth())}"></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
   loansBox.querySelectorAll('[data-loan-setting]').forEach(row=>{
    const idx=Number(row.dataset.loanSetting);
    row.querySelectorAll('[data-loan-field]').forEach(el=>{
@@ -6506,10 +6587,20 @@ function renderFinanceSettings(force=false){
     const commit=()=>{
      financeSettingsEditing=true;
      const f=el.dataset.loanField;
-     financeSettings.loans[idx][f]=['monthly','remainingAmount','remainingMonths'].includes(f)?Number(el.value||0):el.value;
+     const loan=financeSettings.loans[idx];
+     if(f==='referenceMonth'){
+      const target=el.value||currentYearMonth();
+      if(loanMonthDiff(loan.referenceMonth||target,target)>0)rollLoanToMonth(loan,target);
+      else loan.referenceMonth=target;
+     }else{
+      loan[f]=['monthly','remainingAmount','remainingMonths'].includes(f)?Number(el.value||0):el.value;
+      if(['monthly','remainingAmount','remainingMonths','status'].includes(f))loan.referenceMonth=loan.referenceMonth||currentYearMonth();
+     }
+     loan.updatedAt=new Date().toISOString();
      localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
      financeSettingsDirty=true;
      scheduleRecordPush('finance-settings-edit');
+     renderSavedLoanSummary();
      if(document.querySelector('#incomeplan.active'))renderIncomePlan();
     };
     el.oninput=commit;el.onchange=commit;
@@ -6522,14 +6613,15 @@ function renderFinanceSettings(force=false){
    localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
    financeSettingsDirty=true;financeSettingsEditing=true;
    scheduleRecordPush('finance-settings-delete-loan');
-   renderFinanceSettings(true);renderIncomePlan();renderDashboard();
+   renderFinanceSettings(true);renderSavedLoanSummary();renderIncomePlan();renderDashboard();
   });
  }
+ renderSavedLoanSummary();
  const cycleBox=$('cardCycleSettingsRows');
  if(cycleBox){
   const cards=financeSettingCards();
   if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;
-  cycleBox.innerHTML=cards.map(a=>{const c=cardCycleSetting(a.id);return `<div class="panel" style="padding:12px"><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="formGrid" style="margin-top:10px"><div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div><div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div></div></div>`;}).join('');
+  cycleBox.innerHTML=cards.map(a=>{const c=cardCycleSetting(a.id);return `<div class="panel" style="padding:12px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">${bankLogoHTML(a)}<div><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="meta">Statement and payment cycle</div></div></div><div class="formGrid" style="margin-top:10px"><div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div><div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div></div></div>`;}).join('');
   cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>{
    el.onfocus=()=>{financeSettingsEditing=true};
    const commit=()=>{
@@ -6546,7 +6638,7 @@ function renderFinanceSettings(force=false){
  }
 }
 function addLoanSetting(){
- const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',createdAt:new Date().toISOString()};
+ const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',referenceMonth:currentYearMonth(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
  financeSettings.loans.push(loan);
  localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
  financeSettingsDirty=true;financeSettingsEditing=true;
