@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V148 PRODUCTION</span></div>
+  </div><span class="pill green">V150 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V148</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V148-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V150</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V150-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -857,7 +857,7 @@ button{cursor:pointer}
 
   <div class="sectionTitle" style="margin-top:18px">Credit Card Statement / Due Dates</div>
   <div class="meta" style="margin-bottom:10px">Set the statement cutoff day and payment due day for each card. The planner will calculate future payment months and due dates from these values.</div>
-  <div id="cardCycleSettingsRows" class="grid2"></div>
+  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div><div id="cardCycleSettingsRows" class="grid2"></div>
  </div>
 
  <div class="panel" style="margin-bottom:12px">
@@ -1136,7 +1136,10 @@ let financeSettings=JSON.parse(localStorage.getItem('pf_finance_settings')||'nul
  cardCycles:JSON.parse(JSON.stringify(DEFAULT_CARD_CYCLE_SETTINGS))
 };
 if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
-if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles=JSON.parse(JSON.stringify(DEFAULT_CARD_CYCLE_SETTINGS));
+if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
+Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{
+ if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};
+});
 
 function saveFinanceSettings(){
  localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
@@ -4044,29 +4047,70 @@ function updateTxBulkUI(){
  const n=selectedTxIds.size;
  if($('txSelectedCount'))$('txSelectedCount').textContent=`${n} selected`;
  if($('txDeleteSelected'))$('txDeleteSelected').disabled=n===0;
- const visible=[...document.querySelectorAll('[data-select-tx]')];
+
+ if($('detailTxSelectedCount'))$('detailTxSelectedCount').textContent=`${n} selected`;
+ if($('detailTxDeleteSelected'))$('detailTxDeleteSelected').disabled=n===0;
+
+ const mainVisible=[...document.querySelectorAll('#transactions [data-select-tx]')];
  if($('txMasterCheck')){
-  $('txMasterCheck').checked=visible.length>0&&visible.every(x=>x.checked);
-  $('txMasterCheck').indeterminate=visible.some(x=>x.checked)&&!$('txMasterCheck').checked;
+  $('txMasterCheck').checked=mainVisible.length>0&&mainVisible.every(x=>x.checked);
+  $('txMasterCheck').indeterminate=mainVisible.some(x=>x.checked)&&!$('txMasterCheck').checked;
+ }
+
+ const detailVisible=[...document.querySelectorAll('#accountDetailContent [data-select-tx]')];
+ if($('detailTxMasterCheck')){
+  $('detailTxMasterCheck').checked=detailVisible.length>0&&detailVisible.every(x=>x.checked);
+  $('detailTxMasterCheck').indeterminate=detailVisible.some(x=>x.checked)&&!$('detailTxMasterCheck').checked;
  }
 }
 function bulkDeleteSelected(){
- const ids=[...selectedTxIds];
+ const ids=[...selectedTxIds].filter(id=>transactionActions[id]?.status!=='deleted');
  if(!ids.length)return;
- if(!confirm(`Delete ${ids.length} selected transaction(s)?\n\nThey will be excluded from calculations but kept in Transaction History so you can restore them later.`))return;
+ if(!confirm(`Delete ${ids.length} selected transaction(s)?\n\nThis is one bulk action. They will be excluded from calculations but kept in Transaction History so you can restore them later.`))return;
+
+ const rows=normalizedTx(true);
+ const affected=new Set(ids.map(id=>rows.find(t=>t._id===id)?.account).filter(Boolean));
  const now=new Date().toISOString();
- ids.forEach(id=>transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now});
+
+ ids.forEach(id=>{
+  transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now};
+ });
  selectedTxIds.clear();
  saveLocal();
- refreshAfterTransactionChange();
+
+ // One refresh only. This avoids repeated modal/render loops for large selections.
+ refreshAfterTransactionChange([...affected][0]||'');
 }
 function bindTxRows(){
- document.querySelectorAll('[data-select-tx]').forEach(c=>c.addEventListener('click',e=>e.stopPropagation()));
- document.querySelectorAll('[data-select-tx]').forEach(c=>c.addEventListener('change',()=>{c.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);updateTxBulkUI();}));
- document.querySelectorAll('[data-dup-keep]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep)}));
- document.querySelectorAll('[data-dup-action]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction)}));
- document.querySelectorAll('[data-delete-tx]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();deleteTransactionRecord(b.dataset.deleteTx)}));
- document.querySelectorAll('[data-tx]').forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('button,input'))return;openTxEdit(el.dataset.tx)}));
+ // V150: use DOM onclick/onchange properties instead of repeatedly adding listeners.
+ // This prevents the native Delete confirmation from appearing several times after
+ // the page has been re-rendered/refreshed.
+ document.querySelectorAll('[data-select-tx]').forEach(c=>{
+  c.onclick=e=>e.stopPropagation();
+  c.onchange=()=>{
+   c.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);
+   updateTxBulkUI();
+  };
+ });
+ document.querySelectorAll('[data-dup-keep]').forEach(b=>{
+  b.onclick=e=>{e.stopPropagation();resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep)};
+ });
+ document.querySelectorAll('[data-dup-action]').forEach(b=>{
+  b.onclick=e=>{e.stopPropagation();setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction)};
+ });
+ document.querySelectorAll('[data-delete-tx]').forEach(b=>{
+  b.onclick=e=>{
+   e.preventDefault();
+   e.stopPropagation();
+   deleteTransactionRecord(b.dataset.deleteTx);
+  };
+ });
+ document.querySelectorAll('[data-tx]').forEach(el=>{
+  el.onclick=e=>{
+   if(e.target.closest('button,input'))return;
+   openTxEdit(el.dataset.tx);
+  };
+ });
  updateTxBulkUI();
 }
 
@@ -4230,8 +4274,12 @@ function restoreTx(id){
 }
 function deleteTransactionRecord(id){
  const t=normalizedTx(true).find(x=>x._id===id);if(!t)return;
- if(!confirm(`Delete "${t.description}" (${money(Math.abs(t.amount))})?\n\nIt will be excluded from calculations but kept in transaction history so you can restore it later.`))return;
- setTxAction(id,'deleted','Deleted by user','');
+ if(transactionActions[id]?.status==='deleted')return;
+ if(!confirm(`Delete "${t.description}" (${money(Math.abs(t.amount))})?\n\nIt will be excluded from calculations but kept in Transaction History so you can restore it later.`))return;
+ transactionActions[id]={status:'deleted',reason:'Deleted by user',pairedWith:'',updatedAt:new Date().toISOString()};
+ selectedTxIds.delete(id);
+ saveLocal();
+ refreshAfterTransactionChange(t.account||'');
 }
 function resolveDuplicate(aId,bId,keepId){
  const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);if(!a||!b)return;
@@ -4331,10 +4379,10 @@ $('applyStatementRule').addEventListener('click',applyStatementRuleToTransaction
 $('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
-$('txSelectAllVisible').addEventListener('click',()=>{document.querySelectorAll('[data-select-tx]').forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});updateTxBulkUI();});
-$('txClearSelection').addEventListener('click',()=>{selectedTxIds.clear();document.querySelectorAll('[data-select-tx]').forEach(c=>c.checked=false);updateTxBulkUI();});
-$('txDeleteSelected').addEventListener('click',bulkDeleteSelected);
-$('txMasterCheck').addEventListener('change',e=>{document.querySelectorAll('[data-select-tx]').forEach(c=>{c.checked=e.target.checked;e.target.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx)});updateTxBulkUI();});
+$('txSelectAllVisible').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});updateTxBulkUI();};
+$('txClearSelection').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{selectedTxIds.delete(c.dataset.selectTx);c.checked=false});updateTxBulkUI();};
+$('txDeleteSelected').onclick=bulkDeleteSelected;
+$('txMasterCheck').onchange=e=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{c.checked=e.target.checked;e.target.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx)});updateTxBulkUI();};
 
 
 
@@ -5334,6 +5382,44 @@ function resetCardData(cardId){
 let accountDetailReturnPage='accounts';
 let currentAccountDetailId=null;
 let accountDetailTxFilter={month:'',fromDate:'',toDate:''};
+
+function bindDetailTransactionBulkActions(){
+ const root=$('accountDetailContent');
+ if(!root)return;
+
+ const visible=()=>[...root.querySelectorAll('[data-select-tx]')];
+
+ const selectAll=$('detailTxSelectAllVisible');
+ if(selectAll)selectAll.onclick=()=>{
+  visible().forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});
+  updateTxBulkUI();
+ };
+
+ const clear=$('detailTxClearSelection');
+ if(clear)clear.onclick=()=>{
+  visible().forEach(c=>{c.checked=false;selectedTxIds.delete(c.dataset.selectTx)});
+  updateTxBulkUI();
+ };
+
+ const del=$('detailTxDeleteSelected');
+ if(del)del.onclick=e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  bulkDeleteSelected();
+ };
+
+ const master=$('detailTxMasterCheck');
+ if(master)master.onchange=()=>{
+  visible().forEach(c=>{
+   c.checked=master.checked;
+   master.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);
+  });
+  updateTxBulkUI();
+ };
+
+ updateTxBulkUI();
+}
+
 function openAccount(id,returnPage){
  currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
@@ -5418,7 +5504,20 @@ function openAccount(id,returnPage){
  </div>
  <div class="meta" style="margin-top:8px">Statement and date filters work together. Reset Card Month still uses only the selected statement/payment month.</div>
 </div>
-<div class="panel"><table class="txTable"><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="6">No transactions match the selected filters.</td></tr>'}</tbody></table></div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
+<div class="panel">
+ <div id="detailTxBulkBar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
+  <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
+  <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
+  <span class="meta" id="detailTxSelectedCount">0 selected</span>
+ </div>
+ <div style="overflow-x:auto">
+  <table class="txTable">
+   <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
+   <tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="7">No transactions match the selected filters.</td></tr>'}</tbody>
+  </table>
+ </div>
+</div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
  if($('detailResetCard'))$('detailResetCard').addEventListener('click',()=>resetCardData(id));
  const statementFilter=$('cardTxStatementFilter');
  if(statementFilter)statementFilter.addEventListener('change',()=>{
@@ -5452,9 +5551,18 @@ function openAccount(id,returnPage){
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
  document.querySelectorAll('[data-detail-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.detailDeletePlan)));
  document.querySelectorAll('[data-open-installments-page]').forEach(b=>b.addEventListener('click',()=>{renderInstallments();nav('installments');window.scrollTo({top:0,behavior:'smooth'});}));}
- else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div><div class="sectionTitle">Transactions</div><div class="panel"><table class="txTable"><tbody>${rows.map(txRow6).join('')}</tbody></table></div>`;
+ else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div><div class="sectionTitle">Transactions</div>
+<div class="panel">
+ <div id="detailTxBulkBar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
+  <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
+  <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
+  <span class="meta" id="detailTxSelectedCount">0 selected</span>
+ </div>
+ <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="7">No transactions.</td></tr>'}</tbody></table></div>
+</div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
- nav('accountDetail');bindTxRows();
+ nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
 }
@@ -6484,15 +6592,21 @@ function renderIncomeLoanGrid(){
 
 
 function financeSettingCards(){
- const preferred=['ar-0955','ar-5867','sab-440880','nbd-infinite-4411','nbd-mazeed-8652','meem-7102'];
- const live=(Array.isArray(accounts)?accounts:[]).filter(a=>String(a?.type||'').toLowerCase()==='card');
- const ordered=[];
- preferred.forEach(id=>{
-  const a=live.find(x=>x.id===id);
-  if(a)ordered.push(a);
+ const labels={
+  'ar-0955':{bank:'Al Rajhi Bank',name:'Visa Infinite',ending:'0955'},
+  'ar-5867':{bank:'Al Rajhi Bank',name:'Visa Platinum',ending:'5867'},
+  'sab-440880':{bank:'SAB',name:'Cashback Credit Card',ending:'440880'},
+  'nbd-infinite-4411':{bank:'Emirates NBD',name:'Infinite Visa',ending:'4411'},
+  'nbd-mazeed-8652':{bank:'Emirates NBD',name:'Mazeed Platinum Visa',ending:'8652'},
+  'meem-7102':{bank:'meem / GIB Saudi',name:'Visa Platinum',ending:'7102'}
+ };
+ const ids=Object.keys(financeSettings.cardCycles||DEFAULT_CARD_CYCLE_SETTINGS||{});
+ return ids.map(id=>{
+  const live=(Array.isArray(accounts)?accounts:[]).find(a=>a.id===id);
+  if(live)return live;
+  const f=labels[id]||{bank:'Credit Card',name:id,ending:''};
+  return {id,bank:f.bank,name:f.name,ending:f.ending,type:'card'};
  });
- live.forEach(a=>{if(!ordered.some(x=>x.id===a.id))ordered.push(a)});
- return ordered;
 }
 
 function renderFinanceSettings(){
@@ -6536,13 +6650,14 @@ function renderFinanceSettings(){
  if(cycleBox){
   const cards=financeSettingCards();
   if(!cards.length){
-   cycleBox.innerHTML='<div class="notice" style="grid-column:1/-1">Card settings are waiting for the account list to finish loading. This section will refresh automatically.</div>';
-   setTimeout(()=>{if(financeSettingCards().length)renderFinanceSettings()},250);
+   if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent='0 credit cards configured';
+   cycleBox.innerHTML='<div class="notice" style="grid-column:1/-1">No credit cards are configured.</div>';
   }else{
+   if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;
    cycleBox.innerHTML=cards.map(a=>{
     const c=cardCycleSetting(a.id);
     return `<div class="panel" style="padding:12px">
-     <b>${escapeHtml(accountName(a.id))}</b>
+     <b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b>
      <div class="meta" style="margin-top:4px">${escapeHtml(a.bank||'')} • ${escapeHtml(a.ending||'')}</div>
      <div class="formGrid" style="margin-top:10px">
       <div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div>
@@ -6877,7 +6992,10 @@ function applyRecordSyncRows(rows){
 
   financeSettings=singleton('finance_settings',financeSettings);
   if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
-  if(!financeSettings.cardCycles)financeSettings.cardCycles=JSON.parse(JSON.stringify(DEFAULT_CARD_CYCLE_SETTINGS));
+  if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
+  Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{
+   if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};
+  });
   categories=singleton('categories',categories);
   merchantRules=singleton('merchant_rules',merchantRules);
   txOverrides=singleton('tx_overrides',txOverrides);
