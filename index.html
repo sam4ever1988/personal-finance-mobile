@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V152 PRODUCTION</span></div>
+  </div><span class="pill green">V153 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V152</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V152-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V153</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V153-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1764,6 +1764,16 @@ function undoLastPartialPayment(id){
 }
 
 function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
+function escapeHtml(v){
+ return String(v??'').replace(/[&<>"']/g,c=>({
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;'
+ }[c]));
+}
+
 const BANK_LOGO_URLS={
  'Al Rajhi Bank':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Al_Rajhi_Bank_Logo.svg',
  'SAB':'https://commons.wikimedia.org/wiki/Special:Redirect/file/SAB_logo_(since_2023).svg',
@@ -3424,10 +3434,11 @@ function excelCardAccounting(a){
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
- // V152: remaining installment principal already includes this month's installment.
- // Installments therefore reduce Available Credit exactly once via Outstanding / Utilized.
+ // V153 agreed installment rule:
+ // Outstanding / Utilized includes live transactions, released balance and future installment reserve.
+ // The Current Cycle Installment is deducted separately from Available Credit.
  const monthlyInstallmentReserve=Math.max(0,currentInstallment);
- const available=Math.max(0,limit-total)+overCredit;
+ const available=Math.max(0,limit-total-monthlyInstallmentReserve)+overCredit;
  const utilization=limit?total/limit*100:0;
 
  return {
@@ -3468,9 +3479,16 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
+  creditLimitInvariant:Math.abs((available+total+monthlyInstallmentReserve-overCredit)-limit)<0.02
  };
 }
+function agreedCardBalanceExample(){
+ const limit=10000,live=2000,currentInstallment=1361.92,futureReserve=5447.67;
+ const outstanding=live+futureReserve;
+ const available=limit-outstanding-currentInstallment;
+ return {limit,live,currentInstallment,futureReserve,outstanding,available};
+}
+
 function cardMetrics(a){
  const excel=excelCardAccounting(a);
  if(excel)return excel;
@@ -5468,7 +5486,7 @@ function openAccount(id,returnPage){
  const rows=cardTransactionsForDetail(id);
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
- <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b></div>
+ <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b><div class="meta">Deducted separately from Available Credit</div></div>
  <div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b></div>
  <div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst||0)}</b></div>
  <div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>
@@ -5503,7 +5521,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Only imported/manual/cloud transactions, unpaid released statements and active installment obligations affect the live balance. Embedded legacy transactions are retired and cannot affect or reappear in calculations.</div>
+<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Available Credit = Credit Limit − Outstanding / Utilized − Current Cycle Installment. Outstanding / Utilized includes live transactions, unpaid released statements and Future Installment Reserve. Embedded legacy transactions are retired and cannot affect or reappear in calculations.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
