@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V147 PRODUCTION</span></div>
+  </div><span class="pill green">V148 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V147</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V147-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V148</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V148-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3548,6 +3548,8 @@ function nav(page){
  if(page==='outgoings')renderOutgoings();
  if(page==='importstatements')renderImportPage();
  if(page==='accounts')renderAccounts();
+
+ if(page==='more')setTimeout(renderFinanceSettings,0);
 }
 
 
@@ -6480,6 +6482,19 @@ function renderIncomeLoanGrid(){
  }).join(''):'<div class="notice">No active bank loans configured. Add or manage loans under <b>More → Finance Settings</b>.</div>';
 }
 
+
+function financeSettingCards(){
+ const preferred=['ar-0955','ar-5867','sab-440880','nbd-infinite-4411','nbd-mazeed-8652','meem-7102'];
+ const live=(Array.isArray(accounts)?accounts:[]).filter(a=>String(a?.type||'').toLowerCase()==='card');
+ const ordered=[];
+ preferred.forEach(id=>{
+  const a=live.find(x=>x.id===id);
+  if(a)ordered.push(a);
+ });
+ live.forEach(a=>{if(!ordered.some(x=>x.id===a.id))ordered.push(a)});
+ return ordered;
+}
+
 function renderFinanceSettings(){
  const loansBox=$('loanSettingsRows');
  if(loansBox){
@@ -6519,21 +6534,32 @@ function renderFinanceSettings(){
 
  const cycleBox=$('cardCycleSettingsRows');
  if(cycleBox){
-  cycleBox.innerHTML=accounts.filter(a=>a.type==='card').map(a=>{
-   const c=cardCycleSetting(a.id);
-   return `<div class="panel" style="padding:12px">
-    <b>${escapeHtml(accountName(a.id))}</b>
-    <div class="formGrid" style="margin-top:10px">
-     <div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div>
-     <div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div>
-    </div>
-   </div>`;
-  }).join('');
-  cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>el.addEventListener('input',()=>{
-   const card=el.dataset.cycleCard,field=el.dataset.cycleField;
-   financeSettings.cardCycles[card]=financeSettings.cardCycles[card]||{};
-   financeSettings.cardCycles[card][field]=Math.max(1,Math.min(31,Number(el.value||1)));
-  }));
+  const cards=financeSettingCards();
+  if(!cards.length){
+   cycleBox.innerHTML='<div class="notice" style="grid-column:1/-1">Card settings are waiting for the account list to finish loading. This section will refresh automatically.</div>';
+   setTimeout(()=>{if(financeSettingCards().length)renderFinanceSettings()},250);
+  }else{
+   cycleBox.innerHTML=cards.map(a=>{
+    const c=cardCycleSetting(a.id);
+    return `<div class="panel" style="padding:12px">
+     <b>${escapeHtml(accountName(a.id))}</b>
+     <div class="meta" style="margin-top:4px">${escapeHtml(a.bank||'')} • ${escapeHtml(a.ending||'')}</div>
+     <div class="formGrid" style="margin-top:10px">
+      <div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div>
+      <div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div>
+     </div>
+    </div>`;
+   }).join('');
+   cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>{
+    const handler=()=>{
+     const card=el.dataset.cycleCard,field=el.dataset.cycleField;
+     financeSettings.cardCycles[card]=financeSettings.cardCycles[card]||{};
+     financeSettings.cardCycles[card][field]=Math.max(1,Math.min(31,Number(el.value||1)));
+    };
+    el.addEventListener('input',handler);
+    el.addEventListener('change',handler);
+   });
+  }
  }
 }
 
@@ -6937,6 +6963,7 @@ async function recordPullAll(reason='pull'){
    try{saveRecoverySnapshot(`before-realtime-${reason}`);}catch(_){}
    applyRecordSyncRows(rows);
    refreshAllFinanceScreens();
+   renderFinanceSettings();
    updateCloudSyncPanel(true);
    const latest=rows.reduce((m,r)=>Math.max(m,new Date(r.updated_at||0).getTime()),0);
    setCloudMeta({
@@ -7891,6 +7918,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  if($('addLoanSetting'))$('addLoanSetting').addEventListener('click',addLoanSetting);
  if($('saveFinanceSettingsBtn'))$('saveFinanceSettingsBtn').addEventListener('click',commitFinanceSettings);
  renderFinanceSettings();
+ setTimeout(renderFinanceSettings,300);
  renderOutgoings();
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
