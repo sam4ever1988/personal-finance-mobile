@@ -207,7 +207,7 @@ button{cursor:pointer}
 .importStatus.info{background:#eef4fb;color:#345b7e}.importStatus.success{background:#e9f7f3;color:#087d68}.importStatus.error{background:#fdecec;color:#b83232}
 .importPreview{max-height:430px;overflow:auto}
 
-.bankLogoBox{width:82px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;border:1px solid #e5e9ef;padding:4px;flex:0 0 auto}.bankLogoBox img{max-width:100%;max-height:100%;object-fit:contain}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
+.bankLogoBox{width:112px;height:48px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px;background:#fff;border:1px solid #e2e8f0;padding:7px 10px;flex:0 0 auto;box-shadow:0 3px 12px rgba(15,35,60,.06)}.bankLogoBox img{width:100%;height:100%;object-fit:contain;display:block}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
 .payPlanner{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.payCard{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:14px;min-width:0}.payCard[data-open-payment-account]{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}.payCard[data-open-payment-account]:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.08)}.payCard[data-open-payment-account]:focus-visible{outline:3px solid rgba(16,185,129,.25);outline-offset:2px}.payCard .amount{font-size:22px;font-weight:950;margin-top:6px}.payCard.pending .amount{font-size:16px;color:var(--muted)}
 .payStatus{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;margin-top:8px}.payStatus.confirmed{background:#e8f7f1;color:#087d68}.payStatus.manual{background:#fff5df;color:#9a6600}.payStatus.estimated{background:#eef4fb;color:#315f91}.payStatus.pending{background:#f1f2f5;color:#687386}.payStatus.overdue{background:#fdecec;color:#b83232}
 .paymentToolbar{display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap}.paymentSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.subcardTags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.subcardTag{font-size:9px;font-weight:850;padding:4px 7px;border-radius:999px;background:#eef4fb;color:#345b7e}.sourceNote{font-size:9px;color:var(--muted);margin-top:5px}
@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V150 PRODUCTION</span></div>
+  </div><span class="pill green">V151 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V150</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V150-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V151</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V151-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -857,7 +857,11 @@ button{cursor:pointer}
 
   <div class="sectionTitle" style="margin-top:18px">Credit Card Statement / Due Dates</div>
   <div class="meta" style="margin-bottom:10px">Set the statement cutoff day and payment due day for each card. The planner will calculate future payment months and due dates from these values.</div>
-  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div><div id="cardCycleSettingsRows" class="grid2"></div>
+  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px">6 credit cards configured</div><div id="cardCycleSettingsRows" class="grid2">
+   <div class="notice">Loading Al Rajhi •0955 cycle settings…</div><div class="notice">Loading Al Rajhi •5867 cycle settings…</div>
+   <div class="notice">Loading SAB •440880 cycle settings…</div><div class="notice">Loading Emirates NBD •4411 cycle settings…</div>
+   <div class="notice">Loading Emirates NBD •8652 cycle settings…</div><div class="notice">Loading meem •7102 cycle settings…</div>
+  </div>
  </div>
 
  <div class="panel" style="margin-bottom:12px">
@@ -1760,7 +1764,21 @@ function undoLastPartialPayment(id){
 }
 
 function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
-function bankLogoHTML(a){return `<div class="bankLogoBox">${a?.logo?`<img src="${a.logo}" alt="${a.bank} logo">`:`<div class="bankLogoFallback">${a?.bank||'Bank'}</div>`}</div>`;}
+const BANK_LOGO_URLS={
+ 'Al Rajhi Bank':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Al_Rajhi_Bank_Logo.svg',
+ 'SAB':'https://commons.wikimedia.org/wiki/Special:Redirect/file/SAB_logo_(since_2023).svg',
+ 'Saudi Awwal Bank':'https://commons.wikimedia.org/wiki/Special:Redirect/file/SAB_logo_(since_2023).svg',
+ 'meem / GIB Saudi':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Meem_Logo.JPG',
+ 'Emirates NBD':'https://www.emiratesnbd.com/-/media/enbd/images/brand-assets/emirates-nbd-primary-logo-blue.svg'
+};
+function bankLogoURL(a){
+ const bank=String(a?.bank||'');
+ return BANK_LOGO_URLS[bank]||a?.logo||'';
+}
+function bankLogoHTML(a){
+ const logo=bankLogoURL(a);
+ return `<div class="bankLogoBox">${logo?`<img src="${logo}" alt="${escapeHtml(a?.bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}<div class="bankLogoFallback" style="${logo?'display:none':''}">${escapeHtml(a?.bank||'Bank')}</div></div>`;
+}
 function paymentStatusClass(p){if(p.paid)return'confirmed';const t=new Date();t.setHours(0,0,0,0);const d=p.due?new Date(p.due+'T00:00:00'):null;if(d&&d<t)return'overdue';return p.source||'pending';}
 function paymentStatusText(p){
  if(p.paid)return'PAID';
@@ -2861,6 +2879,9 @@ if(!accounts.some(a=>a.id==='cash-wallet')){
   logo:null
  });
 }
+
+// V151: prefer current high-quality web brand artwork over legacy embedded bitmap logos.
+accounts.forEach(a=>{ if(a.type==='card' && BANK_LOGO_URLS[a.bank]) a.logo=BANK_LOGO_URLS[a.bank]; });
 window.__financeAccountsReady=true;
 let transactionActions=JSON.parse(localStorage.getItem('pf_transaction_actions')||'{}');
 let bankBalanceOverrides=JSON.parse(localStorage.getItem('pf_bank_balance_overrides')||'{}')||{};
@@ -3397,7 +3418,11 @@ function excelCardAccounting(a){
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
- const available=Math.max(0,limit-total)+overCredit;
+ // V151 agreed card rule: the installment due in the active cycle also reduces
+ // Available Credit for planning purposes. Keep Outstanding/Utilized unchanged
+ // so the user can see the bank utilization separately from this month's reserve.
+ const monthlyInstallmentReserve=Math.max(0,currentInstallment);
+ const available=Math.max(0,limit-total-monthlyInstallmentReserve)+overCredit;
  const utilization=limit?total/limit*100:0;
 
  return {
@@ -3409,7 +3434,8 @@ function excelCardAccounting(a){
   bankAvailable:available,
   futureReserved:futureReserve,
   fullRemainingInstallmentPrincipal:remainingPrincipal,
-  availableBeforeInstallments:available,
+  availableBeforeInstallments:Math.max(0,limit-total)+overCredit,
+  monthlyInstallmentReserve,
   bankUtilized:total,
   utilization,
   current:currentCycle,
@@ -3437,7 +3463,7 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
+  creditLimitInvariant:Math.abs((available+total+monthlyInstallmentReserve-overCredit)-limit)<0.02
  };
 }
 function cardMetrics(a){
@@ -3552,7 +3578,7 @@ function nav(page){
  if(page==='importstatements')renderImportPage();
  if(page==='accounts')renderAccounts();
 
- if(page==='more')setTimeout(renderFinanceSettings,0);
+ if(page==='more'){renderFinanceSettings();setTimeout(renderFinanceSettings,150);}
 }
 
 
@@ -6610,6 +6636,13 @@ function financeSettingCards(){
 }
 
 function renderFinanceSettings(){
+ // V151 self-healing settings: cloud/local state can never remove the six configured cards.
+ financeSettings=financeSettings||{loans:[],cardCycles:{}};
+ if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
+ if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
+ Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{
+  financeSettings.cardCycles[id]={...cfg,...(financeSettings.cardCycles[id]||{})};
+ });
  const loansBox=$('loanSettingsRows');
  if(loansBox){
   loansBox.innerHTML=(financeSettings.loans||[]).length?(financeSettings.loans||[]).map((l,i)=>`
@@ -6656,9 +6689,8 @@ function renderFinanceSettings(){
    if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;
    cycleBox.innerHTML=cards.map(a=>{
     const c=cardCycleSetting(a.id);
-    return `<div class="panel" style="padding:12px">
-     <b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b>
-     <div class="meta" style="margin-top:4px">${escapeHtml(a.bank||'')} • ${escapeHtml(a.ending||'')}</div>
+    return `<div class="panel" style="padding:14px;min-height:170px">
+     <div style="display:flex;gap:12px;align-items:center">${bankLogoHTML(a)}<div><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="meta" style="margin-top:4px">Statement and payment cycle</div></div></div>
      <div class="formGrid" style="margin-top:10px">
       <div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div>
       <div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div>
