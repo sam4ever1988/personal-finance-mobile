@@ -474,7 +474,8 @@ button{cursor:pointer}
  <button type="button" class="navBtn" data-page="installments" onclick="mobileNavigate(event,'installments')"><span class="ic">◫</span>Installments</button>
  <button type="button" class="navBtn" data-page="categories" onclick="mobileNavigate(event,'categories')"><span class="ic">🏷</span>Categories</button>
  <button type="button" class="navBtn" data-page="importstatements" onclick="mobileNavigate(event,'importstatements')"><span class="ic">⇩</span>Import Statements</button>
-  <button type="button" class="navBtn" data-page="more" onclick="mobileNavigate(event,'more')"><span class="ic">•••</span>More</button>
+ <button type="button" class="navBtn" data-page="financeSettings" onclick="mobileNavigate(event,'financeSettings')"><span class="ic">⚙</span>Finance Settings</button>
+ <button type="button" class="navBtn" data-page="more" onclick="mobileNavigate(event,'more')"><span class="ic">•••</span>More</button>
  <div class="sideFoot"><div style="font-size:11px;color:#a9bac8">Live bank balance</div><div class="sideValue" id="sideBalance">SAR 0.00</div><div class="sideTiny">Real statement data loaded<br>Jul–Aug 2026</div></div>
 </aside>
 
@@ -765,7 +766,7 @@ button{cursor:pointer}
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V145 Realtime Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V156 Realtime Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -809,15 +810,33 @@ button{cursor:pointer}
   </div>
  </div>
 </section>
+
+<section class="view" id="financeSettings">
+ <div class="splitHead">
+  <div><div class="sectionTitle" style="margin-top:0">Finance Settings</div><div class="meta">This page pauses finance-settings cloud replacement while you are editing, so fields do not refresh while you type.</div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="nav('more')">← Back</button><button class="btn primary" type="button" id="saveFinanceSettingsBtn">Save Settings</button></div>
+ </div>
+ <div class="panel" style="margin-top:14px" id="financeSettingsPanel">
+  <div class="sectionTitle" style="margin-top:0">Bank Loans</div>
+  <div class="meta" style="margin-bottom:10px">Add, edit, close or delete loans. Draft changes stay on this page until you leave or press Save Settings.</div>
+  <div id="loanSettingsRows"></div>
+  <button class="btn" type="button" id="addLoanSetting" style="margin-top:10px">+ Add Loan</button>
+  <div class="sectionTitle" style="margin-top:22px">Credit Card Statement / Due Dates</div>
+  <div class="meta" style="margin-bottom:10px">Set statement cutoff day and payment due day for each card.</div>
+  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div>
+  <div id="cardCycleSettingsRows" class="grid2"></div>
+ </div>
+</section>
+
 <section class="view" id="more">
  <div class="panel" style="margin-bottom:12px">
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V155 PRODUCTION</span></div>
+  </div><span class="pill green">V156 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V155</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V155-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V156</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V156-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -838,14 +857,8 @@ button{cursor:pointer}
   <div class="splitHead"><div><div class="panelTitle">Local Finance Database</div><div class="meta">Supabase is the master database. Local storage is only a fast cache/recovery copy. Changes synchronize between signed-in devices in realtime.</div></div><div class="dbStatus" id="dbStatus"><span class="dbDot"></span>Database active</div></div>
  </div>
 
- <div class="panel" style="margin-bottom:12px" id="financeSettingsPanel">
-  <div class="splitHead"><div><div class="panelTitle">Finance Settings</div><div class="meta">Control bank loans and credit-card statement/due dates here. These values synchronize through Supabase.</div></div><button class="btn primary" type="button" id="saveFinanceSettingsBtn">Save Settings</button></div>
-  <div class="sectionTitle" style="margin-top:16px">Bank Loans</div>
-  <div class="meta" style="margin-bottom:10px">Add, edit, close or delete loans. New loans are saved immediately so realtime refresh cannot make them disappear.</div>
-  <div id="loanSettingsRows"></div><button class="btn" type="button" id="addLoanSetting" style="margin-top:10px">+ Add Loan</button>
-  <div class="sectionTitle" style="margin-top:18px">Credit Card Statement / Due Dates</div>
-  <div class="meta" style="margin-bottom:10px">Set statement cutoff day and payment due day for each card.</div>
-  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div><div id="cardCycleSettingsRows" class="grid2"></div>
+ <div class="panel" style="margin-bottom:12px">
+  <div class="splitHead"><div><div class="panelTitle">Finance Settings</div><div class="meta">Bank loans, remaining balances, and card statement/due-date rules.</div></div><button class="btn primary" type="button" onclick="nav('financeSettings')">Open Finance Settings</button></div>
  </div>
 
  <div class="panel" style="margin-bottom:12px">
@@ -1123,6 +1136,7 @@ if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
 if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
 Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};});
 let financeSettingsDirty=false;
+let financeSettingsEditing=false;
 function cardCycleSetting(cardId){return financeSettings.cardCycles?.[cardId]||DEFAULT_CARD_CYCLE_SETTINGS[cardId]||{statementDay:1,dueDay:25};}
 function persistFinanceSettingsDraft(){localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));financeSettingsDirty=true;saveLocal();}
 function saveFinanceSettings(showMessage=true){persistFinanceSettingsDraft();if(showMessage)alert('Finance settings saved and queued for realtime cloud sync.');}
@@ -3527,9 +3541,11 @@ function summaryData(rows=normalizedTx()){
  return {spend,income,net:income-spend,count:rows.length,transfers}
 }
 function nav(page){
+ const wasFinance=document.getElementById('financeSettings')?.classList.contains('active');
+ if(wasFinance && page!=='financeSettings'){financeSettingsEditing=false;if(financeSettingsDirty)scheduleRecordPush('finance-settings-leave');}
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
- const titles={dashboard:'Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',more:'More',accountDetail:'Account Details'};
+ const titles={dashboard:'Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
  window.scrollTo({top:0,behavior:'smooth'});
@@ -3539,6 +3555,7 @@ function nav(page){
  if(page==='incomeplan')renderIncomePlan();
  if(page==='outgoings')renderOutgoings();
  if(page==='importstatements')renderImportPage();
+ if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
 }
 
@@ -6476,15 +6493,67 @@ function financeSettingCards(){
 }
 function loanCalc(loan){if(!loan||loan.status==='closed')return {remainingMonths:0,remainingAmount:0,status:'Completed'};const remainingMonths=Math.max(0,Number(loan.remainingMonths||0));const remainingAmount=Math.max(0,Number(loan.remainingAmount||0));return {remainingMonths,remainingAmount,status:(remainingMonths>0||remainingAmount>0)?'Active':'Completed'};}
 function totalFixedLoans(){return (financeSettings.loans||[]).reduce((sum,l)=>sum+(l.status!=='closed'&&loanCalc(l).status==='Active'?Math.max(0,Number(l.monthly||0)):0),0);}
-function renderFinanceSettings(){
+function renderFinanceSettings(force=false){
+ if(!force && financeSettingsEditing && document.getElementById('financeSettings')?.classList.contains('active'))return;
  const loansBox=$('loanSettingsRows');
- if(loansBox){const rows=financeSettings.loans||[];loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
-  loansBox.querySelectorAll('[data-loan-setting]').forEach(row=>{const idx=Number(row.dataset.loanSetting);row.querySelectorAll('[data-loan-field]').forEach(el=>{const commit=()=>{const f=el.dataset.loanField;financeSettings.loans[idx][f]=['monthly','remainingAmount','remainingMonths'].includes(f)?Number(el.value||0):el.value;persistFinanceSettingsDraft();if(document.querySelector('#incomeplan.active'))renderIncomePlan();};el.oninput=commit;el.onchange=commit;});});
-  loansBox.querySelectorAll('[data-delete-loan]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.deleteLoan),l=financeSettings.loans[i];if(!confirm(`Delete loan "${l?.name||'Loan'}"?`))return;financeSettings.loans.splice(i,1);persistFinanceSettingsDraft();renderFinanceSettings();renderIncomePlan();renderDashboard();});
+ if(loansBox){
+  const rows=financeSettings.loans||[];
+  loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
+  loansBox.querySelectorAll('[data-loan-setting]').forEach(row=>{
+   const idx=Number(row.dataset.loanSetting);
+   row.querySelectorAll('[data-loan-field]').forEach(el=>{
+    el.onfocus=()=>{financeSettingsEditing=true};
+    const commit=()=>{
+     financeSettingsEditing=true;
+     const f=el.dataset.loanField;
+     financeSettings.loans[idx][f]=['monthly','remainingAmount','remainingMonths'].includes(f)?Number(el.value||0):el.value;
+     localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+     financeSettingsDirty=true;
+     scheduleRecordPush('finance-settings-edit');
+     if(document.querySelector('#incomeplan.active'))renderIncomePlan();
+    };
+    el.oninput=commit;el.onchange=commit;
+   });
+  });
+  loansBox.querySelectorAll('[data-delete-loan]').forEach(b=>b.onclick=()=>{
+   const i=Number(b.dataset.deleteLoan),l=financeSettings.loans[i];
+   if(!confirm(`Delete loan "${l?.name||'Loan'}"?`))return;
+   financeSettings.loans.splice(i,1);
+   localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+   financeSettingsDirty=true;financeSettingsEditing=true;
+   scheduleRecordPush('finance-settings-delete-loan');
+   renderFinanceSettings(true);renderIncomePlan();renderDashboard();
+  });
  }
- const cycleBox=$('cardCycleSettingsRows');if(cycleBox){const cards=financeSettingCards();if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;cycleBox.innerHTML=cards.map(a=>{const c=cardCycleSetting(a.id);return `<div class="panel" style="padding:12px"><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="formGrid" style="margin-top:10px"><div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div><div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div></div></div>`;}).join('');cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>{const commit=()=>{const card=el.dataset.cycleCard,field=el.dataset.cycleField;financeSettings.cardCycles[card]=financeSettings.cardCycles[card]||{};financeSettings.cardCycles[card][field]=Math.max(1,Math.min(31,Number(el.value||1)));persistFinanceSettingsDraft();};el.oninput=commit;el.onchange=commit;});}
+ const cycleBox=$('cardCycleSettingsRows');
+ if(cycleBox){
+  const cards=financeSettingCards();
+  if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;
+  cycleBox.innerHTML=cards.map(a=>{const c=cardCycleSetting(a.id);return `<div class="panel" style="padding:12px"><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="formGrid" style="margin-top:10px"><div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div><div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div></div></div>`;}).join('');
+  cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>{
+   el.onfocus=()=>{financeSettingsEditing=true};
+   const commit=()=>{
+    financeSettingsEditing=true;
+    const card=el.dataset.cycleCard,field=el.dataset.cycleField;
+    financeSettings.cardCycles[card]=financeSettings.cardCycles[card]||{};
+    financeSettings.cardCycles[card][field]=Math.max(1,Math.min(31,Number(el.value||1)));
+    localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+    financeSettingsDirty=true;
+    scheduleRecordPush('finance-settings-card-cycle');
+   };
+   el.oninput=commit;el.onchange=commit;
+  });
+ }
 }
-function addLoanSetting(){const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',createdAt:new Date().toISOString()};financeSettings.loans.push(loan);persistFinanceSettingsDraft();renderFinanceSettings();setTimeout(()=>{const rows=document.querySelectorAll('[data-loan-setting]');const last=rows[rows.length-1];const input=last?.querySelector('[data-loan-field="name"]');if(input){input.focus();input.select();}},0);}
+function addLoanSetting(){
+ const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',createdAt:new Date().toISOString()};
+ financeSettings.loans.push(loan);
+ localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+ financeSettingsDirty=true;financeSettingsEditing=true;
+ scheduleRecordPush('finance-settings-add-loan');
+ renderFinanceSettings(true);
+ setTimeout(()=>{const rows=document.querySelectorAll('[data-loan-setting]');const last=rows[rows.length-1];const input=last?.querySelector('[data-loan-field="name"]');if(input){input.focus();input.select();}},0);
+}
 function renderIncomeLoanGrid(){const box=$('incomeLoanGrid');if(!box)return;const rows=financeSettings.loans||[];box.innerHTML=rows.length?rows.map(l=>{const c=loanCalc(l);return `<div class="loanCard"><div class="splitHead"><div><b>${escapeHtml(l.name||'Loan')}</b><div class="meta">${l.status==='closed'?'Closed':'Monthly deduction'}</div></div><span class="badge ${c.status==='Active'?'active':'completed'}">${c.status==='Active'?`${c.remainingMonths} months remaining`:'Closed / Completed'}</span></div><div class="cardMetricGrid" style="grid-template-columns:repeat(3,1fr);margin-top:12px"><div class="miniMetric"><span>Monthly Payment</span><b class="red">${money(l.status==='closed'?0:Number(l.monthly||0))}</b></div><div class="miniMetric"><span>Remaining Months</span><b>${c.remainingMonths}</b></div><div class="miniMetric"><span>Remaining Amount</span><b>${money(c.remainingAmount)}</b></div></div></div>`;}).join(''):'<div class="notice">No bank loans configured. Add them under More → Finance Settings.</div>';}
 
 function renderIncomePlan(){
@@ -6858,7 +6927,7 @@ async function recordPullAll(reason='pull'){
    try{saveRecoverySnapshot(`before-realtime-${reason}`);}catch(_){}
    applyRecordSyncRows(rows);
    refreshAllFinanceScreens();
-   renderFinanceSettings();
+   if(!financeSettingsEditing)renderFinanceSettings();
    updateCloudSyncPanel(true);
    const latest=rows.reduce((m,r)=>Math.max(m,new Date(r.updated_at||0).getTime()),0);
    setCloudMeta({
@@ -7807,7 +7876,6 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 
  if($('addLoanSetting'))$('addLoanSetting').onclick=addLoanSetting;
  if($('saveFinanceSettingsBtn'))$('saveFinanceSettingsBtn').onclick=()=>saveFinanceSettings(true);
- renderFinanceSettings();
  renderOutgoings();
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
@@ -7815,7 +7883,6 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  updateDbStatus(true);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
- renderFinanceSettings();
  if(session)setTimeout(()=>startRealtimeRecordSync(),120);
 }
 init();
