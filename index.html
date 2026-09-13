@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V155 PRODUCTION</span></div>
+  </div><span class="pill green">V156 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V155</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V155-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V156</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V156-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1788,8 +1788,8 @@ function bankLogoURL(a){
 function bankLogoHTML(a){
  const logo=bankLogoURL(a);
  const isNBD=String(a?.bank||'').trim()==='Emirates NBD';
- const boxStyle=isNBD?'background:#062b5c;border-color:#062b5c;padding:3px 6px;display:flex;align-items:center;justify-content:center;':'';
- const imgStyle=isNBD?'width:94%;height:84%;object-fit:contain;object-position:center center;margin:auto;':'';
+ const boxStyle=isNBD?'background:#062b5c;border-color:#062b5c;padding:0;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;':'';
+ const imgStyle=isNBD?'position:absolute;left:50%;top:50%;width:156%;height:90%;max-width:none;object-fit:contain;object-position:left center;transform:translate(-42%,-50%);':'';
  return `<div class="bankLogoBox" style="${boxStyle}">${logo?`<img src="${logo}" style="${imgStyle}" alt="${escapeHtml(a?.bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}<div class="bankLogoFallback" style="${logo?'display:none':''}${isNBD?'color:#fff;':''}">${escapeHtml(a?.bank||'Bank')}</div></div>`;
 }
 function paymentStatusClass(p){if(p.paid)return'confirmed';const t=new Date();t.setHours(0,0,0,0);const d=p.due?new Date(p.due+'T00:00:00'):null;if(d&&d<t)return'overdue';return p.source||'pending';}
