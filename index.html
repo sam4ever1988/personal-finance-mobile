@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V154 PRODUCTION</span></div>
+  </div><span class="pill green">V155 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V154</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V154-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V155</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V155-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1788,8 +1788,9 @@ function bankLogoURL(a){
 function bankLogoHTML(a){
  const logo=bankLogoURL(a);
  const isNBD=String(a?.bank||'').trim()==='Emirates NBD';
- const boxStyle=isNBD?'background:#062b5c;border-color:#062b5c;padding:4px 7px;':'';
- return `<div class="bankLogoBox" style="${boxStyle}">${logo?`<img src="${logo}" alt="${escapeHtml(a?.bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}<div class="bankLogoFallback" style="${logo?'display:none':''}${isNBD?'color:#fff;':''}">${escapeHtml(a?.bank||'Bank')}</div></div>`;
+ const boxStyle=isNBD?'background:#062b5c;border-color:#062b5c;padding:3px 6px;display:flex;align-items:center;justify-content:center;':'';
+ const imgStyle=isNBD?'width:94%;height:84%;object-fit:contain;object-position:center center;margin:auto;':'';
+ return `<div class="bankLogoBox" style="${boxStyle}">${logo?`<img src="${logo}" style="${imgStyle}" alt="${escapeHtml(a?.bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}<div class="bankLogoFallback" style="${logo?'display:none':''}${isNBD?'color:#fff;':''}">${escapeHtml(a?.bank||'Bank')}</div></div>`;
 }
 function paymentStatusClass(p){if(p.paid)return'confirmed';const t=new Date();t.setHours(0,0,0,0);const d=p.due?new Date(p.due+'T00:00:00'):null;if(d&&d<t)return'overdue';return p.source||'pending';}
 function paymentStatusText(p){
@@ -3405,12 +3406,14 @@ function excelCardAccounting(a){
  // and live card available credit.
  const liveTransactions=Math.max(0,liveUnreleasedTransactionUsage(a.id));
 
- // Entire remaining installment principal continues to occupy card limit.
- const remainingPrincipal=Math.max(0,activeInstallmentPlans(a.id)
+ // Entire remaining installment principal from the active plans.
+ const fullRemainingInstallmentPrincipal=Math.max(0,activeInstallmentPlans(a.id)
   .reduce((sum,p)=>sum+Math.max(0,Number(planCalc(p).remaining||0)),0));
 
- // Display-only split: this month's installment vs future reserve.
- const futureReserve=Math.max(0,Math.round((remainingPrincipal-currentInstallment)*100)/100);
+ // V155 AGREED RULE:
+ // this month's installment is separated from the future installment reserve.
+ // Therefore Future Installment Reserve = full remaining principal - current installment.
+ const futureReserve=Math.max(0,Math.round((fullRemainingInstallmentPrincipal-currentInstallment)*100)/100);
  const currentCycle=Math.max(0,Math.round((currentTransactions+currentInstallment)*100)/100);
 
  // Recorded payments must restore available credit on the target card.
@@ -3425,14 +3428,15 @@ function excelCardAccounting(a){
  // only when the source-card transaction feed does not already contain it.
  const fundedOtherCards=Math.max(0,creditBreakdown.cardFundedPayments);
 
- // V142 SINGLE BALANCE FORMULA:
+ // V155 BALANCE FORMULA:
  // Outstanding / Utilized =
  //   unpaid released statement
  // + unreleased transactions
- // + remaining installment principal
+ // + FUTURE installment reserve (after this month's installment)
  // + unmatched card-funded payments
  // - current real credits / explicit overpayments.
- const grossOccupied=Math.max(0,released+liveTransactions+remainingPrincipal+fundedOtherCards);
+ // Current Cycle Installment is deducted separately from Available Credit.
+ const grossOccupied=Math.max(0,released+liveTransactions+futureReserve+fundedOtherCards);
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
@@ -3451,7 +3455,7 @@ function excelCardAccounting(a){
   available,
   bankAvailable:available,
   futureReserved:futureReserve,
-  fullRemainingInstallmentPrincipal:remainingPrincipal,
+  fullRemainingInstallmentPrincipal,
   availableBeforeInstallments:Math.max(0,limit-total)+overCredit,
   monthlyInstallmentReserve,
   bankUtilized:total,
@@ -3478,8 +3482,8 @@ function excelCardAccounting(a){
   nextInstallmentScheduled:currentInstallment,
   excelAccountingModel:true,
   grossOccupied,
-  normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
-  installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
+  normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,futureReserve))*100)/100),
+  installmentIncludedInUtilized:Math.min(total,futureReserve),
   releasedIncludedInLiveUtilization:true,
   creditLimitInvariant:Math.abs((available+total+monthlyInstallmentReserve-overCredit)-limit)<0.02
  };
