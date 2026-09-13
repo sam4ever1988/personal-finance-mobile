@@ -816,10 +816,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V151 PRODUCTION</span></div>
+  </div><span class="pill green">V152 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V151</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V151-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V152</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V152-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1191,7 +1191,7 @@ const $=id=>document.getElementById(id);
 const colors=['#2878f0','#39a844','#ff9c1a','#7b55d9','#17a6ad','#ec5d8c','#a96f45','#f2b705','#607fbd','#dc4545','#7d8794','#7950d8','#2aa5c0','#8e6cd1','#22a06b'];
 
 let categories=JSON.parse(localStorage.getItem('pf_categories')||'null')||BASE.categoryTree;
-let installments=JSON.parse(localStorage.getItem('pf_installments')||'null')||BASE.initialInstallments;
+let installments=JSON.parse(localStorage.getItem('pf_installments')||'null')||[];
 let deletedInstallmentIds=new Set(JSON.parse(localStorage.getItem('pf_deleted_installment_ids')||'[]'));
 installments=installments.filter(p=>!deletedInstallmentIds.has(p.id));
 
@@ -2845,8 +2845,8 @@ function renderPaymentPlanner(){
 let importedTransactions=JSON.parse(localStorage.getItem('pf_imported_transactions')||'[]');
 let importHistory=JSON.parse(localStorage.getItem('pf_import_history')||'[]');
 function rebuildTransactions(){
+ // V152: embedded BASE transactions are retired permanently.
  transactions=[
-  ...BASE.transactions.map((t,i)=>({...t,_id:'tx'+i})).filter(t=>!resetCardIds.has(t.account)),
   ...importedTransactions.map((t,i)=>({...t,manual:false,imported:true,_id:t._id||('import'+i)})),
   ...manualTransactions.map((t,i)=>({...t,manual:true,_id:t._id||('manual'+i)}))
  ];
@@ -2883,6 +2883,13 @@ if(!accounts.some(a=>a.id==='cash-wallet')){
 // V151: prefer current high-quality web brand artwork over legacy embedded bitmap logos.
 accounts.forEach(a=>{ if(a.type==='card' && BANK_LOGO_URLS[a.bank]) a.logo=BANK_LOGO_URLS[a.bank]; });
 window.__financeAccountsReady=true;
+try{
+ if(localStorage.getItem('pf_v152_base_retired')!=='1'){
+  localStorage.setItem('pf_v152_base_retired','1');
+  console.info('V152: embedded BASE transactions and BASE initial installments retired.');
+ }
+}catch(_){}
+
 let transactionActions=JSON.parse(localStorage.getItem('pf_transaction_actions')||'{}');
 let bankBalanceOverrides=JSON.parse(localStorage.getItem('pf_bank_balance_overrides')||'{}')||{};
 
@@ -2963,7 +2970,6 @@ function accountName(id){
 
 function liveCardTransactions(includeInactive=false){
  const rows=[
-  ...BASE.transactions.map((t,i)=>({...t,_id:'tx'+i})).filter(t=>!resetCardIds.has(t.account)),
   ...importedTransactions.map((t,i)=>({...t,manual:false,imported:true,_id:t._id||('import'+i)})),
   ...manualTransactions.map((t,i)=>({...t,manual:true,_id:t._id||('manual'+i)}))
  ];
@@ -3418,11 +3424,10 @@ function excelCardAccounting(a){
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=Math.min(limit,occupied);
- // V151 agreed card rule: the installment due in the active cycle also reduces
- // Available Credit for planning purposes. Keep Outstanding/Utilized unchanged
- // so the user can see the bank utilization separately from this month's reserve.
+ // V152: remaining installment principal already includes this month's installment.
+ // Installments therefore reduce Available Credit exactly once via Outstanding / Utilized.
  const monthlyInstallmentReserve=Math.max(0,currentInstallment);
- const available=Math.max(0,limit-total-monthlyInstallmentReserve)+overCredit;
+ const available=Math.max(0,limit-total)+overCredit;
  const utilization=limit?total/limit*100:0;
 
  return {
@@ -3463,7 +3468,7 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,remainingPrincipal),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((available+total+monthlyInstallmentReserve-overCredit)-limit)<0.02
+  creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
 function cardMetrics(a){
@@ -4483,7 +4488,7 @@ function deleteInstallmentPlan(id){
  const c=planCalc(p),a=account(p.cardId);
  const msg=`Delete "${p.description}" from ${a?.name||'this card'}?\n\nRemaining amount: ${money(c.remaining)}\n\nUse this when the installment has been fully paid/settled and should no longer be included in future installment commitments.`;
  if(!confirm(msg))return;
- const seedIds=new Set([...MEEM_SEEDED_PLANS,...REQUIRED_0955_INSTALLMENTS,...BASE.initialInstallments].map(x=>x.id));
+ const seedIds=new Set([...MEEM_SEEDED_PLANS,...REQUIRED_0955_INSTALLMENTS].map(x=>x.id));
  if(seedIds.has(id)){
   const retired=new Set(JSON.parse(localStorage.getItem('pf_retired_installment_seed_ids')||'[]'));
   retired.add(id);localStorage.setItem('pf_retired_installment_seed_ids',JSON.stringify([...retired]));
@@ -5285,7 +5290,7 @@ function resetCardData(cardId){
   return;
  }
 
- const baseRows=BASE.transactions.map((t,i)=>({...t,_id:'tx'+i}))
+ const baseRows=[] // V152 retired embedded transactions
   .filter(t=>t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth);
  const manualRows=manualTransactions
   .filter(t=>t.account===cardId && cardTransactionStatementMonth(cardId,t)===selectedMonth);
@@ -5498,7 +5503,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Only real manual/imported card activity, unpaid released statements and active installment obligations affect the live balance. Historical built-in rows remain visible for reference but do not consume available credit.</div>
+<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Only imported/manual/cloud transactions, unpaid released statements and active installment obligations affect the live balance. Embedded legacy transactions are retired and cannot affect or reappear in calculations.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
@@ -6278,7 +6283,7 @@ $('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];impor
 $('confirmStatementImport').addEventListener('click',()=>{
  if(!importPreviewRows.length)return;
  const activeImported=importedTransactions.filter(t=>!transactionActions[t._id]?.status);
- const existing=[...BASE.transactions,...activeImported];
+ const existing=[...activeImported,...manualTransactions];
  const result=splitFreshStatementRows(importPreviewRows,existing);
  const fresh=result.fresh,skipped=result.duplicates.length,stamp=Date.now(),batchId=`batch_${stamp}`;
  const importedAccountId=$('importAccount').value;
@@ -7309,7 +7314,7 @@ function syncSummaryFromSnapshot(s){
  if(!s||typeof s!=='object')return null;
  const actions=s.transactionActions||{};
  const resetIds=new Set(Array.isArray(s.resetCardIds)?s.resetCardIds:[]);
- const baseRows=BASE.transactions
+ const baseRows=[] /* V152 retired embedded transactions */
   .map((t,i)=>({...t,_id:'tx'+i}))
   .filter(t=>!resetIds.has(t.account));
  const imported=(s.importedTransactions||[]).map((t,i)=>({...t,_id:t._id||('import'+i)}));
