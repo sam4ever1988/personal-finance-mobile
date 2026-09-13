@@ -688,7 +688,7 @@ button{cursor:pointer}
   </div>
   <div style="overflow-x:auto;margin-top:10px">
    <table class="summaryTable">
-    <thead><tr><th>Date</th><th>Type</th><th>Used For</th><th>Paid From</th><th>Monthly Income Impact</th><th>Amount</th></tr></thead>
+    <thead><tr><th>Date</th><th>Type</th><th>Used For</th><th>Paid From</th><th>Monthly Income Impact</th><th>Amount</th><th>Action</th></tr></thead>
     <tbody id="cashFlowLedgerBody"></tbody>
    </table>
   </div>
@@ -731,7 +731,7 @@ button{cursor:pointer}
   <table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Original Amount</th><th>Monthly</th><th>Amount Under Review</th><th>Plan</th><th>Scheduled Status</th><th>Action</th></tr></thead><tbody id="installReviewBody"></tbody></table>
  </div>
  <div class="sectionTitle">Completed Installments</div>
- <div class="panel"><div class="meta" style="margin-bottom:10px">Only plans you confirmed as completed are stored here. They are excluded from all current/future calculations.</div><table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Category</th><th>Original Amount</th><th>Plan</th><th>Completed</th><th>Status</th></tr></thead><tbody id="completedInstallBody"></tbody></table></div>
+ <div class="panel"><div class="meta" style="margin-bottom:10px">Only plans you confirmed as completed are stored here. They are excluded from all current/future calculations. Delete permanently removes the completed record from all devices.</div><table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Category</th><th>Original Amount</th><th>Plan</th><th>Completed</th><th>Status</th><th>Action</th></tr></thead><tbody id="completedInstallBody"></tbody></table></div>
 </section>
 
 <section class="view" id="categories">
@@ -837,10 +837,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V161 PRODUCTION</span></div>
+  </div><span class="pill green">V163 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V161</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V161-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V163</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V163-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1053,7 +1053,7 @@ button{cursor:pointer}
 
 
 <div class="modalBack" id="txBulkUpdateModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Update Selected Transactions</div><button class="closeBtn" data-close="txBulkUpdateModal">✕</button></div>
+ <div class="modalHead"><div class="modalTitle">Update Selected Transactions</div><button class="closeBtn" type="button" id="closeBulkUpdateTop">✕</button></div>
  <form id="txBulkUpdateForm" class="formGrid">
   <div class="field full"><div class="notice"><b id="txBulkUpdateCount">0 transactions selected</b><div class="meta" style="margin-top:4px">Leave any field unchanged if you do not want to modify it.</div></div></div>
   <div class="field"><label>Category</label><select id="bulkUpdateCategory"><option value="">— Keep Existing —</option></select></div>
@@ -1062,7 +1062,7 @@ button{cursor:pointer}
   <div class="field"><label>Statement / Payment Month</label><input type="month" id="bulkUpdateMonth"><div class="hint">Leave blank to keep each transaction's existing month.</div></div>
   <div class="field full"><label>Description / Title</label><input id="bulkUpdateDescription" placeholder="Leave blank to keep each transaction's current description"></div>
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
-   <button type="button" class="btn" data-close="txBulkUpdateModal">Cancel</button>
+   <button type="button" class="btn" id="closeBulkUpdateCancel">Cancel</button>
    <button type="submit" class="btn primary">Update Selected</button>
   </div>
  </form>
@@ -4222,6 +4222,8 @@ function bindAccountCards(){
 }
 function txRow5(t){const ip=linkedActiveInstallment(t._id);return `<tr class="clickable" data-tx="${t._id}"><td>${t.date}</td><td><b>${t.description}</b>${ip?'<span class="badge active" style="margin-left:6px">Installment</span>':''}<div class="meta">${accountName(t.account)}${ip?` • ${money(planCalc(ip).remaining)} reserved`:''}</div></td><td>${t.category}</td><td>${account(t.account)?.ending||''}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`}
 const selectedTxIds=new Set();
+let bulkUpdateDraftActive=false;
+let bulkUpdateDraftState=null;
 
 function txBalanceStatusBadge(t){
  if(isLegacySeedTransaction(t))return '<span class="badge" style="margin-left:6px">Historical only</span>';
@@ -4268,6 +4270,15 @@ function openBulkUpdateSelected(){
  const ids=[...selectedTxIds];
  if(!ids.length)return;
 
+ bulkUpdateDraftActive=true;
+ bulkUpdateDraftState={
+  category:'',
+  subcategory:'',
+  accountId:'',
+  month:'',
+  description:''
+ };
+
  $('txBulkUpdateCount').textContent=`${ids.length} transaction${ids.length===1?'':'s'} selected`;
 
  const cat=$('bulkUpdateCategory');
@@ -4285,20 +4296,75 @@ function openBulkUpdateSelected(){
 }
 
 function fillBulkUpdateSubcategories(){
+ if(!bulkUpdateDraftActive)return;
+
  const cat=$('bulkUpdateCategory').value;
+ if(bulkUpdateDraftState)bulkUpdateDraftState.category=cat;
+
+ const sub=$('bulkUpdateSubcategory');
+ const previous=(bulkUpdateDraftState?.subcategory)||sub.value||'';
  const vals=cat?(categories[cat]||[]):[...new Set(Object.values(categories).flat())];
- $('bulkUpdateSubcategory').innerHTML='<option value="">— Keep Existing —</option>'+vals.sort().map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+
+ sub.innerHTML='<option value="">— Keep Existing —</option>'+vals.sort().map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+
+ if(previous && vals.includes(previous))sub.value=previous;
+ if(bulkUpdateDraftState)bulkUpdateDraftState.subcategory=sub.value||'';
+}
+
+
+function captureBulkUpdateDraft(){
+ if(!bulkUpdateDraftActive)return;
+ bulkUpdateDraftState={
+  category:$('bulkUpdateCategory')?.value||'',
+  subcategory:$('bulkUpdateSubcategory')?.value||'',
+  accountId:$('bulkUpdateAccount')?.value||'',
+  month:$('bulkUpdateMonth')?.value||'',
+  description:$('bulkUpdateDescription')?.value||''
+ };
+}
+
+function restoreBulkUpdateDraft(){
+ if(!bulkUpdateDraftActive || !bulkUpdateDraftState)return;
+
+ const cat=$('bulkUpdateCategory');
+ const sub=$('bulkUpdateSubcategory');
+ const acct=$('bulkUpdateAccount');
+ const month=$('bulkUpdateMonth');
+ const desc=$('bulkUpdateDescription');
+
+ if(cat && [...cat.options].some(o=>o.value===bulkUpdateDraftState.category)){
+  cat.value=bulkUpdateDraftState.category;
+ }
+ fillBulkUpdateSubcategories();
+
+ if(sub && [...sub.options].some(o=>o.value===bulkUpdateDraftState.subcategory)){
+  sub.value=bulkUpdateDraftState.subcategory;
+ }
+ if(acct && [...acct.options].some(o=>o.value===bulkUpdateDraftState.accountId)){
+  acct.value=bulkUpdateDraftState.accountId;
+ }
+ if(month)month.value=bulkUpdateDraftState.month||'';
+ if(desc)desc.value=bulkUpdateDraftState.description||'';
+}
+
+function closeBulkUpdateDraft(){
+ captureBulkUpdateDraft();
+ bulkUpdateDraftActive=false;
+ bulkUpdateDraftState=null;
+ closeModal('txBulkUpdateModal');
 }
 
 function applyBulkUpdateSelected(){
  const ids=[...selectedTxIds];
  if(!ids.length)return;
 
- const category=$('bulkUpdateCategory').value;
- const subcategory=$('bulkUpdateSubcategory').value;
- const accountId=$('bulkUpdateAccount').value;
- const month=$('bulkUpdateMonth').value;
- const description=$('bulkUpdateDescription').value.trim();
+ captureBulkUpdateDraft();
+
+ const category=bulkUpdateDraftState?.category||'';
+ const subcategory=bulkUpdateDraftState?.subcategory||'';
+ const accountId=bulkUpdateDraftState?.accountId||'';
+ const month=bulkUpdateDraftState?.month||'';
+ const description=(bulkUpdateDraftState?.description||'').trim();
 
  if(!category && !subcategory && !accountId && !month && !description){
   alert('Choose at least one field to update.');
@@ -4333,6 +4399,9 @@ function applyBulkUpdateSelected(){
 
  saveLocal();
  syncTransactionOverridesImmediate();
+
+ bulkUpdateDraftActive=false;
+ bulkUpdateDraftState=null;
  closeModal('txBulkUpdateModal');
  selectedTxIds.clear();
 
@@ -4618,6 +4687,8 @@ function showDuplicateReview(){
 
 let eligiblePurchasesOnly=false;
 function renderTransactions(){
+ const __bulkDraftWasActive=bulkUpdateDraftActive;
+ if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter();
  const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value};
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
@@ -4731,6 +4802,38 @@ function deleteInstallmentPlan(id){
 }
 
 
+
+function deleteCompletedInstallmentRecord(id){
+ const p=installments.find(x=>x.id===id);
+ if(!p)return;
+
+ const a=account(p.cardId);
+ if(!confirm(
+  `Permanently delete this completed installment record?\n\n`+
+  `${a?.bank||''} •${a?.ending||''}\n${p.description}\n${money(Number(p.fullAmount||0))}\n\n`+
+  `It is already excluded from calculations. This action only removes its completed-history record and synchronizes the deletion to your other devices.`
+ ))return;
+
+ try{saveRecoverySnapshot('before-delete-completed-installment');}catch(_){}
+
+ deletedInstallmentIds.add(id);
+ localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
+
+ installments=installments.filter(x=>x.id!==id);
+ localStorage.setItem('pf_installments',JSON.stringify(installments));
+ saveLocal();
+
+ // Full record push creates a Supabase tombstone so another device cannot restore it.
+ scheduleRecordPush('delete-completed-installment');
+
+ renderInstallments();
+ renderAccounts();
+ renderDashboard();
+ renderPaymentPlanner();
+ renderIncomePlan();
+ renderReports();
+}
+
 function confirmInstallmentCompleted(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
  const a=account(p.cardId);
@@ -4800,13 +4903,14 @@ function renderInstallments(){
 
  $('completedInstallBody').innerHTML=completed.map(p=>{
   const a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${p.completedAt||'Confirmed'}</td><td><span class="badge completed">Completed</span></td></tr>`;
- }).join('')||'<tr><td colspan="7">No confirmed completed installment plans yet.</td></tr>';
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${p.completedAt||'Confirmed'}</td><td><span class="badge completed">Completed</span></td><td><button class="btn small danger" type="button" data-delete-completed-plan="${p.id}">Delete</button></td></tr>`;
+ }).join('')||'<tr><td colspan="8">No confirmed completed installment plans yet.</td></tr>';
 
  document.querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.plan)));
  document.querySelectorAll('[data-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.deletePlan)));
  document.querySelectorAll('[data-confirm-completed]').forEach(b=>b.addEventListener('click',()=>confirmInstallmentCompleted(b.dataset.confirmCompleted)));
  document.querySelectorAll('[data-keep-active]').forEach(b=>b.addEventListener('click',()=>keepInstallmentActive(b.dataset.keepActive)));
+ document.querySelectorAll('[data-delete-completed-plan]').forEach(b=>b.onclick=()=>deleteCompletedInstallmentRecord(b.dataset.deleteCompletedPlan));
  renderAccounts();renderDashboard();
 }
 
@@ -5246,7 +5350,13 @@ function openTxEdit(id){
  openModal('txEditModal');
 }
 $('editCategory').addEventListener('change',()=>fillSubcategorySelect($('editSubcategory'),$('editCategory').value));
-$('bulkUpdateCategory').onchange=fillBulkUpdateSubcategories;
+$('bulkUpdateCategory').onchange=()=>{captureBulkUpdateDraft();fillBulkUpdateSubcategories();captureBulkUpdateDraft();};
+$('bulkUpdateSubcategory').onchange=captureBulkUpdateDraft;
+$('bulkUpdateAccount').onchange=captureBulkUpdateDraft;
+$('bulkUpdateMonth').onchange=captureBulkUpdateDraft;
+$('bulkUpdateDescription').oninput=captureBulkUpdateDraft;
+$('closeBulkUpdateTop').onclick=closeBulkUpdateDraft;
+$('closeBulkUpdateCancel').onclick=closeBulkUpdateDraft;
 $('txBulkUpdateForm').onsubmit=e=>{e.preventDefault();applyBulkUpdateSelected();};
 
 $('convertToInstallment').addEventListener('click',()=>{
@@ -6570,11 +6680,56 @@ $('confirmStatementImport').addEventListener('click',()=>{
 });
 const importDrop=$('importDrop');['dragenter','dragover'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.remove('drag')}));importDrop.addEventListener('drop',e=>handleStatementFile(e.dataTransfer.files?.[0]));
 
+
+function permanentlyDeleteTransactionRecord(id){
+ const t=normalizedTx(true).find(x=>x._id===id);
+ if(!t)return;
+
+ if(!confirm(
+  `Permanently delete this transaction record?\n\n`+
+  `${t.description}\n${t.date} • ${signed(t.amount)}\n${accountName(t.account)}\n\n`+
+  `This cannot be restored from Transaction History. A recovery snapshot is created first.`
+ ))return;
+
+ try{saveRecoverySnapshot('before-permanent-delete-transaction');}catch(_){}
+
+ manualTransactions=manualTransactions.filter(x=>(x._id||'')!==id);
+ importedTransactions=importedTransactions.filter(x=>(x._id||'')!==id);
+
+ delete transactionActions[id];
+ delete txOverrides[id];
+
+ // Remove any duplicate-decision references containing this exact transaction id.
+ Object.keys(duplicateDecisions||{}).forEach(k=>{
+  if(String(k).includes(id))delete duplicateDecisions[k];
+ });
+
+ localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
+ localStorage.setItem('pf_imported_transactions',JSON.stringify(importedTransactions));
+ localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
+ localStorage.setItem('pf_tx_overrides',JSON.stringify(txOverrides));
+ saveLocal();
+
+ // Missing record becomes a Supabase tombstone on push.
+ scheduleRecordPush('permanent-delete-transaction');
+
+ renderTxHistory();
+ renderTransactions();
+ renderDashboard();
+ renderAccounts();
+ renderReports();
+
+ if(document.getElementById('accountDetail')?.classList.contains('active')&&currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage);
+ }
+}
+
 function renderTxHistory(){
  const box=$('txHistoryBox');if(!box)return;
  const rows=normalizedTx(true).filter(t=>t.txAction&&['excluded-duplicate','deleted'].includes(t.txAction.status));
- box.innerHTML=rows.length?`<table class="historyTable"><thead><tr><th>Date</th><th>Transaction</th><th>Status</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(t=>`<tr><td>${t.date}</td><td><b>${t.description}</b><div class="meta">${accountName(t.account)}</div></td><td><span class="excludedBadge">${t.txAction.status==='deleted'?'Deleted':'Excluded Duplicate'}</span><div class="meta">${t.txAction.reason||''}</div></td><td>${signed(t.amount)}</td><td><button class="btn small" data-restore-tx="${t._id}">Restore</button></td></tr>`).join('')}</tbody></table>`:'<div class="meta">No excluded or deleted transactions.</div>';
- document.querySelectorAll('[data-restore-tx]').forEach(b=>b.addEventListener('click',()=>restoreTx(b.dataset.restoreTx)));
+ box.innerHTML=rows.length?`<table class="historyTable"><thead><tr><th>Date</th><th>Transaction</th><th>Status</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${t.date}</td><td><b>${t.description}</b><div class="meta">${accountName(t.account)}</div></td><td><span class="excludedBadge">${t.txAction.status==='deleted'?'Deleted':'Excluded Duplicate'}</span><div class="meta">${t.txAction.reason||''}</div></td><td>${signed(t.amount)}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-restore-tx="${t._id}">Restore</button><button class="btn small danger" data-permanent-delete-tx="${t._id}">Delete Permanently</button></div></td></tr>`).join('')}</tbody></table>`:'<div class="meta">No excluded or deleted transactions.</div>';
+ document.querySelectorAll('[data-restore-tx]').forEach(b=>b.onclick=()=>restoreTx(b.dataset.restoreTx));
+ document.querySelectorAll('[data-permanent-delete-tx]').forEach(b=>b.onclick=()=>permanentlyDeleteTransactionRecord(b.dataset.permanentDeleteTx));
 }
 
 
@@ -6973,6 +7128,45 @@ function readIncomePlanInputs(){
   if(el)incomePlan.allocations[a.id]=Number(el.value||0);
  });
 }
+
+function deleteCashFlowLedgerEntry(ledgerId){
+ const row=(cashFlowLedger||[]).find(x=>x.id===ledgerId && x.status!=='reversed');
+ if(!row)return;
+
+ if(row.type==='card-payment'){
+  // Use the connected card-payment deletion so planner paid amount,
+  // monthly income, card available credit and cloud state all remain consistent.
+  deleteMonthlyIncomeCardPayment(row.id);
+  return;
+ }
+
+ if(row.type==='outgoing-payment'){
+  const outgoingId=row.targetId;
+  const month=row.month||incomeMonthKey(row.date);
+  if(!confirm(
+   `Delete this outgoing payment record?\n\n${row.targetName||row.description||'Outgoing'}\n${money(Number(row.amount||0))} • ${row.date||''}\n\n`+
+   `The payment source effect will be reversed automatically.`
+  ))return;
+
+  try{saveRecoverySnapshot('before-delete-cash-flow-outgoing');}catch(_){}
+  undoOutgoingPayment(outgoingId,month,true);
+  scheduleRecordPush('delete-cash-flow-outgoing');
+  return;
+ }
+
+ // Generic ledger entry: reverse rather than silently dropping financial audit data.
+ if(!confirm(`Delete this cash-flow entry?\n\n${row.targetName||row.description||row.type}\n${money(Number(row.amount||0))}\n\nIt will be reversed and removed from active cash-flow calculations.`))return;
+
+ row.status='reversed';
+ row.reversedAt=new Date().toISOString();
+ row.reversalReason='Deleted from Monthly Cash Flow Usage Ledger';
+ localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
+ saveLocal();
+ syncCashFlowLedgerImmediate();
+ renderIncomePlan();
+ renderDashboard();
+}
+
 function updateIncomePlanPreview(){
  readIncomePlanInputs();
  const pendingExtra=Number($('incomeExtra')?.value||0);
@@ -7042,9 +7236,11 @@ function updateIncomePlanPreview(){
      const impact=x.deductFromIncome
        ? '<span class="red"><b>Deducted</b></span>'
        : '<span class="green"><b>Not deducted</b></span>';
-     return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td></tr>`;
+     return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td><td><button class="btn small danger" type="button" data-delete-cash-ledger="${x.id}">Delete</button></td></tr>`;
     }).join('')
-  : '<tr><td colspan="6">No cash-flow usage recorded for this month.</td></tr>';
+  : '<tr><td colspan="7">No cash-flow usage recorded for this month.</td></tr>';
+
+ document.querySelectorAll('[data-delete-cash-ledger]').forEach(b=>b.onclick=()=>deleteCashFlowLedgerEntry(b.dataset.deleteCashLedger));
 
  accounts.filter(a=>a.type==='card').forEach(a=>{
   const m=cardMetrics(a),el=$('obligation_'+a.id);
