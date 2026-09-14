@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V163 PRODUCTION</span></div>
+  </div><span class="pill green">V164 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V163</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V163-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V164</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V164-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -5014,6 +5014,7 @@ $('manualTxForm').addEventListener('submit',e=>{
  manualTransactions.push(tx);
  markManualTransactionPending(tx);
  transactions.push({...tx});
+ try{saveRecoverySnapshot('before-manual-transaction-cloud-publish');}catch(_){}
 
  // Bank SMS "رصيد" is the available/remaining balance AFTER this transaction.
  // Make it authoritative for the selected card and reconcile utilized = limit - available.
@@ -5128,6 +5129,16 @@ The original purchase and installment are not double-counted.`),50);
 });
 function editPlan(id){openInstallment(installments.find(p=>p.id===id))}
 
+
+function resumeTransactionSyncAfterModalClose(){
+ if(transactionModalIsOpen())return;
+ if(transactionEditSyncDirty || pendingManualTransactions().length){
+  if(recordSyncReady)setTimeout(()=>recordPushAll('modal-close-pending'),0);
+ }else{
+  setTimeout(()=>recordPullAll('modal-close-refresh'),120);
+ }
+}
+
 function openTxEdit(id){
  editingTxId=id;const t=normalizedTx().find(x=>x._id===id);if(!t)return;
  const eligible=isEligibleInstallmentTx(t),linked=isTxLinkedToInstallment(t);
@@ -5179,6 +5190,7 @@ $('txEditForm').addEventListener('submit',e=>{
   delete val.paymentMonth;
  }
  txOverrides[editingTxId]=val;
+ markTransactionEditSyncDirty();
  if($('rememberMerchant').checked&&original){
   // Merchant rules remember categorization only. A statement-month move is
   // transaction-specific and must not silently move every matching merchant.
@@ -5186,9 +5198,15 @@ $('txEditForm').addEventListener('submit',e=>{
    category:val.category,
    subcategory:val.subcategory
   };
+  markTransactionEditSyncDirty();
  }
 
  saveLocal();
+
+ // V164: publish category/month/merchant edits immediately instead of waiting
+ // for the normal debounce window.
+ if(recordSyncReady && cloudClient)recordPushAll('transaction-edit');
+ else scheduleRecordPush('transaction-edit');
  closeModal('txEditModal');
 
  if(oldMonth!==newMonth){
@@ -5199,6 +5217,16 @@ $('txEditForm').addEventListener('submit',e=>{
  // detail, planner, dashboard, reports and current-cycle metrics share state.
  refreshAfterTransactionChange(original.account);
  renderCategories();
+});
+
+
+
+const __transactionModalObserver=new MutationObserver(()=>{
+ setTimeout(resumeTransactionSyncAfterModalClose,0);
+});
+['txEditModal','manualTxModal'].forEach(id=>{
+ const el=document.getElementById(id);
+ if(el)__transactionModalObserver.observe(el,{attributes:true,attributeFilter:['class','style']});
 });
 
 
@@ -7052,6 +7080,38 @@ function syncStableId(section,x,i=0){
 }
 
 
+
+let transactionEditSyncDirty=false;
+let transactionEditSyncDirtyAt='';
+
+function transactionModalIsOpen(){
+ const ids=['txEditModal','manualTxModal'];
+ return ids.some(id=>{
+  const el=document.getElementById(id);
+  return !!el && el.classList.contains('show');
+ });
+}
+
+function markTransactionEditSyncDirty(){
+ transactionEditSyncDirty=true;
+ transactionEditSyncDirtyAt=new Date().toISOString();
+ setCloudMeta({pending:true});
+ try{
+  localStorage.setItem('pf_tx_overrides',JSON.stringify(txOverrides));
+  localStorage.setItem('pf_merchant_rules',JSON.stringify(merchantRules));
+ }catch(_){}
+}
+
+function clearTransactionEditSyncDirty(){
+ transactionEditSyncDirty=false;
+ transactionEditSyncDirtyAt='';
+}
+
+function mergeCloudObjectPreservingLocal(localObj,cloudObj,preserveLocal){
+ if(!preserveLocal)return cloudObj||localObj||{};
+ return {...(cloudObj||{}),...(localObj||{})};
+}
+
 function stripLocalSyncFlags(row){
  if(!row||typeof row!=='object')return row;
  const copy={...row};
@@ -7181,8 +7241,16 @@ function applyRecordSyncRows(rows){
   const cloudFinanceSettings=singleton('finance_settings',financeSettings);
   if(!financeSettingsDirty){financeSettings=cloudFinanceSettings||financeSettings;if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};});}
   categories=singleton('categories',categories);
-  merchantRules=singleton('merchant_rules',merchantRules);
-  txOverrides=singleton('tx_overrides',txOverrides);
+  merchantRules=mergeCloudObjectPreservingLocal(
+   merchantRules,
+   singleton('merchant_rules',merchantRules),
+   transactionEditSyncDirty
+  );
+  txOverrides=mergeCloudObjectPreservingLocal(
+   txOverrides,
+   singleton('tx_overrides',txOverrides),
+   transactionEditSyncDirty
+  );
   incomePlan=singleton('income_plan',incomePlan);
   duplicateDecisions=singleton('duplicate_decisions',duplicateDecisions);
   statementRule=singleton('statement_rule',statementRule);
@@ -7257,10 +7325,16 @@ async function recordSeedFromLegacyCloudIfNeeded(){
 async function recordPullAll(reason='pull'){
  if(recordSyncPullBusy || recordSyncPushBusy || recordSyncApplying || !cloudClient)return false;
 
- // V163: if a newly-created manual transaction has not finished its first
- // publish, do not let an incoming realtime event overwrite it with older cloud data.
- if(pendingManualTransactions().length && reason!=='post-push-verify'){
-  if(recordSyncReady)setTimeout(()=>recordPushAll('protect-pending-manual'),0);
+ // V164: never refresh canonical cloud state while a transaction form is open.
+ // This prevents category/month/account fields from resetting while the user types.
+ if(transactionModalIsOpen() && reason!=='post-push-verify'){
+  return false;
+ }
+
+ // Protect unsynced transaction edits and newly-created manual rows until their
+ // first successful Supabase publish.
+ if((transactionEditSyncDirty || pendingManualTransactions().length) && reason!=='post-push-verify'){
+  if(recordSyncReady)setTimeout(()=>recordPushAll('protect-pending-transaction-data'),0);
   return false;
  }
 
@@ -7338,6 +7412,7 @@ async function recordPushAll(reason='edit'){
   });
   financeSettingsDirty=false;
   clearConfirmedManualPendingFlags();
+  clearTransactionEditSyncDirty();
   cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
   setTimeout(()=>recordPullAll('post-push-verify'),120);
   return true;
@@ -7443,6 +7518,24 @@ function setCloudMeta(patch){
  localStorage.setItem(CLOUD_META_KEY,JSON.stringify(next));
  updateCloudSyncPanel();
  return next;
+}
+
+
+function transactionPersistenceAudit(){
+ return {
+  transactionModalOpen:transactionModalIsOpen(),
+  transactionEditSyncDirty,
+  transactionEditSyncDirtyAt,
+  pendingManual:pendingManualTransactions().map(x=>({
+   id:x._id,account:x.account,date:x.date,description:x.description,amount:Number(x.amount||0)
+  })),
+  overrides:Object.keys(txOverrides||{}).length,
+  merchantRules:Object.keys(merchantRules||{}).length,
+  cloudPending:getCloudMeta().pending===true,
+  recordSyncReady,
+  recordSyncPushBusy,
+  recordSyncPullBusy
+ };
 }
 
 function manualTransactionSyncAudit(){
