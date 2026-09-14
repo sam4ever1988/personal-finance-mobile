@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V166 PRODUCTION</span></div>
+  </div><span class="pill green">V167 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V166</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V166-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V167</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V167-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3582,8 +3582,14 @@ function excelCardAccounting(a){
  // 2) add those payments back to the card one-for-one.
  // Example: 1,349.08 + 845.00 + 2,001.50 = 4,195.58.
  const total=grossOccupied;
+
+ // V167: apply recorded/manual payment credits BEFORE the zero floor.
+ // This is essential when utilization temporarily exceeds the credit limit.
+ // Example NBD •4411:
+ // 30,000 - 31,711.13 + 11,025.00 = 9,313.87 available.
+ const rawAvailable=limit-total-currentInstallment+totalCredits;
+ const available=Math.max(0,rawAvailable);
  const baseAvailable=Math.max(0,limit-total-currentInstallment);
- const available=Math.max(0,baseAvailable+totalCredits);
  const overCredit=Math.max(0,available-limit);
  const utilization=limit?total/limit*100:0;
 
@@ -3624,7 +3630,7 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,futureReserve),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((baseAvailable+total+currentInstallment)-limit)<0.02
+  creditLimitInvariant:Math.abs((rawAvailable+total+currentInstallment-totalCredits)-limit)<0.02
  };
 }
 function cardMetrics(a){
@@ -4437,10 +4443,59 @@ function restoreTx(id){
  refreshAfterTransactionChange(t?.account||'');
 }
 function deleteTransactionRecord(id){
- const t=normalizedTx(true).find(x=>x._id===id);if(!t)return;
- if(transactionActions[id]?.status==='deleted')return;
- if(!confirm(`Delete "${t.description}" (${money(Math.abs(t.amount))})?\n\nIt will be excluded from calculations but kept in Transaction History so you can restore it later.`))return;
- transactionActions[id]={status:'deleted',reason:'Deleted by user',pairedWith:'',updatedAt:new Date().toISOString()};selectedTxIds.delete(id);saveLocal();refreshAfterTransactionChange(t.account||'');
+ const t=normalizedTx(true).find(x=>x._id===id);
+ if(!t)return;
+
+ const ok=confirm(
+  `Delete "${t.description}" (${money(Math.abs(t.amount))})?\n\n`+
+  (t.manual
+   ? 'This manual transaction will be removed immediately from the card and calculations.'
+   : 'This imported transaction will be excluded and protected from realtime reappearance.')
+ );
+ if(!ok)return;
+
+ // V167: deletion is a local authoritative mutation.
+ // Block stale realtime pulls until the delete has been published.
+ markTransactionEditSyncDirty();
+
+ if(t.manual){
+  // Hard-delete a user-created manual transaction from its authoritative source.
+  const before=manualTransactions.length;
+  manualTransactions=manualTransactions.filter((x,i)=>{
+   const xid=x._id||('manual'+i);
+   return xid!==id;
+  });
+
+  // Also remove any legacy/canonical copy from transactions if present.
+  transactions=transactions.filter(x=>x._id!==id);
+
+  delete txOverrides[id];
+  delete transactionActions[id];
+
+  try{
+   localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
+   localStorage.setItem('pf_tx_overrides',JSON.stringify(txOverrides));
+   localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));
+  }catch(_){}
+
+  console.info('V167 manual transaction deleted',id,'removed',before-manualTransactions.length);
+ }else{
+  // Imported rows need a tombstone so future imports/realtime sync cannot resurrect them.
+  transactionActions[id]={
+   status:'deleted',
+   reason:'Deleted by user',
+   pairedWith:'',
+   updatedAt:new Date().toISOString()
+  };
+  try{localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));}catch(_){}
+ }
+
+ selectedTxIds.delete(id);
+ saveLocal();
+ refreshAfterTransactionChange(t.account||'');
+
+ // Publish the authoritative deletion immediately rather than waiting for normal debounce.
+ if(recordSyncReady)setTimeout(()=>recordPushAll('transaction-delete'),0);
 }
 function resolveDuplicate(aId,bId,keepId){
  const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);if(!a||!b)return;
@@ -7553,7 +7608,7 @@ async function recordPushAll(reason='edit'){
   clearConfirmedManualPendingFlags();
   clearTransactionEditSyncDirty();
   cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
-  setTimeout(()=>recordPullAll('post-push-verify'),120);
+  setTimeout(()=>recordPullAll('post-push-verify'),350);
   return true;
  }catch(e){
   console.warn('Realtime push failed',e);
@@ -7661,6 +7716,33 @@ function setCloudMeta(patch){
 
 
 
+
+
+function nbd4411BalanceAudit(){
+ const cardId='nbd-infinite-4411';
+ const a=account(cardId);
+ const m=cardMetrics(a);
+ return {
+  cardId,
+  creditLimit:m.limit,
+  outstanding:m.total,
+  currentCycleInstallment:m.currentCycleInstallment,
+  manualCredits:m.manualCardCredits,
+  recordedPaymentCredits:m.recordedPaymentCredits,
+  totalCredits:m.totalCardCredits,
+  rawAvailable:m.limit-m.total-m.currentCycleInstallment+m.totalCardCredits,
+  displayedAvailable:m.available,
+  expectedFormula:'Credit Limit - Outstanding - Current Cycle Installment + Credits',
+  transactions:normalizedTx(true).filter(t=>t.account===cardId).map(t=>({
+   id:t._id,
+   description:t.description,
+   amount:t.amount,
+   manual:!!t.manual,
+   deleted:t.txAction?.status==='deleted',
+   statementMonth:t.statementMonth||''
+  }))
+ };
+}
 
 function ar5867EditAudit(){
  const cardId='ar-5867';
