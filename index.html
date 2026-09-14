@@ -492,6 +492,43 @@ table thead th.noTableSort{
  cursor:default;
 }
 
+
+/* V166 transaction checkbox stability */
+.txSelectCell{
+ width:56px;
+ min-width:56px;
+ padding:0 !important;
+ text-align:center;
+ vertical-align:middle;
+ cursor:pointer;
+}
+.txSelectHit{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ width:100%;
+ min-height:62px;
+ cursor:pointer;
+ margin:0;
+}
+.txSelectHit input[type="checkbox"],
+.txSelectBox,
+#txMasterCheck,
+#detailTxMasterCheck{
+ width:22px !important;
+ height:22px !important;
+ min-width:22px;
+ cursor:pointer;
+ accent-color:#0f766e;
+}
+.txTable tr.txRowSelected td{
+ background:rgba(15,118,110,.075) !important;
+}
+.txTable tr.txRowSelected{
+ outline:1px solid rgba(15,118,110,.20);
+ outline-offset:-1px;
+}
+
 </style>
 </head>
 <body>
@@ -872,10 +909,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V165 PRODUCTION</span></div>
+  </div><span class="pill green">V166 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V165</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V165-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V166</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V166-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4326,7 +4363,7 @@ function txRow6(t){
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable" data-tx="${t._id}"><td><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}"><label class="txSelectHit" title="Select transaction"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></label></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -4516,12 +4553,58 @@ function bulkDeleteSelected(){
  syncTransactionActionsImmediate();
  refreshAfterTransactionChange([...affected][0]||'');
 }
+
+function setTransactionSelected(id,selected,checkbox=null){
+ if(!id)return;
+ if(selected)selectedTxIds.add(id);else selectedTxIds.delete(id);
+ const row=checkbox?.closest('tr[data-tx]')||document.querySelector(`tr[data-tx="${CSS.escape(id)}"]`);
+ if(row)row.classList.toggle('txRowSelected',selected);
+ if(checkbox)checkbox.checked=selected;
+ updateTxBulkUI();
+}
+function toggleTransactionSelectionFromCell(cell){
+ const checkbox=cell?.querySelector('[data-select-tx]');
+ if(!checkbox)return;
+ setTransactionSelected(checkbox.dataset.selectTx,!checkbox.checked,checkbox);
+}
+
 function bindTxRows(){
- document.querySelectorAll('[data-select-tx]').forEach(c=>{c.onclick=e=>e.stopPropagation();c.onchange=()=>{c.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);updateTxBulkUI();};});
+ document.querySelectorAll('[data-select-tx]').forEach(c=>{
+  c.onclick=e=>e.stopPropagation();
+  c.onpointerdown=e=>e.stopPropagation();
+  c.onchange=e=>{
+   e.stopPropagation();
+   setTransactionSelected(c.dataset.selectTx,c.checked,c);
+  };
+ });
+
+ document.querySelectorAll('[data-select-cell]').forEach(cell=>{
+  cell.onpointerdown=e=>{
+   e.stopPropagation();
+   if(!e.target.closest('input[type="checkbox"]'))e.preventDefault();
+  };
+  cell.onclick=e=>{
+   e.preventDefault();
+   e.stopPropagation();
+   if(e.target.closest('input[type="checkbox"]'))return;
+   toggleTransactionSelectionFromCell(cell);
+  };
+ });
+
  document.querySelectorAll('[data-dup-keep]').forEach(b=>b.onclick=e=>{e.stopPropagation();resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep)});
  document.querySelectorAll('[data-dup-action]').forEach(b=>b.onclick=e=>{e.stopPropagation();setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction)});
- document.querySelectorAll('[data-delete-tx]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();deleteTransactionRecord(b.dataset.deleteTx);});
- document.querySelectorAll('[data-tx]').forEach(el=>el.onclick=e=>{if(e.target.closest('button,input'))return;openTxEdit(el.dataset.tx);});updateTxBulkUI();
+ document.querySelectorAll('[data-delete-tx]').forEach(b=>b.onclick=e=>{
+  e.preventDefault();e.stopPropagation();deleteTransactionRecord(b.dataset.deleteTx);
+ });
+
+ document.querySelectorAll('[data-tx]').forEach(row=>{
+  row.onclick=e=>{
+   if(e.target.closest('button,input,select,textarea,label,[data-select-cell],[data-select-tx]'))return;
+   openTxEdit(row.dataset.tx);
+  };
+ });
+
+ updateTxBulkUI();
 }
 
 function renderAccounts(){
@@ -4777,6 +4860,7 @@ function showDuplicateReview(){
 
 let eligiblePurchasesOnly=false;
 function renderTransactions(){
+ const __scrollX=window.scrollX,__scrollY=window.scrollY;
  const __bulkDraftWasActive=bulkUpdateDraftActive;
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
@@ -4788,6 +4872,7 @@ function renderTransactions(){
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
  $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="7">No matching transactions.</td></tr>'; bindTxRows();
  if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
+ requestAnimationFrame(()=>window.scrollTo(__scrollX,__scrollY));
 }
 fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
@@ -4796,11 +4881,11 @@ $('applyStatementRule').addEventListener('click',applyStatementRuleToTransaction
 $('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
-$('txSelectAllVisible').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});updateTxBulkUI();};
-$('txClearSelection').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{c.checked=false;selectedTxIds.delete(c.dataset.selectTx)});updateTxBulkUI();};
+$('txSelectAllVisible').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));};
+$('txClearSelection').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,false,c));};
 $('txDeleteSelected').onclick=bulkDeleteSelected;
 $('txUpdateSelected').onclick=openBulkUpdateSelected;
-$('txMasterCheck').onchange=e=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>{c.checked=e.target.checked;e.target.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx)});updateTxBulkUI();};
+$('txMasterCheck').onchange=e=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,e.target.checked,c));};
 
 
 
@@ -5848,26 +5933,24 @@ function bindDetailTransactionBulkActions(){
  const visible=()=>[...root.querySelectorAll('[data-select-tx]')];
 
  if($('detailTxSelectAllVisible'))$('detailTxSelectAllVisible').onclick=()=>{
-  visible().forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});
+  visible().forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));
   updateTxBulkUI();
  };
  if($('detailTxClearSelection'))$('detailTxClearSelection').onclick=()=>{
-  visible().forEach(c=>{c.checked=false;selectedTxIds.delete(c.dataset.selectTx)});
+  visible().forEach(c=>setTransactionSelected(c.dataset.selectTx,false,c));
   updateTxBulkUI();
  };
  if($('detailTxUpdateSelected'))$('detailTxUpdateSelected').onclick=openBulkUpdateSelected;
  if($('detailTxDeleteSelected'))$('detailTxDeleteSelected').onclick=bulkDeleteSelected;
  if($('detailTxMasterCheck'))$('detailTxMasterCheck').onchange=e=>{
-  visible().forEach(c=>{
-   c.checked=e.target.checked;
-   e.target.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);
-  });
+  visible().forEach(c=>setTransactionSelected(c.dataset.selectTx,e.target.checked,c));
   updateTxBulkUI();
  };
  updateTxBulkUI();
 }
 
 function openAccount(id,returnPage){
+ const __detailScrollX=window.scrollX,__detailScrollY=window.scrollY;
  currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
  else if(document.getElementById('incomeplan')?.classList.contains('active'))accountDetailReturnPage='incomeplan';
@@ -6015,7 +6098,7 @@ function openAccount(id,returnPage){
  <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="7">No transactions.</td></tr>'}</tbody></table></div>
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
- nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();
+ nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
 }
