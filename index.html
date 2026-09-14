@@ -529,6 +529,52 @@ table thead th.noTableSort{
  outline-offset:-1px;
 }
 
+
+/* V167 hard scroll-lock transaction selection */
+.txSelectCell{
+ position:relative;
+ width:60px !important;
+ min-width:60px !important;
+ height:62px;
+ padding:0 !important;
+ text-align:center;
+ vertical-align:middle;
+ cursor:pointer;
+ touch-action:manipulation;
+}
+.txSelectHit{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ width:100%;
+ height:100%;
+ min-height:62px;
+ cursor:pointer;
+ margin:0;
+ outline:none;
+}
+.txSelectHit .txSelectBox{
+ width:22px !important;
+ height:22px !important;
+ min-width:22px !important;
+ pointer-events:none !important;
+ user-select:none;
+}
+.txSelectCell:focus,
+.txSelectHit:focus{
+ outline:2px solid rgba(15,118,110,.25);
+ outline-offset:-3px;
+}
+
+
+#transactions,
+#accountDetailContent,
+.txTable,
+.txTable tbody,
+.txTable tr{
+ overflow-anchor:none;
+}
+
 </style>
 </head>
 <body>
@@ -909,10 +955,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V166 PRODUCTION</span></div>
+  </div><span class="pill green">V167 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V166</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V166-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V167</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V167-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4363,7 +4409,7 @@ function txRow6(t){
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}"><label class="txSelectHit" title="Select transaction"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></label></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} tabindex="-1" aria-hidden="true"></div></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -4554,12 +4600,42 @@ function bulkDeleteSelected(){
  refreshAfterTransactionChange([...affected][0]||'');
 }
 
+
+let txSelectionScrollLock=null;
+let txSelectionScrollTimer=null;
+
+function beginTxSelectionScrollLock(){
+ txSelectionScrollLock={x:window.scrollX,y:window.scrollY,at:Date.now()};
+ clearTimeout(txSelectionScrollTimer);
+}
+function enforceTxSelectionScrollLock(){
+ if(!txSelectionScrollLock)return;
+ const {x,y}=txSelectionScrollLock;
+
+ // Restore now, next paint, and after any short realtime/render activity.
+ window.scrollTo(x,y);
+ requestAnimationFrame(()=>window.scrollTo(x,y));
+ setTimeout(()=>window.scrollTo(x,y),0);
+ setTimeout(()=>window.scrollTo(x,y),40);
+ setTimeout(()=>{
+  window.scrollTo(x,y);
+  txSelectionScrollLock=null;
+ },140);
+}
+
 function setTransactionSelected(id,selected,checkbox=null){
  if(!id)return;
  if(selected)selectedTxIds.add(id);else selectedTxIds.delete(id);
+
  const row=checkbox?.closest('tr[data-tx]')||document.querySelector(`tr[data-tx="${CSS.escape(id)}"]`);
  if(row)row.classList.toggle('txRowSelected',selected);
- if(checkbox)checkbox.checked=selected;
+
+ const box=checkbox||row?.querySelector('[data-select-tx]');
+ if(box)box.checked=selected;
+
+ const cell=row?.querySelector('[data-select-cell]')||box?.closest('[data-select-cell]');
+ if(cell)cell.setAttribute('aria-checked',selected?'true':'false');
+
  updateTxBulkUI();
 }
 function toggleTransactionSelectionFromCell(cell){
@@ -4570,24 +4646,41 @@ function toggleTransactionSelectionFromCell(cell){
 
 function bindTxRows(){
  document.querySelectorAll('[data-select-tx]').forEach(c=>{
-  c.onclick=e=>e.stopPropagation();
-  c.onpointerdown=e=>e.stopPropagation();
-  c.onchange=e=>{
-   e.stopPropagation();
-   setTransactionSelected(c.dataset.selectTx,c.checked,c);
-  };
+  c.tabIndex=-1;
+  c.onclick=e=>{e.preventDefault();e.stopPropagation();};
+  c.onpointerdown=e=>{e.preventDefault();e.stopPropagation();};
+  c.onchange=e=>{e.preventDefault();e.stopPropagation();};
  });
 
  document.querySelectorAll('[data-select-cell]').forEach(cell=>{
+  const act=()=>{
+   const checkbox=cell.querySelector('[data-select-tx]');
+   if(!checkbox)return;
+   beginTxSelectionScrollLock();
+   setTransactionSelected(checkbox.dataset.selectTx,!checkbox.checked,checkbox);
+   enforceTxSelectionScrollLock();
+  };
+
   cell.onpointerdown=e=>{
+   beginTxSelectionScrollLock();
+   e.preventDefault();
    e.stopPropagation();
-   if(!e.target.closest('input[type="checkbox"]'))e.preventDefault();
+  };
+  cell.onmousedown=e=>{
+   e.preventDefault();
+   e.stopPropagation();
   };
   cell.onclick=e=>{
    e.preventDefault();
    e.stopPropagation();
-   if(e.target.closest('input[type="checkbox"]'))return;
-   toggleTransactionSelectionFromCell(cell);
+   act();
+  };
+  cell.onkeydown=e=>{
+   if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    e.stopPropagation();
+    act();
+   }
   };
  });
 
@@ -4599,7 +4692,7 @@ function bindTxRows(){
 
  document.querySelectorAll('[data-tx]').forEach(row=>{
   row.onclick=e=>{
-   if(e.target.closest('button,input,select,textarea,label,[data-select-cell],[data-select-tx]'))return;
+   if(e.target.closest('button,input,select,textarea,[data-select-cell],[data-select-tx]'))return;
    openTxEdit(row.dataset.tx);
   };
  });
@@ -4860,7 +4953,7 @@ function showDuplicateReview(){
 
 let eligiblePurchasesOnly=false;
 function renderTransactions(){
- const __scrollX=window.scrollX,__scrollY=window.scrollY;
+ const __scrollX=txSelectionScrollLock?.x??window.scrollX,__scrollY=txSelectionScrollLock?.y??window.scrollY;
  const __bulkDraftWasActive=bulkUpdateDraftActive;
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
@@ -4881,11 +4974,11 @@ $('applyStatementRule').addEventListener('click',applyStatementRuleToTransaction
 $('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
-$('txSelectAllVisible').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));};
-$('txClearSelection').onclick=()=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,false,c));};
+$('txSelectAllVisible').onclick=()=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));enforceTxSelectionScrollLock();};
+$('txClearSelection').onclick=()=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,false,c));enforceTxSelectionScrollLock();};
 $('txDeleteSelected').onclick=bulkDeleteSelected;
 $('txUpdateSelected').onclick=openBulkUpdateSelected;
-$('txMasterCheck').onchange=e=>{document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,e.target.checked,c));};
+$('txMasterCheck').onchange=e=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,e.target.checked,c));enforceTxSelectionScrollLock();};
 
 
 
@@ -5950,7 +6043,7 @@ function bindDetailTransactionBulkActions(){
 }
 
 function openAccount(id,returnPage){
- const __detailScrollX=window.scrollX,__detailScrollY=window.scrollY;
+ const __detailScrollX=txSelectionScrollLock?.x??window.scrollX,__detailScrollY=txSelectionScrollLock?.y??window.scrollY;
  currentAccountDetailId=id;
  if(returnPage)accountDetailReturnPage=returnPage;
  else if(document.getElementById('incomeplan')?.classList.contains('active'))accountDetailReturnPage='incomeplan';
