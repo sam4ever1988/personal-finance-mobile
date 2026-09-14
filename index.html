@@ -955,10 +955,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V168 PRODUCTION</span></div>
+  </div><span class="pill green">V169 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V168</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V168-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V169</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V169-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3300,7 +3300,7 @@ function txMatchesPhysicalCardFilter(t,filterValue){
 }
 function detectPhysicalCardEndingFromRaw(raw,accountId){
  if(!raw||!accountId)return ''; const low={};Object.keys(raw||{}).forEach(k=>low[String(k).toLowerCase().trim()]=raw[k]);
- const keys=['physical card','card number','card no','card no.','masked card number','supplementary card','supplementary card number','card ending','card last 4','last 4'];
+ const keys=['physical card','physical card ending','card number','card no','card no.','masked card number','supplementary card','supplementary card number','card ending','card last 4','last 4'];
  let text=''; for(const k of keys){if(k in low&&low[k]!=null&&low[k]!==''){text=String(low[k]);break;}}
  const digits=text.replace(/\D/g,''); if(digits.length<4)return ''; const ending=digits.slice(-4);
  return accountPhysicalCards(accountId).includes(ending)?ending:'';
@@ -6235,7 +6235,10 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
  const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- const physicalCardEnding=detectPhysicalCardEndingFromRaw(raw,accountId)||String(account(accountId)?.ending||'');
+ const physicalCardEnding=
+  String(raw?.['Physical Card Ending']||raw?.physicalCardEnding||'').replace(/\D/g,'') ||
+  detectPhysicalCardEndingFromRaw(raw,accountId) ||
+  String(account(accountId)?.ending||'');
  return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
@@ -6243,49 +6246,158 @@ function parseCsvRows(text){
  const parse=l=>{let o=[],f='',q=false;for(let i=0;i<l.length;i++){const c=l[i];if(c==='"'){if(q&&l[i+1]==='"'){f+='"';i++}else q=!q}else if(c===','&&!q){o.push(f);f=''}else f+=c}o.push(f);return o};
  const h=parse(lines[0]).map(cleanImportText);return lines.slice(1).map(l=>{const v=parse(l),o={};h.forEach((k,i)=>o[k]=v[i]??'');return o})
 }
-function workbookRows(wb){
+
+function alRajhiExcelRowText(row){
+ return (row||[]).map(v=>cleanImportText(v)).filter(Boolean).join(' ');
+}
+function alRajhiExcelPhysicalCardEndingFromRow(row,accountId='ar-0955'){
+ const text=alRajhiExcelRowText(row);
+ if(!text)return '';
+
+ const direct=alRajhiPhysicalCardEndingFromHeaderLine(text,accountId);
+ if(direct)return direct;
+
+ const masked=alRajhiMaskedEndingFromLine(text,accountId);
+ if(masked)return masked;
+
+ const compact=text.replace(/\s+/g,'');
+ for(const ending of accountPhysicalCards(accountId)){
+  if(compact.includes(ending) && /[*xX•]{2,}/.test(compact))return ending;
+ }
+ return '';
+}
+function alRajhiExcelHeaderKind(row){
+ return alRajhiSectionHeaderKind(alRajhiExcelRowText(row));
+}
+function isAlRajhiTransactionHeaderRow(row){
+ const vals=(row||[]).map(v=>cleanImportText(v).toLowerCase());
+ return vals.some(v=>v==='transaction description') &&
+        vals.some(v=>v==='transaction amount') &&
+        vals.some(v=>v==='posting date') &&
+        vals.some(v=>v==='transaction date');
+}
+
+function workbookRows(wb,accountId=''){
  const all=[];
+
  wb.SheetNames.forEach(name=>{
   const ws=wb.Sheets[name];
-
-  // Read as a raw matrix first so we can detect bank exports that contain
-  // title/criteria rows above the real transaction table.
   const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
   if(!matrix.length)return;
 
-  // Al Rajhi credit-card export:
-  // Headers include Transaction Description, Transaction Amount,
-  // Posting Date and Transaction Date, usually after several blank/report rows.
-  let headerIndex=-1;
-  for(let r=0;r<matrix.length;r++){
-   const vals=matrix[r].map(v=>cleanImportText(v).toLowerCase());
-   if(vals.some(v=>v==='transaction description') &&
-      vals.some(v=>v==='transaction amount') &&
-      vals.some(v=>v==='posting date') &&
-      vals.some(v=>v==='transaction date')){
-     headerIndex=r;break;
-   }
-  }
+  const isAr=accountId==='ar-0955';
+  let currentEnding=isAr?String(account(accountId)?.ending||'0955'):'';
+  let pendingKind='';
+  let detectedStructured=false;
 
-  if(headerIndex>=0){
-   const header=matrix[headerIndex].map(v=>cleanImportText(v));
-   for(let r=headerIndex+1;r<matrix.length;r++){
-    const row=matrix[r];
-    if(!row||!row.some(v=>cleanImportText(v)))continue;
-    const obj={};
-    header.forEach((h,i)=>{if(h)obj[h]=row[i]??''});
-    if(cleanImportText(obj['Transaction Description']) &&
-       cleanImportText(obj['Transaction Date'])){
-      all.push(obj);
+  let r=0;
+  while(r<matrix.length){
+   const row=matrix[r]||[];
+
+   if(isAr){
+    const kind=alRajhiExcelHeaderKind(row);
+    const ending=alRajhiExcelPhysicalCardEndingFromRow(row,accountId);
+
+    if(kind){
+      pendingKind=kind;
+      if(ending){
+       currentEnding=ending;
+       pendingKind='';
+      }else if(kind==='primary'){
+       currentEnding=String(account(accountId)?.ending||'0955');
+      }
+      r++;
+      continue;
+    }
+
+    if(pendingKind){
+     const nearby=alRajhiExcelPhysicalCardEndingFromRow(row,accountId);
+     if(nearby){
+      currentEnding=nearby;
+      pendingKind='';
+      r++;
+      continue;
+     }
+    }
+
+    const standalone=alRajhiExcelPhysicalCardEndingFromRow(row,accountId);
+    if(standalone && !isAlRajhiTransactionHeaderRow(row)){
+     currentEnding=standalone;
     }
    }
-   return;
+
+   if(isAlRajhiTransactionHeaderRow(row)){
+    detectedStructured=true;
+    const header=row.map(v=>cleanImportText(v));
+    r++;
+
+    while(r<matrix.length){
+     const dataRow=matrix[r]||[];
+     if(!dataRow.some(v=>cleanImportText(v))){r++;continue;}
+
+     if(isAlRajhiTransactionHeaderRow(dataRow))break;
+
+     if(isAr){
+      const nextKind=alRajhiExcelHeaderKind(dataRow);
+      const nextEnding=alRajhiExcelPhysicalCardEndingFromRow(dataRow,accountId);
+
+      if(nextKind){
+       pendingKind=nextKind;
+       if(nextEnding){
+        currentEnding=nextEnding;
+        pendingKind='';
+       }else if(nextKind==='primary'){
+        currentEnding=String(account(accountId)?.ending||'0955');
+       }
+       r++;
+       break;
+      }
+
+      // Card number/header lines that are not actual transaction rows.
+      if(nextEnding){
+       const dateCell=dataRow.find(v=>/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(cleanImportText(v)));
+       if(!dateCell){
+        currentEnding=nextEnding;
+        r++;
+        continue;
+       }
+      }
+     }
+
+     const obj={};
+     header.forEach((h,i)=>{if(h)obj[h]=dataRow[i]??''});
+
+     if(cleanImportText(obj['Transaction Description']) &&
+        cleanImportText(obj['Transaction Date'])){
+      if(isAr){
+       obj['Physical Card Ending']=currentEnding;
+       obj['Physical Card']=physicalCardLabelFor(accountId,currentEnding);
+      }
+      all.push(obj);
+     }
+     r++;
+    }
+    continue;
+   }
+
+   r++;
   }
 
-  // Generic Excel/CSV-style table fallback.
-  const generic=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
-  if(generic.length)all.push(...generic);
+  if(!detectedStructured){
+   const generic=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+   generic.forEach(obj=>{
+    if(isAr){
+     const ending=detectPhysicalCardEndingFromRaw(obj,accountId);
+     if(ending){
+      obj['Physical Card Ending']=ending;
+      obj['Physical Card']=physicalCardLabelFor(accountId,ending);
+     }
+    }
+    all.push(obj);
+   });
+  }
  });
+
  return all;
 }
 function pdfLines(items){
@@ -6595,9 +6707,22 @@ async function parseStatementFile(file,accountId,statementMonth=''){
    }
   }
 
-  return workbookRows(wb)
+  const rows=workbookRows(wb,accountId);
+  const normalized=rows
    .map(r=>normalizeImportedRow(r,accountId,statementMonth))
    .filter(Boolean);
+
+  if(accountId==='ar-0955' && $('importAccountHint')){
+   const counts={};
+   normalized.forEach(t=>counts[t.physicalCardEnding]=(counts[t.physicalCardEnding]||0)+1);
+   const summary=Object.entries(counts)
+    .map(([ending,count])=>`${physicalCardLabelFor(accountId,ending)}: ${count}`)
+    .join(' • ');
+   if(summary){
+    $('importAccountHint').innerHTML=`Al Rajhi Excel auto-assigned by physical card: <b>${summary}</b>. Review the preview before importing.`;
+   }
+  }
+  return normalized;
  }
 
  if(name.endsWith('.pdf')){
