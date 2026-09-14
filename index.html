@@ -1044,10 +1044,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V170 PRODUCTION</span></div>
+  </div><span class="pill green">V171 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V170</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V170-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V171</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V171-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1082,7 +1082,7 @@ tr[data-tx] button{
    <div class="panel"><div class="panelTitle">Monthly Income & Payment Plan</div><div style="font-weight:900">Plan salary → loans → credit cards</div><div class="meta" style="margin-top:8px">Enter both salaries and other income, deduct active bank loans, then allocate the remaining amount to your credit cards.</div><button class="btn primary" style="margin-top:13px" data-page-jump="incomeplan">Open Income Plan</button></div>
    <div class="panel"><div class="panelTitle">Manual Corrections</div><div style="font-weight:900">Add missing transactions</div><div class="meta" style="margin-top:8px">Use this when the imported statement is missing an item or when you need to record a transaction manually.</div><button class="btn primary" style="margin-top:13px" id="moreAddTransaction">+ Add Transaction</button></div>
     <div class="panel"><div class="panelTitle">Statement Import Status</div><div style="font-weight:900">4 real statement formats loaded</div><div class="meta" style="margin-top:8px">Al Rajhi Current Account<br>Al Rajhi Card •0955<br>Al Rajhi Card •5867<br>SAB Cashback Card •440880</div></div>
-   <div class="panel"><div class="panelTitle">Storage</div><div style="font-weight:900">Local + Cloud configuration</div><div class="meta" style="margin-top:8px">Changes are saved locally immediately and automatically synchronized to Supabase whenever you are signed in.</div><button class="btn danger" style="margin-top:13px" id="resetLocal">Reset Prototype Changes</button></div>
+   <div class="panel"><div class="panelTitle">Storage</div><div style="font-weight:900">Local + Cloud configuration</div><div class="meta" style="margin-top:8px">Changes are saved locally immediately and automatically synchronized to Supabase whenever you are signed in.</div><button type="button" class="btn danger" style="margin-top:13px" id="resetLocal">Reset Prototype Changes</button></div>
  </div>
 </section>
 
@@ -4394,7 +4394,7 @@ function renderOutgoings(){
    ${thisPay?`<div class="meta green" style="margin-top:8px"><b>${cardMonthLabel(activeMonth)} paid</b> • ${outgoingPaymentSourceLabel(thisPay)}</div>`:''}
    <div class="outActions">
     <button class="btn small" data-edit-outgoing="${o.id}">Edit</button>
-    <button class="btn small danger" data-del-outgoing="${o.id}">Delete</button>
+    <button type="button" class="btn small danger" data-del-outgoing="${o.id}">Delete</button>
    </div>
   </div>`;
  }).join('')||'<div class="panel"><div class="meta">No cash or recurring outgoings yet.</div></div>';
@@ -5255,7 +5255,7 @@ function renderInstallments(){
 
  $('installBody').innerHTML=active.map(p=>{
   const c=planCalc(p),a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button type="button" class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
  }).join('')||'<tr><td colspan="11">No active installment plans for this bank.</td></tr>';
 
  $('installReviewBody').innerHTML=review.map(p=>{
@@ -5278,16 +5278,16 @@ function renderInstallments(){
 
 function renderCategories(){
  const names=Object.keys(categories);if(!categories[selectedCategory])selectedCategory=names[0]||'';
- $('categoryList').innerHTML=names.map(c=>`<div class="catEditRow"><button class="${c===selectedCategory?'selected':''}" data-cat="${c}" style="flex:1;text-align:left">${c}<span style="float:right;color:#98a2b3">${(categories[c]||[]).length}</span></button><div class="catEditActions"><button class="catEditBtn" data-edit-cat="${c}">Edit</button><button class="catEditBtn danger" data-del-cat="${c}">Delete</button></div></div>`).join('');
+ $('categoryList').innerHTML=names.map(c=>`<div class="catEditRow"><button class="${c===selectedCategory?'selected':''}" data-cat="${c}" style="flex:1;text-align:left">${c}<span style="float:right;color:#98a2b3">${(categories[c]||[]).length}</span></button><div class="catEditActions"><button class="catEditBtn" data-edit-cat="${c}">Edit</button><button type="button" class="catEditBtn danger" data-del-cat="${c}">Delete</button></div></div>`).join('');
  document.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{selectedCategory=b.dataset.cat;renderCategories()}));
  document.querySelectorAll('[data-edit-cat]').forEach(b=>b.addEventListener('click',()=>openSimple('edit-category',b.dataset.editCat)));
  document.querySelectorAll('[data-del-cat]').forEach(b=>b.addEventListener('click',()=>deleteCategoryName(b.dataset.delCat)));
  $('selectedCatTitle').textContent=selectedCategory||'Subcategories';
- $('subcategoryList').innerHTML=(categories[selectedCategory]||[]).map(x=>`<div class="subItem catEditRow"><span>${x}</span><div class="catEditActions"><button class="catEditBtn" data-edit-sub="${x}">Edit</button><button class="catEditBtn danger" data-del-sub="${x}">Delete</button></div></div>`).join('');
+ $('subcategoryList').innerHTML=(categories[selectedCategory]||[]).map(x=>`<div class="subItem catEditRow"><span>${x}</span><div class="catEditActions"><button class="catEditBtn" data-edit-sub="${x}">Edit</button><button type="button" class="catEditBtn danger" data-del-sub="${x}">Delete</button></div></div>`).join('');
  document.querySelectorAll('[data-edit-sub]').forEach(b=>b.addEventListener('click',()=>openSimple('edit-subcategory',b.dataset.editSub)));
  document.querySelectorAll('[data-del-sub]').forEach(b=>b.addEventListener('click',()=>deleteSubcategoryName(selectedCategory,b.dataset.delSub)));
  const rules=Object.entries(merchantRules);
- $('merchantRulesBody').innerHTML=rules.map(([k,v])=>`<tr><td>${k}</td><td>${v.category}</td><td>${v.subcategory||'—'}</td><td><button class="btn small danger" data-rule="${encodeURIComponent(k)}">Delete</button></td></tr>`).join('')||'<tr><td colspan="4">No remembered merchant rules yet.</td></tr>';
+ $('merchantRulesBody').innerHTML=rules.map(([k,v])=>`<tr><td>${k}</td><td>${v.category}</td><td>${v.subcategory||'—'}</td><td><button type="button" class="btn small danger" data-rule="${encodeURIComponent(k)}">Delete</button></td></tr>`).join('')||'<tr><td colspan="4">No remembered merchant rules yet.</td></tr>';
  document.querySelectorAll('[data-rule]').forEach(b=>b.addEventListener('click',()=>{delete merchantRules[decodeURIComponent(b.dataset.rule)];saveLocal();renderCategories();renderTransactions();renderReports()}));
  refreshCategoryDropdowns();
 }
@@ -6147,7 +6147,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b></div>
  <div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b></div>
@@ -6181,7 +6181,7 @@ function openAccount(id,returnPage){
   <td>${c.remainingCount}</td>
   <td class="amber"><b>${money(c.remaining)}</b></td>
   <td><span class="badge ${c.status.toLowerCase()}">${c.status}</span></td>
-  <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
+  <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button type="button" class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
 <div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Only real manual/imported card activity, unpaid released statements and active installment obligations affect the live balance. Historical built-in rows remain visible for reference but do not consume available credit.</div>
@@ -7255,7 +7255,7 @@ function renderImportHistory(){
  if(!body)return;
  body.innerHTML=importHistory.length?importHistory.map((h,index)=>({h,index})).reverse().map(({h,index})=>{
   const n=importBatchRows(h).length;
-  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
+  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button type="button" class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
  }).join(''):'<tr><td colspan="5">No statements imported yet.</td></tr>';
  document.querySelectorAll('[data-view-import]').forEach(b=>b.addEventListener('click',()=>viewImportBatch(Number(b.dataset.viewImport))));
  document.querySelectorAll('[data-delete-import]').forEach(b=>b.addEventListener('click',()=>deleteImportBatch(Number(b.dataset.deleteImport))));
@@ -7392,7 +7392,7 @@ function permanentlyDeleteTransactionRecord(id){
 function renderTxHistory(){
  const box=$('txHistoryBox');if(!box)return;
  const rows=normalizedTx(true).filter(t=>t.txAction&&['excluded-duplicate','deleted'].includes(t.txAction.status));
- box.innerHTML=rows.length?`<table class="historyTable"><thead><tr><th>Date</th><th>Transaction</th><th>Status</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${t.date}</td><td><b>${t.description}</b><div class="meta">${accountName(t.account)}</div></td><td><span class="excludedBadge">${t.txAction.status==='deleted'?'Deleted':'Excluded Duplicate'}</span><div class="meta">${t.txAction.reason||''}</div></td><td>${signed(t.amount)}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-restore-tx="${t._id}">Restore</button><button class="btn small danger" data-permanent-delete-tx="${t._id}">Delete Permanently</button></div></td></tr>`).join('')}</tbody></table>`:'<div class="meta">No excluded or deleted transactions.</div>';
+ box.innerHTML=rows.length?`<table class="historyTable"><thead><tr><th>Date</th><th>Transaction</th><th>Status</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${t.date}</td><td><b>${t.description}</b><div class="meta">${accountName(t.account)}</div></td><td><span class="excludedBadge">${t.txAction.status==='deleted'?'Deleted':'Excluded Duplicate'}</span><div class="meta">${t.txAction.reason||''}</div></td><td>${signed(t.amount)}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-restore-tx="${t._id}">Restore</button><button type="button" class="btn small danger" data-permanent-delete-tx="${t._id}">Delete Permanently</button></div></td></tr>`).join('')}</tbody></table>`:'<div class="meta">No excluded or deleted transactions.</div>';
  document.querySelectorAll('[data-restore-tx]').forEach(b=>b.onclick=()=>restoreTx(b.dataset.restoreTx));
  document.querySelectorAll('[data-permanent-delete-tx]').forEach(b=>b.onclick=()=>permanentlyDeleteTransactionRecord(b.dataset.permanentDeleteTx));
 }
@@ -9360,14 +9360,14 @@ function beginGlobalInteractionLock(){
 function restoreGlobalInteractionLock(){
   if(!GLOBAL_INTERACTION_SCROLL_LOCK)return;
   const {x,y}=GLOBAL_INTERACTION_SCROLL_LOCK;
+
+  // Restore only through the immediate click/render cycle.
   window.scrollTo(x,y);
   requestAnimationFrame(()=>window.scrollTo(x,y));
-  setTimeout(()=>window.scrollTo(x,y),0);
-  setTimeout(()=>window.scrollTo(x,y),35);
   setTimeout(()=>{
     window.scrollTo(x,y);
     GLOBAL_INTERACTION_SCROLL_LOCK=null;
-  },140);
+  },45);
 }
 
 function isProtectedActionTarget(el){
@@ -9380,80 +9380,90 @@ function isProtectedActionTarget(el){
 
 /* One capture-layer guard for every button/checkbox in the app.
    This stops parent rows/cards from stealing the click. */
-document.addEventListener('pointerdown',e=>{
-  if(!isProtectedActionTarget(e.target))return;
-  beginGlobalInteractionLock();
-  e.stopPropagation();
-},true);
-
-document.addEventListener('mousedown',e=>{
-  if(!isProtectedActionTarget(e.target))return;
-  e.stopPropagation();
-},true);
-
-document.addEventListener('click',e=>{
-  if(!isProtectedActionTarget(e.target))return;
-  e.stopPropagation();
-  restoreGlobalInteractionLock();
-},true);
-
 /* Checkboxes: keep scroll position and prevent surrounding row navigation.
    Native checkbox behavior is preserved. */
-document.addEventListener('change',e=>{
-  const box=e.target.closest?.('input[type="checkbox"]');
-  if(!box)return;
-  e.stopPropagation();
-  restoreGlobalInteractionLock();
-},true);
-
 function hardenAllActionControls(root=document){
   root.querySelectorAll('button,.btn,.closeBtn').forEach(btn=>{
+    if(btn.dataset.interactionHardened==='1')return;
+    btn.dataset.interactionHardened='1';
+
+    // IMPORTANT: listeners are attached to the button itself, not document capture.
+    // This lets the button's real click handler execute, while still stopping the row above it.
     btn.addEventListener('pointerdown',e=>{
       beginGlobalInteractionLock();
       e.stopPropagation();
-    },{capture:true});
+    });
+
+    btn.addEventListener('mousedown',e=>{
+      e.stopPropagation();
+    });
+
     btn.addEventListener('click',e=>{
       e.stopPropagation();
       restoreGlobalInteractionLock();
-    },{capture:true});
+    });
   });
 
   root.querySelectorAll('input[type="checkbox"]').forEach(box=>{
+    if(box.dataset.interactionHardened==='1')return;
+    box.dataset.interactionHardened='1';
+
     box.addEventListener('pointerdown',e=>{
       beginGlobalInteractionLock();
       e.stopPropagation();
-    },{capture:true});
-    box.addEventListener('click',e=>e.stopPropagation(),{capture:true});
+    });
+
+    box.addEventListener('mousedown',e=>{
+      e.stopPropagation();
+    });
+
+    box.addEventListener('click',e=>{
+      // Do NOT preventDefault: the native checkbox must be allowed to toggle.
+      e.stopPropagation();
+    });
+
     box.addEventListener('change',e=>{
       e.stopPropagation();
       restoreGlobalInteractionLock();
-    },{capture:true});
+    });
   });
 
   root.querySelectorAll('[data-select-cell]').forEach(cell=>{
+    if(cell.dataset.interactionHardened==='1')return;
+    cell.dataset.interactionHardened='1';
+
     cell.addEventListener('pointerdown',e=>{
       beginGlobalInteractionLock();
       e.stopPropagation();
-    },{capture:true});
+    });
+
+    cell.addEventListener('click',e=>{
+      e.stopPropagation();
+      restoreGlobalInteractionLock();
+    });
   });
 }
 
 let ACTION_HARDEN_TIMER=null;
 const ACTION_HARDEN_OBSERVER=new MutationObserver(mutations=>{
-  if(!mutations.some(m=>m.addedNodes?.length))return;
+  const added=[];
+  mutations.forEach(m=>m.addedNodes&&m.addedNodes.forEach(n=>{
+    if(n.nodeType===1)added.push(n);
+  }));
+  if(!added.length)return;
+
   clearTimeout(ACTION_HARDEN_TIMER);
-  ACTION_HARDEN_TIMER=setTimeout(()=>hardenAllActionControls(document),20);
+  ACTION_HARDEN_TIMER=setTimeout(()=>{
+    added.forEach(node=>{
+      if(node.matches?.('button,.btn,.closeBtn,input[type="checkbox"],[data-select-cell]')){
+        hardenAllActionControls(node.parentElement||document);
+      }else{
+        hardenAllActionControls(node);
+      }
+    });
+  },10);
 });
 
-
-document.addEventListener('click',e=>{
-  const row=e.target.closest?.('tr.clickable,tr[data-tx]');
-  if(!row)return;
-  if(isProtectedActionTarget(e.target)){
-    e.stopImmediatePropagation();
-    restoreGlobalInteractionLock();
-  }
-},true);
 
 async function init(){
  const session=await cloudRefreshAuth();
