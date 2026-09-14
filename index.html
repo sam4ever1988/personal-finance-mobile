@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V165 PRODUCTION</span></div>
+  </div><span class="pill green">V166 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V165</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V165-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V166</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V166-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -2059,7 +2059,7 @@ function cardCurrentCycleTransactionUsage(cardId){
  const spend=transactionAmountForPaymentMonthAll(cardId,activeMonth);
  const credits=normalizedTx().filter(t=>
   t.account===cardId &&
-  paymentMonthForTransaction(cardId,t.date)===activeMonth &&
+  assignedTransactionPaymentMonth(cardId,t)===activeMonth &&
   Number(t.amount||0)>0 &&
   t.manual &&
   !['transfer'].includes(txType(t))
@@ -2445,7 +2445,7 @@ function resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth){
  if(!resetCardIds.has(cardId) && cardId!=='meem-7102')return null;
  return normalizedTx().filter(t=>{
   if(t.account!==cardId)return false;
-  if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
+  if(assignedTransactionPaymentMonth(cardId,t)!==paymentMonth)return false;
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
   if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
@@ -2458,7 +2458,7 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
  return manualTransactions.filter(t=>{
   if(t.account!==cardId)return false;
   if(transactionActions[t._id]?.status)return false;
-  if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
+  if(assignedTransactionPaymentMonth(cardId,t)!==paymentMonth)return false;
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
   // Converted purchases are removed from normal card spending; only their installment monthly commitment is due.\n  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
@@ -2625,7 +2625,10 @@ function rebuildResetCardPlannerRows(cardId){
  cardPaymentPlan=cardPaymentPlan.filter(p=>p.accountId!==cardId || p.statementOfficial===true);
 
  const months=new Set();
- normalizedTx().filter(t=>t.account===cardId).forEach(t=>months.add(paymentMonthForTransaction(cardId,t.date)));
+ normalizedTx().filter(t=>t.account===cardId).forEach(t=>{
+  const month=assignedTransactionPaymentMonth(cardId,t);
+  if(month)months.add(month);
+ });
  installments.filter(p=>p.cardId===cardId && !p.completedConfirmed).forEach(p=>{
   const start=p.referenceMonth||p.startMonth||currentYearMonth();
   const c=planCalc(p);
@@ -4730,8 +4733,39 @@ function renderCategories(){
  refreshCategoryDropdowns();
 }
 function refreshCategoryDropdowns(){
- fillCategorySelect($('txCategory'),true);fillCategorySelect($('reportCategory'),true);fillCategorySelect($('instCategory'),false);fillCategorySelect($('editCategory'),false);
- if(!$('instCategory').value)$('instCategory').value=Object.keys(categories)[0]||'';fillSubcategorySelect($('instSubcategory'),$('instCategory').value);fillReportSubcategories();
+ const txVal=$('txCategory')?.value||'';
+ const reportVal=$('reportCategory')?.value||'';
+ const instCat=$('instCategory')?.value||'';
+ const instSub=$('instSubcategory')?.value||'';
+
+ if($('txCategory')){
+  fillCategorySelect($('txCategory'),true);
+  if([...$('txCategory').options].some(o=>o.value===txVal))$('txCategory').value=txVal;
+ }
+ if($('reportCategory')){
+  fillCategorySelect($('reportCategory'),true);
+  if([...$('reportCategory').options].some(o=>o.value===reportVal))$('reportCategory').value=reportVal;
+ }
+ if($('instCategory')){
+  fillCategorySelect($('instCategory'),false);
+  if([...$('instCategory').options].some(o=>o.value===instCat))$('instCategory').value=instCat;
+  else if(!$('instCategory').value)$('instCategory').value=Object.keys(categories)[0]||'';
+  fillSubcategorySelect($('instSubcategory'),$('instCategory').value,instSub);
+ }
+
+ const editModal=$('txEditModal');
+ const editOpen=!!editModal && editModal.classList.contains('show');
+
+ // Do not rebuild Edit Transaction dropdowns while user is editing.
+ if($('editCategory') && !editOpen){
+  const editCat=$('editCategory').value||'';
+  const editSub=$('editSubcategory')?.value||'';
+  fillCategorySelect($('editCategory'),false);
+  if([...$('editCategory').options].some(o=>o.value===editCat))$('editCategory').value=editCat;
+  fillSubcategorySelect($('editSubcategory'),$('editCategory').value,editSub);
+ }
+
+ fillReportSubcategories();
 }
 $('addCategory').addEventListener('click',()=>openSimple('category'));
 $('addSubcategory').addEventListener('click',()=>openSimple('subcategory'));
@@ -6930,8 +6964,15 @@ function renderIncomePlan(){
 
  // Rebuild date-driven planner rows after installment reconciliation so the new
  // month's Amount to Pay includes that month's installment commitment.
- resetCardIds.forEach(cardId=>rebuildResetCardPlannerRows(cardId));
- rebuildResetCardPlannerRows('meem-7102');
+ resetCardIds.forEach(cardId=>{
+  const editingRow=editingTxId?normalizedTx(true).find(t=>t._id===editingTxId):null;
+  const editingSameCard=transactionModalIsOpen() && editingRow?.account===cardId;
+  if(!editingSameCard)rebuildResetCardPlannerRows(cardId);
+ });
+ const editingRow=editingTxId?normalizedTx(true).find(t=>t._id===editingTxId):null;
+ if(!(transactionModalIsOpen() && editingRow?.account==='meem-7102')){
+  rebuildResetCardPlannerRows('meem-7102');
+ }
 
  applySavedIncomePlanForCurrentMonth();
  $('incomeMySalary').value=incomePlan.mySalary||'';
@@ -7619,6 +7660,25 @@ function setCloudMeta(patch){
 }
 
 
+
+
+function ar5867EditAudit(){
+ const cardId='ar-5867';
+ return {
+  isResetCard:resetCardIds.has(cardId),
+  rows:normalizedTx(true).filter(t=>t.account===cardId).map(t=>({
+   id:t._id,
+   description:t.description,
+   category:t.category,
+   subcategory:t.subcategory,
+   statementMonth:t.statementMonth||'',
+   paymentMonth:t.paymentMonth||'',
+   statementMonthManual:t.statementMonthManual===true,
+   assignedMonth:assignedTransactionPaymentMonth(cardId,t),
+   automaticMonth:paymentMonthForTransaction(cardId,t.date)
+  }))
+ };
+}
 
 function transactionMonthAudit(txId){
  const manual=manualTransactions.find(t=>t._id===txId);
