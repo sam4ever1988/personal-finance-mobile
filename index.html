@@ -459,6 +459,39 @@ button{cursor:pointer}
  }
  .navBtn .ic{pointer-events:none}
 }
+
+/* V164 universal table sorting */
+table thead th.sortableHeader{
+ cursor:pointer;
+ user-select:none;
+ position:relative;
+ padding-right:24px;
+ transition:background-color .12s ease;
+}
+table thead th.sortableHeader:hover{
+ background:rgba(15,23,42,.045);
+}
+table thead th.sortableHeader::after{
+ content:"↕";
+ position:absolute;
+ right:7px;
+ top:50%;
+ transform:translateY(-50%);
+ font-size:11px;
+ opacity:.38;
+}
+table thead th.sortableHeader.sortAsc::after{
+ content:"▲";
+ opacity:.85;
+}
+table thead th.sortableHeader.sortDesc::after{
+ content:"▼";
+ opacity:.85;
+}
+table thead th.noTableSort{
+ cursor:default;
+}
+
 </style>
 </head>
 <body>
@@ -837,10 +870,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V163 PRODUCTION</span></div>
+  </div><span class="pill green">V164 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V163</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V163-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V164</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V164-20260913</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -8513,6 +8546,179 @@ function reconcileExistingImportedStatements(){
  return false;
 }
 
+
+const TABLE_SORT_STATE=new Map();
+let tableSortRefreshTimer=null;
+
+function tableSortCellText(td){
+ if(!td)return '';
+ const explicit=td.getAttribute('data-sort-value');
+ if(explicit!==null)return explicit;
+
+ const control=td.querySelector('input,select,textarea');
+ if(control){
+  if(control.type==='checkbox')return control.checked?'1':'0';
+  return String(control.value??'').trim();
+ }
+ return String(td.innerText||td.textContent||'').replace(/\s+/g,' ').trim();
+}
+
+function tableSortValue(raw){
+ const s=String(raw??'').trim();
+ if(!s)return {type:'empty',value:''};
+
+ // ISO date / datetime.
+ let m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s|T|$)/);
+ if(m){
+  return {type:'date',value:Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]))};
+ }
+
+ // Display dates such as 09/14/2026 or 14/09/2026 are left as text unless unambiguous.
+ m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+ if(m){
+  const a=Number(m[1]),b=Number(m[2]),y=Number(m[3]);
+  if(a>12)return {type:'date',value:Date.UTC(y,b-1,a)};
+  return {type:'date',value:Date.UTC(y,a-1,b)};
+ }
+
+ // YYYY-MM month.
+ m=s.match(/^(\d{4})-(\d{2})$/);
+ if(m)return {type:'date',value:Date.UTC(Number(m[1]),Number(m[2])-1,1)};
+
+ // Finance / percentage / integer values.
+ const cleaned=s
+  .replace(/\bSAR\b/gi,'')
+  .replace(/,/g,'')
+  .replace(/%/g,'')
+  .replace(/\s+/g,'')
+  .replace(/[()]/g,m=>m==='('?'-':'');
+ if(/^[-+]?\d*\.?\d+$/.test(cleaned)){
+  return {type:'number',value:Number(cleaned)};
+ }
+
+ return {type:'text',value:s.toLocaleLowerCase()};
+}
+
+function compareTableSortValues(a,b){
+ if(a.type==='empty' && b.type==='empty')return 0;
+ if(a.type==='empty')return 1;
+ if(b.type==='empty')return -1;
+
+ if(a.type===b.type){
+  if(a.type==='text')return a.value.localeCompare(b.value,undefined,{numeric:true,sensitivity:'base'});
+  return a.value-b.value;
+ }
+
+ // If either parses as text, compare the visible values naturally.
+ return String(a.value).localeCompare(String(b.value),undefined,{numeric:true,sensitivity:'base'});
+}
+
+function tableSortKey(table,index){
+ if(!table.dataset.sortKey){
+  const page=table.closest('.page,[id]')?.id||'global';
+  const title=table.closest('.panel')?.previousElementSibling?.textContent?.trim()||
+   table.closest('.panel')?.querySelector('.panelTitle,.sectionTitle')?.textContent?.trim()||'table';
+  table.dataset.sortKey=`${page}:${title}:${index}`;
+ }
+ return table.dataset.sortKey;
+}
+
+function applyTableSort(table,colIndex,direction,remember=true){
+ const tbody=table.tBodies?.[0];
+ if(!tbody)return;
+
+ const allRows=[...tbody.rows];
+ const sortableRows=allRows.filter(r=>r.cells.length>colIndex && !r.cells[0]?.hasAttribute('colspan') && !r.querySelector('td[colspan]'));
+ const fixedRows=allRows.filter(r=>!sortableRows.includes(r));
+ if(sortableRows.length<2)return;
+
+ const decorated=sortableRows.map((row,originalIndex)=>({
+  row,
+  originalIndex,
+  key:tableSortValue(tableSortCellText(row.cells[colIndex]))
+ }));
+
+ decorated.sort((x,y)=>{
+  const cmp=compareTableSortValues(x.key,y.key);
+  return (direction==='desc'?-cmp:cmp)||x.originalIndex-y.originalIndex;
+ });
+
+ decorated.forEach(x=>tbody.appendChild(x.row));
+ fixedRows.forEach(r=>tbody.appendChild(r));
+
+ [...table.tHead?.rows?.[0]?.cells||[]].forEach(th=>{
+  th.classList.remove('sortAsc','sortDesc');
+  th.removeAttribute('aria-sort');
+ });
+ const active=table.tHead?.rows?.[0]?.cells?.[colIndex];
+ if(active){
+  active.classList.add(direction==='desc'?'sortDesc':'sortAsc');
+  active.setAttribute('aria-sort',direction==='desc'?'descending':'ascending');
+ }
+
+ if(remember){
+  TABLE_SORT_STATE.set(table.dataset.sortKey,{colIndex,direction});
+ }
+}
+
+function initializeSortableTables(root=document){
+ const tables=[...root.querySelectorAll('table')];
+ tables.forEach((table,index)=>{
+  const headerRow=table.tHead?.rows?.[0];
+  if(!headerRow)return;
+
+  tableSortKey(table,index);
+
+  [...headerRow.cells].forEach((th,colIndex)=>{
+   const label=String(th.textContent||'').trim().toLowerCase();
+   const hasCheckbox=!!th.querySelector('input[type="checkbox"]');
+   const actionColumn=['action','actions',''].includes(label) || hasCheckbox;
+
+   if(actionColumn){
+    th.classList.add('noTableSort');
+    th.classList.remove('sortableHeader');
+    th.onclick=null;
+    return;
+   }
+
+   th.classList.add('sortableHeader');
+   th.title=`Sort by ${String(th.textContent||'').trim()}`;
+   th.tabIndex=0;
+
+   const doSort=()=>{
+    const current=TABLE_SORT_STATE.get(table.dataset.sortKey);
+    const nextDirection=(current && current.colIndex===colIndex && current.direction==='asc')?'desc':'asc';
+    applyTableSort(table,colIndex,nextDirection,true);
+   };
+   th.onclick=doSort;
+   th.onkeydown=e=>{
+    if(e.key==='Enter'||e.key===' '){
+     e.preventDefault();
+     doSort();
+    }
+   };
+  });
+
+  const saved=TABLE_SORT_STATE.get(table.dataset.sortKey);
+  if(saved && saved.colIndex<headerRow.cells.length){
+   applyTableSort(table,saved.colIndex,saved.direction,false);
+  }
+ });
+}
+
+function scheduleSortableTableRefresh(){
+ clearTimeout(tableSortRefreshTimer);
+ tableSortRefreshTimer=setTimeout(()=>initializeSortableTables(document),30);
+}
+
+// Tables are rebuilt by many render functions and by realtime sync.
+// Re-attach sorting automatically whenever table markup changes.
+const sortableTableObserver=new MutationObserver(mutations=>{
+ if(mutations.some(m=>m.addedNodes?.length || m.removedNodes?.length)){
+  scheduleSortableTableRefresh();
+ }
+});
+
 async function init(){
  const session=await cloudRefreshAuth();
  let localSavedAt='';
@@ -8571,6 +8777,13 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
  if(session)setTimeout(()=>startRealtimeRecordSync(),120);
+}
+
+try{
+ sortableTableObserver.observe(document.body,{childList:true,subtree:true});
+ initializeSortableTables(document);
+}catch(e){
+ console.warn('Table sorting initialization warning',e);
 }
 init();
 
