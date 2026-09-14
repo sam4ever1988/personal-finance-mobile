@@ -1014,7 +1014,7 @@ tr[data-tx] button{
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">Realtime Sync ready • Supabase records are the master; local data is cache/recovery only.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">Cloud Sync ready • Supabase records are the master; local data is cache/recovery only.</div>
   </div>
  </div>
 </section>
@@ -1044,10 +1044,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V173 PRODUCTION</span></div>
+  </div><span class="pill green">V174 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V173</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V173-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V174-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -8780,7 +8780,7 @@ async function startRealtimeRecordSync(){
   return false;
  }
 
- // ONE canonical full load at startup only.
+ // One canonical cloud load at startup.
  await recordPullAll('startup');
  recordSyncReady=true;
 
@@ -8789,25 +8789,17 @@ async function startRealtimeRecordSync(){
   await recordPushAll('legacy-payment-plan-cleanup');
  }
 
+ // V174 stability mode:
+ // Do NOT subscribe to realtime database events.
+ // Realtime events were still capable of rebuilding the active screen while the user
+ // was selecting/checking/reviewing rows. Local edits still publish immediately.
  if(recordSyncChannel){
   try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){}
+  recordSyncChannel=null;
  }
 
- recordSyncChannel=cloudClient
-  .channel('finance-sync-records-live')
-  .on('postgres_changes',
-      {event:'*',schema:'public',table:RECORD_SYNC_TABLE},
-      payload=>{
-       recordSyncLastEventAt=Date.now();
-       handleRealtimeRecordPayload(payload);
-      })
-  .subscribe(status=>{
-   if(status==='SUBSCRIBED'){
-    cloudSetStatus(`Realtime connected • ${new Date().toLocaleTimeString()}`);
-   }
-  });
-
  schedulePeriodicCloudAutoSync();
+ cloudSetStatus(`20-minute cloud refresh mode • ${new Date().toLocaleTimeString()}`);
  return true;
 }
 // ===================================================================
@@ -8958,7 +8950,7 @@ function updateCloudSyncPanel(remoteInitialized=null){
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
  if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Realtime Sync Up to Date • Verify Below';
- if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Realtime • Supabase Master':'Protected';
+ if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'20-Min Refresh • Supabase Master':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
@@ -9387,41 +9379,31 @@ function schedulePeriodicCloudAutoSync(){
  clearInterval(cloudAutoSyncTimer);
  clearInterval(recordSyncFallbackTimer);
 
- // Realtime is primary. This is only a safety net if an event was missed.
+ // V174: stability-first refresh cadence.
+ // 20 minutes = 1,200,000 ms.
  recordSyncFallbackTimer=setInterval(()=>{
-  if(document.visibilityState==='visible'&&navigator.onLine!==false){
-   cloudAutoReconcile('60s-fallback');
+  if(document.visibilityState==='visible' && navigator.onLine!==false){
+   cloudAutoReconcile('20min-refresh');
   }
- },60000);
+ },1200000);
 }
 
 function startCloudAutoSyncWatchers(){
  schedulePeriodicCloudAutoSync();
 
+ // Local changes are still pushed immediately by the existing save/update/delete logic.
+ // We intentionally do NOT pull on focus, tab visibility, or ordinary online events,
+ // because those were causing unexpected page rebuilds while reviewing the system.
+
  window.addEventListener('online',()=>{
-  // One delta check after connectivity returns.
-  setTimeout(()=>cloudAutoReconcile('back-online'),500);
- });
-
- document.addEventListener('visibilitychange',()=>{
-  // Do not reload the UI merely because the tab became visible.
-  // Only check cloud timestamps after a meaningful absence.
-  if(document.visibilityState==='visible'&&Date.now()-cloudLastAutoCheckAt>30000){
-   cloudLastAutoCheckAt=Date.now();
-   cloudAutoReconcile('tab-visible');
-  }
- });
-
- window.addEventListener('focus',()=>{
-  if(Date.now()-cloudLastAutoCheckAt>30000){
-   cloudLastAutoCheckAt=Date.now();
-   cloudAutoReconcile('window-focus');
-  }
+  cloudSetStatus('Online • next automatic cloud refresh within 20 minutes');
  });
 
  window.addEventListener('pagehide',()=>{
   const meta=getCloudMeta();
-  if(meta.pending===true&&recordSyncReady)recordPushAll('pagehide');
+  if(meta.pending===true && recordSyncReady){
+   recordPushAll('pagehide');
+  }
  });
 }
 
@@ -9945,10 +9927,14 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V173',
-  realtimePrimary:true,
+  version:'V174',
+  realtimePrimary:false,
   startupFullPull:true,
-  periodicFallbackMs:60000,
+  periodicFallbackMs:1200000,
+  realtimeSubscriptionDisabled:true,
+  focusPullDisabled:true,
+  visibilityPullDisabled:true,
+  localWritesImmediate:true,
   lastCloudUpdatedAt:recordSyncLastCloudUpdatedAt,
   activePage:activeViewId(),
   pending:getCloudMeta().pending===true,
