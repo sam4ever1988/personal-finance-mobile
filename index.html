@@ -955,10 +955,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V167 PRODUCTION</span></div>
+  </div><span class="pill green">V168 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V167</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V167-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V168</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V168-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -6292,13 +6292,102 @@ function pdfLines(items){
  const a=items.filter(x=>cleanImportText(x.str)).map(x=>({s:cleanImportText(x.str),x:x.transform[4],y:x.transform[5]})).sort((u,v)=>Math.abs(v.y-u.y)>2?v.y-u.y:u.x-v.x),lines=[];let row=[],y=null;
  for(const it of a){if(y===null||Math.abs(it.y-y)<=2.8){row.push(it);y=y===null?it.y:(y+it.y)/2}else{lines.push(row.sort((u,v)=>u.x-v.x).map(z=>z.s).join(' '));row=[it];y=it.y}}if(row.length)lines.push(row.sort((u,v)=>u.x-v.x).map(z=>z.s).join(' '));return lines
 }
-function parsePdfLineHeuristic(line,accountId,forcedStatementMonth=''){
- const dates=[...line.matchAll(/\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\b/g)].map(x=>x[1]);if(!dates.length)return null;const date=parseImportDate(dates[0]);if(!date)return null;
- const mmatches=[...line.matchAll(/(?:SAR\s*)?(-?[\d,]+\.\d{2})\s*(CR|DR)?/gi)];if(!mmatches.length)return null;const mm=mmatches[mmatches.length-1];let amount=Number(mm[1].replace(/,/g,''));if(!Number.isFinite(amount)||!amount)return null;
- const mark=(mm[2]||'').toUpperCase();if(mark==='DR')amount=-Math.abs(amount);if(mark==='CR')amount=Math.abs(amount);
- let description=line.slice(0,mm.index).replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g,' ').replace(/\s+/g,' ').trim();if(description.length<3)return null;
- const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&mark!=='CR')amount=-Math.abs(amount);if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- return {account:accountId,date,posting:date,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+
+function alRajhiPhysicalCardEndingFromHeaderLine(line,accountId){
+ if(accountId!=='ar-0955')return '';
+ const s=String(line||'');
+ const isCardHeader=
+  /Transaction Details of the (?:Supplementary|Primary) Card/i.test(s) ||
+  /تفاصيل العمليات للبطاقة/i.test(s);
+ if(!isCardHeader)return '';
+
+ const matches=[...s.matchAll(/(?:\*{2,}|X{2,}|x{2,})\s*(\d{4})\b/g)];
+ if(matches.length){
+  const ending=matches[matches.length-1][1];
+  return accountPhysicalCards(accountId).includes(ending)?ending:'';
+ }
+
+ // Some PDF text extractions keep the masked number as plain digits around the header.
+ const digits=(s.match(/\d/g)||[]).join('');
+ for(const ending of accountPhysicalCards(accountId)){
+  if(digits.endsWith(ending))return ending;
+ }
+ return '';
+}
+
+function alRajhiSectionHeaderKind(line){
+ const s=String(line||'');
+ if(/Transaction Details of the Supplementary Card/i.test(s)||/البطاقة الإضافية/i.test(s))return 'supplementary';
+ if(/Transaction Details of the Primary Card/i.test(s)||/البطاقة الأساسية|البطاقة الرئيسية/i.test(s))return 'primary';
+ return '';
+}
+
+function alRajhiMaskedEndingFromLine(line,accountId){
+ if(accountId!=='ar-0955')return '';
+ const s=String(line||'');
+ const direct=[...s.matchAll(/(?:\*{2,}|X{2,}|x{2,})\s*(\d{4})\b/g)];
+ if(direct.length){
+  const ending=direct[direct.length-1][1];
+  if(accountPhysicalCards(accountId).includes(ending))return ending;
+ }
+ const compact=s.replace(/\s+/g,'');
+ for(const ending of accountPhysicalCards(accountId)){
+  if(new RegExp(`(?:\\*{2,}|X{2,}|x{2,})${ending}\\b`,'i').test(compact))return ending;
+ }
+ return '';
+}
+
+function isAlRajhi0955OfficialPdfText(text){
+ const s=String(text||'');
+ return /4455\s*21.*0955|445521.*0955/i.test(s) &&
+        /credit\s*card\s*statement|كشف حساب البطاقة/i.test(s);
+}
+
+function parsePdfLineHeuristic(line,accountId,forcedStatementMonth='',physicalCardEnding=''){
+ const dates=[...line.matchAll(/\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\b/g)].map(x=>x[1]);
+ if(!dates.length)return null;
+ const date=parseImportDate(dates[0]);if(!date)return null;
+
+ const mmatches=[...line.matchAll(/(?:SAR\s*)?(-?[\d,]+\.\d{2})\s*(CR|DR)?/gi)];
+ if(!mmatches.length)return null;
+ const mm=mmatches[mmatches.length-1];
+ let amount=Number(mm[1].replace(/,/g,''));
+ if(!Number.isFinite(amount)||!amount)return null;
+
+ const mark=(mm[2]||'').toUpperCase();
+ if(mark==='DR')amount=-Math.abs(amount);
+ if(mark==='CR')amount=Math.abs(amount);
+
+ let description=line.slice(0,mm.index)
+  .replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g,' ')
+  .replace(/\s+/g,' ').trim();
+ if(description.length<3)return null;
+
+ const [category,subcategory,kind]=guessImportedCategory(description);
+ if(kind==='expense'&&mark!=='CR')amount=-Math.abs(amount);
+ if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
+
+ const ending=String(physicalCardEnding||'').replace(/\D/g,'')||String(account(accountId)?.ending||'');
+
+ return {
+  account:accountId,
+  physicalCardEnding:ending,
+  date,
+  posting:date,
+  description,
+  amount,
+  category,
+  subcategory,
+  kind,
+  currency:'SAR',
+  original:null,
+  manual:false,
+  imported:true,
+  source:'Statement Import',
+  statementMonth:resetCardIds.has(accountId)
+   ?paymentMonthForTransaction(accountId,date)
+   :(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))
+ };
 }
 
 function detectWorkbookAccount(wb,currentAccountId){
@@ -6482,13 +6571,20 @@ function applyMeemOfficialStatement(meta){
 
 async function parseStatementFile(file,accountId,statementMonth=''){
  const name=file.name.toLowerCase();
- if(name.endsWith('.csv'))return parseCsvRows(await file.text()).map(r=>normalizeImportedRow(r,accountId,statementMonth)).filter(Boolean);
+
+ if(name.endsWith('.csv')){
+  return parseCsvRows(await file.text())
+   .map(r=>normalizeImportedRow(r,accountId,statementMonth))
+   .filter(Boolean);
+ }
+
  if(name.endsWith('.xlsx')||name.endsWith('.xls')){
   if(typeof XLSX==='undefined')throw new Error('Excel import library is unavailable. Reload while connected to the internet.');
   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
   const detected=detectWorkbookAccount(wb,accountId);
   accountId=detected.accountId||accountId;
   if($('importAccount'))$('importAccount').value=accountId;
+
   if($('importAccountHint')){
    if(detected.confidence==='high'){
     $('importAccountHint').innerHTML=`Auto-detected: <b>${detected.bank||'Bank'} •${detected.ending}</b> → <b>${accountName(accountId)}</b>`;
@@ -6498,20 +6594,99 @@ async function parseStatementFile(file,accountId,statementMonth=''){
     $('importAccountHint').textContent='Bank/card could not be detected automatically. Please select the correct account/card before importing.';
    }
   }
-  return workbookRows(wb).map(r=>normalizeImportedRow(r,accountId,statementMonth)).filter(Boolean);
+
+  return workbookRows(wb)
+   .map(r=>normalizeImportedRow(r,accountId,statementMonth))
+   .filter(Boolean);
  }
+
  if(name.endsWith('.pdf')){
   if(typeof pdfjsLib==='undefined')throw new Error('PDF import library is unavailable. Reload while connected to the internet.');
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
-  let firstText='',pageTexts=[];
+
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  const out=[];
+  let firstText='';
+
+  // Read the first pages for statement/account detection.
   for(let pp=1;pp<=Math.min(pdf.numPages,2);pp++){
    const pg0=await pdf.getPage(pp),tc0=await pg0.getTextContent();
-   const txt=tc0.items.map(x=>x.str).join(' ');
-   pageTexts.push(txt);firstText+=' '+txt;
+   firstText+=' '+tc0.items.map(x=>x.str).join(' ');
   }
-  if(/4455\s*21.*0955|445521.*0955/i.test(firstText)&&/credit\s*card\s*statement|كشف حساب البطاقة/i.test(firstText)){
-   throw new Error('Al Rajhi •0955 official PDF detected. This statement contains primary and supplementary card sections, so the generic PDF transaction parser is disabled to prevent incorrect data. Use the Al Rajhi XLS transaction export for transaction import; use this PDF as the official statement/payment source.');
+
+  // Al Rajhi •0955 official PDF:
+  // transaction sections are assigned to Primary •0955 / Supplementary •9345 / •9634.
+  if(isAlRajhi0955OfficialPdfText(firstText)){
+   accountId='ar-0955';
+   if($('importAccount'))$('importAccount').value=accountId;
+   if($('importAccountHint')){
+    $('importAccountHint').innerHTML='Al Rajhi •0955 official PDF detected. Primary and supplementary card sections will be assigned automatically.';
+   }
+
+   importStatementMeta=null;
+   let currentEnding=String(account(accountId)?.ending||'0955');
+   let pendingHeaderKind='';
+
+   for(let p=1;p<=pdf.numPages;p++){
+    importStatus(`Reading Al Rajhi statement page ${p} of ${pdf.numPages}…`);
+    const pg=await pdf.getPage(p),tc=await pg.getTextContent();
+    const lines=pdfLines(tc.items);
+
+    for(let i=0;i<lines.length;i++){
+     const line=lines[i];
+
+     const headerKind=alRajhiSectionHeaderKind(line);
+     const headerEnding=alRajhiPhysicalCardEndingFromHeaderLine(line,accountId);
+
+     if(headerKind){
+      pendingHeaderKind=headerKind;
+      if(headerEnding){
+       currentEnding=headerEnding;
+       pendingHeaderKind='';
+      }else if(headerKind==='primary'){
+       currentEnding=String(account(accountId)?.ending||'0955');
+      }
+      continue;
+     }
+
+     // Often the masked card number is extracted on the line immediately after the heading.
+     if(pendingHeaderKind){
+      const nearbyEnding=alRajhiMaskedEndingFromLine(line,accountId);
+      if(nearbyEnding){
+       currentEnding=nearbyEnding;
+       pendingHeaderKind='';
+       continue;
+      }
+      // Do not let a stale pending heading linger into transaction rows.
+      if(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/.test(line))pendingHeaderKind='';
+     }
+
+     // A masked card number may also appear on a standalone line inside the section.
+     const inlineEnding=alRajhiMaskedEndingFromLine(line,accountId);
+     if(inlineEnding && !/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/.test(line)){
+      currentEnding=inlineEnding;
+      continue;
+     }
+
+     const r=parsePdfLineHeuristic(line,accountId,statementMonth,currentEnding);
+     if(r)out.push(r);
+    }
+   }
+
+   if(!out.length){
+    throw new Error('Al Rajhi PDF was detected, but no transaction rows could be read. Please use the Excel transaction export for this statement.');
+   }
+
+   // Show what was assigned before the user confirms import.
+   const counts={};
+   out.forEach(t=>counts[t.physicalCardEnding]=(counts[t.physicalCardEnding]||0)+1);
+   if($('importAccountHint')){
+    const summary=Object.entries(counts)
+     .map(([ending,count])=>`${physicalCardLabelFor(accountId,ending)}: ${count}`)
+     .join(' • ');
+    $('importAccountHint').innerHTML=`Al Rajhi •0955 PDF auto-assigned by physical card: <b>${summary}</b>. Review the preview before importing.`;
+   }
+   return out;
   }
 
   // Official meem/GIB •7102 parser.
@@ -6520,14 +6695,13 @@ async function parseStatementFile(file,accountId,statementMonth=''){
    accountId='meem-7102';
    if($('importAccount'))$('importAccount').value=accountId;
    importStatementMeta=meemMeta;
-   // Only import genuine card activity. Ashal setup rows (5290820017) are handled as installment metadata
-   // and must never be imported as normal purchases, otherwise the card is inflated/duplicated.
+
    for(let p=1;p<=Math.min(pdf.numPages,2);p++){
     importStatus(`Reading official meem statement page ${p} of ${pdf.numPages}…`);
     const pg=await pdf.getPage(p),tc=await pg.getTextContent();
     pdfLines(tc.items).forEach(line=>{
      if(/5290820017|Ashal Instalments Program|برنامج أسهل/i.test(line))return;
-     const r=parsePdfLineHeuristic(line,accountId,'');
+     const r=parsePdfLineHeuristic(line,accountId,'',String(account(accountId)?.ending||''));
      if(r)out.push(r);
     });
    }
@@ -6538,11 +6712,15 @@ async function parseStatementFile(file,accountId,statementMonth=''){
   for(let p=1;p<=pdf.numPages;p++){
    importStatus(`Reading PDF page ${p} of ${pdf.numPages}…`);
    const pg=await pdf.getPage(p),tc=await pg.getTextContent();
-   pdfLines(tc.items).forEach(line=>{const r=parsePdfLineHeuristic(line,accountId,statementMonth);if(r)out.push(r)});
+   pdfLines(tc.items).forEach(line=>{
+    const r=parsePdfLineHeuristic(line,accountId,statementMonth,String(account(accountId)?.ending||''));
+    if(r)out.push(r);
+   });
   }
-  return out
+  return out;
  }
- throw new Error('Unsupported file type.')
+
+ throw new Error('Unsupported file type.');
 }
 function importFingerprint(t){return [t.account,t.date,Number(t.amount).toFixed(2),cleanImportText(t.description).toLowerCase()].join('|')}
 
@@ -6749,7 +6927,7 @@ function renderImportPreview(){
  $('importPreviewBody').innerHTML=importPreviewRows.length
   ?importPreviewRows.slice(0,300).map((t,index)=>`<tr>
     <td>${t.date}${t.previewEdited?'<div class="meta green">Edited</div>':''}</td>
-    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}</div></td>
+    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}${account(t.account)?.type==='card'?` • ${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}`:''}</div></td>
     <td>${t.category}<div class="meta">${t.subcategory}</div></td>
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
@@ -6801,7 +6979,7 @@ function viewImportBatch(index){
  const win=window.open('','_blank','width=1050,height=720');
  if(!win){alert('Your browser blocked the preview window. Allow pop-ups for this page and try again.');return;}
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table></body></html>`);
+ win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}${account(t.account)?.type==='card'?` • ${esc(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}`:''}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table></body></html>`);
  win.document.close();
 }
 function deleteImportBatch(index){
