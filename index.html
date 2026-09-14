@@ -1044,10 +1044,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V172 PRODUCTION</span></div>
+  </div><span class="pill green">V173 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V172</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V172-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V173</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V173-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4007,8 +4007,8 @@ function captureReviewState(){
   y:window.scrollY,
   accountDetailId:currentAccountDetailId||'',
   accountDetailReturnPage:accountDetailReturnPage||'accounts',
-  accountDetailTxFilter:{...(accountDetailTxFilter||{})},
-  selectedTxIds:[...selectedTxIds],
+  accountDetailTxFilter:{...((accountDetailTxFilter&&typeof accountDetailTxFilter==='object')?accountDetailTxFilter:{})},
+  selectedTxIds:(typeof selectedTxIds!=='undefined'&&selectedTxIds instanceof Set)?[...selectedTxIds]:[],
   txFilters:{
    search:$('txSearch')?.value||'',
    account:$('txAccount')?.value||'',
@@ -4054,6 +4054,7 @@ function restoreReviewControls(state){
   if($('reportType'))$('reportType').value=state.reportFilters.type||'';
  }
 
+ if(!(selectedTxIds instanceof Set))selectedTxIds=new Set();
  selectedTxIds.clear();
  (state.selectedTxIds||[]).forEach(id=>selectedTxIds.add(id));
 
@@ -4625,7 +4626,7 @@ function bindAccountCards(){
  }));
 }
 function txRow5(t){const ip=linkedActiveInstallment(t._id);return `<tr class="clickable" data-tx="${t._id}"><td>${t.date}</td><td><b>${t.description}</b>${ip?'<span class="badge active" style="margin-left:6px">Installment</span>':''}<div class="meta">${accountName(t.account)}${ip?` • ${money(planCalc(ip).remaining)} reserved`:''}</div></td><td>${t.category}</td><td>${account(t.account)?.ending||''}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`}
-const selectedTxIds=new Set();
+var selectedTxIds=new Set();
 let bulkUpdateDraftActive=false;
 let bulkUpdateDraftState=null;
 
@@ -6250,9 +6251,9 @@ function resetCardData(cardId){
  alert(`${label} — ${cardMonthLabel(selectedMonth)} was reset. Other statement months were not changed.`);
 }
 
-let accountDetailReturnPage='accounts';
-let currentAccountDetailId=null;
-let accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
+var accountDetailReturnPage='accounts';
+var currentAccountDetailId=null;
+var accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
 
 function bindDetailTransactionBulkActions(){
  const root=$('accountDetailContent');
@@ -8157,6 +8158,212 @@ var recordSyncPullBusy=false;
 var recordSyncChannel=null;
 var recordSyncLastEventAt=0;
 var recordRealtimePullTimer=null;
+var recordSyncLastCloudUpdatedAt=0;
+var recordSyncLocalMute=new Map();
+var recordSyncFallbackTimer=null;
+var recordSyncDeltaBusy=false;
+
+
+function recordSyncKey(section,recordId){
+ return `${section}|${String(recordId)}`;
+}
+function markLocalRecordWrite(section,recordId,ttl=2500){
+ recordSyncLocalMute.set(recordSyncKey(section,recordId),Date.now()+ttl);
+}
+function isMutedRealtimeRecord(section,recordId){
+ const key=recordSyncKey(section,recordId);
+ const until=recordSyncLocalMute.get(key)||0;
+ if(until>Date.now())return true;
+ if(until)recordSyncLocalMute.delete(key);
+ return false;
+}
+function noteCloudUpdatedAt(value){
+ const t=new Date(value||0).getTime();
+ if(Number.isFinite(t)&&t>recordSyncLastCloudUpdatedAt)recordSyncLastCloudUpdatedAt=t;
+}
+function currentCloudCursorIso(){
+ return recordSyncLastCloudUpdatedAt?new Date(recordSyncLastCloudUpdatedAt).toISOString():'1970-01-01T00:00:00.000Z';
+}
+function syncArrayForSection(section){
+ switch(section){
+  case 'manual_transactions': return manualTransactions;
+  case 'imported_transactions': return importedTransactions;
+  case 'import_history': return importHistory;
+  case 'cash_flow_ledger': return cashFlowLedger;
+  case 'outgoings': return outgoings;
+  case 'installments': return installments;
+  case 'card_payment_plan': return cardPaymentPlan;
+  default:return null;
+ }
+}
+function setSyncArrayForSection(section,value){
+ switch(section){
+  case 'manual_transactions': manualTransactions=value;break;
+  case 'imported_transactions': importedTransactions=value;break;
+  case 'import_history': importHistory=value;break;
+  case 'cash_flow_ledger': cashFlowLedger=value;break;
+  case 'outgoings': outgoings=value;break;
+  case 'installments': installments=value;break;
+  case 'card_payment_plan': cardPaymentPlan=value;break;
+ }
+}
+function mergeOneRecordIntoSection(row){
+ const section=row.section,recordId=String(row.record_id);
+ const deleted=!!row.deleted_at;
+
+ const singletonSections=new Set([
+  'finance_settings','categories','merchant_rules','tx_overrides','income_plan',
+  'duplicate_decisions','statement_rule','transaction_actions','bank_balance_overrides',
+  'reset_card_ids','card_reset_history','deleted_installment_ids'
+ ]);
+
+ if(singletonSections.has(section)){
+  if(deleted)return false;
+  const data=row.data;
+  switch(section){
+   case 'finance_settings':
+    if(!financeSettingsEditing && !financeSettingsDirty){
+     financeSettings=data||financeSettings;
+     if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
+     if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
+     Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{
+      if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};
+     });
+    }
+    break;
+   case 'categories': categories=data||categories;break;
+   case 'merchant_rules': merchantRules=data||merchantRules;break;
+   case 'tx_overrides': txOverrides=data||txOverrides;break;
+   case 'income_plan': incomePlan=data||incomePlan;break;
+   case 'duplicate_decisions': duplicateDecisions=data||duplicateDecisions;break;
+   case 'statement_rule': statementRule=data||statementRule;break;
+   case 'transaction_actions': transactionActions=data||transactionActions;break;
+   case 'bank_balance_overrides': bankBalanceOverrides=data||bankBalanceOverrides;break;
+   case 'reset_card_ids': resetCardIds=new Set(Array.isArray(data)?data:[]);break;
+   case 'card_reset_history': cardResetHistory=Array.isArray(data)?data:[];break;
+   case 'deleted_installment_ids': deletedInstallmentIds=new Set(Array.isArray(data)?data:[]);break;
+  }
+  return true;
+ }
+
+ const arr=syncArrayForSection(section);
+ if(!arr)return false;
+ const idx=arr.findIndex((x,i)=>syncStableId(section,x,i)===recordId);
+
+ if(deleted){
+  if(idx<0)return false;
+  const copy=arr.slice();copy.splice(idx,1);setSyncArrayForSection(section,copy);return true;
+ }
+
+ if(idx>=0){
+  // Skip if data is structurally unchanged.
+  try{
+   if(JSON.stringify(arr[idx])===JSON.stringify(row.data))return false;
+  }catch(_){}
+  const copy=arr.slice();copy[idx]=row.data;setSyncArrayForSection(section,copy);return true;
+ }
+
+ setSyncArrayForSection(section,[...arr,row.data]);
+ return true;
+}
+function normalizeAfterRecordSections(sections){
+ const s=new Set(sections);
+
+ if(s.has('deleted_installment_ids')){
+  installments=(installments||[]).filter(p=>!deletedInstallmentIds.has(p.id));
+ }
+
+ const transactionRelated=[
+  'manual_transactions','imported_transactions','tx_overrides','transaction_actions',
+  'duplicate_decisions','merchant_rules','categories','statement_rule','reset_card_ids',
+  'card_reset_history'
+ ].some(x=>s.has(x));
+
+ const plannerRelated=[
+  'cash_flow_ledger','installments','card_payment_plan','deleted_installment_ids',
+  'bank_balance_overrides','finance_settings'
+ ].some(x=>s.has(x));
+
+ if(transactionRelated){
+  purgeLegacyAr0955StatementRows();
+  purgeLegacyAr5867SeedRows();
+  purgeLegacySabAnchorRows();
+  rebuildTransactions();
+ }
+
+ if(plannerRelated){
+  purgeLegacySeedPaymentPlans();
+  normalizeCardPaymentPlan();
+  normalizeBalanceOffers();
+  ensurePartialPaymentFields();
+  ensureLedgerBackedPlannerRows();
+  rebuildAllPlannerPaymentsFromLedger();
+ }
+
+ persistRecoveredState();
+ try{financeDB.save();}catch(_){}
+}
+function sectionAffectsPage(section,page){
+ const map={
+  transactions:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','duplicate_decisions','merchant_rules','categories','statement_rule','reset_card_ids','card_reset_history']),
+  accountDetail:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','reset_card_ids','card_reset_history']),
+  accounts:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings']),
+  dashboard:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','income_plan','outgoings']),
+  reports:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','categories']),
+  installments:new Set(['installments','deleted_installment_ids','card_payment_plan']),
+  incomeplan:new Set(['income_plan','finance_settings','outgoings','card_payment_plan','cash_flow_ledger','manual_transactions','imported_transactions']),
+  outgoings:new Set(['outgoings','cash_flow_ledger']),
+  categories:new Set(['categories','merchant_rules']),
+  importstatements:new Set(['import_history','manual_transactions','imported_transactions']),
+  financeSettings:new Set(['finance_settings'])
+ };
+ return map[page]?.has(section)??false;
+}
+function renderCurrentPageForSections(sections){
+ const page=activeViewId();
+ if(!sections.some(s=>sectionAffectsPage(s,page)))return false;
+
+ const state=captureReviewState();
+ if(page==='transactions')renderTransactions();
+ else if(page==='reports')renderReports();
+ else if(page==='installments')renderInstallments();
+ else if(page==='categories')renderCategories();
+ else if(page==='incomeplan')renderIncomePlan();
+ else if(page==='outgoings')renderOutgoings();
+ else if(page==='importstatements')renderImportPage();
+ else if(page==='accounts')renderAccounts();
+ else if(page==='dashboard')renderDashboard();
+ else if(page==='financeSettings'){
+  if(!financeSettingsEditing)renderFinanceSettings();
+  else return false;
+ }
+ else if(page==='accountDetail'&&currentAccountDetailId){
+  openAccount(currentAccountDetailId,accountDetailReturnPage||'accounts');
+ }
+
+ // Restore UI state once, after the single targeted render.
+ restoreReviewControls(state);
+ requestAnimationFrame(()=>window.scrollTo(Number(state.x||0),Number(state.y||0)));
+ return true;
+}
+function applyRecordSyncDeltaRows(rows,{render=true}={}){
+ if(!Array.isArray(rows)||!rows.length)return {changed:false,sections:[]};
+ recordSyncApplying=true;
+ try{
+  const changedSections=[];
+  rows.forEach(row=>{
+   noteCloudUpdatedAt(row.updated_at);
+   if(mergeOneRecordIntoSection(row))changedSections.push(row.section);
+  });
+  const sections=[...new Set(changedSections)];
+  if(!sections.length)return {changed:false,sections:[]};
+  normalizeAfterRecordSections(sections);
+  if(render)renderCurrentPageForSections(sections);
+  return {changed:true,sections};
+ }finally{
+  recordSyncApplying=false;
+ }
+}
 
 function syncStableId(section,x,i=0){
  if(x && (x._id!=null || x.id!=null))return String(x._id??x.id);
@@ -8274,6 +8481,7 @@ function applyRecordSyncRows(rows){
 
   persistRecoveredState();
   financeDB.save();
+  rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   return true;
  }finally{
   recordSyncApplying=false;
@@ -8290,6 +8498,31 @@ async function recordFetchAll(){
  if(error)throw error;
  return data||[];
 }
+
+async function recordFetchLatestUpdatedAt(){
+ if(!cloudClient)return 0;
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return 0;
+ const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
+  .select('updated_at')
+  .order('updated_at',{ascending:false})
+  .limit(1);
+ if(error)throw error;
+ const t=new Date(data?.[0]?.updated_at||0).getTime();
+ return Number.isFinite(t)?t:0;
+}
+async function recordFetchChangedSince(iso){
+ if(!cloudClient)return [];
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return [];
+ const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
+  .select('section,record_id,data,updated_at,deleted_at')
+  .gt('updated_at',iso)
+  .order('updated_at',{ascending:true});
+ if(error)throw error;
+ return data||[];
+}
+
 
 async function recordSeedFromLegacyCloudIfNeeded(){
  const existing=await recordFetchAll();
@@ -8312,54 +8545,38 @@ async function recordSeedFromLegacyCloudIfNeeded(){
  return await recordFetchAll();
 }
 
-async function recordPullAll(reason='pull'){
- if(recordSyncPullBusy || recordSyncPushBusy || recordSyncApplying || !cloudClient)return false;
-
- // Critical V172 behavior:
- // capture the exact page/filter/selection/scroll position BEFORE any cloud refresh.
- const uiBefore=captureReviewState();
-
+async function recordPullAll(reason='manual-full-pull'){
+ if(recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying||!cloudClient)return false;
  recordSyncPullBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)return false;
 
   const rows=await recordSeedFromLegacyCloudIfNeeded();
-  if(rows.length){
-   try{saveRecoverySnapshot(`before-realtime-${reason}`);}catch(_){}
+  if(!rows.length)return false;
 
-   applyRecordSyncRows(rows);
+  try{saveRecoverySnapshot(`before-${reason}`);}catch(_){}
+  applyRecordSyncRows(rows);
+  rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
 
-   // Refresh finance data without allowing the UI to choose a different page.
-   refreshAllFinanceScreens();
-   if(!financeSettingsEditing)renderFinanceSettings();
-   updateCloudSyncPanel(true);
+  // One render only, and only for the current page.
+  const sections=[...new Set(rows.map(r=>r.section))];
+  renderCurrentPageForSections(sections);
 
-   // Put the user straight back where they were reviewing.
-   restoreReviewPage(uiBefore,{restoreScroll:true});
-
-   const latest=rows.reduce((m,r)=>Math.max(m,new Date(r.updated_at||0).getTime()),0);
-   setCloudMeta({
-    initialized:true,
-    deviceTrusted:true,
-    pending:false,
-    lastSyncedAt:latest?new Date(latest).toISOString():new Date().toISOString(),
-    lastAutoSyncAt:new Date().toISOString(),
-    lastAutoSyncReason:`record-${reason}`
-   });
-   cloudSetStatus(`Realtime cloud synchronized • ${new Date().toLocaleTimeString()}`);
-   return true;
-  }
-
-  // Even if there were no remote rows, do not disturb the current review page.
-  restoreReviewPage(uiBefore,{restoreScroll:true});
-  return false;
+  setCloudMeta({
+   initialized:true,
+   deviceTrusted:true,
+   pending:false,
+   lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),
+   lastAutoSyncAt:new Date().toISOString(),
+   lastAutoSyncReason:`full-${reason}`
+  });
+  cloudSetStatus(`Cloud loaded • ${new Date().toLocaleTimeString()}`);
+  updateCloudSyncPanel(true);
+  return true;
  }catch(e){
-  console.warn('Realtime pull failed',e);
-  cloudSetStatus('Realtime sync retry pending • '+e.message);
-
-  // Failure must also leave the user on the page they were reviewing.
-  restoreReviewPage(uiBefore,{restoreScroll:true});
+  console.warn('Full cloud pull failed',e);
+  cloudSetStatus('Cloud load retry pending • '+e.message);
   return false;
  }finally{
   recordSyncPullBusy=false;
@@ -8367,32 +8584,33 @@ async function recordPullAll(reason='pull'){
 }
 
 async function recordPushAll(reason='edit'){
- if(recordSyncPushBusy || recordSyncApplying || !recordSyncReady || !cloudClient)return false;
+ if(recordSyncPushBusy||recordSyncApplying||!recordSyncReady||!cloudClient)return false;
  recordSyncPushBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)return false;
 
-  // Before publishing, make sure this device has completed its canonical startup pull.
   const current=buildRecordSyncRowsFromState();
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
   const cloudRows=await recordFetchAll();
 
   const upserts=current.map(r=>({...r,deleted_at:null}));
+  upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-     .upsert(upserts,{onConflict:'section,record_id'});
+    .upsert(upserts,{onConflict:'section,record_id'});
    if(error)throw error;
   }
 
-  // Tombstones make deletions propagate instead of reappearing on another device.
+  const nowIso=new Date().toISOString();
   const removed=cloudRows
-   .filter(r=>!r.deleted_at && !currentKeys.has(`${r.section}|${r.record_id}`))
-   .map(r=>({section:r.section,record_id:r.record_id,data:r.data||{},deleted_at:new Date().toISOString()}));
+   .filter(r=>!r.deleted_at&&!currentKeys.has(`${r.section}|${r.record_id}`))
+   .map(r=>({section:r.section,record_id:r.record_id,data:r.data||{},deleted_at:nowIso}));
 
+  removed.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(removed.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-     .upsert(removed,{onConflict:'section,record_id'});
+    .upsert(removed,{onConflict:'section,record_id'});
    if(error)throw error;
   }
 
@@ -8405,13 +8623,14 @@ async function recordPushAll(reason='edit'){
    lastAutoSyncReason:`record-${reason}`
   });
   financeSettingsDirty=false;
-  cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
-  setTimeout(()=>recordPullAll('post-push-verify'),80);
+  cloudSetStatus(`Change published • ${new Date().toLocaleTimeString()}`);
+
+  // No post-push full pull. Realtime echo is muted for this local write.
   return true;
  }catch(e){
-  console.warn('Realtime push failed',e);
+  console.warn('Record push failed',e);
   setCloudMeta({pending:true});
-  cloudSetStatus('Realtime publish retry pending • '+e.message);
+  cloudSetStatus('Publish retry pending • '+e.message);
   return false;
  }finally{
   recordSyncPushBusy=false;
@@ -8421,29 +8640,23 @@ async function recordPushAll(reason='edit'){
 
 async function recordImmediateUpsert(section,recordId,data,reason='direct-write'){
  if(!cloudClient){
-  scheduleRecordPush(reason);
-  return false;
+  scheduleRecordPush(reason);return false;
  }
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session || !recordSyncReady){
-   scheduleRecordPush(reason);
-   return false;
+  if(!session||!recordSyncReady){
+   scheduleRecordPush(reason);return false;
   }
-  const row={
-   section,
-   record_id:String(recordId),
-   data,
-   deleted_at:null
-  };
+
+  const row={section,record_id:String(recordId),data,deleted_at:null};
+  markLocalRecordWrite(section,recordId);
+
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
    .upsert(row,{onConflict:'section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
-   initialized:true,
-   deviceTrusted:true,
-   pending:false,
+   initialized:true,deviceTrusted:true,pending:false,
    lastSyncedAt:new Date().toISOString(),
    lastAutoSyncAt:new Date().toISOString(),
    lastAutoSyncReason:`immediate-${reason}`
@@ -8462,29 +8675,28 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
 async function recordImmediateBatch(section,records,reason='batch-write'){
  if(!Array.isArray(records)||!records.length)return true;
  if(!cloudClient){
-  scheduleRecordPush(reason);
-  return false;
+  scheduleRecordPush(reason);return false;
  }
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session || !recordSyncReady){
-   scheduleRecordPush(reason);
-   return false;
+  if(!session||!recordSyncReady){
+   scheduleRecordPush(reason);return false;
   }
+
   const rows=records.map((x,i)=>({
    section,
    record_id:syncStableId(section,x,i),
    data:x,
    deleted_at:null
   }));
+  rows.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
+
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
    .upsert(rows,{onConflict:'section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
-   initialized:true,
-   deviceTrusted:true,
-   pending:false,
+   initialized:true,deviceTrusted:true,pending:false,
    lastSyncedAt:new Date().toISOString(),
    lastAutoSyncAt:new Date().toISOString(),
    lastAutoSyncReason:`immediate-${reason}`
@@ -8530,6 +8742,36 @@ function scheduleRecordPush(reason='edit'){
  recordSyncPushTimer=setTimeout(()=>recordPushAll(reason),250);
 }
 
+
+async function handleRealtimeRecordPayload(payload){
+ try{
+  const row=payload?.new&&Object.keys(payload.new).length?payload.new:payload?.old;
+  if(!row?.section||row.record_id==null)return;
+
+  noteCloudUpdatedAt(row.updated_at);
+
+  // Ignore the realtime echo of this device's own very recent write.
+  if(isMutedRealtimeRecord(row.section,row.record_id))return;
+
+  const result=applyRecordSyncDeltaRows([row],{render:true});
+  if(result.changed){
+   setCloudMeta({
+    initialized:true,
+    deviceTrusted:true,
+    pending:false,
+    lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),
+    lastAutoSyncAt:new Date().toISOString(),
+    lastAutoSyncReason:'realtime-delta'
+   });
+   cloudSetStatus(`Realtime update • ${new Date().toLocaleTimeString()}`);
+   updateCloudSyncPanel(true);
+  }
+ }catch(e){
+  console.warn('Realtime delta apply failed',e);
+  cloudSetStatus('Realtime delta retry pending • '+e.message);
+ }
+}
+
 async function startRealtimeRecordSync(){
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
@@ -8538,30 +8780,34 @@ async function startRealtimeRecordSync(){
   return false;
  }
 
- // Canonical cloud pull always happens before this device is allowed to publish.
+ // ONE canonical full load at startup only.
  await recordPullAll('startup');
  recordSyncReady=true;
- if(legacyPlannerCleanupPending){legacyPlannerCleanupPending=false;await recordPushAll('legacy-payment-plan-cleanup');}
+
+ if(legacyPlannerCleanupPending){
+  legacyPlannerCleanupPending=false;
+  await recordPushAll('legacy-payment-plan-cleanup');
+ }
 
  if(recordSyncChannel){
   try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){}
  }
+
  recordSyncChannel=cloudClient
   .channel('finance-sync-records-live')
   .on('postgres_changes',
       {event:'*',schema:'public',table:RECORD_SYNC_TABLE},
       payload=>{
        recordSyncLastEventAt=Date.now();
-       clearTimeout(recordRealtimePullTimer);
-       // Small debounce only: other devices should see the new row almost immediately.
-       recordRealtimePullTimer=setTimeout(()=>recordPullAll('realtime-event'),25);
+       handleRealtimeRecordPayload(payload);
       })
   .subscribe(status=>{
-    if(status==='SUBSCRIBED'){
-     cloudSetStatus(`Realtime connected • ${new Date().toLocaleTimeString()}`);
-    }
+   if(status==='SUBSCRIBED'){
+    cloudSetStatus(`Realtime connected • ${new Date().toLocaleTimeString()}`);
+   }
   });
 
+ schedulePeriodicCloudAutoSync();
  return true;
 }
 // ===================================================================
@@ -8901,22 +9147,16 @@ function mergeRecoverySnapshot(snap){
 }
 
 function refreshAllFinanceScreens(){
- const state=captureReviewState();
-
- renderDashboard();
- renderAccounts();
- renderTransactions();
- renderReports();
- renderPaymentPlanner();
- renderIncomePlan();
- renderInstallments();
- renderOutgoings();
- renderCategories();
- renderImportHistory();
- renderLocalSyncSummary();
-
- // Refreshing data must never be treated as navigation.
- restoreReviewPage(state,{restoreScroll:true});
+ // V173: retained only for explicit/manual recovery operations.
+ // Normal realtime synchronization never calls this.
+ const sections=[
+  'finance_settings','categories','merchant_rules','tx_overrides','income_plan',
+  'duplicate_decisions','statement_rule','transaction_actions','bank_balance_overrides',
+  'reset_card_ids','card_reset_history','deleted_installment_ids',
+  'manual_transactions','imported_transactions','import_history','cash_flow_ledger',
+  'outgoings','installments','card_payment_plan'
+ ];
+ return renderCurrentPageForSections(sections);
 }
 
 function exportRecoverySnapshot(){
@@ -9092,8 +9332,10 @@ function cloudLocalLastSavedAt(){
  return meta.lastLocalSavedAt||meta.lastSyncedAt||'';
 }
 
-async function cloudAutoReconcile(reason='auto'){
- if(!cloudClient || window.__financeStateInitialized!==true)return false;
+async function cloudAutoReconcile(reason='fallback'){
+ if(!cloudClient||window.__financeStateInitialized!==true)return false;
+ if(recordSyncDeltaBusy)return false;
+
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return false;
 
@@ -9106,37 +9348,80 @@ async function cloudAutoReconcile(reason='auto'){
  if(meta.pending===true){
   await recordPushAll(reason);
  }
- return await recordPullAll(reason);
+
+ recordSyncDeltaBusy=true;
+ try{
+  const latest=await recordFetchLatestUpdatedAt();
+  if(!latest||latest<=recordSyncLastCloudUpdatedAt)return false;
+
+  const rows=await recordFetchChangedSince(currentCloudCursorIso());
+  if(!rows.length){
+   recordSyncLastCloudUpdatedAt=latest;
+   return false;
+  }
+
+  const result=applyRecordSyncDeltaRows(rows,{render:true});
+  rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
+
+  if(result.changed){
+   setCloudMeta({
+    initialized:true,deviceTrusted:true,pending:false,
+    lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt).toISOString(),
+    lastAutoSyncAt:new Date().toISOString(),
+    lastAutoSyncReason:`delta-${reason}`
+   });
+   cloudSetStatus(`Cloud reconciled • ${new Date().toLocaleTimeString()}`);
+   updateCloudSyncPanel(true);
+  }
+  return result.changed;
+ }catch(e){
+  console.warn('Delta reconcile failed',e);
+  cloudSetStatus('Background sync retry pending • '+e.message);
+  return false;
+ }finally{
+  recordSyncDeltaBusy=false;
+ }
 }
 
 function schedulePeriodicCloudAutoSync(){
  clearInterval(cloudAutoSyncTimer);
- cloudAutoSyncTimer=setInterval(()=>{
-  if(document.visibilityState==='visible' && navigator.onLine!==false){
-   cloudAutoReconcile('periodic');
+ clearInterval(recordSyncFallbackTimer);
+
+ // Realtime is primary. This is only a safety net if an event was missed.
+ recordSyncFallbackTimer=setInterval(()=>{
+  if(document.visibilityState==='visible'&&navigator.onLine!==false){
+   cloudAutoReconcile('60s-fallback');
   }
- },3000);
+ },60000);
 }
 
 function startCloudAutoSyncWatchers(){
  schedulePeriodicCloudAutoSync();
 
- window.addEventListener('online',()=>cloudAutoReconcile('back-online'));
+ window.addEventListener('online',()=>{
+  // One delta check after connectivity returns.
+  setTimeout(()=>cloudAutoReconcile('back-online'),500);
+ });
 
  document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible')cloudAutoReconcile('tab-visible');
+  // Do not reload the UI merely because the tab became visible.
+  // Only check cloud timestamps after a meaningful absence.
+  if(document.visibilityState==='visible'&&Date.now()-cloudLastAutoCheckAt>30000){
+   cloudLastAutoCheckAt=Date.now();
+   cloudAutoReconcile('tab-visible');
+  }
  });
 
  window.addEventListener('focus',()=>{
-  if(Date.now()-cloudLastAutoCheckAt>5000)cloudAutoReconcile('window-focus');
+  if(Date.now()-cloudLastAutoCheckAt>30000){
+   cloudLastAutoCheckAt=Date.now();
+   cloudAutoReconcile('window-focus');
+  }
  });
 
- // Best-effort publish of pending local edits before leaving.
  window.addEventListener('pagehide',()=>{
   const meta=getCloudMeta();
-  if(meta.pending===true && recordSyncReady){
-   recordPushAll('pagehide');
-  }
+  if(meta.pending===true&&recordSyncReady)recordPushAll('pagehide');
  });
 }
 
@@ -9656,6 +9941,21 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
  if(e.target.closest?.('#transactions,#reports'))scheduleReviewStateSave();
 });
+
+
+function V173SyncArchitectureAudit(){
+ return {
+  version:'V173',
+  realtimePrimary:true,
+  startupFullPull:true,
+  periodicFallbackMs:60000,
+  lastCloudUpdatedAt:recordSyncLastCloudUpdatedAt,
+  activePage:activeViewId(),
+  pending:getCloudMeta().pending===true,
+  dangerousThreeSecondPolling:false,
+  postPushFullPull:false
+ };
+}
 
 async function init(){
  const session=await cloudRefreshAuth();
