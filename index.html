@@ -768,10 +768,12 @@ button{cursor:pointer}
 
 <div class="notice" style="margin-bottom:12px">
  <b>Controlled Sync workflow:</b>
- <span> Use <b>Publish This Device</b> to upload the current local database to Supabase. Use <b>Load Latest Cloud Data</b> only when you intentionally want to replace this device with the cloud copy.</span>
+ <span> Use <div class="notice" style="margin:12px 0">
+<b>V172 clean-master tool:</b> Use <b>Replace Cloud With This Device</b> only for this one-time cleanup. It compacts deleted/duplicate history out of the live local dataset, publishes the compacted state, tombstones obsolete cloud rows, and verifies the result without downloading cloud data.
+</div><b>Publish This Device</b> to upload the current local database to Supabase. Use <b>Load Latest Cloud Data</b> only when you intentionally want to replace this device with the cloud copy.</span>
 </div>
 <div class="card" style="margin-bottom:14px">
- <h3 style="margin-top:0">V171 Controlled Sync</h3>
+ <h3 style="margin-top:0">V172 Controlled Sync</h3>
  <div class="small">
   This device saves locally first and uploads edits automatically. Background cloud downloads are disabled.
   When you move to another computer, use <b>Load Latest Cloud Data</b> once before editing.
@@ -781,7 +783,7 @@ button{cursor:pointer}
 
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V171 Controlled Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">CONTROLLED CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V172 Controlled Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">CONTROLLED CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -817,7 +819,7 @@ button{cursor:pointer}
 
    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn primary" id="cloudInitialUpload">Use This Device as First Cloud Source</button>
-    <button class="btn" id="cloudUpload">Publish This Device</button><button class="btn" type="button" onclick="verifyRecordCloudReadOnly()">Verify Cloud Counts</button>
+    <button class="btn" id="cloudUpload">Publish This Device</button><button class="btn" type="button" onclick="verifyRecordCloudReadOnly()">Verify Cloud Counts</button><button class="btn danger" type="button" onclick="replaceCloudWithThisDeviceClean()">Replace Cloud With This Device</button>
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
@@ -8483,6 +8485,167 @@ async function verifyRecordCloudReadOnly(){
  }catch(e){
   $('cloudResult').textContent='Read-only cloud verification failed. Local data was unchanged. '+e.message;
   return false;
+ }
+}
+
+
+function materializeLiveTransactionRow(t){
+ const out={...t};
+ delete out.txAction;
+ delete out._pendingCloudSync;
+ delete out._pendingCloudSyncAt;
+ return out;
+}
+
+function compactCurrentDeviceForCleanMaster(){
+ // Create an exact live transaction set. normalizedTx(false) excludes deleted and
+ // duplicate-excluded rows and already applies current category/month overrides.
+ const live=normalizedTx(false).map(materializeLiveTransactionRow);
+ const liveById=new Map(live.map(t=>[t._id,t]));
+
+ const manualIds=new Set((manualTransactions||[]).map(t=>t._id));
+ const importedIds=new Set((importedTransactions||[]).map(t=>t._id));
+
+ manualTransactions=live.filter(t=>manualIds.has(t._id));
+ importedTransactions=live.filter(t=>importedIds.has(t._id));
+
+ // If a live row's original source is unavailable, preserve it as manual rather
+ // than losing valid user data.
+ live.forEach(t=>{
+  if(!manualIds.has(t._id) && !importedIds.has(t._id)){
+   manualTransactions.push(t);
+  }
+ });
+
+ // All current category/subcategory/month decisions are now materialized in rows.
+ txOverrides={};
+ transactionActions={};
+ duplicateDecisions={};
+
+ // Keep import history only when its batch still has retained imported rows.
+ const retainedImportedIds=new Set(importedTransactions.map(t=>t._id));
+ importHistory=(importHistory||[]).filter(h=>{
+  const rows=importBatchRows(h)||[];
+  return rows.some(t=>retainedImportedIds.has(t._id));
+ });
+
+ // Payment planner: remove only regenerable auto-generated zero rows.
+ cardPaymentPlan=(cardPaymentPlan||[]).filter(p=>{
+  const history=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
+  const hasActivity=
+   Math.abs(Number(p.amount||0))>0.005 ||
+   Math.abs(Number(p.paidAmount||0))>0.005 ||
+   history.length>0;
+  return hasActivity || p.autoGenerated!==true;
+ });
+
+ // Reversed cash-flow rows are audit history only. They must not be transported
+ // as live cloud finance rows after the clean-master replacement.
+ cashFlowLedger=(cashFlowLedger||[]).filter(x=>x.status!=='reversed');
+
+ rebuildTransactions();
+ persistRecoveredState();
+ try{financeDB.save();}catch(_){}
+ saveLocal();
+
+ return {
+  transactions:normalizedTx(false).length,
+  manual:manualTransactions.length,
+  imported:importedTransactions.length,
+  installments:installments.length,
+  paymentRows:cardPaymentPlan.length,
+  cashFlowRows:cashFlowLedger.length
+ };
+}
+
+function activeRecordCloudCounts(rows){
+ const active=(rows||[]).filter(r=>!r.deleted_at);
+ const countSection=(...names)=>active.filter(r=>names.includes(r.section)).length;
+ return {
+  transactions:countSection('manual_transactions','imported_transactions'),
+  installments:countSection('installments'),
+  paymentRows:countSection('card_payment_plan'),
+  cashFlowRows:countSection('cash_flow_ledger')
+ };
+}
+
+async function replaceCloudWithThisDeviceClean(){
+ const msg=
+  'This will make THIS DEVICE the clean cloud master.\n\n'+
+  'Before publishing, the app will:\n'+
+  '• create a local recovery snapshot\n'+
+  '• physically remove deleted/duplicate-excluded transaction rows locally\n'+
+  '• materialize current category/month edits into the surviving transactions\n'+
+  '• remove regenerable zero planner rows\n'+
+  '• remove reversed cash-flow rows from the live dataset\n'+
+  '• tombstone cloud records that are not in this clean device\n\n'+
+  'It will NOT load cloud data back into this device.\n\nContinue?';
+ if(!confirm(msg))return false;
+
+ const typed=prompt('Type REPLACE CLOUD to confirm this clean-master operation:','');
+ if(typed!=='REPLACE CLOUD'){
+  $('cloudResult').textContent='Cloud replacement cancelled. No data was changed.';
+  return false;
+ }
+
+ try{
+  $('cloudResult').textContent='Creating recovery snapshot before clean-master replacement…';
+  saveRecoverySnapshot('before-v172-clean-cloud-replacement');
+
+  beginUiMutation();
+  const compact=compactCurrentDeviceForCleanMaster();
+
+  $('cloudResult').textContent=
+   `Local compaction complete: ${compact.transactions} live transactions, `+
+   `${compact.installments} installments, ${compact.paymentRows} payment rows, `+
+   `${compact.cashFlowRows} cash-flow rows. Publishing clean master…`;
+
+  // Existing recordPushAll performs upserts AND tombstones cloud rows missing locally.
+  const pushed=await recordPushAll('v172-clean-cloud-replacement');
+  if(!pushed)throw new Error('Cloud publish did not complete.');
+
+  // Read-only verification. Do not call recordPullAll/applyRecordSyncRows.
+  const remote=await recordFetchAll();
+  const cloud=activeRecordCloudCounts(remote);
+  const local={
+   transactions:(manualTransactions||[]).length+(importedTransactions||[]).length,
+   installments:(installments||[]).length,
+   paymentRows:(cardPaymentPlan||[]).length,
+   cashFlowRows:(cashFlowLedger||[]).length
+  };
+
+  const match=
+   cloud.transactions===local.transactions &&
+   cloud.installments===local.installments &&
+   cloud.paymentRows===local.paymentRows &&
+   cloud.cashFlowRows===local.cashFlowRows;
+
+  $('cloudResult').textContent=
+   `V172 CLEAN MASTER ${match?'MATCH':'MISMATCH'} • `+
+   `Cloud ${cloud.transactions} transactions, ${cloud.installments} installments, `+
+   `${cloud.paymentRows} payment rows, ${cloud.cashFlowRows} cash-flow rows • `+
+   `Local ${local.transactions} transactions, ${local.installments} installments, `+
+   `${local.paymentRows} payment rows, ${local.cashFlowRows} cash-flow rows. `+
+   `No cloud data was loaded into this device.`;
+
+  renderDashboard();
+  renderAccounts();
+  renderTransactions();
+  renderReports();
+  renderReviewAlerts();
+  renderImportHistory();
+  renderTxHistory();
+  renderCloud();
+
+  return match;
+ }catch(e){
+  console.error('V172 clean cloud replacement failed',e);
+  $('cloudResult').textContent=
+   'V172 clean-master replacement failed: '+e.message+
+   ' • A local recovery snapshot was created before the operation. No cloud data was loaded back into this device.';
+  return false;
+ }finally{
+  setTimeout(()=>endUiMutation(),1200);
  }
 }
 
