@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V160 PRODUCTION</span></div>
+  </div><span class="pill green">V162 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V160</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V160-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V162</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V162-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1798,17 +1798,35 @@ function paymentRemainingAmount(p){
 }
 function recordPartialPayment(id){openRecordPayment(id)}
 function undoLastPartialPayment(id){
- const p=cardPaymentPlan.find(x=>x.id===id);if(!p||!Array.isArray(p.paymentHistory)||!p.paymentHistory.length)return;
+ const p=cardPaymentPlan.find(x=>x.id===id);
+ if(!p||!Array.isArray(p.paymentHistory)||!p.paymentHistory.length)return;
+
  const last=p.paymentHistory[p.paymentHistory.length-1];
  const src=last.sourceId==='cash-source'?'Monthly Planned Income':accountName(last.sourceId);
  if(!confirm(`Undo the last payment of ${money(Number(last.amount||0))} from ${src}?`))return;
+
  p.paymentHistory.pop();
  const undoRef=`payment:${p.id}:${last.recordedAt||last.date||''}:${Number(last.amount||0).toFixed(2)}`;
  reverseCashFlowLedgerByReference(undoRef);
+
  const undoSource=last.sourceId==='cash-source'?null:account(last.sourceId);
- if(undoSource?.type==='bank')setTrackedBankBalance(undoSource.id,adjustedBankBalance(undoSource)+Number(last.amount||0));
- p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.duePortion!=null?last.duePortion:last.amount||0));p.paid=false;
- saveCardPaymentPlan();renderPaymentPlanner();renderDashboard();renderAccounts();if(document.querySelector('#incomeplan.active'))renderIncomePlan();
+ if(undoSource?.type==='bank'){
+  setTrackedBankBalance(undoSource.id,adjustedBankBalance(undoSource)+Number(last.amount||0));
+ }
+
+ p.paidAmount=Math.max(0,paymentPaidAmount(p)-Number(last.duePortion!=null?last.duePortion:last.amount||0));
+ p.paid=false;
+
+ saveCardPaymentPlan();
+ saveLocal();
+
+ // Recalculate target card immediately because undoing a payment consumes credit again.
+ refreshAfterTransactionChange(p.accountId);
+
+ // If the original payment came from another credit card, restore that source card too.
+ if(undoSource?.type==='card')refreshAfterTransactionChange(undoSource.id);
+
+ if(document.querySelector('#incomeplan.active'))renderIncomePlan();
 }
 
 function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
@@ -3227,18 +3245,66 @@ function activeManualCardBalanceDelta(cardId){
 function recordedCardPaymentCredit(cardId){
  let credit=0;
 
- // V142: normal recorded payments belong to the obligation they settled.
- // They must not remain as a permanent global credit against future purchases.
- // Only explicit extra/overpayment credit carries forward.
  cardPaymentPlan
   .filter(p=>p.accountId===cardId)
   .forEach(p=>{
-   (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
-    credit+=Math.max(0,Number(h.extraCredit||0));
-   });
+   (p.paymentHistory||[])
+    .filter(h=>!h.mirrored)
+    .forEach(h=>{
+     credit+=Math.max(0,Number(h.amount||0));
+    });
   });
 
  return Math.round(credit*100)/100;
+}
+
+
+
+function monthlyInstallmentRolloverAudit(cardId,paymentMonth){
+ const rows=activeInstallmentPlans(cardId).map(p=>{
+  const c=planCalc(p);
+  return {
+   id:p.id,
+   referenceMonth:p.referenceMonth||p.startMonth||'',
+   monthly:Number(c.monthly||0),
+   remainingAmount:Number(c.remaining||0),
+   remainingInstallments:Number(c.remainingCount||0),
+   amountForPaymentMonth:Number(installmentAmountForPaymentMonth(cardId,paymentMonth)||0)
+  };
+ });
+ return {
+  cardId,
+  paymentMonth,
+  installmentAmountToPay:Number(installmentAmountForPaymentMonth(cardId,paymentMonth)||0),
+  plans:rows
+ };
+}
+
+function recordedCardPaymentCreditAudit(cardId){
+ const rows=[];
+ cardPaymentPlan.filter(p=>p.accountId===cardId).forEach(p=>{
+  const official=importedOfficialPlannerRow(p.accountId,p.month);
+  const releasedBacked=!!official || isGenuineReleasedStatementRow(p);
+  (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
+   const amount=Math.max(0,Number(h.amount||0));
+   const extra=Math.max(0,Number(h.extraCredit||0));
+   rows.push({
+    paymentPlanId:p.id,
+    month:p.month,
+    amount,
+    extraCredit:extra,
+    releasedBacked,
+    countedCredit:releasedBacked?extra:amount,
+    sourceId:h.sourceId||'',
+    sourceName:h.sourceName||''
+   });
+  });
+ });
+ return {
+  cardId,
+  rows,
+  total:Math.round(rows.reduce((s,r)=>s+r.countedCredit,0)*100)/100
+ };
 }
 
 function cardFundedPaymentBreakdown(cardId){
@@ -3478,12 +3544,13 @@ function excelCardAccounting(a){
  const futureReserve=Math.max(0,Math.round((remainingPrincipal-currentInstallment)*100)/100);
  const currentCycle=Math.max(0,Math.round((currentTransactions+currentInstallment)*100)/100);
 
- // Recorded payments must restore available credit on the target card.
- // Do not double-count payments already reflected in a confirmed statement's
- // remaining balance; recordedCardPaymentCredit() handles that distinction.
+ // Recorded payments restore available credit on the TARGET card.
+ // For calculated/date-driven cycles the full recorded payment is a card credit.
+ // For a backed released statement, only the true extra/overpayment is separate
+ // because the due portion already reduces Released / Amount to Pay.
  const creditBreakdown=cardCreditBreakdown(a.id);
  const manualCredits=creditBreakdown.manualCredits;
- const recordedPaymentCredits=creditBreakdown.recordedPaymentCredits; // explicit extra/overpayment only
+ const recordedPaymentCredits=creditBreakdown.recordedPaymentCredits;
  const totalCredits=Math.max(0,manualCredits+recordedPaymentCredits);
 
  // If this card funded another card payment, that is utilization on this card
@@ -3495,10 +3562,15 @@ function excelCardAccounting(a){
  // Outstanding / Utilized includes the FUTURE reserve only.
  // Available Credit deducts the current installment separately.
  const grossOccupied=Math.max(0,released+liveTransactions+futureReserve+fundedOtherCards);
- const occupied=Math.max(0,grossOccupied-totalCredits);
- const overCredit=Math.max(0,totalCredits-grossOccupied);
- const total=occupied;
- const available=Math.max(0,limit-total-currentInstallment)+overCredit;
+
+ // V162 AGREED PAYMENT RULE:
+ // 1) calculate available credit BEFORE recorded/manual payments;
+ // 2) add those payments back to the card one-for-one.
+ // Example: 1,349.08 + 845.00 + 2,001.50 = 4,195.58.
+ const total=grossOccupied;
+ const baseAvailable=Math.max(0,limit-total-currentInstallment);
+ const available=Math.max(0,baseAvailable+totalCredits);
+ const overCredit=Math.max(0,available-limit);
  const utilization=limit?total/limit*100:0;
 
  return {
@@ -3517,7 +3589,7 @@ function excelCardAccounting(a){
   inst:futureReserve,
   total,
   util:utilization,
-  creditBalance:totalCredits+overCredit,
+  creditBalance:totalCredits,
   manualCardCredits:manualCredits,
   recordedPaymentCredits,
   fundedOtherCards,
@@ -3538,7 +3610,7 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
   installmentIncludedInUtilized:Math.min(total,futureReserve),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((available+total+currentInstallment-overCredit)-limit)<0.02
+  creditLimitInvariant:Math.abs((baseAvailable+total+currentInstallment)-limit)<0.02
  };
 }
 function cardMetrics(a){
@@ -5547,7 +5619,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized − Current Cycle Installment. Outstanding includes live transactions, unpaid released statements, future installment reserve, and unmatched card-funded payments. A card-funded payment remains utilized until that source-card cycle is replaced by a real statement or the imported source transaction is present.</div>
+<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized − Current Cycle Installment. Outstanding includes live transactions, unpaid released statements, future installment reserve, and unmatched card-funded payments. Recorded payments restore available credit on the target card one-for-one. When a new month begins, that month's installment moves into Amount to Pay while the installment remaining principal and remaining-month count reduce once. A card-funded payment remains utilized on the source card until that source-card cycle is replaced by a real statement or the imported source transaction is present.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
@@ -6746,6 +6818,16 @@ function addLoanSetting(){
 function renderIncomeLoanGrid(){const box=$('incomeLoanGrid');if(!box)return;const rows=financeSettings.loans||[];box.innerHTML=rows.length?rows.map(l=>{const c=loanCalc(l);return `<div class="loanCard"><div class="splitHead"><div><b>${escapeHtml(l.name||'Loan')}</b><div class="meta">${l.status==='closed'?'Closed':'Monthly deduction'}</div></div><span class="badge ${c.status==='Active'?'active':'completed'}">${c.status==='Active'?`${c.remainingMonths} months remaining`:'Closed / Completed'}</span></div><div class="cardMetricGrid" style="grid-template-columns:repeat(3,1fr);margin-top:12px"><div class="miniMetric"><span>Monthly Payment</span><b class="red">${money(l.status==='closed'?0:Number(l.monthly||0))}</b></div><div class="miniMetric"><span>Remaining Months</span><b>${c.remainingMonths}</b></div><div class="miniMetric"><span>Remaining Amount</span><b>${money(c.remainingAmount)}</b></div></div></div>`;}).join(''):'<div class="notice">No bank loans configured. Add them under More → Finance Settings.</div>';}
 
 function renderIncomePlan(){
+ // V162: advance remaining-principal installment plans once when a new month begins.
+ // referenceMonth is moved forward by reconcileRemainingPrincipalPlans(), so reopening
+ // the page in the same month cannot deduct the installment again.
+ reconcileRemainingPrincipalPlans();
+
+ // Rebuild date-driven planner rows after installment reconciliation so the new
+ // month's Amount to Pay includes that month's installment commitment.
+ resetCardIds.forEach(cardId=>rebuildResetCardPlannerRows(cardId));
+ rebuildResetCardPlannerRows('meem-7102');
+
  applySavedIncomePlanForCurrentMonth();
  $('incomeMySalary').value=incomePlan.mySalary||'';
  $('incomeWifeSalary').value=incomePlan.wifeSalary||'';
