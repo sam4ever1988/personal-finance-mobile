@@ -769,11 +769,11 @@ button{cursor:pointer}
 <div class="notice" style="margin-bottom:12px">
  <b>Controlled Sync workflow:</b>
  <span> Use <div class="notice" style="margin:12px 0">
-<b>V172 clean-master tool:</b> Use <b>Replace Cloud With This Device</b> only for this one-time cleanup. It compacts deleted/duplicate history out of the live local dataset, publishes the compacted state, tombstones obsolete cloud rows, and verifies the result without downloading cloud data.
+<b>V173 clean-master tool:</b> Fixes the V172 post-publish UI error (<code>renderCloud is not defined</code>).  Use <b>Replace Cloud With This Device</b> only for this one-time cleanup. It compacts deleted/duplicate history out of the live local dataset, publishes the compacted state, tombstones obsolete cloud rows, and verifies the result without downloading cloud data.
 </div><b>Publish This Device</b> to upload the current local database to Supabase. Use <b>Load Latest Cloud Data</b> only when you intentionally want to replace this device with the cloud copy.</span>
 </div>
 <div class="card" style="margin-bottom:14px">
- <h3 style="margin-top:0">V172 Controlled Sync</h3>
+ <h3 style="margin-top:0">V173 Controlled Sync</h3>
  <div class="small">
   This device saves locally first and uploads edits automatically. Background cloud downloads are disabled.
   When you move to another computer, use <b>Load Latest Cloud Data</b> once before editing.
@@ -783,7 +783,7 @@ button{cursor:pointer}
 
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V172 Controlled Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">CONTROLLED CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V173 Controlled Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">CONTROLLED CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -8621,27 +8621,25 @@ async function replaceCloudWithThisDeviceClean(){
    cloud.cashFlowRows===local.cashFlowRows;
 
   $('cloudResult').textContent=
-   `V172 CLEAN MASTER ${match?'MATCH':'MISMATCH'} • `+
+   `V173 CLEAN MASTER ${match?'MATCH':'MISMATCH'} • `+
    `Cloud ${cloud.transactions} transactions, ${cloud.installments} installments, `+
    `${cloud.paymentRows} payment rows, ${cloud.cashFlowRows} cash-flow rows • `+
    `Local ${local.transactions} transactions, ${local.installments} installments, `+
    `${local.paymentRows} payment rows, ${local.cashFlowRows} cash-flow rows. `+
    `No cloud data was loaded into this device.`;
 
-  renderDashboard();
-  renderAccounts();
-  renderTransactions();
-  renderReports();
-  renderReviewAlerts();
-  renderImportHistory();
-  renderTxHistory();
-  renderCloud();
+  // The cloud operation and read-only verification are already complete here.
+  // UI refreshes are best-effort only and must never turn a successful cloud
+  // replacement into a false failure.
+  for(const fn of [renderDashboard,renderAccounts,renderTransactions,renderReports,renderReviewAlerts,renderImportHistory,renderTxHistory]){
+   try{ if(typeof fn==='function')fn(); }catch(uiErr){ console.warn('Post-replacement UI refresh skipped',uiErr); }
+  }
 
   return match;
  }catch(e){
-  console.error('V172 clean cloud replacement failed',e);
+  console.error('V173 clean cloud replacement failed',e);
   $('cloudResult').textContent=
-   'V172 clean-master replacement failed: '+e.message+
+   'V173 clean-master replacement failed: '+e.message+
    ' • A local recovery snapshot was created before the operation. No cloud data was loaded back into this device.';
   return false;
  }finally{
