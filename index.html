@@ -552,6 +552,7 @@ button{cursor:pointer}
  <div id="txBulkBar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn" type="button" id="txSelectAllVisible">Select All Visible</button>
   <button class="btn" type="button" id="txClearSelection">Clear Selection</button>
+  <button class="btn primary" type="button" id="txUpdateSelected" disabled>Update Selected</button>
   <button class="btn danger" type="button" id="txDeleteSelected" disabled>Delete Selected</button>
   <span class="meta" id="txSelectedCount">0 selected</span>
  </div>
@@ -836,10 +837,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V167 PRODUCTION</span></div>
+  </div><span class="pill green">V168 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V167</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V167-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V168</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V168-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4196,7 +4197,7 @@ function renderDashboard(){
   kpiHTML('Total Card Bank Utilization',money(obligations),'Current balance + reserved installment principal','amber')
  ].join('');
  $('sideBalance').textContent=money(currentBankBalance());
- $('dashAccounts').innerHTML=accounts.map(accountCardHTML).join('');
+ $('dashAccounts').innerHTML=accounts.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(accountCardHTML).join('');
  bindAccountCards();
  const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
  $('recentBody').innerHTML=rows.map(txRow5).join('');
@@ -4257,7 +4258,7 @@ function txRow6(t){
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
  if($('txSelectedCount'))$('txSelectedCount').textContent=`${n} selected`;
- if($('txDeleteSelected'))$('txDeleteSelected').disabled=n===0;
+ if($('txDeleteSelected'))$('txDeleteSelected').disabled=n===0; if($('txUpdateSelected'))$('txUpdateSelected').disabled=n===0;
  const visible=[...document.querySelectorAll('[data-select-tx]')];
  if($('txMasterCheck')){
   $('txMasterCheck').checked=visible.length>0&&visible.every(x=>x.checked);
@@ -4269,6 +4270,16 @@ function bulkDeleteSelected(){
  if(!confirm(`Delete ${ids.length} selected transaction(s)?\n\nThis is one bulk action. They will be excluded from calculations but kept in Transaction History so you can restore them later.`))return;
  const rows=normalizedTx(true),affected=new Set(ids.map(id=>rows.find(t=>t._id===id)?.account).filter(Boolean)),now=new Date().toISOString();ids.forEach(id=>transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now});selectedTxIds.clear();saveLocal();refreshAfterTransactionChange([...affected][0]||'');
 }
+
+async function bulkUpdateSelected(){
+ const ids=[...selectedTxIds];if(!ids.length)return;
+ const category=prompt(`Update ${ids.length} selected transaction(s).\n\nCategory (blank = keep existing):`,'');if(category===null)return;
+ const subcategory=prompt('Subcategory (blank = keep existing):','');if(subcategory===null)return;
+ const month=prompt('Statement Month YYYY-MM (blank = keep existing):','');if(month===null)return;
+ if(month && !/^\d{4}-\d{2}$/.test(month)){alert('Statement Month must be YYYY-MM.');return;}
+ beginUiMutation();try{const now=new Date().toISOString();ids.forEach(id=>{txOverrides[id]={...(txOverrides[id]||{})};if(category.trim())txOverrides[id].category=category.trim();if(subcategory.trim())txOverrides[id].subcategory=subcategory.trim();if(month.trim()){txOverrides[id].statementMonth=month.trim();txOverrides[id].statementMonthManual=true;}txOverrides[id].updatedAt=now;});saveLocal();renderTransactions();renderDashboard();renderAccounts();renderReports();renderReviewAlerts();if(recordSyncReady)await recordPushAll('bulk-update');}finally{setTimeout(()=>endUiMutation(),1200);}
+}
+
 function bindTxRows(){
  document.querySelectorAll('[data-select-tx]').forEach(c=>{c.onclick=e=>e.stopPropagation();c.onchange=()=>{c.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx);updateTxBulkUI();};});
  document.querySelectorAll('[data-dup-keep]').forEach(b=>b.onclick=e=>{e.stopPropagation();resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep)});
@@ -4278,7 +4289,7 @@ function bindTxRows(){
 }
 
 function renderAccounts(){
- $('accountsGrid').innerHTML=accounts.map(accountCardHTML).join('');bindAccountCards();
+ $('accountsGrid').innerHTML=accounts.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(accountCardHTML).join('');bindAccountCards();
  $('cardSummaryBody').innerHTML=accounts.filter(a=>a.type==='card').map(a=>{
   const m=cardMetrics(a);return `<tr><td><b>${a.bank} • ${a.name} •${a.ending}</b></td><td class="red">${money(m.current)}</td><td class="amber">${money(m.inst)}</td><td class="red"><b>${money(m.total)}</b></td><td>${money(m.limit)}</td><td class="green"><b>${money(m.available)}</b></td><td><div>${m.util.toFixed(1)}%</div><div class="progress"><div class="progressFill" style="width:${Math.min(m.util,100)}%"></div></div></td></tr>`
  }).join('');
@@ -4597,6 +4608,7 @@ $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false
 
 $('txSelectAllVisible').addEventListener('click',()=>{document.querySelectorAll('[data-select-tx]').forEach(c=>{c.checked=true;selectedTxIds.add(c.dataset.selectTx)});updateTxBulkUI();});
 $('txClearSelection').addEventListener('click',()=>{selectedTxIds.clear();document.querySelectorAll('[data-select-tx]').forEach(c=>c.checked=false);updateTxBulkUI();});
+$('txUpdateSelected').addEventListener('click',bulkUpdateSelected);
 $('txDeleteSelected').addEventListener('click',bulkDeleteSelected);
 $('txMasterCheck').addEventListener('change',e=>{document.querySelectorAll('[data-select-tx]').forEach(c=>{c.checked=e.target.checked;e.target.checked?selectedTxIds.add(c.dataset.selectTx):selectedTxIds.delete(c.dataset.selectTx)});updateTxBulkUI();});
 
@@ -6493,13 +6505,17 @@ function viewImportBatch(index){
  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table></body></html>`);
  win.document.close();
 }
-function deleteImportBatch(index){
+async function deleteImportBatch(index){
  const h=importHistory[index];if(!h)return;
  const rows=importBatchRows(h),ids=new Set(rows.map(t=>t._id));
  if(!confirm(`Delete this entire import?\n\nFile: ${h.fileName}\nTransactions to remove: ${rows.length}\n\nThis removes only transactions created by this import batch. Your manual transactions and other statement imports will not be touched.`))return;
- importedTransactions=importedTransactions.filter(t=>!ids.has(t._id));
- importHistory.splice(index,1);
- rebuildTransactions();saveLocal();renderDashboard();renderAccounts();renderTransactions();renderReports();renderReviewAlerts();renderImportHistory();renderTxHistory();
+ beginUiMutation();
+ try{
+  importedTransactions=importedTransactions.filter(t=>!ids.has(t._id));
+  importHistory.splice(index,1);
+  rebuildTransactions();saveLocal();renderDashboard();renderAccounts();renderTransactions();renderReports();renderReviewAlerts();renderImportHistory();renderTxHistory();
+  if(recordSyncReady)await recordPushAll('delete-import-batch');
+ }finally{setTimeout(()=>endUiMutation(),1200);}
 }
 
 
@@ -7246,6 +7262,12 @@ function syncStableId(section,x,i=0){
 
 let transactionEditSyncDirty=false;
 let transactionEditSyncDirtyAt='';
+let uiMutationLock=0;
+let realtimeRefreshQueued=false;
+function beginUiMutation(){uiMutationLock++;markTransactionEditSyncDirty();}
+function endUiMutation(){uiMutationLock=Math.max(0,uiMutationLock-1);if(uiMutationLock===0&&realtimeRefreshQueued){realtimeRefreshQueued=false;setTimeout(()=>recordPullAll('queued-after-local-mutation'),1200);}}
+function uiMutationActive(){return uiMutationLock>0;}
+
 
 function transactionModalIsOpen(){
  const ids=['txEditModal','manualTxModal'];
@@ -7521,9 +7543,7 @@ async function recordPullAll(reason='pull'){
 
  // V164: never refresh canonical cloud state while a transaction form is open.
  // This prevents category/month/account fields from resetting while the user types.
- if(transactionModalIsOpen() && reason!=='post-push-verify'){
-  return false;
- }
+ if((transactionModalIsOpen() || uiMutationActive()) && reason!=='post-push-verify'){ realtimeRefreshQueued=true; return false; }
 
  // Protect unsynced transaction edits and newly-created manual rows until their
  // first successful Supabase publish.
@@ -7608,7 +7628,7 @@ async function recordPushAll(reason='edit'){
   clearConfirmedManualPendingFlags();
   clearTransactionEditSyncDirty();
   cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
-  setTimeout(()=>recordPullAll('post-push-verify'),350);
+  setTimeout(()=>recordPullAll('post-push-verify'),1500);
   return true;
  }catch(e){
   console.warn('Realtime push failed',e);
@@ -7641,7 +7661,7 @@ async function startRealtimeRecordSync(){
  if(legacyPlannerCleanupPending){legacyPlannerCleanupPending=false;await recordPushAll('legacy-payment-plan-cleanup');}
 
  if(recordSyncChannel){
-  try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){}
+  try{await recordSyncChannel.unsubscribe();}catch(_){} recordSyncChannel=null;
  }
  recordSyncChannel=cloudClient
   .channel('finance-sync-records-live')
@@ -7650,7 +7670,7 @@ async function startRealtimeRecordSync(){
       payload=>{
        recordSyncLastEventAt=Date.now();
        // Pull the canonical record set for inserts/updates/deletes from any device.
-       setTimeout(()=>recordPullAll('realtime-event'),80);
+       clearTimeout(recordRealtimeTimer); if(transactionEditSyncDirty||transactionModalIsOpen()||uiMutationActive()){realtimeRefreshQueued=true;return;} recordRealtimeTimer=setTimeout(()=>recordPullAll('realtime-event'),1200);
       })
   .subscribe(status=>{
     if(status==='SUBSCRIBED'){
