@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V164 PRODUCTION</span></div>
+  </div><span class="pill green">V165 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V164</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V164-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V165</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V165-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3052,13 +3052,14 @@ function liveCardTransactions(includeInactive=false){
  ];
  return rows.map(t=>{
   let out={...t};
-  // A stored paymentMonth from statement import is authoritative for the imported row.
-  out.paymentMonth=out.paymentMonth||paymentMonthForTransaction(out.account,out.date);
-  out.statementMonth=out.statementMonth||out.paymentMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
-  if(txOverrides[t._id])Object.assign(out,txOverrides[t._id]);
+  // A manual statement assignment stored directly on the transaction row is authoritative.
+  const directManual=out.statementMonthManual===true && !!out.statementMonth;
+  if(!directManual && txOverrides[t._id])Object.assign(out,txOverrides[t._id]);
+  out.paymentMonth=out.paymentMonth||out.statementMonth||paymentMonthForTransaction(out.account,out.date);
+  out.statementMonth=out.statementMonth||out.paymentMonth;
   const ruleKeys=Object.keys(merchantRules).sort((a,b)=>b.length-a.length);
   const rk=ruleKeys.find(k=>String(out.description||'').toLowerCase().includes(k.toLowerCase()));
-  if(rk && !txOverrides[t._id])Object.assign(out,merchantRules[rk]);
+  if(rk && !directManual && !txOverrides[t._id])Object.assign(out,merchantRules[rk]);
   out.txAction=transactionActions[t._id]||null;
   return out;
  }).filter(t=>includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status));
@@ -3067,12 +3068,22 @@ function liveCardTransactions(includeInactive=false){
 function normalizedTx(includeInactive=false){
  return transactions.map(t=>{
    let out={...t};
-   out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
-   if(txOverrides[t._id]) Object.assign(out,txOverrides[t._id]);
-   out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
+
+   // V165: a manual month stored on the transaction row itself is authoritative.
+   const directManual=out.statementMonthManual===true && !!out.statementMonth;
+
+   if(!directManual && txOverrides[t._id]){
+    Object.assign(out,txOverrides[t._id]);
+   }
+
+   if(!out.paymentMonth && out.statementMonth)out.paymentMonth=out.statementMonth;
+   if(!out.statementMonth)out.statementMonth=paymentMonthForTransaction(out.account,out.date);
+   if(!out.paymentMonth)out.paymentMonth=out.statementMonth;
+
    const ruleKeys=Object.keys(merchantRules).sort((a,b)=>b.length-a.length);
-   const rk=ruleKeys.find(k=>out.description.toLowerCase().includes(k.toLowerCase()));
-   if(rk && !txOverrides[t._id]) Object.assign(out,merchantRules[rk]);
+   const rk=ruleKeys.find(k=>String(out.description||'').toLowerCase().includes(k.toLowerCase()));
+   if(rk && !directManual && !txOverrides[t._id])Object.assign(out,merchantRules[rk]);
+
    out.txAction=transactionActions[t._id]||null;
    return out;
  }).filter(t=>includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status));
@@ -4296,10 +4307,17 @@ function applyStatementRuleToTransactions(){
  const cutoff=Math.max(1,Math.min(31,Number($('statementCutoffDay').value||24)));
  statementRule.cutoffDay=cutoff;
  normalizedTx().forEach(t=>{
-   if(txOverrides[t._id]?.statementMonthManual===true)return;
+   if(txOverrides[t._id]?.statementMonthManual===true || t.statementMonthManual===true)return;
+   const month=paymentMonthForTransaction(t.account,t.date);
    txOverrides[t._id]=txOverrides[t._id]||{};
-   txOverrides[t._id].statementMonth=statementMonthByRule(t.date,cutoff);
+   txOverrides[t._id].statementMonth=month;
+   txOverrides[t._id].paymentMonth=month;
    txOverrides[t._id].statementMonthManual=false;
+   persistTransactionFieldsIntoSource(t._id,{
+    statementMonth:month,
+    paymentMonth:month,
+    statementMonthManual:false
+   });
  });
  saveLocal();renderTransactions();renderReports();renderDashboard();
  alert(`Rule applied: days 1–${cutoff} stay in the same month statement; day ${cutoff+1} onward move to the next statement month. Manual overrides were kept.`);
@@ -5139,12 +5157,48 @@ function resumeTransactionSyncAfterModalClose(){
  }
 }
 
+
+function persistTransactionFieldsIntoSource(txId,fields){
+ if(!txId||!fields)return false;
+
+ let row=manualTransactions.find(t=>t._id===txId);
+ let source='manual';
+
+ if(!row){
+  row=importedTransactions.find(t=>t._id===txId);
+  source='imported';
+ }
+
+ if(!row)return false;
+
+ Object.entries(fields).forEach(([k,v])=>{
+  if(v===undefined){
+   delete row[k];
+  }else{
+   row[k]=v;
+  }
+ });
+
+ row.updatedAt=new Date().toISOString();
+ row._userEdited=true;
+
+ if(source==='manual'){
+  markManualTransactionPending(row);
+  localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
+ }else{
+  localStorage.setItem('pf_imported_transactions',JSON.stringify(importedTransactions));
+ }
+
+ return true;
+}
+
 function openTxEdit(id){
  editingTxId=id;const t=normalizedTx().find(x=>x._id===id);if(!t)return;
  const eligible=isEligibleInstallmentTx(t),linked=isTxLinkedToInstallment(t);
  $('txEditInfo').innerHTML=`<b>${t.description}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${t.date} • ${accountName(t.account)} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
- $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;
+ $('editStatementMonth').value=assignedTransactionPaymentMonth(t.account,t)||'';
+ $('editStatementManual').checked=(txOverrides[id]?.statementMonthManual===true || t.statementMonthManual===true);
  $('installmentEligibilityBox').style.display=eligible&&!linked?'block':'none';
  $('convertToInstallment').disabled=!eligible||linked;
  openModal('txEditModal');
@@ -5188,8 +5242,21 @@ $('txEditForm').addEventListener('submit',e=>{
  if(!hasManualMonth){
   delete val.statementMonth;
   delete val.paymentMonth;
+  val.statementMonthManual=false;
  }
  txOverrides[editingTxId]=val;
+
+ // V165: materialize the user's edit into the real transaction row itself.
+ // txOverrides remains only for backward compatibility; the transaction row is
+ // now authoritative in local storage and Supabase.
+ persistTransactionFieldsIntoSource(editingTxId,{
+  category:val.category,
+  subcategory:val.subcategory,
+  statementMonth:hasManualMonth?newMonth:undefined,
+  paymentMonth:hasManualMonth?newMonth:undefined,
+  statementMonthManual:hasManualMonth
+ });
+
  markTransactionEditSyncDirty();
  if($('rememberMerchant').checked&&original){
   // Merchant rules remember categorization only. A statement-month move is
@@ -5202,11 +5269,11 @@ $('txEditForm').addEventListener('submit',e=>{
  }
 
  saveLocal();
+ try{financeDB.save();}catch(_){}
 
- // V164: publish category/month/merchant edits immediately instead of waiting
- // for the normal debounce window.
- if(recordSyncReady && cloudClient)recordPushAll('transaction-edit');
- else scheduleRecordPush('transaction-edit');
+ // V165: publish the materialized transaction row immediately.
+ if(recordSyncReady && cloudClient)recordPushAll('transaction-edit-materialized');
+ else scheduleRecordPush('transaction-edit-materialized');
  closeModal('txEditModal');
 
  if(oldMonth!==newMonth){
@@ -5319,15 +5386,15 @@ $('balanceOfferForm').addEventListener('submit',e=>{
 function assignedTransactionPaymentMonth(cardId,t){
  if(!t)return '';
 
+ // V165: the transaction row is authoritative once the user manually assigns a month.
+ if(t.statementMonthManual===true && t.statementMonth)return t.statementMonth;
+
  const ov=t._id ? txOverrides?.[t._id] : null;
+ if(ov?.statementMonthManual===true && ov?.statementMonth)return ov.statementMonth;
 
- // V130: a selected Statement Month is itself the override.
- // The user must never see "Statement 2026-10" while calculations still use 2026-09.
- if(ov?.statementMonth)return ov.statementMonth;
- if(t.statementMonth && t.statementMonthManual===true)return t.statementMonth;
-
- // Imported rows may already carry a paymentMonth.
+ // Imported/manual rows may carry an authoritative stored payment month.
  if(t.paymentMonth)return t.paymentMonth;
+ if(t.statementMonth)return t.statementMonth;
 
  return paymentMonthForTransaction(cardId,t.date);
 }
@@ -7107,6 +7174,36 @@ function clearTransactionEditSyncDirty(){
  transactionEditSyncDirtyAt='';
 }
 
+
+function pruneOverridesAlreadyMaterialized(){
+ const all=[
+  ...(manualTransactions||[]),
+  ...(importedTransactions||[])
+ ];
+ let changed=false;
+
+ all.forEach(t=>{
+  if(t?.statementMonthManual===true && t?.statementMonth && txOverrides?.[t._id]){
+   const ov=txOverrides[t._id];
+
+   // Keep category/subcategory compatibility only if they match; month lives on row.
+   if(ov.statementMonth!==undefined || ov.paymentMonth!==undefined || ov.statementMonthManual!==undefined){
+    delete ov.statementMonth;
+    delete ov.paymentMonth;
+    delete ov.statementMonthManual;
+    changed=true;
+   }
+
+   if(!Object.keys(ov).length){
+    delete txOverrides[t._id];
+   }
+  }
+ });
+
+ if(changed)localStorage.setItem('pf_tx_overrides',JSON.stringify(txOverrides));
+ return changed;
+}
+
 function mergeCloudObjectPreservingLocal(localObj,cloudObj,preserveLocal){
  if(!preserveLocal)return cloudObj||localObj||{};
  return {...(cloudObj||{}),...(localObj||{})};
@@ -7251,6 +7348,7 @@ function applyRecordSyncRows(rows){
    singleton('tx_overrides',txOverrides),
    transactionEditSyncDirty
   );
+  pruneOverridesAlreadyMaterialized();
   incomePlan=singleton('income_plan',incomePlan);
   duplicateDecisions=singleton('duplicate_decisions',duplicateDecisions);
   statementRule=singleton('statement_rule',statementRule);
@@ -7520,6 +7618,36 @@ function setCloudMeta(patch){
  return next;
 }
 
+
+
+function transactionMonthAudit(txId){
+ const manual=manualTransactions.find(t=>t._id===txId);
+ const imported=importedTransactions.find(t=>t._id===txId);
+ const base=manual||imported||transactions.find(t=>t._id===txId);
+ const ov=txOverrides?.[txId]||null;
+ const rendered=normalizedTx(true).find(t=>t._id===txId)||null;
+
+ return {
+  txId,
+  source:manual?'manual':imported?'imported':'other',
+  base:{
+   statementMonth:base?.statementMonth||'',
+   paymentMonth:base?.paymentMonth||'',
+   statementMonthManual:base?.statementMonthManual===true,
+   category:base?.category||'',
+   subcategory:base?.subcategory||''
+  },
+  override:ov,
+  rendered:{
+   statementMonth:rendered?.statementMonth||'',
+   paymentMonth:rendered?.paymentMonth||'',
+   statementMonthManual:rendered?.statementMonthManual===true,
+   category:rendered?.category||'',
+   subcategory:rendered?.subcategory||''
+  },
+  assignedMonth:rendered?assignedTransactionPaymentMonth(rendered.account,rendered):''
+ };
+}
 
 function transactionPersistenceAudit(){
  return {
