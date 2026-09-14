@@ -575,6 +575,95 @@ table thead th.noTableSort{
  overflow-anchor:none;
 }
 
+
+/* V170 GLOBAL ACTION / CHECKBOX INTERACTION FIX */
+button,
+.btn,
+.closeBtn{
+  min-height:42px;
+  padding-top:9px !important;
+  padding-bottom:9px !important;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.btn.small,
+button.small{
+  min-height:38px;
+  padding:8px 12px !important;
+}
+
+.btn.danger,
+button.danger,
+[data-delete-tx],
+[data-delete-completed-plan],
+[data-permanent-delete-tx],
+[data-delete-cash-ledger],
+[data-delete-installment],
+[data-delete-plan],
+[data-delete-loan]{
+  position:relative;
+  z-index:3;
+  cursor:pointer;
+}
+
+/* All checkboxes get a real hit target */
+input[type="checkbox"]{
+  width:22px !important;
+  height:22px !important;
+  min-width:22px !important;
+  min-height:22px !important;
+  cursor:pointer;
+  accent-color:#0f766e;
+  vertical-align:middle;
+}
+
+/* Table selection area */
+.txSelectCell,
+td:has(> input[type="checkbox"]),
+th:has(> input[type="checkbox"]){
+  min-width:56px;
+  width:56px;
+  text-align:center;
+  vertical-align:middle;
+}
+
+/* Make checkbox cells easy to click without visually enlarging the checkbox itself */
+td[data-select-cell],
+.txSelectCell{
+  cursor:pointer;
+  position:relative;
+  padding:0 !important;
+}
+td[data-select-cell]::before,
+.txSelectCell::before{
+  content:"";
+  position:absolute;
+  inset:0;
+}
+
+/* Prevent browser scroll anchoring from moving transaction/history tables */
+#transactions,
+#accountDetailContent,
+.txTable,
+.historyTable,
+.installTable,
+table tbody,
+table tr{
+  overflow-anchor:none;
+}
+
+/* Clear feedback for selected transaction rows */
+tr.txRowSelected td{
+  background:rgba(15,118,110,.08) !important;
+}
+
+/* Buttons should not inherit clickable-row cursor */
+tr.clickable button,
+tr[data-tx] button{
+  cursor:pointer !important;
+}
+
 </style>
 </head>
 <body>
@@ -955,10 +1044,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V169 PRODUCTION</span></div>
+  </div><span class="pill green">V170 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V169</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V169-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V170</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V170-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4692,7 +4781,7 @@ function bindTxRows(){
 
  document.querySelectorAll('[data-tx]').forEach(row=>{
   row.onclick=e=>{
-   if(e.target.closest('button,input,select,textarea,[data-select-cell],[data-select-tx]'))return;
+   if(e.target.closest('button,.btn,.closeBtn,input,select,textarea,label,[data-select-cell],[data-select-tx]'))return;
    openTxEdit(row.dataset.tx);
   };
  });
@@ -9262,6 +9351,110 @@ const sortableTableObserver=new MutationObserver(mutations=>{
  }
 });
 
+
+let GLOBAL_INTERACTION_SCROLL_LOCK=null;
+
+function beginGlobalInteractionLock(){
+  GLOBAL_INTERACTION_SCROLL_LOCK={x:window.scrollX,y:window.scrollY,time:Date.now()};
+}
+function restoreGlobalInteractionLock(){
+  if(!GLOBAL_INTERACTION_SCROLL_LOCK)return;
+  const {x,y}=GLOBAL_INTERACTION_SCROLL_LOCK;
+  window.scrollTo(x,y);
+  requestAnimationFrame(()=>window.scrollTo(x,y));
+  setTimeout(()=>window.scrollTo(x,y),0);
+  setTimeout(()=>window.scrollTo(x,y),35);
+  setTimeout(()=>{
+    window.scrollTo(x,y);
+    GLOBAL_INTERACTION_SCROLL_LOCK=null;
+  },140);
+}
+
+function isProtectedActionTarget(el){
+  return !!el?.closest?.(
+    'button,.btn,.closeBtn,input[type="checkbox"],[data-select-cell],' +
+    '[data-delete-tx],[data-delete-completed-plan],[data-permanent-delete-tx],' +
+    '[data-delete-cash-ledger],[data-delete-installment],[data-delete-plan],[data-delete-loan]'
+  );
+}
+
+/* One capture-layer guard for every button/checkbox in the app.
+   This stops parent rows/cards from stealing the click. */
+document.addEventListener('pointerdown',e=>{
+  if(!isProtectedActionTarget(e.target))return;
+  beginGlobalInteractionLock();
+  e.stopPropagation();
+},true);
+
+document.addEventListener('mousedown',e=>{
+  if(!isProtectedActionTarget(e.target))return;
+  e.stopPropagation();
+},true);
+
+document.addEventListener('click',e=>{
+  if(!isProtectedActionTarget(e.target))return;
+  e.stopPropagation();
+  restoreGlobalInteractionLock();
+},true);
+
+/* Checkboxes: keep scroll position and prevent surrounding row navigation.
+   Native checkbox behavior is preserved. */
+document.addEventListener('change',e=>{
+  const box=e.target.closest?.('input[type="checkbox"]');
+  if(!box)return;
+  e.stopPropagation();
+  restoreGlobalInteractionLock();
+},true);
+
+function hardenAllActionControls(root=document){
+  root.querySelectorAll('button,.btn,.closeBtn').forEach(btn=>{
+    btn.addEventListener('pointerdown',e=>{
+      beginGlobalInteractionLock();
+      e.stopPropagation();
+    },{capture:true});
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      restoreGlobalInteractionLock();
+    },{capture:true});
+  });
+
+  root.querySelectorAll('input[type="checkbox"]').forEach(box=>{
+    box.addEventListener('pointerdown',e=>{
+      beginGlobalInteractionLock();
+      e.stopPropagation();
+    },{capture:true});
+    box.addEventListener('click',e=>e.stopPropagation(),{capture:true});
+    box.addEventListener('change',e=>{
+      e.stopPropagation();
+      restoreGlobalInteractionLock();
+    },{capture:true});
+  });
+
+  root.querySelectorAll('[data-select-cell]').forEach(cell=>{
+    cell.addEventListener('pointerdown',e=>{
+      beginGlobalInteractionLock();
+      e.stopPropagation();
+    },{capture:true});
+  });
+}
+
+let ACTION_HARDEN_TIMER=null;
+const ACTION_HARDEN_OBSERVER=new MutationObserver(mutations=>{
+  if(!mutations.some(m=>m.addedNodes?.length))return;
+  clearTimeout(ACTION_HARDEN_TIMER);
+  ACTION_HARDEN_TIMER=setTimeout(()=>hardenAllActionControls(document),20);
+});
+
+
+document.addEventListener('click',e=>{
+  const row=e.target.closest?.('tr.clickable,tr[data-tx]');
+  if(!row)return;
+  if(isProtectedActionTarget(e.target)){
+    e.stopImmediatePropagation();
+    restoreGlobalInteractionLock();
+  }
+},true);
+
 async function init(){
  const session=await cloudRefreshAuth();
  let localSavedAt='';
@@ -9327,6 +9520,12 @@ try{
  initializeSortableTables(document);
 }catch(e){
  console.warn('Table sorting initialization warning',e);
+}
+try{
+  hardenAllActionControls(document);
+  ACTION_HARDEN_OBSERVER.observe(document.body,{childList:true,subtree:true});
+}catch(e){
+  console.warn('Action hardening warning',e);
 }
 init();
 
