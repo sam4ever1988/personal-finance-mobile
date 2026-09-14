@@ -836,10 +836,10 @@ button{cursor:pointer}
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V162 PRODUCTION</span></div>
+  </div><span class="pill green">V163 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V162</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V162-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V163</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V163-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4062,6 +4062,7 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
    notes:`Paid outgoing "${o.description}" from ${accountName(src.id)}`
   };
   manualTransactions.push(tx);
+  markManualTransactionPending(tx);
   p.generatedTransactionId=txId;
  }
 
@@ -5010,7 +5011,9 @@ $('manualTxForm').addEventListener('submit',e=>{
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
   smsRaw:form.dataset.smsRaw||''
  };
- manualTransactions.push(tx);transactions.push({...tx});
+ manualTransactions.push(tx);
+ markManualTransactionPending(tx);
+ transactions.push({...tx});
 
  // Bank SMS "رصيد" is the available/remaining balance AFTER this transaction.
  // Make it authoritative for the selected card and reconcile utilized = limit - available.
@@ -5035,7 +5038,14 @@ $('manualTxForm').addEventListener('submit',e=>{
  }
  // Clear the SMS form metadata after committing.
  delete form.dataset.smsRaw;delete form.dataset.smsRemaining;delete form.dataset.smsTime;delete form.dataset.smsAccountId;
- saveLocal();closeModal('manualTxModal');
+ saveLocal();
+
+ // Publish this transaction immediately. The normal save debounce remains as
+ // fallback, but the pending flag prevents any cloud pull from erasing it.
+ if(recordSyncReady && cloudClient)recordPushAll('manual-transaction-create');
+ else scheduleRecordPush('manual-transaction-create');
+
+ closeModal('manualTxModal');
  const makePlan=$('manualTxInstallment').checked&&isEligibleInstallmentTx(tx);
  ensureMonthlyPlannerRows(paymentMonthForTransaction(tx.account,tx.date));
  refreshAfterTransactionChange(tx.account);
@@ -7041,6 +7051,60 @@ function syncStableId(section,x,i=0){
  return String(i);
 }
 
+
+function stripLocalSyncFlags(row){
+ if(!row||typeof row!=='object')return row;
+ const copy={...row};
+ delete copy._pendingCloudSync;
+ delete copy._pendingCloudSyncAt;
+ return copy;
+}
+
+function pendingManualTransactions(){
+ return (manualTransactions||[]).filter(x=>x?._pendingCloudSync===true);
+}
+
+function mergeCloudManualTransactions(cloudRows){
+ const map=new Map();
+
+ (cloudRows||[]).forEach((x,i)=>{
+  const clean=stripLocalSyncFlags(x);
+  const id=clean._id||syncStableId('manual_transactions',clean,i);
+  map.set(id,clean);
+ });
+
+ // A new local manual transaction stays authoritative until its first successful
+ // Supabase publish. This closes the realtime pull race that was erasing rows.
+ pendingManualTransactions().forEach((x,i)=>{
+  const id=x._id||syncStableId('manual_transactions',x,i);
+  map.set(id,x);
+ });
+
+ return [...map.values()];
+}
+
+function markManualTransactionPending(tx){
+ if(!tx)return tx;
+ tx._pendingCloudSync=true;
+ tx._pendingCloudSyncAt=new Date().toISOString();
+ localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
+ setCloudMeta({pending:true});
+ return tx;
+}
+
+function clearConfirmedManualPendingFlags(){
+ let changed=false;
+ (manualTransactions||[]).forEach(x=>{
+  if(x?._pendingCloudSync===true){
+   delete x._pendingCloudSync;
+   delete x._pendingCloudSyncAt;
+   changed=true;
+  }
+ });
+ if(changed)localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));
+ return changed;
+}
+
 function buildRecordSyncRowsFromState(){
  const rows=[];
  const add=(section,record_id,data)=>rows.push({section,record_id:String(record_id),data});
@@ -7060,7 +7124,10 @@ function buildRecordSyncRowsFromState(){
  add('deleted_installment_ids',RECORD_SYNC_SINGLETON,[...deletedInstallmentIds]);
 
  // Record sections.
- (manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
+ (manualTransactions||[]).forEach((x,i)=>{
+  const clean=stripLocalSyncFlags(x);
+  add('manual_transactions',syncStableId('manual_transactions',clean,i),clean);
+ });
  (importedTransactions||[]).forEach((x,i)=>add('imported_transactions',syncStableId('imported_transactions',x,i),x));
  (importHistory||[]).forEach((x,i)=>add('import_history',syncStableId('import_history',x,i),x));
  (cashFlowLedger||[]).forEach((x,i)=>add('cash_flow_ledger',syncStableId('cash_flow_ledger',x,i),x));
@@ -7128,7 +7195,7 @@ function applyRecordSyncRows(rows){
   const deletedIds=singleton('deleted_installment_ids',[...deletedInstallmentIds]);
   deletedInstallmentIds=new Set(Array.isArray(deletedIds)?deletedIds:[]);
 
-  manualTransactions=list('manual_transactions');
+  manualTransactions=mergeCloudManualTransactions(list('manual_transactions'));
   importedTransactions=list('imported_transactions');
   importHistory=list('import_history');
   cashFlowLedger=list('cash_flow_ledger');
@@ -7189,6 +7256,14 @@ async function recordSeedFromLegacyCloudIfNeeded(){
 
 async function recordPullAll(reason='pull'){
  if(recordSyncPullBusy || recordSyncPushBusy || recordSyncApplying || !cloudClient)return false;
+
+ // V163: if a newly-created manual transaction has not finished its first
+ // publish, do not let an incoming realtime event overwrite it with older cloud data.
+ if(pendingManualTransactions().length && reason!=='post-push-verify'){
+  if(recordSyncReady)setTimeout(()=>recordPushAll('protect-pending-manual'),0);
+  return false;
+ }
+
  recordSyncPullBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
@@ -7262,8 +7337,9 @@ async function recordPushAll(reason='edit'){
    lastAutoSyncReason:`record-${reason}`
   });
   financeSettingsDirty=false;
+  clearConfirmedManualPendingFlags();
   cloudSetStatus(`Realtime change published • ${new Date().toLocaleTimeString()}`);
-  setTimeout(()=>recordPullAll('post-push-verify'),80);
+  setTimeout(()=>recordPullAll('post-push-verify'),120);
   return true;
  }catch(e){
   console.warn('Realtime push failed',e);
@@ -7368,6 +7444,25 @@ function setCloudMeta(patch){
  updateCloudSyncPanel();
  return next;
 }
+
+function manualTransactionSyncAudit(){
+ return {
+  totalManual:(manualTransactions||[]).length,
+  pendingManual:pendingManualTransactions().map(x=>({
+   id:x._id,
+   account:x.account,
+   date:x.date,
+   description:x.description,
+   amount:Number(x.amount||0),
+   pendingSince:x._pendingCloudSyncAt||''
+  })),
+  recordSyncReady,
+  recordSyncPushBusy,
+  recordSyncPullBusy,
+  cloudPending:getCloudMeta().pending===true
+ };
+}
+
 function localSyncSummary(){
  const tx=normalizedTx(true);
  const deleted=tx.filter(t=>transactionActions[t._id]?.status==='deleted');
@@ -7730,7 +7825,7 @@ function fullCloudSnapshot(extra={}){
   merchantRules,
   txOverrides,
   incomePlan,
-  manualTransactions,
+  manualTransactions:(manualTransactions||[]).map(stripLocalSyncFlags),
   importedTransactions,
   importHistory,
   cashFlowLedger,
