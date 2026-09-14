@@ -561,6 +561,7 @@ table thead th.noTableSort{
  <div class="filters">
    <input class="control search" id="txSearch" placeholder="Search transaction, account, category...">
    <select class="control small" id="txAccount"></select>
+   <select class="control small" id="txPhysicalCard"><option value="">All Physical Cards</option></select>
    <select class="control small" id="txCategory"></select>
    <select class="control small" id="txType">
      <option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option>
@@ -600,6 +601,7 @@ table thead th.noTableSort{
    <input type="date" class="control small" id="reportFrom">
    <input type="date" class="control small" id="reportTo">
    <select class="control small" id="reportAccount"></select>
+   <select class="control small" id="reportPhysicalCard"><option value="">All Physical Cards</option></select>
    <select class="control small" id="reportCategory"></select>
    <select class="control small" id="reportSubcategory"><option value="">All Subcategories</option></select>
    <select class="control small" id="reportType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select>
@@ -870,10 +872,10 @@ table thead th.noTableSort{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V164 PRODUCTION</span></div>
+  </div><span class="pill green">V165 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V164</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V164-20260913</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V165</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V165-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1073,6 +1075,7 @@ table thead th.noTableSort{
     <span class="meta" id="bankSmsStatus">Detect bank/card, amount, date and merchant; review before saving.</span></div>
   </div>
   <div class="field"><label>Account / Card</label><select id="manualTxAccount" required></select></div>
+  <div class="field"><label>Physical Card</label><select id="manualTxPhysicalCard"></select><div class="hint">Primary or supplementary card under the selected account.</div></div>
   <div class="field"><label>Date</label><input type="date" id="manualTxDate" required></div>
   <div class="field full"><label>Description</label><input id="manualTxDesc" required placeholder="Merchant, bill, payment..."></div>
   <div class="field"><label>Transaction Type</label><select id="manualTxType"><option value="expense">Expense / Purchase</option><option value="transfer">Card Payment / Transfer</option><option value="income">Income / Credit</option><option value="fee">Fee</option><option value="obligation">Loan / Obligation</option></select></div>
@@ -1092,6 +1095,7 @@ table thead th.noTableSort{
   <div class="field"><label>Category</label><select id="bulkUpdateCategory"><option value="">— Keep Existing —</option></select></div>
   <div class="field"><label>Subcategory</label><select id="bulkUpdateSubcategory"><option value="">— Keep Existing —</option></select></div>
   <div class="field"><label>Account</label><select id="bulkUpdateAccount"><option value="">— Keep Existing —</option></select></div>
+  <div class="field"><label>Physical Card</label><select id="bulkUpdatePhysicalCard"><option value="">— Keep Existing —</option></select><div class="hint">Primary or supplementary card, e.g. Supplementary •9345.</div></div>
   <div class="field"><label>Statement / Payment Month</label><input type="month" id="bulkUpdateMonth"><div class="hint">Leave blank to keep each transaction's existing month.</div></div>
   <div class="field full"><label>Description / Title</label><input id="bulkUpdateDescription" placeholder="Leave blank to keep each transaction's current description"></div>
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
@@ -1107,6 +1111,7 @@ table thead th.noTableSort{
   <div class="field full"><label>Transaction</label><div class="panel" id="txEditInfo"></div></div>
   <div class="field"><label>Statement Month</label><input type="month" id="editStatementMonth"><div class="hint">Choose the statement/payment month this transaction belongs to. Selecting a month is automatically treated as the manual override and drives the dashboard, Current Cycle Transactions, Available Credit and Payment Planner. Clear the month to return to the automatic card cycle.</div></div>
   <div class="field"><label>Statement Assignment</label><label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800"><input type="checkbox" id="editStatementManual"> Manual override (automatic when a month is selected)</label><div class="hint">If checked, the bulk cutoff rule will not overwrite this transaction.</div></div>
+  <div class="field"><label>Physical Card</label><select id="editPhysicalCard"></select><div class="hint">Tracks which physical card created the transaction under the same credit-card account.</div></div>
   <div class="field"><label>Category</label><select id="editCategory"></select></div>
   <div class="field"><label>Subcategory</label><select id="editSubcategory"></select></div>
   <div class="field full"><label><input id="rememberMerchant" type="checkbox"> Remember this Category/Subcategory for all matching merchant descriptions</label></div>
@@ -3170,6 +3175,54 @@ function saveLocal(){
 function money(n){return 'SAR '+MONEY.format(Math.abs(Number(n||0)));}
 function signed(n){return (n<0?'-':n>0?'+':'')+money(n);}
 function account(id){return accounts.find(a=>a.id===id)}
+
+function accountPhysicalCards(accountId){
+ const a=account(accountId); if(!a||a.type!=='card')return [];
+ const configured=Array.isArray(a.extra?.['Physical Cards'])?a.extra['Physical Cards'].map(x=>String(x).replace(/\D/g,'')).filter(Boolean):[];
+ const primary=String(a.ending||'').replace(/\D/g,'');
+ return [...new Set([primary,...configured].filter(Boolean))];
+}
+function physicalCardRole(accountId,ending){
+ const a=account(accountId); return a&&String(ending||'')===String(a.ending||'')?'Primary':'Supplementary';
+}
+function transactionPhysicalCardEnding(t){
+ if(!t)return '';
+ const explicit=String(t.physicalCardEnding||'').replace(/\D/g,'');
+ if(explicit)return explicit;
+ const a=account(t.account); return a?.type==='card'?String(a.ending||''):'';
+}
+function physicalCardLabelFor(accountId,ending){
+ const e=String(ending||'').replace(/\D/g,''); if(!e)return 'Unassigned';
+ return `${physicalCardRole(accountId,e)} •${e}`;
+}
+function allPhysicalCardOptions(){
+ const out=[];
+ accounts.filter(a=>a.type==='card').forEach(a=>accountPhysicalCards(a.id).forEach(ending=>out.push({accountId:a.id,ending,label:`${a.bank} • ${physicalCardLabelFor(a.id,ending)}`})));
+ return out;
+}
+function fillPhysicalCardSelect(sel,accountId,includeAll=false,keepValue=''){
+ if(!sel)return; const cards=accountPhysicalCards(accountId);
+ sel.innerHTML=(includeAll?'<option value="">All Physical Cards</option>':'')+cards.map(e=>`<option value="${e}">${physicalCardLabelFor(accountId,e)}</option>`).join('');
+ const wanted=String(keepValue||'').replace(/\D/g,'');
+ if(wanted&&cards.includes(wanted))sel.value=wanted; else if(!includeAll&&cards.length)sel.value=cards[0];
+}
+function fillGlobalPhysicalCardFilter(sel,includeAll=true){
+ if(!sel)return; const keep=sel.value,options=allPhysicalCardOptions();
+ sel.innerHTML=(includeAll?'<option value="">All Physical Cards</option>':'')+options.map(o=>`<option value="${o.accountId}|${o.ending}">${escapeHtml(o.label)}</option>`).join('');
+ if(options.some(o=>`${o.accountId}|${o.ending}`===keep))sel.value=keep;
+}
+function txMatchesPhysicalCardFilter(t,filterValue){
+ if(!filterValue)return true; const [accountId,ending]=String(filterValue).split('|');
+ return t.account===accountId&&transactionPhysicalCardEnding(t)===ending;
+}
+function detectPhysicalCardEndingFromRaw(raw,accountId){
+ if(!raw||!accountId)return ''; const low={};Object.keys(raw||{}).forEach(k=>low[String(k).toLowerCase().trim()]=raw[k]);
+ const keys=['physical card','card number','card no','card no.','masked card number','supplementary card','supplementary card number','card ending','card last 4','last 4'];
+ let text=''; for(const k of keys){if(k in low&&low[k]!=null&&low[k]!==''){text=String(low[k]);break;}}
+ const digits=text.replace(/\D/g,''); if(digits.length<4)return ''; const ending=digits.slice(-4);
+ return accountPhysicalCards(accountId).includes(ending)?ending:'';
+}
+
 function accountName(id){
  if(id==='cash-outgoing')return 'Cash / Other Outgoing';
  const a=account(id);
@@ -3884,11 +3937,11 @@ function renderReviewAlerts(){
   if(a==='addtx')openManualTransaction();
   if(a==='duplicates')showDuplicateReview();
   if(a==='unclear'){nav('transactions');$('txCategory').value='Miscellaneous';renderTransactions();}
-  if(a==='eligible'){eligiblePurchasesOnly=true;nav('transactions');$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions();window.scrollTo({top:0,behavior:'smooth'});}
+  if(a==='eligible'){eligiblePurchasesOnly=true;nav('transactions');$('txSearch').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions();window.scrollTo({top:0,behavior:'smooth'});}
  }));
 }
 function openManualTransaction(prefill={}){
- fillAccountSelect($('manualTxAccount'),true);
+ fillAccountSelect($('manualTxAccount'),true);if(prefill.account)$('manualTxAccount').value=prefill.account;fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,prefill.physicalCardEnding||'');
  $('manualTxDate').value=prefill.date||'2026-08-28';
  $('manualTxDesc').value=prefill.description||'';
  $('manualTxType').value=prefill.kind||'expense';
@@ -4273,7 +4326,7 @@ function txRow6(t){
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable" data-tx="${t._id}"><td><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span></div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable" data-tx="${t._id}"><td><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''}></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -4308,6 +4361,7 @@ function openBulkUpdateSelected(){
   category:'',
   subcategory:'',
   accountId:'',
+  physicalCardEnding:'',
   month:'',
   description:''
  };
@@ -4322,6 +4376,8 @@ function openBulkUpdateSelected(){
 
  const acct=$('bulkUpdateAccount');
  acct.innerHTML='<option value="">— Keep Existing —</option>'+accounts.map(a=>`<option value="${a.id}">${escapeHtml(accountName(a.id))}</option>`).join('');
+ const physical=$('bulkUpdatePhysicalCard');
+ physical.innerHTML='<option value="">— Keep Existing —</option>'+allPhysicalCardOptions().map(o=>`<option value="${o.ending}">${escapeHtml(o.label)}</option>`).join('');
 
  $('bulkUpdateMonth').value='';
  $('bulkUpdateDescription').value='';
@@ -4351,6 +4407,7 @@ function captureBulkUpdateDraft(){
   category:$('bulkUpdateCategory')?.value||'',
   subcategory:$('bulkUpdateSubcategory')?.value||'',
   accountId:$('bulkUpdateAccount')?.value||'',
+  physicalCardEnding:$('bulkUpdatePhysicalCard')?.value||'',
   month:$('bulkUpdateMonth')?.value||'',
   description:$('bulkUpdateDescription')?.value||''
  };
@@ -4373,9 +4430,9 @@ function restoreBulkUpdateDraft(){
  if(sub && [...sub.options].some(o=>o.value===bulkUpdateDraftState.subcategory)){
   sub.value=bulkUpdateDraftState.subcategory;
  }
- if(acct && [...acct.options].some(o=>o.value===bulkUpdateDraftState.accountId)){
-  acct.value=bulkUpdateDraftState.accountId;
- }
+ if(acct && [...acct.options].some(o=>o.value===bulkUpdateDraftState.accountId)){acct.value=bulkUpdateDraftState.accountId;}
+ const physical=$('bulkUpdatePhysicalCard');
+ if(physical && [...physical.options].some(o=>o.value===bulkUpdateDraftState.physicalCardEnding)){physical.value=bulkUpdateDraftState.physicalCardEnding;}
  if(month)month.value=bulkUpdateDraftState.month||'';
  if(desc)desc.value=bulkUpdateDraftState.description||'';
 }
@@ -4396,10 +4453,11 @@ function applyBulkUpdateSelected(){
  const category=bulkUpdateDraftState?.category||'';
  const subcategory=bulkUpdateDraftState?.subcategory||'';
  const accountId=bulkUpdateDraftState?.accountId||'';
+ const physicalCardEnding=bulkUpdateDraftState?.physicalCardEnding||'';
  const month=bulkUpdateDraftState?.month||'';
  const description=(bulkUpdateDraftState?.description||'').trim();
 
- if(!category && !subcategory && !accountId && !month && !description){
+ if(!category && !subcategory && !accountId && !physicalCardEnding && !month && !description){
   alert('Choose at least one field to update.');
   return;
  }
@@ -4419,9 +4477,8 @@ function applyBulkUpdateSelected(){
    affectedAccounts.add(current.account);
    affectedAccounts.add(accountId);
    txOverrides[id].account=accountId;
-  }else{
-   affectedAccounts.add(current.account);
-  }
+  }else{affectedAccounts.add(current.account);}
+  if(physicalCardEnding)txOverrides[id].physicalCardEnding=physicalCardEnding;
   if(month){
    txOverrides[id].statementMonth=month;
    txOverrides[id].paymentMonth=month;
@@ -4713,7 +4770,7 @@ function possibleDuplicateGroups(includeDecided=false){
 function duplicateTxIds(){return new Set(possibleDuplicateGroups(false).flatMap(g=>[g.a._id,g.b._id]))}
 function showDuplicateReview(){
  nav('transactions');const ids=duplicateTxIds();
- $('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';
+ $('txSearch').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';
  renderTransactions();
  setTimeout(()=>document.querySelectorAll('#txBody tr[data-tx]').forEach(r=>{if(!ids.has(r.dataset.tx))r.style.display='none'}),0);
 }
@@ -4722,17 +4779,20 @@ let eligiblePurchasesOnly=false;
 function renderTransactions(){
  const __bulkDraftWasActive=bulkUpdateDraftActive;
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
- fillStatementMonthFilter();
+ fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
  const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value};
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
+ const physical=$('txPhysicalCard')?.value||''; if(physical)rows=rows.filter(t=>txMatchesPhysicalCardFilter(t,physical));
  const sm=$('txStatementMonth').value;if(sm)rows=rows.filter(t=>t.statementMonth===sm);
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
- $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="7">No matching transactions.</td></tr>';bindTxRows();
+ $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="7">No matching transactions.</td></tr>'; bindTxRows();
+ if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
 }
+fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
 $('applyStatementRule').addEventListener('click',applyStatementRuleToTransactions);
-['txSearch','txAccount','txCategory','txType','txStatementMonth'].forEach(id=>$(id).addEventListener(id==='txSearch'?'input':'change',renderTransactions));
+['txSearch','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id).addEventListener(id==='txSearch'?'input':'change',renderTransactions));
 $('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
@@ -4764,12 +4824,14 @@ function reportRows(){
  const rows=transactionFilters([...normalizedTx(),...outgoingRows],{account:$('reportAccount').value,category:$('reportCategory').value,type:$('reportType').value,from:$('reportFrom').value,to:$('reportTo').value});
  const sub=$('reportSubcategory').value;
  let out=sub?rows.filter(t=>(t.subcategory||'Uncategorized')===sub):rows;
+ const physical=$('reportPhysicalCard')?.value||'';if(physical)out=out.filter(t=>txMatchesPhysicalCardFilter(t,physical));
  if(reportDrill.type==='category')out=out.filter(t=>t.category===reportDrill.value);
  if(reportDrill.type==='subcategory')out=out.filter(t=>(t.subcategory||'Uncategorized')===reportDrill.value);
  return out;
 }
 function groupSpend(rows,keyfn){const m={};rows.filter(isSpend).forEach(t=>{const k=keyfn(t);m[k]=(m[k]||0)+Math.abs(t.amount)});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
 function renderReports(){
+ fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
  const rows=reportRows(),s=summaryData(rows);
  $('reportKpis').innerHTML=[kpiHTML('Total Spending',money(s.spend),'Filtered period','red'),kpiHTML('Total Income',money(s.income),'Filtered period','green'),kpiHTML('Net Flow',signed(s.net),'Income less spending',s.net>=0?'green':'red'),kpiHTML('Transactions',String(rows.length),'Filtered rows','blue')].join('');
  const dm=$('donutMode').value;
@@ -4806,7 +4868,7 @@ function renderReports(){
 ['reportFrom','reportTo','reportAccount','reportType','reportSubcategory'].forEach(id=>$(id).addEventListener('change',()=>{reportDrill={type:'',value:''};renderReports()}));
 ['donutMode','barMode','barGroup'].forEach(id=>$(id).addEventListener('change',renderReports));
 $('reportCategory').addEventListener('change',()=>{reportDrill={type:'',value:''};fillReportSubcategories();renderReports()});
-$('reportReset').addEventListener('click',()=>{reportDrill={type:'',value:''};$('reportFrom').value='2026-07-31';$('reportTo').value='2026-08-28';$('reportAccount').value='';$('reportCategory').value='';$('reportSubcategory').value='';$('reportType').value='';fillReportSubcategories();renderReports()});
+$('reportReset').addEventListener('click',()=>{reportDrill={type:'',value:''};$('reportFrom').value='2026-07-31';$('reportTo').value='2026-08-28';$('reportAccount').value='';$('reportPhysicalCard').value='';$('reportCategory').value='';$('reportSubcategory').value='';$('reportType').value='';fillReportSubcategories();renderReports()});
 if($('clearReportSelection'))$('clearReportSelection').addEventListener('click',()=>{reportDrill={type:'',value:''};renderReports()});
 
 
@@ -5131,7 +5193,8 @@ $('addTransaction').addEventListener('click',()=>openManualTransaction());
 if($('moreAddTransaction'))$('moreAddTransaction').addEventListener('click',()=>openManualTransaction());
 $('quickAddTransaction').addEventListener('click',()=>openManualTransaction());
 $('manualTxCategory').addEventListener('change',()=>fillSubcategorySelect($('manualTxSubcategory'),$('manualTxCategory').value));
-['manualTxAccount','manualTxType','manualTxAmount'].forEach(id=>$(id).addEventListener('input',updateManualInstallmentEligibility));
+$('manualTxAccount').addEventListener('change',()=>{fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,'');updateManualInstallmentEligibility();});
+['manualTxType','manualTxAmount'].forEach(id=>$(id).addEventListener('input',updateManualInstallmentEligibility));
 
 function smsNormalizeDigits(v){
  return String(v||'')
@@ -5216,7 +5279,7 @@ function applyBankSms(){
  const merchant=parseSmsMerchant(raw);
  const credit=smsLooksLikeCredit(raw);
 
- if(accountId)$('manualTxAccount').value=accountId;
+ if(accountId){$('manualTxAccount').value=accountId;const detectedEnding=accountPhysicalCards(accountId).find(e=>smsNormalizeDigits(raw).includes(e))||'';fillPhysicalCardSelect($('manualTxPhysicalCard'),accountId,false,detectedEnding);}
  $('manualTxDate').value=dt.date;
  if(amount!=null)$('manualTxAmount').value=amount;
  $('manualTxDesc').value=merchant;
@@ -5256,7 +5319,7 @@ $('manualTxForm').addEventListener('submit',e=>{
  const bankBalanceBeforeManual=selectedManualAccount?.type==='bank'?adjustedBankBalance(selectedManualAccount):null;
  const smsRemaining=form.dataset.smsRemaining!==''?Number(form.dataset.smsRemaining):null;
  const tx={
-  _id:'manual-'+Date.now(),account:$('manualTxAccount').value,date:$('manualTxDate').value,posting:$('manualTxDate').value,
+  _id:'manual-'+Date.now(),account:$('manualTxAccount').value,physicalCardEnding:$('manualTxPhysicalCard').value||String(account($('manualTxAccount').value)?.ending||''),date:$('manualTxDate').value,posting:$('manualTxDate').value,
   description:$('manualTxDesc').value.trim(),amount:sign*raw,category:$('manualTxCategory').value,
   subcategory:$('manualTxSubcategory').value,kind:type,currency:'SAR',original:null,manual:true,
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
@@ -5377,7 +5440,7 @@ function openTxEdit(id){
  const eligible=isEligibleInstallmentTx(t),linked=isTxLinkedToInstallment(t);
  $('txEditInfo').innerHTML=`<b>${t.description}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${t.date} • ${accountName(t.account)} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
- $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;
+ $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
  $('installmentEligibilityBox').style.display=eligible&&!linked?'block':'none';
  $('convertToInstallment').disabled=!eligible||linked;
  openModal('txEditModal');
@@ -5386,6 +5449,7 @@ $('editCategory').addEventListener('change',()=>fillSubcategorySelect($('editSub
 $('bulkUpdateCategory').onchange=()=>{captureBulkUpdateDraft();fillBulkUpdateSubcategories();captureBulkUpdateDraft();};
 $('bulkUpdateSubcategory').onchange=captureBulkUpdateDraft;
 $('bulkUpdateAccount').onchange=captureBulkUpdateDraft;
+$('bulkUpdatePhysicalCard').onchange=captureBulkUpdateDraft;
 $('bulkUpdateMonth').onchange=captureBulkUpdateDraft;
 $('bulkUpdateDescription').oninput=captureBulkUpdateDraft;
 $('closeBulkUpdateTop').onclick=closeBulkUpdateDraft;
@@ -5421,6 +5485,7 @@ $('txEditForm').addEventListener('submit',e=>{
  const val={
   category:$('editCategory').value,
   subcategory:$('editSubcategory').value,
+  physicalCardEnding:$('editPhysicalCard').value||transactionPhysicalCardEnding(original),
   statementMonth:hasManualMonth?newMonth:'',
   paymentMonth:hasManualMonth?newMonth:'',
   statementMonthManual:hasManualMonth
@@ -5577,19 +5642,10 @@ function cardMonthLabel(ym){
 }
 function cardTransactionsForDetail(cardId){
  let rows=liveCardTransactions().filter(t=>t.account===cardId);
-
- if(accountDetailTxFilter.month){
-  rows=rows.filter(t=>cardTransactionStatementMonth(cardId,t)===accountDetailTxFilter.month);
- }
-
- if(accountDetailTxFilter.fromDate){
-  rows=rows.filter(t=>String(t.date||'').slice(0,10)>=accountDetailTxFilter.fromDate);
- }
-
- if(accountDetailTxFilter.toDate){
-  rows=rows.filter(t=>String(t.date||'').slice(0,10)<=accountDetailTxFilter.toDate);
- }
-
+ if(accountDetailTxFilter.month)rows=rows.filter(t=>cardTransactionStatementMonth(cardId,t)===accountDetailTxFilter.month);
+ if(accountDetailTxFilter.physicalCard)rows=rows.filter(t=>transactionPhysicalCardEnding(t)===accountDetailTxFilter.physicalCard);
+ if(accountDetailTxFilter.fromDate)rows=rows.filter(t=>String(t.date||'').slice(0,10)>=accountDetailTxFilter.fromDate);
+ if(accountDetailTxFilter.toDate)rows=rows.filter(t=>String(t.date||'').slice(0,10)<=accountDetailTxFilter.toDate);
  return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 }
 
@@ -5783,7 +5839,7 @@ function resetCardData(cardId){
 
 let accountDetailReturnPage='accounts';
 let currentAccountDetailId=null;
-let accountDetailTxFilter={month:'',fromDate:'',toDate:''};
+let accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
 
 function bindDetailTransactionBulkActions(){
  const root=$('accountDetailContent');
@@ -5869,19 +5925,24 @@ function openAccount(id,returnPage){
   <div class="sectionTitle" style="margin:0">Transactions</div>
   <div class="meta">${[
    accountDetailTxFilter.month?`Statement: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statements',
+   accountDetailTxFilter.physicalCard?`Card: ${physicalCardLabelFor(id,accountDetailTxFilter.physicalCard)}`:'All physical cards',
    accountDetailTxFilter.fromDate?`From ${accountDetailTxFilter.fromDate}`:'',
    accountDetailTxFilter.toDate?`To ${accountDetailTxFilter.toDate}`:''
   ].filter(Boolean).join(' • ')}</div>
  </div>
 </div>
 <div class="panel" style="margin-top:8px">
- <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,.7fr) minmax(180px,.7fr) auto;gap:10px;align-items:end">
+ <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(190px,.8fr) minmax(180px,.7fr) minmax(180px,.7fr) auto;gap:10px;align-items:end">
   <div class="field" style="margin:0">
    <label>Statement / Payment Month</label>
    <select id="cardTxStatementFilter" class="input">
     <option value="">All Statements</option>
     ${txMonths.map(m=>`<option value="${m}" ${accountDetailTxFilter.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}
    </select>
+  </div>
+  <div class="field" style="margin:0">
+   <label>Physical Card</label>
+   <select id="cardTxPhysicalFilter" class="input"><option value="">All Physical Cards</option>${accountPhysicalCards(id).map(e=>`<option value="${e}" ${accountDetailTxFilter.physicalCard===e?'selected':''}>${physicalCardLabelFor(id,e)}</option>`).join('')}</select>
   </div>
   <div class="field" style="margin:0">
    <label>From Date</label>
@@ -5915,6 +5976,8 @@ function openAccount(id,returnPage){
   openAccount(id,accountDetailReturnPage);
  });
 
+ const physicalCardFilter=$('cardTxPhysicalFilter');if(physicalCardFilter)physicalCardFilter.addEventListener('change',()=>{accountDetailTxFilter.physicalCard=physicalCardFilter.value||'';openAccount(id,accountDetailReturnPage);});
+
  const fromDateFilter=$('cardTxFromDate');
  if(fromDateFilter)fromDateFilter.addEventListener('change',()=>{
   accountDetailTxFilter.fromDate=fromDateFilter.value||'';
@@ -5935,7 +5998,7 @@ function openAccount(id,returnPage){
 
  const clearTxFilters=$('clearCardTxFilters');
  if(clearTxFilters)clearTxFilters.addEventListener('click',()=>{
-  accountDetailTxFilter={month:'',fromDate:'',toDate:''};
+  accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
   openAccount(id,accountDetailReturnPage);
  });
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
@@ -5996,7 +6059,8 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
  const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ const physicalCardEnding=detectPhysicalCardEndingFromRaw(raw,accountId)||String(account(accountId)?.ending||'');
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
