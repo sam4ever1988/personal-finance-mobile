@@ -1044,10 +1044,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V171 PRODUCTION</span></div>
+  </div><span class="pill green">V172 PRODUCTION</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V171</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V171-20260914</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V172</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V172-20260914</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3991,15 +3991,158 @@ function summaryData(rows=normalizedTx()){
  const transfers=rows.filter(t=>txType(t)==='transfer').reduce((s,t)=>s+Math.abs(t.amount),0);
  return {spend,income,net:income-spend,count:rows.length,transfers}
 }
-function nav(page){
- const wasFinance=document.getElementById('financeSettings')?.classList.contains('active');
- if(wasFinance && page!=='financeSettings'){financeSettingsEditing=false;if(financeSettingsDirty)scheduleRecordPush('finance-settings-leave');}
+
+const UI_REVIEW_STATE_KEY='pf_ui_review_state_v172';
+
+function activeViewId(){
+ const active=document.querySelector('.view.active');
+ return active?.id||'dashboard';
+}
+
+function captureReviewState(){
+ const page=activeViewId();
+ const state={
+  page,
+  x:window.scrollX,
+  y:window.scrollY,
+  accountDetailId:currentAccountDetailId||'',
+  accountDetailReturnPage:accountDetailReturnPage||'accounts',
+  accountDetailTxFilter:{...(accountDetailTxFilter||{})},
+  selectedTxIds:[...selectedTxIds],
+  txFilters:{
+   search:$('txSearch')?.value||'',
+   account:$('txAccount')?.value||'',
+   physicalCard:$('txPhysicalCard')?.value||'',
+   category:$('txCategory')?.value||'',
+   type:$('txType')?.value||'',
+   statementMonth:$('txStatementMonth')?.value||''
+  },
+  reportFilters:{
+   from:$('reportFrom')?.value||'',
+   to:$('reportTo')?.value||'',
+   account:$('reportAccount')?.value||'',
+   physicalCard:$('reportPhysicalCard')?.value||'',
+   category:$('reportCategory')?.value||'',
+   subcategory:$('reportSubcategory')?.value||'',
+   type:$('reportType')?.value||''
+  },
+  capturedAt:Date.now()
+ };
+ try{sessionStorage.setItem(UI_REVIEW_STATE_KEY,JSON.stringify(state));}catch(_){}
+ return state;
+}
+
+function restoreReviewControls(state){
+ if(!state)return;
+
+ if(state.txFilters){
+  if($('txSearch'))$('txSearch').value=state.txFilters.search||'';
+  if($('txAccount'))$('txAccount').value=state.txFilters.account||'';
+  if($('txPhysicalCard'))$('txPhysicalCard').value=state.txFilters.physicalCard||'';
+  if($('txCategory'))$('txCategory').value=state.txFilters.category||'';
+  if($('txType'))$('txType').value=state.txFilters.type||'';
+  if($('txStatementMonth'))$('txStatementMonth').value=state.txFilters.statementMonth||'';
+ }
+
+ if(state.reportFilters){
+  if($('reportFrom'))$('reportFrom').value=state.reportFilters.from||'';
+  if($('reportTo'))$('reportTo').value=state.reportFilters.to||'';
+  if($('reportAccount'))$('reportAccount').value=state.reportFilters.account||'';
+  if($('reportPhysicalCard'))$('reportPhysicalCard').value=state.reportFilters.physicalCard||'';
+  if($('reportCategory'))$('reportCategory').value=state.reportFilters.category||'';
+  if($('reportSubcategory'))$('reportSubcategory').value=state.reportFilters.subcategory||'';
+  if($('reportType'))$('reportType').value=state.reportFilters.type||'';
+ }
+
+ selectedTxIds.clear();
+ (state.selectedTxIds||[]).forEach(id=>selectedTxIds.add(id));
+
+ if(state.accountDetailTxFilter){
+  accountDetailTxFilter={...accountDetailTxFilter,...state.accountDetailTxFilter};
+ }
+ if(state.accountDetailId)currentAccountDetailId=state.accountDetailId;
+ if(state.accountDetailReturnPage)accountDetailReturnPage=state.accountDetailReturnPage;
+}
+
+function restoreReviewPage(state,{restoreScroll=true}={}){
+ if(!state)return;
+
+ restoreReviewControls(state);
+
+ const page=state.page||'dashboard';
+
+ // Restore the view WITHOUT the normal nav() scroll-to-top side effect.
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+
+ const titles={
+  dashboard:'Dashboard',
+  accounts:'Accounts & Cards',
+  transactions:'Transactions',
+  reports:'Reports',
+  installments:'Installment Plans',
+  categories:'Categories',
+  incomeplan:'Income & Payment Plan',
+  outgoings:'Outgoings',
+  importstatements:'Import Statements',
+  financeSettings:'Finance Settings',
+  more:'More',
+  accountDetail:'Account Details'
+ };
+ if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
+ if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
+
+ // Re-render only what the active page needs after controls were restored.
+ if(page==='transactions')renderTransactions();
+ else if(page==='reports')renderReports();
+ else if(page==='installments')renderInstallments();
+ else if(page==='categories')renderCategories();
+ else if(page==='incomeplan')renderIncomePlan();
+ else if(page==='outgoings')renderOutgoings();
+ else if(page==='importstatements')renderImportPage();
+ else if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
+ else if(page==='accounts')renderAccounts();
+ else if(page==='accountDetail' && state.accountDetailId){
+  currentAccountDetailId=state.accountDetailId;
+  openAccount(state.accountDetailId,state.accountDetailReturnPage||'accounts');
+ }
+
+ if(restoreScroll){
+  const x=Number(state.x||0),y=Number(state.y||0);
+  requestAnimationFrame(()=>{
+   window.scrollTo(x,y);
+   setTimeout(()=>window.scrollTo(x,y),25);
+  });
+ }
+}
+
+function loadSavedReviewState(){
+ try{
+  const raw=sessionStorage.getItem(UI_REVIEW_STATE_KEY);
+  return raw?JSON.parse(raw):null;
+ }catch(_){return null;}
+}
+
+function nav(page){
+ const previousPage=activeViewId();
+ if(previousPage)captureReviewState();
+
+ const wasFinance=document.getElementById('financeSettings')?.classList.contains('active');
+ if(wasFinance && page!=='financeSettings'){
+  financeSettingsEditing=false;
+  if(financeSettingsDirty)scheduleRecordPush('finance-settings-leave');
+ }
+
+ document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
+ document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+
  const titles={dashboard:'Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
- window.scrollTo({top:0,behavior:'smooth'});
+
+ // Intentional user navigation starts at the top. Realtime restore does NOT use nav().
+ window.scrollTo({top:0,behavior:'auto'});
+
  if(page==='reports')renderReports();
  if(page==='installments')renderInstallments();
  if(page==='categories')renderCategories();
@@ -4008,6 +4151,9 @@ function nav(page){
  if(page==='importstatements')renderImportPage();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
+
+ // Persist the destination as soon as the user moves there.
+ requestAnimationFrame(()=>captureReviewState());
 }
 
 
@@ -8168,6 +8314,11 @@ async function recordSeedFromLegacyCloudIfNeeded(){
 
 async function recordPullAll(reason='pull'){
  if(recordSyncPullBusy || recordSyncPushBusy || recordSyncApplying || !cloudClient)return false;
+
+ // Critical V172 behavior:
+ // capture the exact page/filter/selection/scroll position BEFORE any cloud refresh.
+ const uiBefore=captureReviewState();
+
  recordSyncPullBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
@@ -8176,10 +8327,17 @@ async function recordPullAll(reason='pull'){
   const rows=await recordSeedFromLegacyCloudIfNeeded();
   if(rows.length){
    try{saveRecoverySnapshot(`before-realtime-${reason}`);}catch(_){}
+
    applyRecordSyncRows(rows);
+
+   // Refresh finance data without allowing the UI to choose a different page.
    refreshAllFinanceScreens();
    if(!financeSettingsEditing)renderFinanceSettings();
    updateCloudSyncPanel(true);
+
+   // Put the user straight back where they were reviewing.
+   restoreReviewPage(uiBefore,{restoreScroll:true});
+
    const latest=rows.reduce((m,r)=>Math.max(m,new Date(r.updated_at||0).getTime()),0);
    setCloudMeta({
     initialized:true,
@@ -8192,10 +8350,16 @@ async function recordPullAll(reason='pull'){
    cloudSetStatus(`Realtime cloud synchronized • ${new Date().toLocaleTimeString()}`);
    return true;
   }
+
+  // Even if there were no remote rows, do not disturb the current review page.
+  restoreReviewPage(uiBefore,{restoreScroll:true});
   return false;
  }catch(e){
   console.warn('Realtime pull failed',e);
   cloudSetStatus('Realtime sync retry pending • '+e.message);
+
+  // Failure must also leave the user on the page they were reviewing.
+  restoreReviewPage(uiBefore,{restoreScroll:true});
   return false;
  }finally{
   recordSyncPullBusy=false;
@@ -8737,9 +8901,22 @@ function mergeRecoverySnapshot(snap){
 }
 
 function refreshAllFinanceScreens(){
- renderDashboard();renderAccounts();renderTransactions();renderReports();
- renderPaymentPlanner();renderIncomePlan();renderInstallments();renderOutgoings();
- renderCategories();renderImportHistory();renderLocalSyncSummary();
+ const state=captureReviewState();
+
+ renderDashboard();
+ renderAccounts();
+ renderTransactions();
+ renderReports();
+ renderPaymentPlanner();
+ renderIncomePlan();
+ renderInstallments();
+ renderOutgoings();
+ renderCategories();
+ renderImportHistory();
+ renderLocalSyncSummary();
+
+ // Refreshing data must never be treated as navigation.
+ restoreReviewPage(state,{restoreScroll:true});
 }
 
 function exportRecoverySnapshot(){
@@ -9465,6 +9642,21 @@ const ACTION_HARDEN_OBSERVER=new MutationObserver(mutations=>{
 });
 
 
+
+let UI_REVIEW_SAVE_TIMER=null;
+function scheduleReviewStateSave(){
+ clearTimeout(UI_REVIEW_SAVE_TIMER);
+ UI_REVIEW_SAVE_TIMER=setTimeout(()=>captureReviewState(),60);
+}
+window.addEventListener('scroll',scheduleReviewStateSave,{passive:true});
+window.addEventListener('beforeunload',()=>captureReviewState());
+document.addEventListener('change',e=>{
+ if(e.target.closest?.('#transactions,#reports,#accountDetailContent'))scheduleReviewStateSave();
+});
+document.addEventListener('input',e=>{
+ if(e.target.closest?.('#transactions,#reports'))scheduleReviewStateSave();
+});
+
 async function init(){
  const session=await cloudRefreshAuth();
  let localSavedAt='';
@@ -9522,6 +9714,16 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  updateDbStatus(true);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
+
+ // If the browser/app was reloaded while the user was reviewing another page,
+ // restore that page instead of defaulting to Dashboard.
+ const savedUi=loadSavedReviewState();
+ if(savedUi && savedUi.page && document.getElementById(savedUi.page)){
+  restoreReviewPage(savedUi,{restoreScroll:true});
+ }else{
+  captureReviewState();
+ }
+
  if(session)setTimeout(()=>startRealtimeRecordSync(),120);
 }
 
