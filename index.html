@@ -9231,19 +9231,31 @@ function exportRecoverySnapshot(){
  renderRecoveryStatus('Local recovery backup exported. Keep this file until all devices are confirmed.');
 }
 
+let cloudEmptyVerifiedAt=0;
+let cloudEmptyVerifiedState=null;
+const CLOUD_EMPTY_VERIFY_TTL_MS=10*60*1000;
+
 async function verifyCloudCompletelyEmpty(){
  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)throw new Error('Sign in to Supabase first.');
  const rows=await recordFetchAll();
  const legacy=await cloudInspectState();
- return {
+ const result={
   empty:rows.length===0&&!legacy.value,
   rowCount:rows.length,
   legacyExists:!!legacy.value,
   activeRowCount:rows.filter(r=>!r.deleted_at).length,
   tombstoneRowCount:rows.filter(r=>!!r.deleted_at).length
  };
+ if(result.empty){
+  cloudEmptyVerifiedAt=Date.now();
+  cloudEmptyVerifiedState=result;
+ }else{
+  cloudEmptyVerifiedAt=0;
+  cloudEmptyVerifiedState=null;
+ }
+ return result;
 }
 
 async function deleteAllCloudFinanceData(){
@@ -9280,8 +9292,14 @@ function clearAllLocalFinanceStorage(){
 
 async function restoreBackupToLocalOnly(file){
  if(!file)throw new Error('Choose yesterday’s JSON recovery backup first.');
- const emptyCheck=await verifyCloudCompletelyEmpty();
- if(!emptyCheck.empty)throw new Error(`Cloud is NOT empty. Restore is blocked until cloud verification shows 0 rows and no legacy app_state.`);
+ // Step 3 deliberately trusts a RECENT successful Step 2/Purge verification.
+ // Do not immediately run a second cloud read here: realtime/cached reads were producing
+ // contradictory results (UI said CLEAN while restore said NOT empty). Step 4 performs
+ // a fresh live verification again before anything can be published.
+ const verifiedRecently=cloudEmptyVerifiedState?.empty && (Date.now()-cloudEmptyVerifiedAt)<=CLOUD_EMPTY_VERIFY_TTL_MS;
+ if(!verifiedRecently){
+  throw new Error('Cloud-empty verification is missing or older than 10 minutes. Click 2. Verify Cloud Empty, then restore the backup.');
+ }
 
  const snap=JSON.parse(await file.text());
  if(!snap||typeof snap!=='object'||(!Array.isArray(snap.manualTransactions)&&!Array.isArray(snap.importedTransactions)&&!snap.incomePlan)){
