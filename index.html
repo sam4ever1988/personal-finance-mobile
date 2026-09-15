@@ -8611,6 +8611,14 @@ async function recordPullAll(reason='manual-full-pull'){
 
   let rows=rowCloud;
   if(!rows.length){
+    // V180: during recovery, an empty cloud MUST remain empty. Never auto-seed it
+    // from this device after purge/restore; only Step 4 may publish the backup.
+    if(recoveryCloudLockActive()){
+      recordSyncReady=false;
+      cloudSetStatus('Recovery lock active • cloud intentionally empty');
+      updateCloudSyncPanel(true);
+      return false;
+    }
     // Only seed from local when NO valid cloud snapshot exists.
     if(!(legacy.initialized&&legacy.value)){
       rows=buildRecordSyncRowsFromState();
@@ -8849,7 +8857,7 @@ async function startRealtimeRecordSync(){
 
  // One canonical cloud load at startup.
  await recordPullAll('startup');
- recordSyncReady=true;
+ recordSyncReady=!recoveryCloudLockActive();
 
  if(legacyPlannerCleanupPending){
   legacyPlannerCleanupPending=false;
@@ -9234,6 +9242,14 @@ function exportRecoverySnapshot(){
 let cloudEmptyVerifiedAt=0;
 let cloudEmptyVerifiedState=null;
 const CLOUD_EMPTY_VERIFY_TTL_MS=10*60*1000;
+// V180 recovery lock: prevents an intentionally empty cloud from being auto-seeded
+// by restored/local data between Purge/Verify and the explicit Step 4 publish.
+const RECOVERY_CLOUD_LOCK_KEY='recovery_cloud_lock_v180';
+function recoveryCloudLockActive(){return localStorage.getItem(RECOVERY_CLOUD_LOCK_KEY)==='1';}
+function setRecoveryCloudLock(active){
+ if(active)localStorage.setItem(RECOVERY_CLOUD_LOCK_KEY,'1');
+ else localStorage.removeItem(RECOVERY_CLOUD_LOCK_KEY);
+}
 
 async function verifyCloudCompletelyEmpty(){
  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
@@ -9279,6 +9295,8 @@ async function deleteAllCloudFinanceData(){
  }
 
  recordSyncLastCloudUpdatedAt=0;
+ // Persist a recovery lock across reloads. Nothing may seed/push until Step 4 succeeds.
+ setRecoveryCloudLock(true);
  // Keep recordSyncReady false so nothing can auto-publish after purge.
  recordSyncReady=false;
  setCloudMeta({initialized:false,pending:false,lastSyncedAt:'',lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'cloud-purged'});
@@ -9320,8 +9338,10 @@ async function restoreBackupToLocalOnly(file){
 }
 
 async function publishRestoredBackupToCloud(){
+ // Step 4 is the ONLY operation allowed to publish while recovery lock is active.
+ // Perform a fresh Supabase-only read immediately before upload.
  const emptyCheck=await verifyCloudCompletelyEmpty();
- if(!emptyCheck.empty)throw new Error('Cloud is not empty. Publishing is blocked to prevent mixing restored data with old cloud data.');
+ if(!emptyCheck.empty)throw new Error(`Cloud is not empty (${emptyCheck.rowCount} finance row(s), legacy app_state=${emptyCheck.legacyExists?'YES':'NO'}). Publishing is blocked. Run Step 1 Purge Cloud Only, then Step 2 Verify Cloud Empty. Do NOT restore the backup again.`);
 
  const local=localSyncSummary();
  const rows=buildRecordSyncRowsFromState().map(r=>({...r,deleted_at:null}));
@@ -9344,6 +9364,8 @@ async function publishRestoredBackupToCloud(){
  const legacy=await cloudInspectState();
  if(legacy.value)throw new Error('Publish verification failed: legacy app_state exists unexpectedly.');
 
+ // Publish and verification succeeded: recovery is complete.
+ setRecoveryCloudLock(false);
  recordSyncReady=true;
  setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date().toISOString(),lastAutoSyncReason:'verified-restored-backup-publish'});
  return {local,actual,rowCount:verifyRows.length};
@@ -9704,6 +9726,7 @@ async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
 
 async function cloudInitialUpload(){
  try{
+  if(recoveryCloudLockActive())throw new Error('Recovery lock is active. Finish the Recovery Center workflow first.');
   $('cloudResult').textContent='Initializing realtime cloud records…';
   await cloudClaim();
   await startRealtimeRecordSync();
@@ -9719,6 +9742,7 @@ async function cloudInitialUpload(){
 }
 async function cloudUploadAll(){
  try{
+  if(recoveryCloudLockActive())throw new Error('Recovery lock is active. Use Step 4 Publish Restored Backup to Cloud; normal Sync Now is blocked during recovery.');
   $('cloudResult').textContent='Publishing current records to realtime cloud…';
   if(!recordSyncReady)await startRealtimeRecordSync();
   await recordPushAll('manual-sync');
