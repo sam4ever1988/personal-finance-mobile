@@ -664,6 +664,17 @@ tr[data-tx] button{
   cursor:pointer !important;
 }
 
+
+/* V189 — transaction checkbox click fix */
+.txSelectHit .txSelectBox,
+.txSelectBox,
+#txMasterCheck,
+#detailTxMasterCheck{
+  pointer-events:auto !important;
+  position:relative;
+  z-index:5;
+}
+
 </style>
 </head>
 <body>
@@ -4890,10 +4901,15 @@ function toggleTransactionSelectionFromCell(cell){
 
 function bindTxRows(){
  document.querySelectorAll('[data-select-tx]').forEach(c=>{
-  c.tabIndex=-1;
-  c.onclick=e=>{e.preventDefault();e.stopPropagation();};
-  c.onpointerdown=e=>{e.preventDefault();e.stopPropagation();};
-  c.onchange=e=>{e.preventDefault();e.stopPropagation();};
+  c.tabIndex=0;
+  c.onclick=e=>{
+   e.stopPropagation();
+   beginTxSelectionScrollLock();
+   setTransactionSelected(c.dataset.selectTx,c.checked,c);
+   enforceTxSelectionScrollLock();
+  };
+  c.onpointerdown=e=>{e.stopPropagation();beginTxSelectionScrollLock();};
+  c.onchange=e=>{e.stopPropagation();};
  });
 
  document.querySelectorAll('[data-select-cell]').forEach(cell=>{
@@ -4915,8 +4931,9 @@ function bindTxRows(){
    e.stopPropagation();
   };
   cell.onclick=e=>{
-   e.preventDefault();
    e.stopPropagation();
+   if(e.target.closest('[data-select-tx]'))return;
+   e.preventDefault();
    act();
   };
   cell.onkeydown=e=>{
