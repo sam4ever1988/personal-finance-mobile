@@ -8858,13 +8858,14 @@ async function startRealtimeRecordSync(){
   return false;
  }
 
- // One canonical cloud load at startup.
- await recordPullAll('startup');
- recordSyncReady=!recoveryCloudLockActive();
+ // V185: startup is READ-ONLY. A second/old device must never upload its local state
+ // before the user has completed one verified full authoritative cloud load.
+ await recordPullAll('startup-read-only-v185');
+ recordSyncReady=!recoveryCloudLockActive() && localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
 
  if(legacyPlannerCleanupPending){
+  // Do not publish cleanup from an unverified device. It can be handled after manual load.
   legacyPlannerCleanupPending=false;
-  await recordPushAll('legacy-payment-plan-cleanup');
  }
 
  // V174 stability mode:
@@ -9815,35 +9816,67 @@ async function cloudUploadAll(){
   $('cloudResult').textContent='Realtime sync failed: '+e.message;
  }
 }
+function v185ActiveCloudCounts(rows){
+ const active=(rows||[]).filter(r=>!r.deleted_at);
+ const count=s=>active.filter(r=>r.section===s).length;
+ return {
+  totalRows:(rows||[]).length, activeRows:active.length,
+  manual:count('manual_transactions'), imported:count('imported_transactions'),
+  installments:count('installments'), paymentRows:count('card_payment_plan'),
+  cashFlowRows:count('cash_flow_ledger'), outgoings:count('outgoings')
+ };
+}
 async function cloudDownloadAll(){
  const btn=$('cloudDownload');
  const result=$('cloudResult');
  const originalLabel=btn?btn.textContent:'Load Latest Cloud Data';
+ let rollback=null;
  try{
   if(!cloudClient)throw new Error('Supabase client is unavailable.');
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
-  if(btn){btn.disabled=true;btn.textContent='Loading Cloud…';}
-  if(result){result.className='notice';result.textContent='Reading the canonical finance records from Supabase…';}
+  if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
+  if(result){result.className='notice';result.textContent='V185: fresh full read from Supabase. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
-  if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Please click Load Latest Cloud Data again in a few seconds.');
+  if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
+
+  // Full authoritative read. Never use app_state, a delta cursor, or a local snapshot here.
   const rows=await recordFetchAll();
-  if(!rows.length)throw new Error('The cloud finance table is empty. Local data was not changed.');
-  try{saveRecoverySnapshot('before-manual-cloud-load-v181');}catch(_){}
+  if(!rows.length)throw new Error('Supabase finance_sync_records is empty. Local data was not changed.');
+  const cloud=v185ActiveCloudCounts(rows);
+  if(!cloud.activeRows)throw new Error(`Supabase returned ${cloud.totalRows} row(s), but none are active. Local data was not changed.`);
+
+  rollback=saveRecoverySnapshot('before-manual-cloud-load-v185');
   recordSyncPullBusy=true;
+  recordSyncReady=false; // block local upload until verification finishes
   applyRecordSyncRows(rows);
+  await financeDB.save();
+
+  // Verify the raw record sections became the same local arrays.
+  const mismatches=[];
+  if((manualTransactions||[]).length!==cloud.manual)mismatches.push(`manual ${manualTransactions.length}/${cloud.manual}`);
+  if((importedTransactions||[]).length!==cloud.imported)mismatches.push(`imported ${importedTransactions.length}/${cloud.imported}`);
+  if((installments||[]).length!==cloud.installments)mismatches.push(`installments ${installments.length}/${cloud.installments}`);
+  if((cardPaymentPlan||[]).length!==cloud.paymentRows)mismatches.push(`payment rows ${cardPaymentPlan.length}/${cloud.paymentRows}`);
+  if((cashFlowLedger||[]).length!==cloud.cashFlowRows)mismatches.push(`cash-flow ${cashFlowLedger.length}/${cloud.cashFlowRows}`);
+  if((outgoings||[]).length!==cloud.outgoings)mismatches.push(`outgoings ${outgoings.length}/${cloud.outgoings}`);
+  if(mismatches.length)throw new Error('Cloud-to-device verification mismatch: '+mismatches.join(' • '));
+
   rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   const sections=[...new Set(rows.map(r=>r.section))];
   renderCurrentPageForSections(sections);
-  setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-load-v181'});
+  recordSyncReady=true;
+  localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
+  setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`CLOUD DATA LOADED • ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows. This device now matches the canonical Supabase records.`;}
-  cloudSetStatus(`Cloud loaded successfully • ${new Date().toLocaleTimeString()}`);
+  if(result){result.className='notice success';result.textContent=`V185 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
-  console.error('Manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='CLOUD LOAD FAILED • '+e.message+' Nothing on this device was replaced by this failed load.';}
+  recordSyncReady=false;
+  console.error('V185 manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='V185 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
