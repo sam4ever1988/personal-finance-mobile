@@ -1297,9 +1297,12 @@ tr[data-tx] button{
 </div></div>
 
 <div class="modalBack" id="txEditModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Edit Transaction Category</div><button class="closeBtn" data-close="txEditModal">✕</button></div>
+ <div class="modalHead"><div class="modalTitle">Edit Transaction</div><button class="closeBtn" data-close="txEditModal">✕</button></div>
  <form id="txEditForm" class="formGrid">
   <div class="field full"><label>Transaction</label><div class="panel" id="txEditInfo"></div></div>
+  <div class="field full"><label>Description / Merchant</label><input id="editDescription" placeholder="Transaction description"></div>
+  <div class="field"><label>Transaction Date</label><input type="date" id="editDate"></div>
+  <div class="field"><label>Amount (SAR)</label><input type="number" step="0.01" id="editAmount"><div class="hint">Keep expenses negative and credits/refunds positive.</div></div>
   <div class="field"><label>Statement Month</label><input type="month" id="editStatementMonth"><div class="hint">Choose the statement/payment month this transaction belongs to. Selecting a month is automatically treated as the manual override and drives the dashboard, Current Cycle Transactions, Available Credit and Payment Planner. Clear the month to return to the automatic card cycle.</div></div>
   <div class="field"><label>Statement Assignment</label><label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800"><input type="checkbox" id="editStatementManual"> Manual override (automatic when a month is selected)</label><div class="hint">If checked, the bulk cutoff rule will not overwrite this transaction.</div></div>
   <div class="field"><label>Physical Card</label><select id="editPhysicalCard"></select><div class="hint">Tracks which physical card created the transaction under the same credit-card account.</div></div>
@@ -5879,6 +5882,7 @@ function openTxEdit(id){
  const eligible=isEligibleInstallmentTx(t),linked=isTxLinkedToInstallment(t);
  $('txEditInfo').innerHTML=`<b>${t.description}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${t.date} • ${accountName(t.account)} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
+ $('editDescription').value=t.description||''; $('editDate').value=t.date||''; $('editAmount').value=Number(t.amount||0);
  $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
  $('installmentEligibilityBox').style.display=eligible&&!linked?'block':'none';
  $('convertToInstallment').disabled=!eligible||linked;
@@ -5917,11 +5921,20 @@ $('txEditForm').addEventListener('submit',e=>{
  if(!original)return;
 
  const oldMonth=assignedTransactionPaymentMonth(original.account,original);
+ const editedDescription=$('editDescription').value.trim();
+ const editedDate=$('editDate').value;
+ const editedAmount=Number($('editAmount').value);
+ if(!editedDescription){alert('Transaction description is required.');return;}
+ if(!editedDate){alert('Transaction date is required.');return;}
+ if(!Number.isFinite(editedAmount)||editedAmount===0){alert('Enter a valid non-zero transaction amount.');return;}
  const selectedMonth=$('editStatementMonth').value;
- const autoMonth=paymentMonthForTransaction(original.account,original.date);
+ const autoMonth=paymentMonthForTransaction(original.account,editedDate);
  const hasManualMonth=!!selectedMonth;
  const newMonth=hasManualMonth?selectedMonth:autoMonth;
  const val={
+  description:editedDescription,
+  date:editedDate,
+  amount:editedAmount,
   category:$('editCategory').value,
   subcategory:$('editSubcategory').value,
   physicalCardEnding:$('editPhysicalCard').value||transactionPhysicalCardEnding(original),
@@ -5938,7 +5951,7 @@ $('txEditForm').addEventListener('submit',e=>{
  if($('rememberMerchant').checked&&original){
   // Merchant rules remember categorization only. A statement-month move is
   // transaction-specific and must not silently move every matching merchant.
-  merchantRules[original.description]={
+  merchantRules[editedDescription]={
    category:val.category,
    subcategory:val.subcategory
   };
