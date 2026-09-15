@@ -1003,7 +1003,7 @@ tr[data-tx] button{
   <button class="btn" id="recoveryExportBtn" type="button">Export Local Backup</button>
   <button class="btn" id="recoveryImportBtn" type="button">Import / Merge Backup</button>
   <button class="btn" id="recoveryRestoreBtn" type="button">Restore Previous Local Snapshot</button>
-  <button class="btn danger" id="purgeCloudBtn" type="button">1. Purge Cloud Only</button>
+  <button class="btn danger" id="purgeCloudBtn" type="button">1. Hard Purge Cloud</button>
   <button class="btn" id="verifyCloudEmptyBtn" type="button">2. Verify Cloud Empty</button>
   <button class="btn" id="cloudAuditBtn" type="button">Inspect Cloud Records (Read Only)</button>
   <button class="btn" id="cloudAuditExportBtn" type="button" style="display:none">Export Cloud Audit JSON</button>
@@ -9282,30 +9282,47 @@ async function deleteAllCloudFinanceData(){
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)throw new Error('Sign in to Supabase first.');
 
- // PURGE ONLY. This function never restores, publishes, seeds, or migrates data.
- const beforeRows=await recordFetchAll();
- const beforeLegacy=await cloudInspectState();
-
- const {error:rowErr}=await cloudClient.from(RECORD_SYNC_TABLE).delete().not('record_id','is',null);
- if(rowErr)throw new Error('Could not clear finance_sync_records: '+rowErr.message);
-
- const {error:stateErr}=await cloudClient.from('settings').delete().eq('key','app_state');
- if(stateErr)throw new Error('Could not clear legacy settings/app_state: '+stateErr.message);
-
- const verification=await verifyCloudCompletelyEmpty();
- if(!verification.empty){
-  throw new Error(`Cloud purge verification failed: ${verification.rowCount} finance_sync_records row(s), legacy app_state=${verification.legacyExists?'YES':'NO'}.`);
- }
-
- recordSyncLastCloudUpdatedAt=0;
- // Persist a recovery lock across reloads. Nothing may seed/push until Step 4 succeeds.
+ // V184 HARD RECOVERY RESET.
+ // Freeze this device BEFORE the first DELETE so no local/realtime path can republish rows.
  setRecoveryCloudLock(true);
- // Keep recordSyncReady false so nothing can auto-publish after purge.
  recordSyncReady=false;
- setCloudMeta({initialized:false,pending:false,lastSyncedAt:'',lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'cloud-purged'});
- return {beforeRowCount:beforeRows.length,beforeLegacyExists:!!beforeLegacy.value,...verification};
-}
+ recordSyncPushBusy=true;
+ try{
+  const beforeRows=await recordFetchAll();
+  const beforeLegacy=await cloudInspectState();
 
+  // Physical DELETE, not tombstoning. Every finance row is removed from Supabase.
+  // Run a second pass after a short delay to catch any write that was already in flight.
+  for(let pass=1;pass<=2;pass++){
+   const {error:rowErr}=await cloudClient.from(RECORD_SYNC_TABLE)
+     .delete().not('record_id','is',null);
+   if(rowErr)throw new Error('Could not physically clear finance_sync_records (pass '+pass+'): '+rowErr.message);
+
+   const {error:stateErr}=await cloudClient.from('settings').delete().eq('key','app_state');
+   if(stateErr)throw new Error('Could not clear legacy settings/app_state (pass '+pass+'): '+stateErr.message);
+   await new Promise(resolve=>setTimeout(resolve,350));
+  }
+
+  // Three independent read-backs. CLEAN is accepted only when every read is physically zero.
+  let verification=null;
+  for(let check=1;check<=3;check++){
+   verification=await verifyCloudCompletelyEmpty();
+   if(!verification.empty){
+    throw new Error(`Hard purge read-back ${check}/3 FAILED: ${verification.rowCount} total row(s), ${verification.activeRowCount} active, ${verification.tombstoneRowCount} tombstone, legacy app_state=${verification.legacyExists?'YES':'NO'}.`);
+   }
+   if(check<3)await new Promise(resolve=>setTimeout(resolve,400));
+  }
+
+  recordSyncLastCloudUpdatedAt=0;
+  recordSyncReady=false;
+  setCloudMeta({initialized:false,pending:false,lastSyncedAt:'',lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'v184-hard-cloud-purge'});
+  return {beforeRowCount:beforeRows.length,beforeLegacyExists:!!beforeLegacy.value,...verification};
+ }finally{
+  // Keep normal sync disabled while recovery lock is active; only Step 4 may publish.
+  recordSyncPushBusy=false;
+  recordSyncReady=false;
+ }
+}
 function clearAllLocalFinanceStorage(){
  const keepKeys=new Set([RECOVERY_KEY]); // keep recovery snapshots until clean restore succeeds
  Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&!keepKeys.has(k)).forEach(k=>localStorage.removeItem(k));
@@ -9416,12 +9433,12 @@ function bindRecoveryCenter(){
 
  if($('purgeCloudBtn'))$('purgeCloudBtn').onclick=async()=>{
   try{
-   const ok=confirm('PERMANENT CLOUD PURGE ONLY\n\nThis deletes ALL finance_sync_records rows and the legacy settings/app_state from Supabase.\n\nIt will NOT restore or publish any backup.\n\nContinue?');
+   const ok=confirm('V184 HARD CLOUD PURGE\n\nThis PHYSICALLY DELETES every finance_sync_records row (active + tombstones) and legacy settings/app_state from Supabase.\n\nIt does NOT restore or publish your backup.\n\nClose the finance page on other devices first, then continue. Continue?');
    if(!ok)return;
-   renderRecoveryStatus('Purging cloud only… No backup will be restored or published.');
+   renderRecoveryStatus('HARD PURGE RUNNING… physically deleting active rows + tombstones. No backup will be restored or published.');
    const r=await deleteAllCloudFinanceData();
-   renderRecoveryStatus(`CLOUD CLEAN — SAFE TO RESTORE • 0 finance rows • legacy app_state removed. Deleted ${r.beforeRowCount} prior row(s).`);
-   if($('cloudResult'))$('cloudResult').textContent='CLOUD CLEAN — SAFE TO RESTORE. Cloud is empty; nothing has been restored yet.';
+   renderRecoveryStatus(`V184 HARD PURGE VERIFIED • 0 total rows • 0 active • 0 tombstones • legacy app_state absent. Physically deleted ${r.beforeRowCount} prior row(s).`);
+   if($('cloudResult'))$('cloudResult').textContent='V184 HARD PURGE VERIFIED — 0 total rows • 0 active • 0 tombstones • legacy app_state absent. Nothing has been restored or published.';
   }catch(err){
    renderRecoveryStatus('CLOUD PURGE FAILED: '+err.message);
   }
