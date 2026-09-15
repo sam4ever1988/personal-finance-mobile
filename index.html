@@ -1003,7 +1003,12 @@ tr[data-tx] button{
   <button class="btn" id="recoveryExportBtn" type="button">Export Local Backup</button>
   <button class="btn" id="recoveryImportBtn" type="button">Import / Merge Backup</button>
   <button class="btn" id="recoveryRestoreBtn" type="button">Restore Previous Local Snapshot</button>
+  <button class="btn danger" id="purgeCloudBtn" type="button">1. Purge Cloud Only</button>
+  <button class="btn" id="verifyCloudEmptyBtn" type="button">2. Verify Cloud Empty</button>
+  <button class="btn" id="restoreBackupLocalBtn" type="button">3. Restore Backup to This Device</button>
+  <button class="btn primary" id="publishRestoredBackupBtn" type="button">4. Publish Restored Backup to Cloud</button>
   <input id="recoveryImportFile" type="file" accept=".json,application/json" style="display:none">
+  <input id="restoreBackupLocalFile" type="file" accept=".json,application/json" style="display:none">
  </div>
  <div class="notice" id="recoveryStatus" style="margin-top:10px">No recovery action performed yet.</div>
 </div>
@@ -1044,10 +1049,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V175 PRODUCTION</span></div>
+  </div><span class="pill green">V176 CLEAN RESTORE</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V175-20260915</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V176-20260915-CLEAN</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -8577,7 +8582,7 @@ async function recordPullAll(reason='manual-full-pull'){
 
   try{saveRecoverySnapshot(`before-${reason}`);}catch(_){}
 
-  if(legacy.initialized&&legacy.value&&legacyScore>rowScore){
+  if(false && legacy.initialized&&legacy.value&&legacyScore>rowScore){
     applyCloudSnapshot(legacy.value);
     persistRecoveredState();
     financeDB.save();
@@ -9085,6 +9090,7 @@ function renderRecoveryStatus(msg=''){
 }
 
 function persistRecoveredState(){
+ localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
  localStorage.setItem('pf_categories',JSON.stringify(categories));
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
@@ -9107,29 +9113,30 @@ function persistRecoveredState(){
 
 function applyRecoverySnapshot(snap){
  if(!snap||typeof snap!=='object')return false;
- financeSettings=snap.financeSettings||financeSettings;
- categories=snap.categories||categories;
- installments=snap.installments||installments;
- if(Array.isArray(snap.deletedInstallmentIds))deletedInstallmentIds=new Set(snap.deletedInstallmentIds);
- merchantRules=snap.merchantRules||merchantRules;
- txOverrides=snap.txOverrides||txOverrides;
- incomePlan=snap.incomePlan||incomePlan;
- manualTransactions=snap.manualTransactions||manualTransactions;
- importedTransactions=snap.importedTransactions||importedTransactions;
- importHistory=snap.importHistory||importHistory;
- cashFlowLedger=snap.cashFlowLedger||cashFlowLedger;
- outgoings=snap.outgoings||outgoings;
- duplicateDecisions=snap.duplicateDecisions||duplicateDecisions;
- statementRule=snap.statementRule||statementRule;
- transactionActions=snap.transactionActions||transactionActions;
- bankBalanceOverrides=snap.bankBalanceOverrides||bankBalanceOverrides;
- if(Array.isArray(snap.resetCardIds))resetCardIds=new Set(snap.resetCardIds);
- cardResetHistory=snap.cardResetHistory||cardResetHistory;
- cardPaymentPlan=snap.cardPaymentPlan||cardPaymentPlan;
+ // STRICT REPLACE: never fall back to stale in-memory values during a restore.
+ financeSettings=(snap.financeSettings&&typeof snap.financeSettings==='object')?JSON.parse(JSON.stringify(snap.financeSettings)):{loans:[],cardCycles:{}};
+ categories=(snap.categories&&typeof snap.categories==='object')?JSON.parse(JSON.stringify(snap.categories)):JSON.parse(JSON.stringify(BASE.categoryTree));
+ installments=Array.isArray(snap.installments)?JSON.parse(JSON.stringify(snap.installments)):[];
+ deletedInstallmentIds=new Set(Array.isArray(snap.deletedInstallmentIds)?snap.deletedInstallmentIds:[]);
+ merchantRules=(snap.merchantRules&&typeof snap.merchantRules==='object')?JSON.parse(JSON.stringify(snap.merchantRules)):{};
+ txOverrides=(snap.txOverrides&&typeof snap.txOverrides==='object')?JSON.parse(JSON.stringify(snap.txOverrides)):{};
+ incomePlan=(snap.incomePlan&&typeof snap.incomePlan==='object')?JSON.parse(JSON.stringify(snap.incomePlan)):{};
+ manualTransactions=Array.isArray(snap.manualTransactions)?JSON.parse(JSON.stringify(snap.manualTransactions)):[];
+ importedTransactions=Array.isArray(snap.importedTransactions)?JSON.parse(JSON.stringify(snap.importedTransactions)):[];
+ importHistory=Array.isArray(snap.importHistory)?JSON.parse(JSON.stringify(snap.importHistory)):[];
+ cashFlowLedger=Array.isArray(snap.cashFlowLedger)?JSON.parse(JSON.stringify(snap.cashFlowLedger)):[];
+ outgoings=Array.isArray(snap.outgoings)?JSON.parse(JSON.stringify(snap.outgoings)):[];
+ duplicateDecisions=(snap.duplicateDecisions&&typeof snap.duplicateDecisions==='object')?JSON.parse(JSON.stringify(snap.duplicateDecisions)):{};
+ statementRule=(snap.statementRule&&typeof snap.statementRule==='object')?JSON.parse(JSON.stringify(snap.statementRule)):{cutoffDay:24};
+ transactionActions=(snap.transactionActions&&typeof snap.transactionActions==='object')?JSON.parse(JSON.stringify(snap.transactionActions)):{};
+ bankBalanceOverrides=(snap.bankBalanceOverrides&&typeof snap.bankBalanceOverrides==='object')?JSON.parse(JSON.stringify(snap.bankBalanceOverrides)):{};
+ resetCardIds=new Set(Array.isArray(snap.resetCardIds)?snap.resetCardIds:[]);
+ cardResetHistory=Array.isArray(snap.cardResetHistory)?JSON.parse(JSON.stringify(snap.cardResetHistory)):[];
+ cardPaymentPlan=Array.isArray(snap.cardPaymentPlan)?JSON.parse(JSON.stringify(snap.cardPaymentPlan)):[];
 
  normalizeCardPaymentPlan();
  rebuildTransactions();
- ensureRequiredInstallmentSeeds();
+ // Do NOT seed old/built-in installments during a strict backup restore.
  ensureLedgerBackedPlannerRows();
  rebuildAllPlannerPaymentsFromLedger();
  normalizeBalanceOffers();
@@ -9224,6 +9231,106 @@ function exportRecoverySnapshot(){
  renderRecoveryStatus('Local recovery backup exported. Keep this file until all devices are confirmed.');
 }
 
+async function verifyCloudCompletelyEmpty(){
+ if(!cloudClient)throw new Error('Cloud connection is unavailable.');
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)throw new Error('Sign in to Supabase first.');
+ const rows=await recordFetchAll();
+ const legacy=await cloudInspectState();
+ return {
+  empty:rows.length===0&&!legacy.value,
+  rowCount:rows.length,
+  legacyExists:!!legacy.value,
+  activeRowCount:rows.filter(r=>!r.deleted_at).length,
+  tombstoneRowCount:rows.filter(r=>!!r.deleted_at).length
+ };
+}
+
+async function deleteAllCloudFinanceData(){
+ if(!cloudClient)throw new Error('Cloud connection is unavailable.');
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)throw new Error('Sign in to Supabase first.');
+
+ // PURGE ONLY. This function never restores, publishes, seeds, or migrates data.
+ const beforeRows=await recordFetchAll();
+ const beforeLegacy=await cloudInspectState();
+
+ const {error:rowErr}=await cloudClient.from(RECORD_SYNC_TABLE).delete().not('record_id','is',null);
+ if(rowErr)throw new Error('Could not clear finance_sync_records: '+rowErr.message);
+
+ const {error:stateErr}=await cloudClient.from('settings').delete().eq('key','app_state');
+ if(stateErr)throw new Error('Could not clear legacy settings/app_state: '+stateErr.message);
+
+ const verification=await verifyCloudCompletelyEmpty();
+ if(!verification.empty){
+  throw new Error(`Cloud purge verification failed: ${verification.rowCount} finance_sync_records row(s), legacy app_state=${verification.legacyExists?'YES':'NO'}.`);
+ }
+
+ recordSyncLastCloudUpdatedAt=0;
+ // Keep recordSyncReady false so nothing can auto-publish after purge.
+ recordSyncReady=false;
+ setCloudMeta({initialized:false,pending:false,lastSyncedAt:'',lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'cloud-purged'});
+ return {beforeRowCount:beforeRows.length,beforeLegacyExists:!!beforeLegacy.value,...verification};
+}
+
+function clearAllLocalFinanceStorage(){
+ const keepKeys=new Set([RECOVERY_KEY]); // keep recovery snapshots until clean restore succeeds
+ Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&!keepKeys.has(k)).forEach(k=>localStorage.removeItem(k));
+}
+
+async function restoreBackupToLocalOnly(file){
+ if(!file)throw new Error('Choose yesterday’s JSON recovery backup first.');
+ const emptyCheck=await verifyCloudCompletelyEmpty();
+ if(!emptyCheck.empty)throw new Error(`Cloud is NOT empty. Restore is blocked until cloud verification shows 0 rows and no legacy app_state.`);
+
+ const snap=JSON.parse(await file.text());
+ if(!snap||typeof snap!=='object'||(!Array.isArray(snap.manualTransactions)&&!Array.isArray(snap.importedTransactions)&&!snap.incomePlan)){
+  throw new Error('This does not look like a Personal Finance recovery backup.');
+ }
+
+ saveRecoverySnapshot('before-local-backup-restore');
+ clearAllLocalFinanceStorage();
+ if(!applyRecoverySnapshot(snap))throw new Error('Backup restore failed.');
+ persistRecoveredState();
+ await financeDB.save();
+
+ // IMPORTANT: restored local data stays LOCAL ONLY until user presses Publish Restored Backup.
+ recordSyncReady=false;
+ setCloudMeta({initialized:false,deviceTrusted:true,pending:true,lastSyncedAt:'',lastLocalSavedAt:new Date().toISOString()});
+ refreshAllFinanceScreens();
+ return localSyncSummary();
+}
+
+async function publishRestoredBackupToCloud(){
+ const emptyCheck=await verifyCloudCompletelyEmpty();
+ if(!emptyCheck.empty)throw new Error('Cloud is not empty. Publishing is blocked to prevent mixing restored data with old cloud data.');
+
+ const local=localSyncSummary();
+ const rows=buildRecordSyncRowsFromState().map(r=>({...r,deleted_at:null}));
+ if(!rows.length)throw new Error('There is no restored local finance data to publish.');
+
+ const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(rows,{onConflict:'section,record_id'});
+ if(error)throw error;
+
+ const verifyRows=await recordFetchAll();
+ const active=verifyRows.filter(r=>!r.deleted_at);
+ const actual={
+  transactions:active.filter(r=>r.section==='manual_transactions'||r.section==='imported_transactions').length,
+  installments:active.filter(r=>r.section==='installments').length,
+  paymentRows:active.filter(r=>r.section==='card_payment_plan').length,
+  cashFlowRows:active.filter(r=>r.section==='cash_flow_ledger').length
+ };
+ for(const k of ['transactions','installments','paymentRows','cashFlowRows']){
+  if(Number(actual[k]||0)!==Number(local[k]||0))throw new Error(`Publish verification failed for ${k}: local ${local[k]||0}, cloud ${actual[k]||0}.`);
+ }
+ const legacy=await cloudInspectState();
+ if(legacy.value)throw new Error('Publish verification failed: legacy app_state exists unexpectedly.');
+
+ recordSyncReady=true;
+ setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date().toISOString(),lastAutoSyncReason:'verified-restored-backup-publish'});
+ return {local,actual,rowCount:verifyRows.length};
+}
+
 function bindRecoveryCenter(){
  if($('recoveryCreateBtn'))$('recoveryCreateBtn').onclick=()=>{
   const s=saveRecoverySnapshot('manual');
@@ -9243,6 +9350,53 @@ function bindRecoveryCenter(){
    renderRecoveryStatus(`Restored local snapshot from ${new Date(s.createdAt).toLocaleString()}. Review the data before syncing it to cloud.`);
   }
  };
+
+ if($('purgeCloudBtn'))$('purgeCloudBtn').onclick=async()=>{
+  try{
+   const ok=confirm('PERMANENT CLOUD PURGE ONLY\n\nThis deletes ALL finance_sync_records rows and the legacy settings/app_state from Supabase.\n\nIt will NOT restore or publish any backup.\n\nContinue?');
+   if(!ok)return;
+   renderRecoveryStatus('Purging cloud only… No backup will be restored or published.');
+   const r=await deleteAllCloudFinanceData();
+   renderRecoveryStatus(`CLOUD CLEAN — SAFE TO RESTORE • 0 finance rows • legacy app_state removed. Deleted ${r.beforeRowCount} prior row(s).`);
+   if($('cloudResult'))$('cloudResult').textContent='CLOUD CLEAN — SAFE TO RESTORE. Cloud is empty; nothing has been restored yet.';
+  }catch(err){
+   renderRecoveryStatus('CLOUD PURGE FAILED: '+err.message);
+  }
+ };
+
+ if($('verifyCloudEmptyBtn'))$('verifyCloudEmptyBtn').onclick=async()=>{
+  try{
+   const r=await verifyCloudCompletelyEmpty();
+   const msg=r.empty
+    ? 'CLOUD CLEAN — SAFE TO RESTORE • 0 finance rows • no legacy app_state.'
+    : `CLOUD NOT EMPTY • ${r.rowCount} finance row(s) (${r.activeRowCount} active, ${r.tombstoneRowCount} tombstone) • legacy app_state ${r.legacyExists?'EXISTS':'absent'}.`;
+   renderRecoveryStatus(msg);
+   if($('cloudResult'))$('cloudResult').textContent=msg;
+  }catch(err){renderRecoveryStatus('Cloud verification failed: '+err.message);}
+ };
+
+ if($('restoreBackupLocalBtn'))$('restoreBackupLocalBtn').onclick=()=>$('restoreBackupLocalFile')?.click();
+ if($('restoreBackupLocalFile'))$('restoreBackupLocalFile').onchange=async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+   const sum=await restoreBackupToLocalOnly(file);
+   renderRecoveryStatus(`BACKUP RESTORED TO THIS DEVICE ONLY • ${sum.transactions} transactions • ${sum.installments} installments • ${sum.paymentRows} payment rows. Cloud remains empty until Step 4.`);
+   if($('cloudResult'))$('cloudResult').textContent='Backup restored locally only. Review it before publishing to cloud.';
+  }catch(err){renderRecoveryStatus('Local backup restore FAILED: '+err.message);}
+  finally{e.target.value='';}
+ };
+
+ if($('publishRestoredBackupBtn'))$('publishRestoredBackupBtn').onclick=async()=>{
+  try{
+   const ok=confirm('PUBLISH RESTORED BACKUP\n\nThis will upload the currently restored local database into the verified-empty Supabase cloud. Continue?');
+   if(!ok)return;
+   const r=await publishRestoredBackupToCloud();
+   renderRecoveryStatus(`PUBLISH VERIFIED • ${r.actual.transactions} transactions • ${r.actual.installments} installments • ${r.actual.paymentRows} payment rows • ${r.actual.cashFlowRows} cash-flow rows.`);
+   if($('cloudResult'))$('cloudResult').textContent='Restored backup published and verified. This is now the canonical cloud dataset.';
+   await renderCloudReconciliation();
+  }catch(err){renderRecoveryStatus('Publish FAILED: '+err.message);}
+ };
+
  if($('recoveryImportFile'))$('recoveryImportFile').onchange=async e=>{
   const file=e.target.files?.[0]; if(!file)return;
   try{
@@ -9252,9 +9406,8 @@ function bindRecoveryCenter(){
    setCloudMeta({pending:true});
    refreshAllFinanceScreens();
    renderRecoveryStatus(`Backup merged successfully from ${file.name}. Review restored categories/history/cards before syncing.`);
-  }catch(err){
-   renderRecoveryStatus('Recovery import failed: '+err.message);
-  }finally{e.target.value='';}
+  }catch(err){renderRecoveryStatus('Recovery import failed: '+err.message);}
+  finally{e.target.value='';}
  };
  renderRecoveryStatus();
 }
