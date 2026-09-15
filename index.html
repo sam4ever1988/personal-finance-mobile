@@ -974,7 +974,7 @@ tr[data-tx] button{
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V182 Exact Cloud Verification</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V183 Read-Only Cloud Audit</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1005,11 +1005,14 @@ tr[data-tx] button{
   <button class="btn" id="recoveryRestoreBtn" type="button">Restore Previous Local Snapshot</button>
   <button class="btn danger" id="purgeCloudBtn" type="button">1. Purge Cloud Only</button>
   <button class="btn" id="verifyCloudEmptyBtn" type="button">2. Verify Cloud Empty</button>
+  <button class="btn" id="cloudAuditBtn" type="button">Inspect Cloud Records (Read Only)</button>
+  <button class="btn" id="cloudAuditExportBtn" type="button" style="display:none">Export Cloud Audit JSON</button>
   <button class="btn" id="restoreBackupLocalBtn" type="button">3. Restore Backup to This Device</button>
   <button class="btn primary" id="publishRestoredBackupBtn" type="button">4. Publish Restored Backup to Cloud</button>
   <input id="recoveryImportFile" type="file" accept=".json,application/json" style="display:none">
   <input id="restoreBackupLocalFile" type="file" accept=".json,application/json" style="display:none">
  </div>
+ <div id="cloudAuditPanel" style="display:none;margin-top:12px;max-height:520px;overflow:auto;border:1px solid #dbe3ee;border-radius:12px;background:#fff;padding:12px"></div>
  <div class="notice" id="recoveryStatus" style="margin-top:10px">No recovery action performed yet.</div>
 </div>
 
@@ -9434,6 +9437,27 @@ function bindRecoveryCenter(){
    if($('cloudResult'))$('cloudResult').textContent=msg;
   }catch(err){renderRecoveryStatus('Cloud verification failed: '+err.message);}
  };
+
+ let lastCloudAuditRows=[];
+ function auditEsc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]||c));}
+ function auditSummary(r){
+  const d=(r&&typeof r.data==='object'&&r.data)||{};
+  const pick=(...ks)=>{for(const k of ks){if(d[k]!==undefined&&d[k]!==null&&d[k]!=='')return d[k];}return '';};
+  return {section:r.section||'',id:r.record_id||'',deleted:!!r.deleted_at,updated:r.updated_at||'',card:pick('account','card','cardName','creditCard','accountName'),description:pick('description','transaction','name','title'),date:pick('date','transactionDate','paymentDate','createdAt'),amount:pick('amount','remainingAmount','originalAmount','monthlyAmount'),data:d};
+ }
+ async function runCloudAudit(){
+  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
+  const {data:{session}}=await cloudClient.auth.getSession(); if(!session)throw new Error('Sign in to Supabase first.');
+  const rows=await recordFetchAll(); lastCloudAuditRows=rows.map(auditSummary);
+  const active=lastCloudAuditRows.filter(r=>!r.deleted), tomb=lastCloudAuditRows.filter(r=>r.deleted);
+  const bySection={}; active.forEach(r=>bySection[r.section]=(bySection[r.section]||0)+1);
+  const panel=$('cloudAuditPanel'); panel.style.display='block';
+  panel.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:6px">READ-ONLY CLOUD AUDIT</div><div style="margin-bottom:10px">${rows.length} total rows • ${active.length} active • ${tomb.length} tombstones. Active by section: ${auditEsc(Object.entries(bySection).map(([k,v])=>k+': '+v).join(' • ')||'none')}</div><div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;padding:7px">State</th><th style="text-align:left;padding:7px">Section</th><th style="text-align:left;padding:7px">Record ID</th><th style="text-align:left;padding:7px">Card/Account</th><th style="text-align:left;padding:7px">Description</th><th style="text-align:left;padding:7px">Date</th><th style="text-align:right;padding:7px">Amount</th><th style="text-align:left;padding:7px">Updated</th></tr></thead><tbody>${lastCloudAuditRows.map(r=>`<tr style="border-top:1px solid #e7edf4;opacity:${r.deleted?'.55':'1'}"><td style="padding:7px">${r.deleted?'TOMBSTONE':'ACTIVE'}</td><td style="padding:7px">${auditEsc(r.section)}</td><td style="padding:7px">${auditEsc(r.id)}</td><td style="padding:7px">${auditEsc(r.card)}</td><td style="padding:7px">${auditEsc(r.description)}</td><td style="padding:7px">${auditEsc(r.date)}</td><td style="padding:7px;text-align:right">${auditEsc(r.amount)}</td><td style="padding:7px">${auditEsc(r.updated)}</td></tr>`).join('')}</tbody></table></div>`;
+  $('cloudAuditExportBtn').style.display='inline-flex';
+  return {total:rows.length,active:active.length,tombstones:tomb.length,bySection};
+ }
+ if($('cloudAuditBtn'))$('cloudAuditBtn').onclick=async()=>{try{const r=await runCloudAudit();renderRecoveryStatus(`READ-ONLY AUDIT COMPLETE • ${r.total} total • ${r.active} active • ${r.tombstones} tombstones. No cloud or local data was changed.`);}catch(err){renderRecoveryStatus('Cloud audit failed: '+err.message);}};
+ if($('cloudAuditExportBtn'))$('cloudAuditExportBtn').onclick=()=>{if(!lastCloudAuditRows.length)return;const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),rows:lastCloudAuditRows},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cloud-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);};
 
  if($('restoreBackupLocalBtn'))$('restoreBackupLocalBtn').onclick=()=>$('restoreBackupLocalFile')?.click();
  if($('restoreBackupLocalFile'))$('restoreBackupLocalFile').onchange=async e=>{
