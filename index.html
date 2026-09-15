@@ -974,7 +974,7 @@ tr[data-tx] button{
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V156 Realtime Cloud</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V181 Verified Cloud Load</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1019,7 +1019,7 @@ tr[data-tx] button{
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">Cloud Sync ready • Supabase records are the master; local data is cache/recovery only.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">Cloud Sync ready • V181 manual cloud load gives visible verification and never seeds cloud from local data.</div>
   </div>
  </div>
 </section>
@@ -9755,17 +9755,37 @@ async function cloudUploadAll(){
  }
 }
 async function cloudDownloadAll(){
+ const btn=$('cloudDownload');
+ const result=$('cloudResult');
+ const originalLabel=btn?btn.textContent:'Load Latest Cloud Data';
  try{
-  $('cloudResult').textContent='Loading latest cloud data…';
-  const ok=await recordPullAll('manual-load');
-  if(!ok){
-    $('cloudResult').textContent='No cloud data was loaded. Nothing on this device was replaced.';
-    return;
-  }
+  if(!cloudClient)throw new Error('Supabase client is unavailable.');
+  const {data:{session}}=await cloudClient.auth.getSession();
+  if(!session)throw new Error('You are not signed in.');
+  if(btn){btn.disabled=true;btn.textContent='Loading Cloud…';}
+  if(result){result.className='notice';result.textContent='Reading the canonical finance records from Supabase…';}
+  const waitStarted=Date.now();
+  while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
+  if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Please click Load Latest Cloud Data again in a few seconds.');
+  const rows=await recordFetchAll();
+  if(!rows.length)throw new Error('The cloud finance table is empty. Local data was not changed.');
+  try{saveRecoverySnapshot('before-manual-cloud-load-v181');}catch(_){}
+  recordSyncPullBusy=true;
+  applyRecordSyncRows(rows);
+  rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
+  const sections=[...new Set(rows.map(r=>r.section))];
+  renderCurrentPageForSections(sections);
+  setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-load-v181'});
+  const summary=localSyncSummary();
+  if(result){result.className='notice success';result.textContent=`CLOUD DATA LOADED • ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows. This device now matches the canonical Supabase records.`;}
+  cloudSetStatus(`Cloud loaded successfully • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
-  $('cloudResult').textContent='Latest cloud data loaded successfully. Verify the Local vs Cloud counts above.';
  }catch(e){
-  $('cloudResult').textContent='Cloud load failed: '+e.message;
+  console.error('Manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='CLOUD LOAD FAILED • '+e.message+' Nothing on this device was replaced by this failed load.';}
+ }finally{
+  recordSyncPullBusy=false;
+  if(btn){btn.disabled=false;btn.textContent=originalLabel;}
  }
 }
 async function refreshCloudSafetyState(){
