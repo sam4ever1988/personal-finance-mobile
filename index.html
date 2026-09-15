@@ -974,7 +974,7 @@ tr[data-tx] button{
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V183 Read-Only Cloud Audit</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V186 Protected Cloud Publish</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -8680,17 +8680,10 @@ async function recordPushAll(reason='edit'){
    if(error)throw error;
   }
 
-  const nowIso=new Date().toISOString();
-  const removed=cloudRows
-   .filter(r=>!r.deleted_at&&!currentKeys.has(`${r.section}|${r.record_id}`))
-   .map(r=>({section:r.section,record_id:r.record_id,data:r.data||{},deleted_at:nowIso}));
-
-  removed.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
-  if(removed.length){
-   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-    .upsert(removed,{onConflict:'section,record_id'});
-   if(error)throw error;
-  }
+  // V186 PROTECTION: a normal full-device save is additive/update-only.
+  // Never infer cloud deletions merely because a row is missing from this device.
+  // This prevents an older/stale second machine from tombstoning valid canonical rows.
+  // Explicit user delete actions must use recordImmediateDelete / their dedicated delete path.
 
   setCloudMeta({
    initialized:true,
@@ -9383,24 +9376,28 @@ async function publishRestoredBackupToCloud(){
   if(missing.length)throw new Error(`Cloud write acknowledgement incomplete: ${missing.length} row(s) were not returned by Supabase.`);
  }
 
- // Force a brand-new query after all writes. Do not use UI/cache/realtime state.
- await new Promise(resolve=>setTimeout(resolve,300));
- const verifyRows=await recordFetchAll();
- const active=verifyRows.filter(r=>!r.deleted_at);
- const actualKeys=new Set(active.map(r=>`${r.section}|${r.record_id}`));
- const missingKeys=[...expectedKeys].filter(k=>!actualKeys.has(k));
- const unexpectedKeys=[...actualKeys].filter(k=>!expectedKeys.has(k));
- if(missingKeys.length||unexpectedKeys.length){
-  throw new Error(`Independent cloud read-back FAILED: ${missingKeys.length} expected row(s) missing, ${unexpectedKeys.length} unexpected active row(s). Cloud was NOT marked verified.`);
- }
- const actual={
-  transactions:active.filter(r=>r.section==='manual_transactions'||r.section==='imported_transactions').length,
-  installments:active.filter(r=>r.section==='installments').length,
-  paymentRows:active.filter(r=>r.section==='card_payment_plan').length,
-  cashFlowRows:active.filter(r=>r.section==='cash_flow_ledger').length
- };
- for(const k of ['transactions','installments','paymentRows','cashFlowRows']){
-  if(Number(actual[k]||0)!==Number(local[k]||0))throw new Error(`Independent cloud read-back failed for ${k}: local ${local[k]||0}, cloud ${actual[k]||0}. Cloud was NOT marked verified.`);
+ // V186: verify repeatedly from Supabase. A publish is not accepted after one immediate read.
+ // This catches a stale/older device or delayed writer that tries to remove restored rows.
+ let verifyRows=[], active=[], actual={};
+ for(const delay of [500,2000,5000]){
+  await new Promise(resolve=>setTimeout(resolve,delay));
+  verifyRows=await recordFetchAll();
+  active=verifyRows.filter(r=>!r.deleted_at);
+  const actualKeys=new Set(active.map(r=>`${r.section}|${r.record_id}`));
+  const missingKeys=[...expectedKeys].filter(k=>!actualKeys.has(k));
+  const unexpectedKeys=[...actualKeys].filter(k=>!expectedKeys.has(k));
+  if(missingKeys.length||unexpectedKeys.length){
+   throw new Error(`Protected cloud read-back FAILED: ${missingKeys.length} expected row(s) missing, ${unexpectedKeys.length} unexpected active row(s). Another writer may be changing Supabase.`);
+  }
+  actual={
+   transactions:active.filter(r=>r.section==='manual_transactions'||r.section==='imported_transactions').length,
+   installments:active.filter(r=>r.section==='installments').length,
+   paymentRows:active.filter(r=>r.section==='card_payment_plan').length,
+   cashFlowRows:active.filter(r=>r.section==='cash_flow_ledger').length
+  };
+  for(const k of ['transactions','installments','paymentRows','cashFlowRows']){
+   if(Number(actual[k]||0)!==Number(local[k]||0))throw new Error(`Protected cloud read-back failed for ${k}: local ${local[k]||0}, cloud ${actual[k]||0}.`);
+  }
  }
  const legacy=await cloudInspectState();
  if(legacy.value)throw new Error('Publish verification failed: legacy app_state exists unexpectedly.');
@@ -9836,7 +9833,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V185: fresh full read from Supabase. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='V186: fresh full read from Supabase. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -9870,7 +9867,7 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V185 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`V186 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
