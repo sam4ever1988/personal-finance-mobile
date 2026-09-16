@@ -702,6 +702,27 @@ tr[data-tx] button{
 @media(max-width:1200px){.execKpis{grid-template-columns:repeat(3,1fr)}.execGrid{grid-template-columns:1fr 1fr}.execCol.narrow{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}.execBottom{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.execKpis,.execGrid,.execBottom,.execCol.narrow{grid-template-columns:1fr}.execFlow{grid-template-columns:1fr 1fr}#executive{padding:10px}.execHead{align-items:flex-start;gap:8px}}
 
+
+/* V210 pixel-match Executive reference */
+body.execMode .sidebar,body.execMode .topbar{display:none!important}
+body.execMode .main{margin-left:0!important}
+body.execMode .content{padding:0!important}
+body.execMode #executive{border-radius:0!important;min-height:100vh!important;padding:0!important;background:radial-gradient(circle at 52% 0,#07324c 0,#031b2b 40%,#021521 100%)!important}
+.execShell{min-height:100vh;color:#eaf5ff}
+.execTop{height:62px;display:flex;align-items:center;border-bottom:1px solid #155273;background:#021827;padding:0 18px;gap:28px}
+.execBrand{display:flex;align-items:center;gap:10px;width:225px}.execLogo{font-size:31px;line-height:1}.execBrand b{font-size:22px}.execBrand small{display:block;color:#9bb4c7;font-size:11px}
+.execTopNav{display:flex;align-items:stretch;height:100%;gap:6px;flex:1}.execTopNav button{border:0;background:transparent;color:#d4e3ee;padding:0 20px;font-weight:700;cursor:pointer}.execTopNav button.active{background:#073b61;border-bottom:3px solid #29c9ff;color:#fff}
+.execTopDate{white-space:nowrap;color:#d8e7f1}.execAvatar{width:42px;height:42px;border:1px solid #1e8ee8;border-radius:50%;display:grid;place-items:center}
+.execBody{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 62px)}
+.execSide{border-right:1px solid #155273;padding:18px 10px;display:flex;flex-direction:column}.execSideTitle{font-size:12px;color:#9bb4c7;padding:8px 12px}.execSideBtn{border:0;background:transparent;color:#d9e8f2;text-align:left;padding:12px;border-radius:9px;margin:2px 0;cursor:pointer}.execSideBtn.active{background:#073c63;border-left:3px solid #28caff}.execSideSep{height:1px;background:#17475e;margin:12px 8px}.execSideQuote{margin-top:auto;padding:12px;color:#8fa9bc;font-style:italic;font-size:11px}.execVer{font-size:9px;color:#7f99aa;padding:10px}
+.execMain{padding:18px 20px;min-width:0}.execHero{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.execHero h2{font-size:28px;margin:0}.execHero .meta{font-size:15px;color:#b7cce0}.execHeroRight{display:flex;align-items:center;gap:20px;color:#b7cce0}.execQuote{border-left:1px solid #28546b;padding-left:18px;font-style:italic}
+.execKpis{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important}.execKpi{min-height:92px;position:relative;padding:14px!important;background:linear-gradient(135deg,#08344d,#082238)!important}.execKpi:nth-child(1){border-color:#0e9c72}.execKpi:nth-child(2){border-color:#149cd4}.execKpi:nth-child(3){border-color:#2378cf}.execKpi:nth-child(4){border-color:#774bd1}.execKpi:nth-child(5){border-color:#8d721d}.execKpi:nth-child(6){border-color:#38556c}
+.execKpi small{font-size:12px!important}.execKpi b{font-size:20px!important}.execKpi em{font-size:10px!important}
+.execGrid{grid-template-columns:1.55fr 1.05fr .68fr!important;gap:10px!important}.execPanel{background:linear-gradient(145deg,#082d43,#061f32)!important;border-color:#155273!important}.execTitle{font-size:17px!important}
+.execFlow{gap:8px!important}.execFlow>div{padding:14px 8px!important;border:1px solid #164e68}.execFlow>div:nth-child(1){border-color:#1d9b66}.execFlow>div:nth-child(2){border-color:#b33b4b}.execFlow>div:nth-child(3){border-color:#a77715}.execFlow>div:nth-child(4){border-color:#7650d5}.execFlow>div:nth-child(5){border-color:#257ad5}.execFlow b{font-size:16px!important}
+.execBottom{grid-template-columns:1.45fr .72fr .88fr .55fr!important}.execChartBox{height:118px!important}.donutBox{height:130px!important}
+.execActions .btn{background:#fff!important;color:#173047!important;border-radius:8px!important;padding:10px!important}
+@media(max-width:1100px){.execBody{grid-template-columns:1fr}.execSide{display:none}.execTopNav{display:none}.execBrand{width:auto}.execGrid{grid-template-columns:1fr!important}.execBottom{grid-template-columns:1fr 1fr!important}}
 </style>
 </head>
 <body>
@@ -745,8 +766,13 @@ tr[data-tx] button{
  <div class="sectionTitle">Recent Transactions</div>
  <div class="panel"><table class="txTable"><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Account</th><th>Amount</th></tr></thead><tbody id="recentBody"></tbody></table></div>
 </section>
-<section class="view" id="executive">
- <div class="execHead"><div><h2>A. Executive Overview</h2><div class="meta">Complete view of your current financial status</div></div><div class="meta" id="execUpdated"></div></div>
+<section class="view" id="executive"><div class="execShell">
+<div class="execTop"><div class="execBrand"><div class="execLogo">📈</div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
+<div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button></div>
+<div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
+<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn">▥　Financial Position</button><button class="execSideBtn" data-page-jump="dashboard">▤　Compact View</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">v1.0.0</div></aside>
+<main class="execMain">
+ <div class="execHero"><div><h2>A. Executive Overview</h2><div class="meta">Complete view of your financial status</div></div><div class="execHeroRight"><span id="execUpdated"></span><span class="execQuote">❝ A clear view today<br>for a better tomorrow. ❞</span></div></div>
  <div class="execKpis" id="execKpis"></div>
  <div class="execGrid">
   <div class="execCol wide">
@@ -769,7 +795,7 @@ tr[data-tx] button{
   <div class="execPanel"><div class="execTitle">Liabilities Breakdown</div><div class="execChartBox donutBox"><canvas id="execLiabilitiesChart"></canvas></div><div id="execLiabilities"></div></div>
   <div class="execPanel"><div class="execTitle">Quick Actions</div><div class="execActions"><button class="btn" id="execAddTx">+ Add Transaction</button><button class="btn" id="execAddInst">+ Add Installment</button><button class="btn" id="execAddGold">+ Add Gold Asset</button></div></div>
  </div>
-</section>
+</main></div></div></section>
 
 
 <section class="view" id="paymentDetails">
@@ -4234,6 +4260,8 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
 
  // Restore the view WITHOUT the normal nav() scroll-to-top side effect.
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
+ document.body.classList.toggle('execMode',page==='executive');
+ if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
  const titles={
