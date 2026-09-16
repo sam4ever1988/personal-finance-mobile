@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V188 Physical Card Totals</title>
+<title>Personal Finance • V226 Protected Two-Way Sync</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1301,10 +1301,10 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V194 FEATURE UPGRADE</span></div>
+  </div><span class="pill green">V226 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V194-20260916-FEATURES</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V226</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">16 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V226-20260916-SYNC</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -10373,7 +10373,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V225 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`V226 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -10877,13 +10877,13 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V174',
+  version:'V226',
   realtimePrimary:false,
-  startupFullPull:true,
-  periodicFallbackMs:1200000,
+  startupFullPull:false,
+  periodicFallbackMs:30000,
   realtimeSubscriptionDisabled:true,
   focusPullDisabled:true,
-  visibilityPullDisabled:true,
+  visibilityPullDisabled:false,
   localWritesImmediate:true,
   lastCloudUpdatedAt:recordSyncLastCloudUpdatedAt,
   activePage:activeViewId(),
