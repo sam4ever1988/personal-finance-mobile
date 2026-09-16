@@ -1157,10 +1157,10 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V199 DASHBOARD DATA LOAD FIX</span></div>
+  </div><span class="pill green">V200 EXECUTIVE RENDER FIX</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V199-20260916-DATALOADURES</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V200-20260916-RENDERURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4775,7 +4775,7 @@ function dedupeDashboardErrorAlerts(){
  });
 }
 
-// V199 DASHBOARD DATA LOAD FIX — dashboard balances, early settlement, statement format library,
+// V200 EXECUTIVE RENDER FIX — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -4870,7 +4870,7 @@ function renderReferenceDashboard(){
  const month=currentIncomeMonth(), income=totalIncomePlan(), remaining=remainingIncomeAvailable(), bank=accounts.filter(a=>a.type==='bank').reduce((s,a)=>s+adjustedBankBalance(a),0);
  const cards=accounts.filter(a=>a.type==='card'), cms=cards.map(a=>({a,m:cardMetrics(a)})), creditAvail=cms.reduce((s,x)=>s+Number(x.m.available||0),0), creditUsed=cms.reduce((s,x)=>s+Number(x.m.total||0),0), limits=cms.reduce((s,x)=>s+Number(x.m.limit||0),0);
  const goldValue=(goldAssets||[]).reduce((s,a)=>s+Number(goldAssetValue(a)||0),0), goldWeight=(goldAssets||[]).reduce((s,a)=>s+Number(activeGoldWeight(a)||0),0);
- const loanMonthly=(incomePlan.loans||[]).filter(x=>x.active!==false).reduce((s,x)=>s+Number(x.monthly||x.monthlyPayment||0),0), out=(incomePlan.outgoings||[]).filter(x=>x.active!==false).reduce((s,x)=>s+Number(x.amount||0),0), cardPay=Math.max(0,income-loanMonthly-out-remaining);
+ const loanMonthly=totalFixedLoans(), out=outgoingThisMonthTotal(), cardPay=Math.max(0,income-loanMonthly-out-remaining);
  const assetTotal=Math.max(0,bank)+goldValue+creditAvail, liabilities=creditUsed, net=assetTotal-liabilities;
  $('refKpis').innerHTML=[['Monthly Income',income,'Current plan'],['Remaining Monthly Cash',remaining,(income?remaining/income*100:0).toFixed(1)+'% of income'],['Bank Balance',bank,accounts.filter(a=>a.type==='bank').length+' account(s)'],['Total Credit Available',creditAvail,cards.length+' credit cards'],['Gold Assets Value',goldValue,goldWeight.toFixed(2)+' g'],['Total Assets (Net)',net,'Assets '+money(assetTotal)+' | Liabilities '+money(liabilities)]].map(x=>'<div class="refKpi"><small>'+x[0]+'</small><b>'+money(x[1])+'</b><em>'+x[2]+'</em></div>').join('');
  $('refMonth').textContent=extraIncomeMonthTitle(month);
@@ -4910,7 +4910,7 @@ function renderDashboard(){
  bindAccountCards();
  const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
  $('recentBody').innerHTML=rows.map(txRow5).join('');
- renderReviewAlerts();renderPaymentPlanner();renderReferenceDashboard();
+ renderReviewAlerts();renderPaymentPlanner();
  if($('refAddTx'))$('refAddTx').onclick=()=>$('addTransaction')?.click(); if($('refAddInst'))$('refAddInst').onclick=()=>$('addInstallment')?.click(); if($('refAddGold'))$('refAddGold').onclick=addGoldAsset;
 }
 function accountCardHTML(a){
@@ -10758,9 +10758,10 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
  renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();
  updateDbStatus(true);
- setTimeout(()=>{try{renderDashboard();}catch(e){console.error('Executive dashboard refresh failed',e)}},50);
+ setTimeout(()=>{try{renderDashboard();renderReferenceDashboard();}catch(e){console.error('Executive dashboard refresh failed',e)}},50);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
+ try{renderReferenceDashboard();}catch(e){console.error('Executive dashboard final render failed',e);}
 
  // If the browser/app was reloaded while the user was reviewing another page,
  // restore that page instead of defaulting to Dashboard.
