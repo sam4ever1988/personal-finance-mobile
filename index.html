@@ -3768,6 +3768,27 @@ function linkedPaymentCycleClosedForTx(t){
  return paymentRemainingAmount(targetPlan)<=0.005 || targetPlan.paid===true;
 }
 
+function cardCycleFullyPaid(cardId,month){
+ if(!cardId || !month)return false;
+
+ // V192 PAID-CYCLE CREDIT RELEASE:
+ // A planner cycle that has been fully settled must stop consuming card credit
+ // even when its historical transaction rows remain visible for audit/history.
+ // This is intentionally separate from cardCycleHasStatement(): a user can pay
+ // a calculated cycle before an official imported statement exists.
+ const rows=cardPaymentPlan
+  .filter(p=>p.accountId===cardId && p.month===month && p.upcomingOnly!==true)
+  .filter(p=>{
+   const due=Number(plannerAmountForRow(p));
+   return Number.isFinite(due) && due>0.005;
+  })
+  .sort((a,b)=>releasedPaymentRowPriority(b)-releasedPaymentRowPriority(a));
+
+ if(!rows.length)return false;
+ const canonical=rows[0];
+ return paymentRemainingAmount(canonical)<=0.005 || canonical.paid===true;
+}
+
 function liveUnreleasedTransactionRows(cardId){
  const activeCycle=cardActiveCycleMonth(cardId);
 
@@ -3782,11 +3803,15 @@ function liveUnreleasedTransactionRows(cardId){
   const month=assignedTransactionPaymentMonth(cardId,t);
   if(!month)return false;
 
-  // V135:
-  // A cycle is historical ONLY after it has been replaced by a real
-  // released/confirmed statement. A September transaction remains live in
-  // October if the September statement has not yet been released.
+  // V192:
+  // A cycle leaves live utilization when either:
+  //   1) a genuine released/confirmed statement replaces its transaction rows, or
+  //   2) the cycle's planner obligation has been fully paid.
+  // The second rule is critical when payment happens before an official statement
+  // import: history stays visible, but a SAR 0.00 remaining cycle cannot continue
+  // reducing Available Credit.
   if(cardCycleHasStatement(cardId,month))return false;
+  if(month<activeCycle && cardCycleFullyPaid(cardId,month))return false;
 
   if(Number(t.amount||0)>=0)return false;
   if(['transfer','income'].includes(txType(t)))return false;
