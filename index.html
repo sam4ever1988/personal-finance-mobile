@@ -772,6 +772,22 @@ body.execMode #executive{border-radius:0!important;min-height:100vh!important;pa
 #execCashFlow .execFlow>div:not(.execFlowLegend):not(.execFlowPct) b{white-space:nowrap!important;font-size:17px!important;line-height:21px!important}
 #execCashFlow .execFlow>div:not(.execFlowLegend):not(.execFlowPct) small{line-height:14px!important}
 #execCashFlow .execFlow>div:nth-child(1):after,#execCashFlow .execFlow>div:nth-child(2):after,#execCashFlow .execFlow>div:nth-child(3):after,#execCashFlow .execFlow>div:nth-child(4):after{right:-9px!important;top:24px!important;line-height:20px!important}
+
+/* V216 exact reference header + KPI strip */
+body.execMode #executive{font-family:Arial,sans-serif!important}
+.execTop{height:60px!important;padding:0 18px!important;gap:18px!important;background:linear-gradient(90deg,#031927,#031c2d 58%,#021827)!important}
+.execBrand{width:235px!important;gap:11px!important}.execBrand b{font-size:22px!important;line-height:23px!important}.execBrand small{font-size:10px!important;letter-spacing:.1px!important}
+.execLogo{width:34px;height:38px;position:relative;display:flex!important;align-items:flex-end!important;gap:3px!important;font-size:0!important}
+.execLogo .bar{display:block;width:7px;background:#21d2a3;border-radius:1px 1px 0 0}.execLogo .b1{height:13px}.execLogo .b2{height:22px}.execLogo .b3{height:31px}.execLogo .trend{position:absolute;left:5px;top:-1px;font-size:20px;color:#27d9b0;font-weight:900}
+.execTopNav{gap:0!important}.execTopNav button{padding:0 19px!important;font-size:13px!important;font-weight:500!important}.execTopNav button.active{background:linear-gradient(#07406b,#063654)!important;border-bottom:3px solid #2ecbff!important;font-weight:700!important}
+.execTopDate{font-size:13px!important}.execAvatar{width:42px!important;height:42px!important;font-size:14px!important}
+.execBody{grid-template-columns:190px 1fr!important;min-height:calc(100vh - 60px)!important}.execSide{padding-top:20px!important}
+.execMain{padding:18px 18px!important}
+.execHero{height:62px!important;margin-bottom:8px!important;align-items:flex-start!important}.execHero h2{font-size:29px!important;line-height:31px!important;margin:0 0 4px!important}.execHero .meta{font-size:15px!important}.execHeroRight{font-size:12px!important;gap:18px!important;padding-top:6px!important}.execQuote{font-size:12px!important;line-height:16px!important}
+.execKpis{height:98px!important;gap:7px!important;margin-bottom:10px!important}
+.execKpi{height:98px!important;min-height:98px!important;padding:13px 8px 10px 67px!important;border-radius:8px!important}
+.execKpi:before{left:12px!important;top:22px!important;width:45px!important;height:45px!important;font-size:23px!important}
+.execKpi small{font-size:11px!important;white-space:nowrap!important}.execKpi b{font-size:18px!important;white-space:nowrap!important;margin:5px 0!important}.execKpi em{font-size:9px!important;white-space:nowrap!important}
 </style>
 </head>
 <body>
@@ -816,7 +832,7 @@ body.execMode #executive{border-radius:0!important;min-height:100vh!important;pa
  <div class="panel"><table class="txTable"><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Account</th><th>Amount</th></tr></thead><tbody id="recentBody"></tbody></table></div>
 </section>
 <section class="view" id="executive"><div class="execShell">
-<div class="execTop"><div class="execBrand"><div class="execLogo">📈</div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
+<div class="execTop"><div class="execBrand"><div class="execLogo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="trend">↗</span></div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
 <div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button></div>
 <div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
 <div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn">▥　Financial Position</button><button class="execSideBtn" data-page-jump="dashboard">▤　Compact View</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">v1.0.0</div></aside>
