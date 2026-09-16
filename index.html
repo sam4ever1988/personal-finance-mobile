@@ -804,6 +804,14 @@ body.execMode #executive{font-family:Arial,sans-serif!important}
 /* V218 reference-style vector KPI icons */
 .execKpiIcon svg{width:27px!important;height:27px!important;display:block!important;fill:none!important;stroke:currentColor!important;stroke-width:1.9!important;stroke-linecap:round!important;stroke-linejoin:round!important}
 .execKpi:nth-child(1) .execKpiIcon{color:#24e58b!important}.execKpi:nth-child(2) .execKpiIcon{color:#3cc8ff!important}.execKpi:nth-child(3) .execKpiIcon{color:#268dff!important}.execKpi:nth-child(4) .execKpiIcon{color:#c071ff!important}.execKpi:nth-child(5) .execKpiIcon{color:#ffc32f!important}.execKpi:nth-child(6) .execKpiIcon{color:#d7e6ff!important}
+
+/* V219 exact executive reference panels */
+.execTitle{display:flex!important;align-items:center!important;justify-content:space-between!important}.execViewLink{border:0;background:none;color:#35cfff;font-size:10px;cursor:pointer;padding:0}.execTitleNote{font-size:11px;font-weight:500}.execPanelSub{font-size:10px;color:#a9c0d0;margin:-6px 0 10px}
+.execCreditPanel .execRow{padding:6px 0!important}.execCreditPanel .execLogoSmall{width:31px!important;height:31px!important}.execCreditPanel .execBar{height:8px!important}.execCreditPanel .execCreditPct{min-width:34px!important}
+.execUtilPanel .donutBox{height:168px!important}.execUtilPanel #execUtil{display:flex;justify-content:space-between;align-items:end;border-top:0}.execBankPanel .execRow{padding:9px 0!important}
+.execGoldPanel #execGold{display:grid!important;grid-template-columns:repeat(3,1fr)!important}.execGoldPanel #execGold .execRow{display:block!important;text-align:center!important;border:0!important;border-right:1px solid #22536d!important;padding:0 8px!important}.execGoldPanel #execGold .execRow:last-child{border-right:0!important}.execGoldPanel #execGold .execRow b{display:block;margin-top:3px}.execGoldPanel .execChartBox{height:125px!important;border:1px solid #174f69;border-radius:6px;padding:5px}
+.execZakatPanel .execRow{padding:5px 0!important}.execPositionPanel .execPositionCards{gap:8px!important}.execPositionPanel .execPosCard{min-height:78px!important;display:flex;flex-direction:column;justify-content:center}.execPositionPanel .execPosCard b{font-size:15px!important}
+.execBreakPanel .execChartFlex{grid-template-columns:125px 1fr!important}.execBreakPanel .donutBox{height:125px!important}.execQuickPanel .execActions{gap:0!important}.execQuickPanel .execActions .btn{border:0!important;border-bottom:1px solid #17445d!important;border-radius:0!important;background:transparent!important;color:#eaf5ff!important;padding:11px 4px!important;display:flex;justify-content:space-between}.execQuickPanel .execActions .btn:last-child{border-bottom:0!important}
 </style>
 </head>
 <body>
@@ -861,20 +869,20 @@ body.execMode #executive{font-family:Arial,sans-serif!important}
    <div class="execPanel"><div class="execTitle">Upcoming Payments</div><div id="execUpcoming"></div></div>
   </div>
   <div class="execCol">
-   <div class="execPanel"><div class="execTitle">Available / Remaining Credit</div><div id="execCredit"></div></div>
-   <div class="execPanel"><div class="execTitle">Gold & Assets</div><div id="execGold"></div><div class="execChartBox"><canvas id="execGoldChart"></canvas></div></div>
+   <div class="execPanel execCreditPanel"><div class="execTitle">Available / Remaining Credit <button class="execViewLink" data-page-jump="accounts">View All ›</button></div><div id="execCredit"></div></div>
+   <div class="execPanel execGoldPanel"><div class="execTitle"><span>🟨 Gold & Assets</span><button class="execViewLink" data-page-jump="assets">View Assets ›</button></div><div id="execGold"></div><div class="execChartBox"><canvas id="execGoldChart"></canvas></div></div>
   </div>
   <div class="execCol narrow">
-   <div class="execPanel"><div class="execTitle">Credit Utilization</div><div class="execChartBox donutBox"><canvas id="execCreditChart"></canvas></div><div id="execUtil"></div></div>
-   <div class="execPanel"><div class="execTitle">Bank Accounts</div><div id="execBanks"></div></div>
-   <div class="execPanel"><div class="execTitle">Zakat Summary</div><div id="execZakat"></div></div>
+   <div class="execPanel execUtilPanel"><div class="execTitle">Credit Utilization <span class="execTitleNote">(All Cards)</span></div><div class="execChartBox donutBox"><canvas id="execCreditChart"></canvas></div><div id="execUtil"></div></div>
+   <div class="execPanel execBankPanel"><div class="execTitle">Bank Accounts <button class="execViewLink" data-page-jump="accounts">View All ›</button></div><div id="execBanks"></div></div>
+   <div class="execPanel execZakatPanel"><div class="execTitle">♟ Zakat Summary <button class="execViewLink" data-page-jump="assets">View All ›</button></div><div id="execZakat"></div></div>
   </div>
  </div>
  <div class="execBottom">
-  <div class="execPanel"><div class="execTitle">Financial Position</div><div id="execPosition"></div></div>
-  <div class="execPanel"><div class="execTitle">Assets Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execAssetsChart"></canvas></div><div class="execAssetsList" id="execAssets"></div></div></div>
-  <div class="execPanel"><div class="execTitle">Liabilities Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execLiabilitiesChart"></canvas></div><div class="execLiabList" id="execLiabilities"></div></div></div>
-  <div class="execPanel"><div class="execTitle">Quick Actions</div><div class="execActions"><button class="btn" id="execAddTx">+ Add Transaction</button><button class="btn" id="execAddInst">+ Add Installment</button><button class="btn" id="execAddGold">+ Add Gold Asset</button></div></div>
+  <div class="execPanel execPositionPanel"><div class="execTitle">Financial Position <button class="execViewLink">View Details ›</button></div><div class="execPanelSub">Your overall assets, liabilities and net position</div><div id="execPosition"></div></div>
+  <div class="execPanel execBreakPanel"><div class="execTitle">Assets Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execAssetsChart"></canvas></div><div class="execAssetsList" id="execAssets"></div></div></div>
+  <div class="execPanel execBreakPanel"><div class="execTitle">Liabilities Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execLiabilitiesChart"></canvas></div><div class="execLiabList" id="execLiabilities"></div></div></div>
+  <div class="execPanel execQuickPanel"><div class="execTitle">Quick Actions</div><div class="execActions"><button class="btn" id="execAddTx">⊕　Add Transaction <span>›</span></button><button class="btn" id="execAddInst">▣　Add Installment <span>›</span></button><button class="btn" id="execImport">▧　Import Statement <span>›</span></button><button class="btn" id="execAddGold">♧　Add Gold Asset <span>›</span></button></div></div>
  </div>
 </main></div></div></section>
 
@@ -10780,7 +10788,7 @@ function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'S
 addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Record the asset using one complete form.',save:'Add Gold',fields:[{name:'name',label:'Asset Name',placeholder:'Gold Bar 1',required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},{name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{const w=Number(v.weight),p=Number(v.purchasePrice);if(!(w>0)||!(p>=0))return false;const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name:v.name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true}})}
 addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtitle:'Structured entry form — same experience as Add Transaction.',save:'Add Credit Card',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',placeholder:'Visa Signature',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false},{name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(e.length!==4||!Number.isFinite(limit)||limit<0)return false;const id='custom-card-'+e+'-'+Date.now(),cc={id,bank:v.bank,name:v.name,ending:e,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[e]};customCreditCards.push(cc);accounts.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();return true}})}
 
-$('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
+$('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
 async function init(){
  const session=await cloudRefreshAuth();
  let localSavedAt='';
