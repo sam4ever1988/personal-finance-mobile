@@ -2194,7 +2194,8 @@ function paymentMonthTitle(month){
 }
 function openPaymentDetails(mode='known'){
  const month=$('paymentMonth').value||plannerDefaultMonth();
- const allRows=cardPaymentPlan.filter(p=>p.month===month);
+ purgeNonCardPaymentPlannerRows();
+ const allRows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
  let rows=allRows;
  if(mode==='remaining')rows=allRows.filter(p=>!p.paid);
  if(mode==='pending')rows=allRows.filter(p=>p.amount===null||p.amount===''||!Number.isFinite(Number(p.amount)));
@@ -2233,7 +2234,7 @@ function paymentBreakdownSelfTest(){
    if(!x||typeof x!=='string')issues.push('date formatting failed');
   }
   const month='2026-09';
-  const rows=cardPaymentPlan.filter(p=>p.month===month);
+  const rows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
   rows.forEach(p=>{
    const a=account(p.accountId);
    if(!a)issues.push(`missing account ${p.accountId}`);
@@ -3187,12 +3188,13 @@ function reconcileExistingInstallmentStatementTransfers(){
  return changed;
 }
 function renderPaymentPlanner(){
+ purgeNonCardPaymentPlannerRows();
  const el=$('paymentMonth');if(!el)return;if(!el.value)el.value=plannerDefaultMonth();
  const month=el.value;
  ensureMonthlyPlannerRows(month);
  ensurePartialPaymentFields();
  syncUpcomingNbdMazeed();
- const rows=cardPaymentPlan.filter(p=>p.month===month);
+ const rows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
  const countedRows=rows.filter(p=>!p.upcomingOnly);
  const known=countedRows.filter(p=>Number.isFinite(Number(plannerAmountForRow(p)))).reduce((z,p)=>z+Number(plannerAmountForRow(p)),0);
  const remaining=countedRows.reduce((z,p)=>{const r=paymentRemainingAmount(p);return z+(Number.isFinite(r)?r:0)},0);
@@ -3369,6 +3371,18 @@ function saveLocal(){
 function money(n){return 'SAR '+MONEY.format(Math.abs(Number(n||0)));}
 function signed(n){return (n<0?'-':n>0?'+':'')+money(n);}
 function account(id){return accounts.find(a=>a.id===id)}
+function isCreditCardAccountId(id){
+ const a=account(id);
+ return !!(a && a.type==='card');
+}
+function purgeNonCardPaymentPlannerRows(){
+ const before=cardPaymentPlan.length;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>isCreditCardAccountId(p.accountId));
+ if(cardPaymentPlan.length!==before){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+ }
+ return before-cardPaymentPlan.length;
+}
 
 function accountPhysicalCards(accountId){
  const a=account(accountId); if(!a||a.type!=='card')return [];
@@ -3771,7 +3785,7 @@ function linkedPaymentCycleClosedForTx(t){
 function cardCycleFullyPaid(cardId,month){
  if(!cardId || !month)return false;
 
- // V192 PAID-CYCLE CREDIT RELEASE:
+ // V193 PAID-CYCLE CREDIT RELEASE:
  // A planner cycle that has been fully settled must stop consuming card credit
  // even when its historical transaction rows remain visible for audit/history.
  // This is intentionally separate from cardCycleHasStatement(): a user can pay
@@ -3803,7 +3817,7 @@ function liveUnreleasedTransactionRows(cardId){
   const month=assignedTransactionPaymentMonth(cardId,t);
   if(!month)return false;
 
-  // V192:
+  // V193:
   // A cycle leaves live utilization when either:
   //   1) a genuine released/confirmed statement replaces its transaction rows, or
   //   2) the cycle's planner obligation has been fully paid.
