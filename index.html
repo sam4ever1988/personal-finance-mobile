@@ -4976,6 +4976,7 @@ function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)re
 function execCanvas(id,draw){
  const cv=$(id);if(!cv)return;
  const r=cv.getBoundingClientRect(),p=cv.parentElement?.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+ const hidden=!r.width||!r.height;if(hidden){setTimeout(()=>{const el=$(id);if(el&&el.getBoundingClientRect().width)execCanvas(id,draw)},180);return;}
  const w=Math.max(120,Math.round(r.width||p?.width||cv.clientWidth||220));
  const h=Math.max(100,Math.round(r.height||p?.height||cv.clientHeight||140));
  cv.style.width=w+'px';cv.style.height=h+'px';cv.width=Math.floor(w*dpr);cv.height=Math.floor(h*dpr);
@@ -5006,7 +5007,7 @@ function executiveUpcomingPayments(){
  });
  // Finance Settings loans: monthly payment is a real recurring obligation.
  (financeSettings.loans||[]).filter(l=>String(l.status||'').toLowerCase()!=='closed').forEach(l=>{
-  const amt=Math.max(0,Number(l.monthly||l.monthlyPayment||l.monthlyInstallment||l.installmentAmount||l.paymentAmount||l.emi||0));
+  const amt=Math.max(0,Number(l.monthly||l.monthlyPayment||l.monthlyInstallment||l.installmentAmount||l.paymentAmount||l.emi||((Number(l.remainingAmount||0)>0&&Number(l.remainingMonths||0)>0)?Number(l.remainingAmount)/Number(l.remainingMonths):0)||0));
   if(amt>.005)items.push({date:nextDate(l.dueDay||l.paymentDay||1),kind:'Personal Loan',label:l.name||l.bank||l.lender||'Personal Loan',amount:amt});
  });
  // Active installment plans.
@@ -5048,7 +5049,7 @@ function renderExecutiveDashboard(){
  const future=executiveUpcomingPayments();
  $('execUpcoming').innerHTML=future.length?future.map(p=>{const days=Math.ceil((p.date-new Date())/86400000);return '<div class="execRow"><div><b>'+p.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</b> • '+escapeHtml(p.kind)+'<br><small>'+escapeHtml(p.label)+'</small></div><div style="text-align:right"><b>'+money(p.amount)+'</b><br><span class="execDueBadge '+(days<=7?'soon':'')+'">'+Math.max(0,days)+' days</span></div></div>'}).join(''):'<div class="execEmpty">No upcoming payable obligations recorded.</div>';
  const drawExecCharts=()=>{if(!$('executive'))return;execDonut('execCreditChart',[cardUsed,cardAvail],['Used','Available'],util.toFixed(0)+'%');execDonut('execAssetsChart',[bank,goldValue,otherAssets],['Bank','Gold','Other'],'100%');execDonut('execLiabilitiesChart',[loanLiability,cardUsed,installmentLiability],['Loans','Cards','Installments'],'100%');execGoldTrend('execGoldChart',goldValue);};
- requestAnimationFrame(()=>requestAnimationFrame(drawExecCharts));setTimeout(drawExecCharts,120);setTimeout(drawExecCharts,500);
+ requestAnimationFrame(()=>requestAnimationFrame(drawExecCharts));[120,350,800,1500].forEach(ms=>setTimeout(drawExecCharts,ms));
 }
 
 function renderDashboard(){
