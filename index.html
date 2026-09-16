@@ -1215,7 +1215,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V187 Local-First Stable Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V225 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1263,7 +1263,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V187 Local-First Sync • automatic checks never replace local data. Use Load Latest Cloud Data only when you intentionally want this device to adopt the cloud copy.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">V225 Protected Two-Way Sync • local edits publish automatically. A new device must complete one verified Load Latest Cloud Data before protected background updates begin.</div>
   </div>
  </div>
 </section>
@@ -9405,8 +9405,12 @@ async function startRealtimeRecordSync(){
  // V187: NEVER download/apply cloud records automatically on startup or page refresh.
  // Local screen state remains untouched until the user explicitly presses Load Latest Cloud Data.
  // This prevents a stale/partial cloud dataset from clearing newly entered transactions.
- recordSyncReady=!recoveryCloudLockActive() && localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
- cloudSetStatus(recordSyncReady?'Local-first sync ready • manual cloud load only':'Protected • use Load Latest Cloud Data once on this device');
+ const meta=getCloudMeta();
+ const verifiedCloudLoad=localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
+ // V225: an already-initialized trusted source device must keep publishing after an
+ // upgrade. New/untrusted devices still require one verified manual cloud load.
+ recordSyncReady=!recoveryCloudLockActive() && (verifiedCloudLoad || (meta.initialized&&meta.deviceTrusted));
+ cloudSetStatus(recordSyncReady?'Protected sync ready • local edits publish automatically':'Protected • use Load Latest Cloud Data once on this device');
 
  if(legacyPlannerCleanupPending){
   // Do not publish cleanup from an unverified device. It can be handled after manual load.
@@ -9423,7 +9427,7 @@ async function startRealtimeRecordSync(){
  }
 
  schedulePeriodicCloudAutoSync();
- cloudSetStatus(`20-minute read-only cloud check mode • ${new Date().toLocaleTimeString()}`);
+ cloudSetStatus(`${verifiedCloudLoad?'Protected two-way sync':'Upload sync'} ready • ${new Date().toLocaleTimeString()}`);
  return true;
 }
 // ===================================================================
@@ -9550,23 +9554,30 @@ async function renderCloudReconciliation(){
  if(!el||!cloudClient)return;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session){el.innerHTML='<b>Local vs Cloud:</b> Sign in to compare.';return;}
-
- const remote=await cloudInspectState();
- if(!remote.initialized||!remote.value){
-  el.innerHTML='<b>Local vs Cloud:</b> No cloud snapshot found.';
-  return;
- }
-
- const local=localSyncSummary();
- const cloud=remote.value.syncSummary||syncSummaryFromSnapshot(remote.value);
- const cmp=compareSyncSummaries(local,cloud);
-
- if(cmp.match){
-  el.className='notice success';
-  el.innerHTML=`<b>Local vs Cloud: MATCH</b> • ${local.transactions} active transactions • ${local.deletedAuditRows} deleted audit rows • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} cash-flow rows.<div class="meta" style="margin-top:5px">Cloud snapshot: ${remote.value.savedAt?new Date(remote.value.savedAt).toLocaleString():'timestamp unavailable'}. Active finance data on this device matches the cloud snapshot.</div>`;
- }else{
+ try{
+  // V225: the row-level store is canonical. The legacy app_state snapshot stopped
+  // being updated in V145 and must not be used to judge current synchronization.
+  const cloudRows=await recordFetchAll();
+  const active=cloudRows.filter(r=>!r.deleted_at);
+  if(!active.length){el.className='notice danger';el.innerHTML='<b>Local vs Cloud:</b> No active cloud records found.';return;}
+  const localRows=buildRecordSyncRowsFromState();
+  const key=r=>`${r.section}|${r.record_id}`;
+  const localMap=new Map(localRows.map(r=>[key(r),r]));
+  const cloudMap=new Map(active.map(r=>[key(r),r]));
+  const missing=[...localMap.keys()].filter(k=>!cloudMap.has(k));
+  const unexpected=[...cloudMap.keys()].filter(k=>!localMap.has(k));
+  const different=[...localMap.keys()].filter(k=>cloudMap.has(k)&&JSON.stringify(localMap.get(k).data)!==JSON.stringify(cloudMap.get(k).data));
+  const local=localSyncSummary();
+  if(!missing.length&&!unexpected.length&&!different.length){
+   el.className='notice success';
+   el.innerHTML=`<b>Local vs Cloud: EXACT MATCH</b> • ${active.length} canonical records • ${local.transactions} active transactions • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} cash-flow rows.<div class="meta" style="margin-top:5px">Every local record key and value matches the live cloud database.</div>`;
+  }else{
+   el.className='notice danger';
+   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} local record(s) missing in cloud • ${unexpected.length} unexpected cloud record(s) • ${different.length} record value difference(s).</div><div class="meta" style="margin-top:5px">Use Sync Now to publish this device, or Load Latest Cloud Data to adopt the cloud copy.</div>`;
+  }
+ }catch(e){
   el.className='notice danger';
-  el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${cmp.differences.join(' • ')}</div><div class="meta" style="margin-top:5px">Auto Sync will reconcile using the latest cloud revision. Treat the database as fully synchronized only when this block shows MATCH.</div>`;
+  el.innerHTML=`<b>Local vs Cloud:</b> Check failed • ${String(e.message||e)}`;
  }
 }
 function updateCloudSyncPanel(remoteInitialized=null){
@@ -10084,6 +10095,7 @@ function fullCloudSnapshot(extra={}){
   version:74,
   syncInitialized:!!extra.syncInitialized,
   syncSource:extra.syncSource||'',
+  financeSettings,
   categories,
   installments,
   deletedInstallmentIds:[...deletedInstallmentIds],
@@ -10108,6 +10120,7 @@ function fullCloudSnapshot(extra={}){
 }
 function applyCloudSnapshot(d){
  if(!d||typeof d!=='object')return false;
+ if(d.financeSettings&&typeof d.financeSettings==='object'&&!financeSettingsDirty)financeSettings=d.financeSettings;
  categories=d.categories||categories;
  installments=d.installments||installments;
  if(Array.isArray(d.deletedInstallmentIds)){
@@ -10191,19 +10204,31 @@ function cloudLocalLastSavedAt(){
 }
 
 async function cloudAutoReconcile(reason='fallback'){
- // V187: the 20-minute task is READ-ONLY and must never apply cloud rows to local state.
- // Local edits are already uploaded by immediate/scheduled push logic.
- // Cross-device downloading happens ONLY via the explicit Load Latest Cloud Data button.
  if(!cloudClient||window.__financeStateInitialized!==true)return false;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)return false;
-  const latest=await recordFetchLatestUpdatedAt();
+  // V225: background downloads are allowed only after this device has completed a
+  // verified authoritative load. Never interrupt an active edit or overwrite pending work.
+  const verified=localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
+  const meta=getCloudMeta();
+  const activeEl=document.activeElement;
+  const editing=!!(activeEl&&activeEl.matches?.('input,select,textarea,[contenteditable="true"]'));
+  const modalOpen=!!document.querySelector('.modal.open,.modal[style*="display: block"],dialog[open]');
+  if(!verified||!recordSyncReady||meta.pending||recordSyncPushBusy||recordSyncApplying||editing||modalOpen)return false;
+  const changed=await recordFetchChangedSince(currentCloudCursorIso());
+  if(changed.length){
+   const result=applyRecordSyncDeltaRows(changed,{render:true});
+   changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
+   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
+   cloudSetStatus(`${result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
+   return result.changed;
+  }
   cloudLastAutoCheckAt=Date.now();
-  cloudSetStatus(`Cloud checked (read-only) • ${new Date().toLocaleTimeString()} • local screen unchanged`);
-  return !!latest;
+  cloudSetStatus(`Cloud verified • ${new Date().toLocaleTimeString()}`);
+  return false;
  }catch(e){
-  console.warn('Read-only cloud check failed',e);
+  console.warn('Protected cloud refresh failed',e);
   cloudSetStatus('Cloud check retry pending • '+e.message);
   return false;
  }
@@ -10213,13 +10238,13 @@ function schedulePeriodicCloudAutoSync(){
  clearInterval(cloudAutoSyncTimer);
  clearInterval(recordSyncFallbackTimer);
 
- // V174: stability-first refresh cadence.
- // 20 minutes = 1,200,000 ms.
+ // V225: frequent but edit-safe delta checks provide cross-device synchronization
+ // without replacing the full local database or rebuilding the page during input.
  recordSyncFallbackTimer=setInterval(()=>{
   if(document.visibilityState==='visible' && navigator.onLine!==false){
-   cloudAutoReconcile('20min-refresh');
+   cloudAutoReconcile('30sec-refresh');
   }
- },1200000);
+ },30000);
 }
 
 function startCloudAutoSyncWatchers(){
@@ -10230,7 +10255,12 @@ function startCloudAutoSyncWatchers(){
  // because those were causing unexpected page rebuilds while reviewing the system.
 
  window.addEventListener('online',()=>{
-  cloudSetStatus('Online • next automatic cloud refresh within 20 minutes');
+  cloudSetStatus('Online • checking protected cloud changes');
+  cloudAutoReconcile('online');
+ });
+
+ document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&navigator.onLine!==false)cloudAutoReconcile('visible');
  });
 
  window.addEventListener('pagehide',()=>{
@@ -10308,14 +10338,23 @@ async function cloudInitialUpload(){
   if(recoveryCloudLockActive())throw new Error('Recovery lock is active. Finish the Recovery Center workflow first.');
   $('cloudResult').textContent='Initializing realtime cloud records…';
   await cloudClaim();
-  await startRealtimeRecordSync();
-  if(!(await recordFetchAll()).length){
-   await recordPushAll('first-device');
-  }
+  const existing=await recordFetchAll();
+  if(existing.some(r=>!r.deleted_at))throw new Error('Cloud already contains finance data. Use Load Latest Cloud Data first; this device was not uploaded.');
+  recordSyncReady=true;
+  localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
+  setCloudMeta({initialized:true,deviceTrusted:true,pending:true});
+  const published=await recordPushAll('first-device');
+  if(!published)throw new Error('The first cloud upload did not complete. Local data remains unchanged.');
+  const cloudRows=await recordFetchAll();
+  const expected=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
+  const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
+  const missing=[...expected].filter(k=>!actual.has(k));
+  if(missing.length)throw new Error(`First upload verification failed: ${missing.length} record(s) missing in cloud.`);
   const s=localSyncSummary();
-  $('cloudResult').textContent=`Realtime cloud initialized: ${s.transactions} active transactions, ${s.installments} installments, ${s.paymentRows} payment rows.`;
+  $('cloudResult').textContent=`FIRST CLOUD SOURCE VERIFIED • ${s.transactions} active transactions • ${s.installments} installments • ${s.paymentRows} payment rows.`;
   updateCloudSyncPanel(true);
  }catch(e){
+  recordSyncReady=false;
   $('cloudResult').textContent='Realtime initialization failed. Local data was kept unchanged. '+e.message;
  }
 }
@@ -10324,14 +10363,20 @@ async function cloudUploadAll(){
   if(recoveryCloudLockActive())throw new Error('Recovery lock is active. Use Step 4 Publish Restored Backup to Cloud; normal Sync Now is blocked during recovery.');
   $('cloudResult').textContent='Publishing current records to realtime cloud…';
   if(!recordSyncReady)await startRealtimeRecordSync();
-  await recordPushAll('manual-sync');
-  // V187: Sync Now verifies cloud read-only; it never downloads/applies cloud data.
+  if(!recordSyncReady)throw new Error('This device is not verified. Use Load Latest Cloud Data once before Sync Now.');
+  const published=await recordPushAll('manual-sync');
+  if(!published)throw new Error('No cloud write was completed. Local data remains pending.');
   const cloudRows=await recordFetchAll();
   const cc=v185ActiveCloudCounts(cloudRows);
   const s=localSyncSummary();
-  $('cloudResult').textContent=`V187 SYNC PUBLISHED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud now reports ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  const expected=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
+  const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
+  const missing=[...expected].filter(k=>!actual.has(k));
+  if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
+  $('cloudResult').textContent=`V225 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
+  setCloudMeta({pending:true});
   $('cloudResult').textContent='Realtime sync failed: '+e.message;
  }
 }
