@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V226 Protected Two-Way Sync</title>
+<title>Personal Finance • V227 Gold Asset Identity Fix</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1215,7 +1215,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V226 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V227 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1263,7 +1263,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V226 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">V227 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
   </div>
  </div>
 </section>
@@ -1301,10 +1301,10 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V226 CURRENT BUILD</span></div>
+  </div><span class="pill green">V227 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V226</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">16 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V226-20260916-SYNC</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V227</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V227-20260917-GOLD-ID</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1343,7 +1343,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 </section>
 
 <section class="view" id="assets">
- <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Personal Assets • Gold</div><div class="meta">Each purchase has its own permanent Asset ID. Same names/weights are allowed and never merged.</div></div><button class="btn primary" id="addGoldAsset" type="button">+ Add Gold</button></div>
+ <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Personal Assets • Gold</div><div class="meta">Each asset name has one permanent Asset ID. Entering the same name again updates that asset instead of duplicating its weight and value.</div></div><button class="btn primary" id="addGoldAsset" type="button">+ Add Gold</button></div>
  <div class="kpis" id="goldKpis" style="margin-top:14px"></div>
  <div class="panel" style="margin-top:14px"><div class="splitHead"><div><div class="panelTitle">Saudi Gold Market Price</div><div class="meta" id="goldPriceMeta">Live spot reference with manual override available.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="refreshGoldPrice" type="button">Refresh Price</button><button class="btn" id="manualGoldPrice" type="button">Manual Price</button></div></div><div id="goldPriceGrid" class="kpis" style="margin-top:12px"></div></div>
  <div class="sectionTitle">Active Gold Assets</div>
@@ -4989,6 +4989,28 @@ function nextHijriAnniversary(purchaseDate,lastPaidDate=''){
  d=new Date(base);d.setDate(d.getDate()+354);return d.toISOString().slice(0,10);
 }
 function goldPricePerGram(purity){const k=Number(String(purity||'24').replace(/[^0-9.]/g,''))||24;return Number(goldMarket.price24k||0)*(k/24);}
+function normalizedGoldAssetName(v){return String(v||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
+function goldExactDuplicateKey(a){return [normalizedGoldAssetName(a?.name),String(a?.goldType||'Gold').toLocaleLowerCase(),String(a?.purity||'24K').toLocaleUpperCase(),Number(a?.weight||0).toFixed(3),Number(a?.purchasePrice||0).toFixed(2)].join('|');}
+function cleanupExactGoldDuplicatesV227(){
+ if(localStorage.getItem('pf_gold_duplicate_cleanup_v227')==='1')return 0;
+ const historyIds=new Set([...(goldSaleHistory||[]).map(x=>x.assetId),...(goldZakatHistory||[]).map(x=>x.assetId)]);
+ const groups=new Map();
+ (goldAssets||[]).forEach((a,i)=>{const k=goldExactDuplicateKey(a);if(!groups.has(k))groups.set(k,[]);groups.get(k).push({a,i});});
+ const remove=new Set(),recovered=[];
+ groups.forEach(items=>{
+  if(items.length<2||items.some(x=>historyIds.has(x.a.id)))return;
+  items.sort((x,y)=>String(y.a.createdAt||'').localeCompare(String(x.a.createdAt||''))||y.i-x.i);
+  items.slice(1).forEach(x=>{remove.add(x.a.id);recovered.push(x.a);});
+ });
+ if(recovered.length){
+  localStorage.setItem('pf_gold_duplicate_recovery_v227',JSON.stringify({createdAt:new Date().toISOString(),removed:recovered}));
+  goldAssets=goldAssets.filter(a=>!remove.has(a.id));
+  saveV194Data();
+ }
+ localStorage.setItem('pf_gold_duplicate_cleanup_v227','1');
+ return recovered.length;
+}
+cleanupExactGoldDuplicatesV227();
 function activeGoldWeight(a){return Math.max(0,Number(a.weight||0)-goldSaleHistory.filter(s=>s.assetId===a.id).reduce((z,x)=>z+Number(x.weight||0),0));}
 function goldAssetValue(a){return activeGoldWeight(a)*goldPricePerGram(a.purity);}
 function goldLastZakat(a){return goldZakatHistory.filter(z=>z.assetId===a.id).sort((x,y)=>String(y.paidDate).localeCompare(String(x.paidDate)))[0]||null;}
@@ -10373,7 +10395,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V226 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`V227 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -10400,7 +10422,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V226: reading the complete canonical finance database. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='V227: reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -10434,13 +10456,13 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V226 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`V227 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
   recordSyncReady=false;
-  console.error('V226 manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='V226 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  console.error('V227 manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='V227 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
@@ -10877,7 +10899,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V226',
+  version:'V227',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -10901,6 +10923,7 @@ function openUnifiedAction(cfg){
  const modal=$('unifiedActionModal');
  $('unifiedActionTitle').textContent=cfg.title;
  $('unifiedActionSub').textContent=cfg.subtitle||'';
+ $('unifiedActionSub').style.color='';
  $('unifiedActionSave').textContent=cfg.save||'Save';
  $('unifiedActionFields').innerHTML=cfg.fields.map(uaField).join('');
  $('unifiedActionForm').onsubmit=e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());if(cfg.submit(v)!==false){modal.classList.remove('open');modal.style.display='';}};
@@ -10910,7 +10933,13 @@ function openUnifiedAction(cfg){
 }
 function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice" style="margin-bottom:7px"><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending)+'</b> • '+money(adjustedBankBalance(b))+'</div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>'}
 function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'Structured entry form — same experience as Add Transaction.',save:'Add Bank',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Account Name',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'balance',label:'Live Bank Balance (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),bal=Number(v.balance);if(e.length!==4||!Number.isFinite(bal)||bal<0){alert('Check last 4 digits and balance.');return false}const b={id:'custom-bank-'+e+'-'+Date.now(),bank:v.bank.trim(),name:v.name.trim(),ending:e,type:'bank',custom:true,extra:{}};customBanks.push(b);accounts.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));setTrackedBankBalance(b.id,bal);saveLocal();renderCustomBanks();renderAccounts();renderDashboard();return true}})}
-addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Record the asset using one complete form.',save:'Add Gold',fields:[{name:'name',label:'Asset Name',placeholder:'Gold Bar 1',required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},{name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{const w=Number(v.weight),p=Number(v.purchasePrice);if(!(w>0)||!(p>=0))return false;const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name:v.name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true}})}
+function goldActionError(message){$('unifiedActionSub').textContent=message;$('unifiedActionSub').style.color='var(--red)';return false;}
+function goldActionSources(label='Monthly Planned Income'){return [{value:'cash-source',label},...accounts.filter(x=>x.type==='bank').map(x=>({value:x.id,label:accountName(x.id)}))];}
+addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Use a unique asset name. Reusing an existing name updates that asset instead of counting it twice.',save:'Save Gold',fields:[{name:'name',label:'Asset Name',placeholder:'Gold Bar 1',required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},{name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');const existing=goldAssets.find(a=>normalizedGoldAssetName(a.name)===normalizedGoldAssetName(name));if(existing){existing.name=name;existing.goldType=v.goldType;existing.purity=v.purity;existing.weight=w;existing.purchasePrice=p;existing.purchaseDate=v.purchaseDate;existing.updatedAt=new Date().toISOString();}else{const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});}saveV194Data();renderGoldAssets();renderDashboard();return true}})}
+editGoldAsset=function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;openUnifiedAction({title:'Edit Gold Asset',subtitle:`${a.name} • ${a.id}`,save:'Save Changes',fields:[{name:'name',label:'Asset Name',value:a.name,required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:a.goldType||'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:a.purity||'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Original Weight (grams)',type:'number',step:'0.001',min:'0.001',value:a.weight,required:true,full:false},{name:'purchasePrice',label:'Purchase Price (SAR)',type:'number',step:'0.01',min:'0',value:a.purchasePrice,required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:a.purchaseDate,required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice),sameName=goldAssets.find(x=>x.id!==id&&normalizedGoldAssetName(x.name)===normalizedGoldAssetName(name));if(sameName)return goldActionError(`Asset name already belongs to ${sameName.id}. Use a unique name.`);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');Object.assign(a,{name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,updatedAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true}})};
+sellGoldAsset=function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);openUnifiedAction({title:'Sell Gold Asset',subtitle:`${a.name} • Available ${avail.toFixed(3)} g`,save:'Record Sale',fields:[{name:'weight',label:'Weight to Sell (grams)',type:'number',step:'0.001',min:'0.001',max:avail,value:avail.toFixed(3),required:true,full:false},{name:'proceeds',label:'Sale Proceeds (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'date',label:'Sale Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false},{name:'sourceId',label:'Receive Proceeds To',type:'select',value:'cash-source',options:goldActionSources('Monthly Cash Flow'),full:false}],submit:v=>{const w=Number(v.weight),proceeds=Number(v.proceeds);if(!(w>0)||w>avail+.0001||!(proceeds>=0)||!v.date)return goldActionError('Check the sale weight, proceeds and date.');const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Cash Flow'}:{id:v.sourceId,name:accountName(v.sourceId)};const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date:v.date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:proceeds-allocatedCost});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date:v.date,month:v.date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();return true}})};
+payGoldZakat=function(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);openUnifiedAction({title:'Pay Gold Zakat',subtitle:`${a.name} • Zakat due ${money(amount)}`,save:'Record Zakat Payment',fields:[{name:'sourceId',label:'Pay From',type:'select',value:'cash-source',options:goldActionSources(),full:false},{name:'date',label:'Payment Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{if(!v.sourceId||!v.date)return goldActionError('Select the payment source and date.');const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Planned Income'}:{id:v.sourceId,name:accountName(v.sourceId)},h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:v.date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date:v.date,month:v.date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();return true}})};
+manualGoldMarketPrice=function(){openUnifiedAction({title:'Manual Gold Market Price',subtitle:'Set the current 24K gold price per gram in SAR.',save:'Update Price',fields:[{name:'price',label:'24K Price / Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true,full:false}],submit:v=>{const price=Number(v.price);if(!(price>0))return goldActionError('Enter a valid gold price greater than zero.');goldMarket={price24k:price,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();renderDashboard();return true}})};
 addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtitle:'Structured entry form — same experience as Add Transaction.',save:'Add Credit Card',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',placeholder:'Visa Signature',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false},{name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(e.length!==4||!Number.isFinite(limit)||limit<0)return false;const id='custom-card-'+e+'-'+Date.now(),cc={id,bank:v.bank,name:v.name,ending:e,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[e]};customCreditCards.push(cc);accounts.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();return true}})}
 
 $('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
