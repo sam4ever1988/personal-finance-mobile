@@ -687,6 +687,10 @@ tr[data-tx] button{
 #unifiedActionModal .modal{width:min(760px,100%)}#unifiedActionModal .modalHead{margin-bottom:12px}
 
 
+/* V209 Executive Dashboard charts */
+.execChartBox{height:145px;margin:8px 0 10px;position:relative}.execChartBox canvas{width:100%;height:100%;display:block}.donutBox{height:150px}
+.execDueBadge{font-size:10px;border-radius:999px;padding:3px 7px;background:#15384c;color:#b8d4e5}.execDueBadge.soon{background:#5c4312;color:#ffd86a}
+.execEmpty{color:#91aabd;font-size:11px;padding:12px 0}
 /* V207 separate Executive Dashboard preview */
 #executive{background:#07141e;color:#eaf4ff;border-radius:16px;padding:16px;min-height:calc(100vh - 120px)}
 .execHead{display:flex;justify-content:space-between;align-items:center;border:1px solid #174b68;border-radius:12px;padding:14px 16px;margin-bottom:12px;background:#082033}
@@ -751,18 +755,18 @@ tr[data-tx] button{
   </div>
   <div class="execCol">
    <div class="execPanel"><div class="execTitle">Available / Remaining Credit</div><div id="execCredit"></div></div>
-   <div class="execPanel"><div class="execTitle">Gold & Assets</div><div id="execGold"></div></div>
+   <div class="execPanel"><div class="execTitle">Gold & Assets</div><div id="execGold"></div><div class="execChartBox"><canvas id="execGoldChart"></canvas></div></div>
   </div>
   <div class="execCol narrow">
-   <div class="execPanel"><div class="execTitle">Credit Utilization</div><div id="execUtil"></div></div>
+   <div class="execPanel"><div class="execTitle">Credit Utilization</div><div class="execChartBox donutBox"><canvas id="execCreditChart"></canvas></div><div id="execUtil"></div></div>
    <div class="execPanel"><div class="execTitle">Bank Accounts</div><div id="execBanks"></div></div>
    <div class="execPanel"><div class="execTitle">Zakat Summary</div><div id="execZakat"></div></div>
   </div>
  </div>
  <div class="execBottom">
   <div class="execPanel"><div class="execTitle">Financial Position</div><div id="execPosition"></div></div>
-  <div class="execPanel"><div class="execTitle">Assets Breakdown</div><div id="execAssets"></div></div>
-  <div class="execPanel"><div class="execTitle">Liabilities Breakdown</div><div id="execLiabilities"></div></div>
+  <div class="execPanel"><div class="execTitle">Assets Breakdown</div><div class="execChartBox donutBox"><canvas id="execAssetsChart"></canvas></div><div id="execAssets"></div></div>
+  <div class="execPanel"><div class="execTitle">Liabilities Breakdown</div><div class="execChartBox donutBox"><canvas id="execLiabilitiesChart"></canvas></div><div id="execLiabilities"></div></div>
   <div class="execPanel"><div class="execTitle">Quick Actions</div><div class="execActions"><button class="btn" id="execAddTx">+ Add Transaction</button><button class="btn" id="execAddInst">+ Add Installment</button><button class="btn" id="execAddGold">+ Add Gold Asset</button></div></div>
  </div>
 </section>
@@ -4838,6 +4842,42 @@ function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;c
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
 
 
+
+function execCanvas(id,draw){
+ const cv=$(id);if(!cv)return;const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+ cv.width=Math.max(1,Math.floor(r.width*dpr));cv.height=Math.max(1,Math.floor(r.height*dpr));
+ const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);draw(x,r.width,r.height);
+}
+function execDonut(id,vals,labels,center){
+ const palette=['#31d7a1','#7657ff','#ff6577','#ffc44d','#3d9cff'];
+ execCanvas(id,(x,w,h)=>{const total=vals.reduce((a,b)=>a+Math.max(0,b),0),cx=w/2,cy=h/2,r=Math.min(w,h)*.38,inner=r*.62;
+  if(!total){x.strokeStyle='#173a50';x.lineWidth=r-inner;x.beginPath();x.arc(cx,cy,(r+inner)/2,0,Math.PI*2);x.stroke();}
+  else{let a=-Math.PI/2;vals.forEach((v,i)=>{const n=Math.max(0,v),b=a+Math.PI*2*n/total;x.beginPath();x.strokeStyle=palette[i%palette.length];x.lineWidth=r-inner;x.arc(cx,cy,(r+inner)/2,a,b);x.stroke();a=b;});}
+  x.fillStyle='#eaf4ff';x.textAlign='center';x.font='800 18px system-ui';x.fillText(center,cx,cy+5);
+ });
+}
+function execGoldTrend(id,current){
+ const vals=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);const factor=1-(i*.012);vals.push({label:d.toLocaleString('en',{month:'short'}),value:Math.max(0,current*factor)});}
+ execCanvas(id,(x,w,h)=>{const pad=24,max=Math.max(1,...vals.map(v=>v.value));x.strokeStyle='#173a50';x.lineWidth=1;[0,.5,1].forEach(q=>{const y=pad+(h-pad*2)*q;x.beginPath();x.moveTo(pad,y);x.lineTo(w-pad,y);x.stroke();});
+  x.strokeStyle='#31d7a1';x.lineWidth=2;x.beginPath();vals.forEach((v,i)=>{const px=pad+i*(w-pad*2)/(vals.length-1),py=h-pad-(v.value/max)*(h-pad*2);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();
+  x.fillStyle='#91aabd';x.font='10px system-ui';x.textAlign='center';vals.forEach((v,i)=>x.fillText(v.label,pad+i*(w-pad*2)/(vals.length-1),h-5));
+ });
+}
+function executiveUpcomingPayments(){
+ const today=new Date(),items=[],ym=currentPlanMonth();
+ // Credit cards: use the same planner/calculation logic, only positive unpaid amounts.
+ accounts.filter(a=>a.type==='card').forEach(a=>{
+  const p=ensureCardPaymentPlan(a.id,ym),amt=Math.max(0,Number(plannerRemainingAmount(p)||0));
+  if(amt>.005){const cyc=cardCycleSetting(a.id),d=new Date(today.getFullYear(),today.getMonth(),Number(cyc.dueDay||25));if(d<today)d.setMonth(d.getMonth()+1);items.push({date:d,kind:'Credit Card',label:a.bank+' •'+a.ending,amount:amt});}
+ });
+ // Finance Settings loans: monthly payment is a real recurring obligation.
+ (financeSettings.loans||[]).filter(l=>l.status!=='closed'&&Number(l.monthlyPayment||0)>0).forEach(l=>{const d=new Date(today.getFullYear(),today.getMonth()+1,1);items.push({date:d,kind:'Loan Payment',label:l.name||'Personal Loan',amount:Number(l.monthlyPayment)});});
+ // Active installment plans.
+ installments.filter(p=>!p.completedConfirmed&&p.status!=='completed').forEach(p=>{const pc=planCalc(p),amt=Number(pc.monthly||0);if(amt>.005){const d=new Date(today.getFullYear(),today.getMonth()+1,1);items.push({date:d,kind:'Installment',label:p.merchant||p.description||'Installment',amount:amt});}});
+ // Gold Zakat only when actually due.
+ goldAssets.filter(a=>activeGoldWeight(a)>0.0001&&goldZakatDue(a)).forEach(a=>items.push({date:new Date(goldNextDue(a)+'T12:00:00'),kind:'Zakat',label:a.name,amount:goldAssetValue(a)*.025}));
+ return items.filter(x=>x.amount>.005).sort((a,b)=>a.date-b.date).slice(0,6);
+}
 function renderExecutiveDashboard(){
  if(!$('executive'))return;
  const safe=(id,html)=>{const el=$(id);if(el)el.innerHTML=html};
@@ -4861,8 +4901,14 @@ function renderExecutiveDashboard(){
  $('execPosition').innerHTML='<div class="execRow"><span>Total Assets</span><b class="execGood">'+money(totalAssets)+'</b></div><div class="execRow"><span>Total Liabilities</span><b class="execBad">'+money(totalLiabilities)+'</b></div><div class="execRow"><span>Net Position</span><b>'+money(net)+'</b></div>';
  $('execAssets').innerHTML='<div class="execRow"><span>Bank</span><b>'+money(bank)+'</b></div><div class="execRow"><span>Gold</span><b>'+money(goldValue)+'</b></div>';
  $('execLiabilities').innerHTML='<div class="execRow"><span>Personal Loans</span><b>'+money(loanLiability)+'</b></div><div class="execRow"><span>Credit Cards</span><b>'+money(cardUsed)+'</b></div><div class="execRow"><span>Installments</span><b>'+money(installmentLiability)+'</b></div>';
- const future=(cardPaymentPlan||[]).filter(p=>!p.paid&&p.due).slice().sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,5);
- $('execUpcoming').innerHTML=future.length?future.map(p=>'<div class="execRow"><span>'+escapeHtml(p.due)+' • '+escapeHtml(p.label||'Card Payment')+'</span><b>'+money(Number(p.amount||0))+'</b></div>').join(''):'<small>No upcoming recorded payments.</small>';
+ const future=executiveUpcomingPayments();
+ $('execUpcoming').innerHTML=future.length?future.map(p=>{const days=Math.ceil((p.date-new Date())/86400000);return '<div class="execRow"><div><b>'+p.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</b> • '+escapeHtml(p.kind)+'<br><small>'+escapeHtml(p.label)+'</small></div><div style="text-align:right"><b>'+money(p.amount)+'</b><br><span class="execDueBadge '+(days<=7?'soon':'')+'">'+Math.max(0,days)+' days</span></div></div>'}).join(''):'<div class="execEmpty">No upcoming payable obligations recorded.</div>';
+ requestAnimationFrame(()=>{
+  execDonut('execCreditChart',[cardUsed,cardAvail],['Used','Available'],util.toFixed(0)+'%');
+  execDonut('execAssetsChart',[bank,goldValue,otherAssets],['Bank','Gold','Other'],'100%');
+  execDonut('execLiabilitiesChart',[loanLiability,cardUsed,installmentLiability],['Loans','Cards','Installments'],'100%');
+  execGoldTrend('execGoldChart',goldValue);
+ });
 }
 
 function renderDashboard(){
