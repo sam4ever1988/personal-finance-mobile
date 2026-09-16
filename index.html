@@ -4304,6 +4304,8 @@ function nav(page){
  // Intentional user navigation starts at the top. Realtime restore does NOT use nav().
  window.scrollTo({top:0,behavior:'auto'});
 
+ // Executive preview must render only after the view is active and all saved finance data is loaded.
+ if(page==='executive')renderExecutiveDashboard();
  if(page==='reports')renderReports();
  if(page==='installments')renderInstallments();
  if(page==='categories')renderCategories();
@@ -4838,6 +4840,7 @@ function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)re
 
 function renderExecutiveDashboard(){
  if(!$('executive'))return;
+ const safe=(id,html)=>{const el=$(id);if(el)el.innerHTML=html};
  const income=totalIncomePlan(),loans=totalFixedLoans(),other=outgoingThisMonthTotal(),paid=remainingIncomePaymentsTotal(),remaining=remainingIncomeAvailable();
  const cards=accounts.filter(a=>a.type==='card'),banks=accounts.filter(a=>a.type==='bank'),cm=cards.map(a=>({a,m:cardMetrics(a)}));
  const cardUsed=cm.reduce((s,x)=>s+Number(x.m.total||0),0),cardAvail=cm.reduce((s,x)=>s+Math.max(0,Number(x.m.available||0)),0),cardLimit=cardUsed+cardAvail;
@@ -4846,7 +4849,7 @@ function renderExecutiveDashboard(){
  const installmentLiability=installments.filter(p=>p.status!=='completed').reduce((s,p)=>s+Math.max(0,Number(p.remainingPrincipal||p.remainingAmount||0)),0);
  const loanLiability=(financeSettings.loans||[]).filter(l=>l.status!=='closed').reduce((s,l)=>s+Math.max(0,Number(l.remainingAmount||0)),0);
  const otherAssets=0,totalAssets=bank+goldValue+otherAssets,totalLiabilities=loanLiability+cardUsed+installmentLiability,net=totalAssets-totalLiabilities;
- $('execUpdated').textContent='Updated '+new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+ if($('execUpdated'))$('execUpdated').textContent='Updated '+new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
  const ks=[['Monthly Income',income,'Current month'],['Remaining Monthly Cash',remaining,(income?remaining/income*100:0).toFixed(1)+'% of income'],['Bank Balance',bank,banks.length+' bank account(s)'],['Total Credit Available',cardAvail,cards.length+' credit cards'],['Gold Assets Value',goldValue,goldWeight.toFixed(2)+' g'],['Total Assets (Net)',net,'Assets '+money(totalAssets)+' | Liabilities '+money(totalLiabilities)]];
  $('execKpis').innerHTML=ks.map((x,i)=>'<div class="execKpi"><small>'+x[0]+'</small><b class="'+(i===5?(x[1]>=0?'execGood':'execBad'):'')+'">'+money(x[1])+'</b><em>'+x[2]+'</em></div>').join('');
  $('execCashFlow').innerHTML='<div class="execFlow">'+[['Income',income],['Bank Loans',loans],['Cash / Other',other],['Card Payments',paid],['Remaining',remaining]].map(x=>'<div><small>'+x[0]+'</small><b>'+money(x[1])+'</b></div>').join('')+'</div>';
