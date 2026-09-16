@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V188 Physical Card Totals</title>
+<title>Personal Finance • V195 Dark Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1107,10 +1107,10 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V194 FEATURE UPGRADE</span></div>
+  </div><span class="pill green">V195 DARK DASHBOARD</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V194-20260916-FEATURES</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V195-20260916-DARKURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4725,7 +4725,7 @@ function dedupeDashboardErrorAlerts(){
  });
 }
 
-// V194 FEATURE UPGRADE — dashboard balances, early settlement, statement format library,
+// V195 DARK DASHBOARD — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -4810,7 +4810,7 @@ function editGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;co
 function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (SAR):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}
 function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
 async function refreshGoldMarketPrice(){try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
-function manualGoldMarketPrice(){const v=Number(prompt('24K gold price per gram in SAR:',Number(goldMarket.price24k||0).toFixed(2)));if(!Number.isFinite(v)||v<=0)return;goldMarket={price24k:v,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();}
+function manualGoldMarketPrice(){openActionForm({title:'Manual Gold Price',subtitle:'Update the 24K Saudi gold price used by the asset valuation.',submitLabel:'Update Price',fields:[{name:'price',label:'24K Gold Price per Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true}],onSubmit:v=>{const n=Number(v.price);if(!Number.isFinite(n)||n<=0)return false;goldMarket={price24k:n,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();return true;}})}
 function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderCustomBanks();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
 
@@ -7600,13 +7600,6 @@ function viewImportBatch(index){
  if(!win){alert('Your browser blocked the preview window. Allow pop-ups for this page and try again.');return;}
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}${account(t.account)?.type==='card'?` • ${esc(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}`:''}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table>
-<div class="modalBack" id="actionFormModal"><div class="modal">
- <div class="modalHead"><div><div class="modalTitle" id="actionFormTitle">Action</div><div class="meta" id="actionFormSubtitle" style="margin-top:4px"></div></div><button class="closeBtn" type="button" id="actionFormClose">✕</button></div>
- <form id="actionForm" class="formGrid"><div id="actionFormFields" class="formGrid" style="grid-column:1/-1"></div>
-  <div class="field full actionModalFoot"><button class="btn" type="button" id="actionFormCancel">Cancel</button><button class="btn primary" type="submit" id="actionFormSubmit">Save</button></div>
- </form>
-</div></div>
-
 </body></html>`);
  win.document.close();
 }
@@ -10577,35 +10570,35 @@ function addCustomBank(){
 }
 function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice" style="margin-bottom:7px"><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending||'')+'</b> • Balance '+money(adjustedBankBalance(b))+'</div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>';}
 
-function addGoldAsset(){
+addGoldAsset = function(){
  openActionForm({title:'Add Gold',subtitle:'Record a gold purchase as a permanent asset.',submitLabel:'Add Gold',fields:[
   {name:'name',label:'Asset Name',required:true,placeholder:'Gold Bar 1',full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},
   {name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},
   {name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
  ],onSubmit:v=>{const w=Number(v.weight),price=Number(v.purchasePrice);if(!Number.isFinite(w)||w<=0||!Number.isFinite(price)||price<0)return false;const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name:v.name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:price,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true;}});
 }
-function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
+sellGoldAsset = function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
  openActionForm({title:'Sell Gold',subtitle:a.name+' • Available '+avail.toFixed(3)+' g',submitLabel:'Record Sale',fields:[
   {name:'weight',label:'Weight to Sell (g)',type:'number',step:'0.001',min:'0.001',max:String(avail),value:avail.toFixed(3),required:true,full:false},{name:'proceeds',label:'Sale Proceeds (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},
   {name:'date',label:'Sale Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false},{name:'sourceId',label:'Receive Proceeds To',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false}
  ],onSubmit:v=>{const w=Number(v.weight),proceeds=Number(v.proceeds);if(!Number.isFinite(w)||w<=0||w>avail+.0001||!Number.isFinite(proceeds)||proceeds<0)return false;const src=sources.find(x=>x.id===v.sourceId)||sources[0],allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1)),gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date:v.date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date:v.date,month:v.date.slice(0,7),amount:proceeds,note:'Gold sale • '+a.name+' • '+w+' g'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds)}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();return true;}});
 }
-function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
+payGoldZakat = function(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
  openActionForm({title:'Pay Zakat',subtitle:a.name+' • Zakat due '+money(amount),submitLabel:'Record Zakat Payment',fields:[
   {name:'amount',label:'Zakat Amount (SAR)',type:'number',value:amount.toFixed(2),step:'0.01',min:'0',required:true,full:false},{name:'sourceId',label:'Pay From',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false},
   {name:'date',label:'Payment Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
  ],onSubmit:v=>{const paid=Number(v.amount);if(!Number.isFinite(paid)||paid<0)return false;const src=sources.find(x=>x.id===v.sourceId)||sources[0],h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount:paid,paidDate:v.date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push?.({id:'zakat-'+Date.now(),type:'gold-zakat',date:v.date,month:v.date.slice(0,7),description:'Gold Zakat • '+a.name,amount:paid,sourceId:src.id,sourceName:src.name});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-paid)}saveV194Data();saveLocal();renderGoldAssets();renderDashboard();renderAccounts();return true;}});
 }
-function addStatementFormat(){openActionForm({title:'Add Statement Format',subtitle:'Save a reusable statement mapping.',submitLabel:'Add Format',fields:[
+addStatementFormat = function(){openActionForm({title:'Add Statement Format',subtitle:'Save a reusable statement mapping.',submitLabel:'Add Format',fields:[
  {name:'name',label:'Format Name',required:true,full:false},{name:'accountId',label:'Account / Card',type:'select',options:[{value:'',label:'Any account'},...accounts.map(a=>({value:a.id,label:accountName(a.id)}))],full:false},
  {name:'fileType',label:'File Type',type:'select',value:'XLSX / CSV',options:['PDF','XLSX / CSV','XLSX','CSV'].map(x=>({value:x,label:x})),full:false},{name:'mapping',label:'Mapping Description',value:'Date / Description / Amount',required:true,full:false}
  ],onSubmit:v=>{statementFormats.push({id:'fmt-'+Date.now(),name:v.name,accountId:v.accountId,fileType:v.fileType,mapping:v.mapping,active:true,builtIn:false});saveV194Data();renderStatementFormats();return true;}})}
-function addCustomCreditCard(){openActionForm({title:'Add Credit Card',subtitle:'New cards use the existing transaction, planner and installment logic.',submitLabel:'Add Credit Card',fields:[
+addCustomCreditCard = function(){openActionForm({title:'Add Credit Card',subtitle:'New cards use the existing transaction, planner and installment logic.',submitLabel:'Add Credit Card',fields:[
  {name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',required:true,placeholder:'Visa Signature',full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',min:'0',step:'0.01',value:'0',required:true,full:false},
  {name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}
  ],onSubmit:v=>{const ending=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(ending.length!==4||!Number.isFinite(limit)||limit<0){alert('Check the last 4 digits and credit limit.');return false}const id='custom-card-'+ending+'-'+Date.now(),cc={id,bank:v.bank,name:v.name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(cc);accounts.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();return true;}})}
 
-function completeInstallmentEarly(id){const p=installments.find(x=>x.id===id);if(!p)return;const calc=planCalc(p),a=account(p.cardId),defaultAmt=Math.max(0,Number(calc.remaining||0));const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
+completeInstallmentEarly = function(id){const p=installments.find(x=>x.id===id);if(!p)return;const calc=planCalc(p),a=account(p.cardId),defaultAmt=Math.max(0,Number(calc.remaining||0));const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
  openActionForm({title:'Complete Installment Early',subtitle:(a?.bank||'')+' •'+(a?.ending||'')+' • '+p.description,submitLabel:'Complete Early',fields:[
   {name:'amount',label:'Final Settlement Amount (SAR)',type:'number',step:'0.01',min:'0',value:defaultAmt.toFixed(2),required:true,full:false},{name:'sourceId',label:'Paid From',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false},
   {name:'date',label:'Settlement Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
@@ -10723,5 +10716,11 @@ setInterval(updateV91CloudStatus,1200);
 setTimeout(updateV91CloudStatus,300);
 
 </script>
+<div class="modalBack" id="actionFormModal"><div class="modal">
+ <div class="modalHead"><div><div class="modalTitle" id="actionFormTitle">Action</div><div class="meta" id="actionFormSubtitle" style="margin-top:4px"></div></div><button class="closeBtn" type="button" id="actionFormClose">✕</button></div>
+ <form id="actionForm" class="formGrid"><div id="actionFormFields" class="formGrid" style="grid-column:1/-1"></div>
+  <div class="field full actionModalFoot"><button class="btn" type="button" id="actionFormCancel">Cancel</button><button class="btn primary" type="submit" id="actionFormSubmit">Save</button></div>
+ </form>
+</div></div>
 </body>
 </html>
