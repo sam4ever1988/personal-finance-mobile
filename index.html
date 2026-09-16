@@ -676,10 +676,14 @@ tr[data-tx] button{
 }
 
 
-/* V203 stable UX fixes */
-.flowGrid{display:grid!important;grid-template-columns:repeat(5,minmax(150px,1fr))!important;gap:10px!important;align-items:stretch!important}
-.flowGrid .flowArrow{display:none!important}.flowGrid .flowBox{min-width:0!important;height:auto!important}
-@media(max-width:900px){.flowGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:560px){.flowGrid{grid-template-columns:1fr!important}}
+/* V205 stable UX fixes */
+.flowGrid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important}
+.flowGrid .flowArrow{display:none!important}
+.flowGrid .flowBox{min-width:0!important;padding:12px 8px!important;overflow:hidden!important}
+.flowGrid .flowBox .meta{font-size:10px!important;line-height:1.25!important}
+.flowGrid .flowBox .big{font-size:17px!important;line-height:1.15!important;white-space:nowrap!important}
+@media(max-width:1000px){.flowGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:560px){.flowGrid{grid-template-columns:1fr!important}}
 #unifiedActionModal .modal{width:min(760px,100%)}#unifiedActionModal .modalHead{margin-bottom:12px}
 
 </style>
@@ -4728,11 +4732,7 @@ function remainingMonthlyCashFlow(){return remainingIncomeAvailable();}
 function renderDashboardRemainingBalances(){
  const box=$('dashRemainingBalances'); if(!box)return;
  const cards=accounts.filter(a=>a.type==='card');
- box.innerHTML=`<div style="display:grid;grid-template-columns:minmax(220px,1.2fr) repeat(2,minmax(160px,.7fr));gap:8px;align-items:center">
-  <div><b>Remaining Monthly Cash Flow</b><div class="meta">Current month after loans, outgoings and recorded card payments</div></div><div class="meta" style="text-align:right">Live Bank Balance</div><div style="text-align:right;font-size:20px;font-weight:900">${money(currentBankBalance())}</div>
-  ${cards.map(a=>{const m=cardMetrics(a);return `<div><b>${a.bank} • ${a.name} •${a.ending}</b></div><div class="meta" style="text-align:right">Available / Remaining</div><div style="text-align:right;font-weight:900">${money(m.available)}</div>`}).join('')}
-  ${accounts.filter(a=>a.type==='bank').map(a=>`<div><b>${a.bank} • ${a.name} •${a.ending||''}</b></div><div class="meta" style="text-align:right">Bank Balance</div><div style="text-align:right;font-weight:900">${money(adjustedBankBalance(a))}</div>`).join('')}
- </div><div class="meta" style="margin-top:10px">Updated ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>`;
+ box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px">'+cards.map(a=>{const m=cardMetrics(a);return '<div class="miniMetric" style="padding:10px 12px"><span>Card •'+escapeHtml(String(a.ending||''))+'</span><b style="font-size:16px">'+money(m.available)+'</b><small>Remaining</small></div>'}).join('')+'</div>';
 }
 function completeInstallmentEarly(id){
  const p=installments.find(x=>x.id===id); if(!p)return;
@@ -8351,6 +8351,12 @@ if($('saveIncomePlan'))$('saveIncomePlan').addEventListener('click',()=>{
 function openModal(id){$(id).classList.add('open')}function closeModal(id){$(id).classList.remove('open')}
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));
 document.querySelectorAll('.modalBack').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
+document.addEventListener('click',e=>{
+ const close=e.target.closest?.('[data-close]');
+ if(close){e.preventDefault();e.stopPropagation();closeModal(close.dataset.close);return;}
+ const back=e.target.classList?.contains('modalBack')?e.target:null;
+ if(back)closeModal(back.id);
+});
 
 $('resetLocal').addEventListener('click',()=>{if(confirm('Reset custom categories, merchant rules and manual installment plans?')){localStorage.removeItem('pf_finance_settings');localStorage.removeItem('pf_categories');localStorage.removeItem('pf_installments');localStorage.removeItem('pf_merchant_rules');localStorage.removeItem('pf_tx_overrides');localStorage.removeItem('pf_income_plan');localStorage.removeItem('pf_manual_transactions');localStorage.removeItem('pf_imported_transactions');localStorage.removeItem('pf_import_history');localStorage.removeItem('pf_card_payment_plan');localStorage.removeItem('pf_duplicate_decisions');localStorage.removeItem('pf_statement_rule');localStorage.removeItem('pf_transaction_actions');location.reload()}});
 
