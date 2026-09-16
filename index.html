@@ -701,6 +701,24 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
 .actionModalNote{padding:10px 12px;border-radius:10px;background:#0a141d;border:1px solid var(--line);font-size:11px;color:var(--muted)}
 @media(max-width:760px){.sidebar{background:#08121a;border-color:var(--line)}.navBtn.active{background:#0c1b24;color:var(--accent)}.modalHead{background:var(--surface)!important}}
 
+
+/* V196 executive dashboard — matches approved My Finance Executive Dashboard composition */
+.execHero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin:2px 0 18px;padding:4px 2px}
+.execHero h1{font-size:28px;line-height:1.12;margin:5px 0 7px;letter-spacing:-.6px}
+.execEyebrow{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.execUpdated{font-size:11px;color:var(--muted);white-space:nowrap}.execUpdated b{color:var(--text)}
+.dashViewTabs{display:flex;gap:7px;overflow:auto;margin:0 0 16px;padding-bottom:2px}
+.dashViewTabs button{border:1px solid var(--line);background:#0a141d;color:var(--muted);padding:9px 13px;border-radius:10px;font-weight:800;white-space:nowrap}
+.dashViewTabs button.active{background:var(--accentSoft);color:#57d9c0;border-color:#235b51}
+.executiveKpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.executiveKpis .kpi{min-height:122px;border-radius:15px;padding:17px;background:linear-gradient(145deg,#0f1c27,#0b151e);position:relative;overflow:hidden}
+.executiveKpis .kpi:after{content:"";position:absolute;right:-28px;bottom:-38px;width:100px;height:100px;border-radius:50%;background:rgba(24,184,154,.055)}
+.executiveKpis .kpiValue{font-size:25px;letter-spacing:-.4px}
+#dashboard>.sectionTitle{font-size:15px;margin-top:22px}
+#dashboard>.panel{border-radius:15px}
+@media(max-width:900px){.executiveKpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.execHero{align-items:flex-start;flex-direction:column}.execHero h1{font-size:23px}.executiveKpis{grid-template-columns:1fr}.dashViewTabs{margin-left:-2px;margin-right:-2px}}
+
 </style>
 </head>
 <body>
@@ -730,7 +748,9 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
 <main class="content">
 
 <section class="view active" id="dashboard">
- <div class="kpis" id="dashKpis"></div>
+ <div class="execHero"><div><div class="execEyebrow">A. Executive Overview</div><h1>Complete view of your financial status</h1><div class="meta">Income, cash, banks, credit, gold and net assets in one command center.</div></div><div class="execUpdated">Last updated <b id="execLastUpdated">Now</b></div></div>
+ <div class="dashViewTabs"><button class="active" type="button">Executive Overview</button><button type="button" data-page-jump="incomeplan">Cash & Credit</button><button type="button" data-page-jump="reports">Financial Position</button><button type="button" data-page-jump="accounts">Compact Command Center</button></div>
+ <div class="kpis executiveKpis" id="dashKpis"></div>
 <div class="sectionTitle">Card Payment Planner</div><div class="panel"><div class="paymentToolbar"><div><div class="panelTitle" style="margin-bottom:4px">How much do I need to pay?</div><div class="meta">Statement amounts, your Excel/manual plans, and estimates are kept separate. Pending statements are not guessed. If a card balance is converted to installments, the planner automatically switches to normal balance + monthly installment.</div><button class="btn" type="button" onclick="openPaymentDetails('known')" style="margin-top:10px">View Payment Breakdown</button></div><div class="field" style="min-width:170px"><label>Payment Month</label><input type="month" id="paymentMonth"></div></div><div class="paymentSummary"><div class="miniMetric plannerClick" onclick="openPaymentDetails('known')" title="Click to see which cards"><span>Known / Planned Amount</span><b id="paymentMonthKnown">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('remaining')" title="Click to see which cards"><span>Remaining to Pay</span><b id="paymentMonthRemaining">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('pending')" title="Click to see which cards"><span>Pending Statement Cards</span><b id="paymentMonthPending">0</b><small>View cards →</small></div></div><div class="payPlanner" id="paymentPlannerCards"></div><div class="meta" style="margin-top:12px">Mark payments as paid after settlement. You can edit the amount when a new statement arrives.</div></div>
  <div class="splitHead" style="margin-top:18px"><div class="sectionTitle" style="margin:0">Monthly Payment Plan</div><button class="btn" data-page-jump="incomeplan">Open Plan →</button></div><div class="meta" style="margin:6px 2px 14px">Income → active bank loans → remaining amount for credit cards</div>
  
@@ -1107,10 +1127,10 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V195 DARK DASHBOARD</span></div>
+  </div><span class="pill green">V196 EXECUTIVE DASHBOARD</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V195-20260916-DARKURES</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V196-20260916-EXECURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4725,7 +4745,7 @@ function dedupeDashboardErrorAlerts(){
  });
 }
 
-// V195 DARK DASHBOARD — dashboard balances, early settlement, statement format library,
+// V196 EXECUTIVE DASHBOARD — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -4815,6 +4835,7 @@ function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;c
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
 
 function renderDashboard(){
+ if($('execLastUpdated'))$('execLastUpdated').textContent=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const s=summaryData();
  const cardMetricsAll=accounts.filter(a=>a.type==='card').map(a=>cardMetrics(a));
  const obligations=cardMetricsAll.reduce((sum,m)=>sum+m.total,0);
@@ -10559,8 +10580,6 @@ function openActionForm(cfg){
  $('actionForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),v=Object.fromEntries(fd.entries());if(cfg.onSubmit(v)!==false)closeActionForm();};
  m.classList.add('open');setTimeout(()=>m.querySelector('input:not([type=hidden]),select')?.focus(),30);
 }
-$('actionFormClose')?.addEventListener('click',closeActionForm);$('actionFormCancel')?.addEventListener('click',closeActionForm);
-$('actionFormModal')?.addEventListener('click',e=>{if(e.target.id==='actionFormModal')closeActionForm()});
 
 function addCustomBank(){
  openActionForm({title:'Add Bank',subtitle:'Create a bank account without changing existing financial calculations.',submitLabel:'Add Bank',fields:[
@@ -10652,6 +10671,11 @@ async function init(){
  const pm=plannerDefaultMonth();$('paymentMonth').value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows($('paymentMonth').value);$('paymentMonth').addEventListener('change',renderPaymentPlanner);
 
 // V194 bindings
+// V195 shared action modal bindings — DOM is fully parsed here
+$('actionFormClose')?.addEventListener('click',closeActionForm);
+$('actionFormCancel')?.addEventListener('click',closeActionForm);
+$('actionFormModal')?.addEventListener('click',e=>{if(e.target.id==='actionFormModal')closeActionForm();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('actionFormModal')?.classList.contains('open'))closeActionForm();});
 $('addGoldAsset')?.addEventListener('click',addGoldAsset);
 $('refreshGoldPrice')?.addEventListener('click',refreshGoldMarketPrice);
 $('manualGoldPrice')?.addEventListener('click',manualGoldMarketPrice);
