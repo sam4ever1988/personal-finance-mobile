@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V195 Dark Dashboard</title>
+<title>Personal Finance • V188 Physical Card Totals</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -675,58 +675,6 @@ tr[data-tx] button{
   z-index:5;
 }
 
-
-/* V195 — Dark executive dashboard + unified action forms */
-:root{
- --bg:#071018;--surface:#0d1822;--text:#e8f0f6;--muted:#8ea1b2;--line:#20313f;
- --nav:#050b11;--nav2:#0a141d;--accent:#18b89a;--accentSoft:#102c29;
- --blue:#5a9cff;--green:#32c48d;--red:#ff6b72;--amber:#f4b84a;--violet:#9a7cff;
- --shadow:0 12px 34px rgba(0,0,0,.22);--panel:#0d1822;--border:#20313f;--orange:#f4b84a;
-}
-body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transparent 28%),var(--bg);color:var(--text)}
-.sidebar{background:linear-gradient(180deg,#07131d,#050a10);border-right:1px solid #162633}
-.topbar{background:rgba(7,16,24,.92);backdrop-filter:blur(16px);border-color:var(--line)}
-.panel,.kpi,.accountCard,.incomeCard,.loanCard,.outgoingCard,.payCard,.modal,.subItem{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow)}
-.btn,.control,.field input,.field select,.field textarea,input,select,textarea{background:#0a141d;color:var(--text);border-color:#29404f}
-.btn.ghost{background:#0a141d}.btn.primary{background:linear-gradient(135deg,#0f9f86,#18b89a);border-color:#18b89a;color:white}
-.meta,.hint,.kpiSub,.pageSub{color:var(--muted)}
-.txTable th,.txTable td,.summaryTable th,.summaryTable td,.installTable th,.installTable td,.historyTable th,.historyTable td{border-color:var(--line)}
-.txTable tr.clickable:hover,.reportClickable:hover{background:#10202b}
-.miniMetric,.flowBox{background:#09141d}
-.notice{background:#1c1a10;border-color:#4a3d1d;color:#e9c879}
-.modalBack{background:rgba(0,0,0,.72);backdrop-filter:blur(5px)}
-.closeBtn{background:#15232e;color:var(--text)}
-.modalHead{border-bottom:1px solid var(--line);padding-bottom:12px}
-.actionModalFoot{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
-.actionModalNote{padding:10px 12px;border-radius:10px;background:#0a141d;border:1px solid var(--line);font-size:11px;color:var(--muted)}
-@media(max-width:760px){.sidebar{background:#08121a;border-color:var(--line)}.navBtn.active{background:#0c1b24;color:var(--accent)}.modalHead{background:var(--surface)!important}}
-
-
-/* V196 executive dashboard — matches approved My Finance Executive Dashboard composition */
-.execHero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin:2px 0 18px;padding:4px 2px}
-.execHero h1{font-size:28px;line-height:1.12;margin:5px 0 7px;letter-spacing:-.6px}
-.execEyebrow{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.execUpdated{font-size:11px;color:var(--muted);white-space:nowrap}.execUpdated b{color:var(--text)}
-.dashViewTabs{display:flex;gap:7px;overflow:auto;margin:0 0 16px;padding-bottom:2px}
-.dashViewTabs button{border:1px solid var(--line);background:#0a141d;color:var(--muted);padding:9px 13px;border-radius:10px;font-weight:800;white-space:nowrap}
-.dashViewTabs button.active{background:var(--accentSoft);color:#57d9c0;border-color:#235b51}
-.executiveKpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.executiveKpis .kpi{min-height:122px;border-radius:15px;padding:17px;background:linear-gradient(145deg,#0f1c27,#0b151e);position:relative;overflow:hidden}
-.executiveKpis .kpi:after{content:"";position:absolute;right:-28px;bottom:-38px;width:100px;height:100px;border-radius:50%;background:rgba(24,184,154,.055)}
-.executiveKpis .kpiValue{font-size:25px;letter-spacing:-.4px}
-#dashboard>.sectionTitle{font-size:15px;margin-top:22px}
-#dashboard>.panel{border-radius:15px}
-@media(max-width:900px){.executiveKpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.execHero{align-items:flex-start;flex-direction:column}.execHero h1{font-size:23px}.executiveKpis{grid-template-columns:1fr}.dashViewTabs{margin-left:-2px;margin-right:-2px}}
-
-
-#actionFormModal .modal{width:min(760px,100%);border:1px solid #263a49}
-#actionFormModal .closeBtn,#actionFormCancel{cursor:pointer;pointer-events:auto;position:relative;z-index:5}
-#actionFormModal .modalHead{position:relative;z-index:4}
-#actionFormModal .formGrid{width:100%}
-#actionFormModal.open{display:flex!important;pointer-events:auto}
-
-
 </style>
 </head>
 <body>
@@ -757,14 +705,17 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
 
 <section class="view active" id="dashboard">
  <div class="kpis" id="dashKpis"></div>
- <div class="sectionTitle">Remaining Balances</div>
- <div class="kpis" id="dashRemainingBalances"></div>
- <div class="sectionTitle">Accounts Overview</div>
+<div class="sectionTitle">Card Payment Planner</div><div class="panel"><div class="paymentToolbar"><div><div class="panelTitle" style="margin-bottom:4px">How much do I need to pay?</div><div class="meta">Statement amounts, your Excel/manual plans, and estimates are kept separate. Pending statements are not guessed. If a card balance is converted to installments, the planner automatically switches to normal balance + monthly installment.</div><button class="btn" type="button" onclick="openPaymentDetails('known')" style="margin-top:10px">View Payment Breakdown</button></div><div class="field" style="min-width:170px"><label>Payment Month</label><input type="month" id="paymentMonth"></div></div><div class="paymentSummary"><div class="miniMetric plannerClick" onclick="openPaymentDetails('known')" title="Click to see which cards"><span>Known / Planned Amount</span><b id="paymentMonthKnown">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('remaining')" title="Click to see which cards"><span>Remaining to Pay</span><b id="paymentMonthRemaining">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('pending')" title="Click to see which cards"><span>Pending Statement Cards</span><b id="paymentMonthPending">0</b><small>View cards →</small></div></div><div class="payPlanner" id="paymentPlannerCards"></div><div class="meta" style="margin-top:12px">Mark payments as paid after settlement. You can edit the amount when a new statement arrives.</div></div>
+ <div class="splitHead" style="margin-top:18px"><div class="sectionTitle" style="margin:0">Monthly Payment Plan</div><button class="btn" data-page-jump="incomeplan">Open Plan →</button></div><div class="meta" style="margin:6px 2px 14px">Income → active bank loans → remaining amount for credit cards</div>
+ 
+<div class="sectionTitle">Available / Remaining Balances</div>
+ <div class="panel" id="dashRemainingBalances"></div>
+ <div class="sectionTitle">Accounts & Cards</div>
  <div class="accountGrid" id="dashAccounts"></div>
  <div class="sectionTitle">Review Alerts</div>
- <div id="reviewAlerts"></div>
+ <div class="alertStack" id="reviewAlerts"></div>
  <div class="sectionTitle">Recent Transactions</div>
- <div class="panel"><table class="txTable"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Card</th><th>Amount</th></tr></thead><tbody id="recentBody"></tbody></table></div>
+ <div class="panel"><table class="txTable"><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Account</th><th>Amount</th></tr></thead><tbody id="recentBody"></tbody></table></div>
 </section>
 
 <section class="view" id="paymentDetails">
@@ -1108,12 +1059,6 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="sectionTitle" style="margin-top:20px">Saved Loans</div>
   <div class="meta" style="margin-bottom:10px">Saved loans roll forward once per month. When the balance month moves forward, Remaining Months decreases and the monthly payment is deducted from Remaining Amount.</div>
   <div id="savedLoanSummary"></div>
-  
-  <div class="sectionTitle" style="margin-top:22px">Bank Accounts</div>
-  <div class="meta" style="margin-bottom:10px">Add bank accounts using the same structured form experience as transactions.</div>
-  <button class="btn" type="button" id="addCustomBank">+ Add Bank</button>
-  <div id="customBanksList" style="margin-top:10px"></div>
-
   <div class="sectionTitle" style="margin-top:22px">Credit Cards</div>
   <div class="meta" style="margin-bottom:10px">Add a future credit card manually. New cards use the same transaction, planner, installment and available-credit logic.</div>
   <button class="btn" type="button" id="addCustomCreditCard">+ Add Credit Card</button>
@@ -1130,10 +1075,10 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V202 STABLE DASHBOARD RESTORE</span></div>
+  </div><span class="pill green">V194 FEATURE UPGRADE</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V202-20260916-STABLEURES</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V194-20260916-FEATURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4748,7 +4693,7 @@ function dedupeDashboardErrorAlerts(){
  });
 }
 
-// V202 STABLE DASHBOARD RESTORE — dashboard balances, early settlement, statement format library,
+// V194 FEATURE UPGRADE — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -4833,38 +4778,11 @@ function editGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;co
 function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (SAR):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}
 function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
 async function refreshGoldMarketPrice(){try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
-function manualGoldMarketPrice(){openActionForm({title:'Manual Gold Price',subtitle:'Update the 24K Saudi gold price used by the asset valuation.',submitLabel:'Update Price',fields:[{name:'price',label:'24K Gold Price per Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true}],onSubmit:v=>{const n=Number(v.price);if(!Number.isFinite(n)||n<=0)return false;goldMarket={price24k:n,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();return true;}})}
-function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderCustomBanks();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
+function manualGoldMarketPrice(){const v=Number(prompt('24K gold price per gram in SAR:',Number(goldMarket.price24k||0).toFixed(2)));if(!Number.isFinite(v)||v<=0)return;goldMarket={price24k:v,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();}
+function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
 
-
-function renderReferenceDashboard(){
- try{
- const month=currentIncomeMonth(), income=totalIncomePlan(), remaining=remainingIncomeAvailable(), bank=accounts.filter(a=>a.type==='bank').reduce((s,a)=>s+adjustedBankBalance(a),0);
- if($('refKpis'))$('refKpis').innerHTML=[['Monthly Income',income,'Current plan'],['Remaining Monthly Cash',remaining,(income?remaining/income*100:0).toFixed(1)+'% of income'],['Bank Balance',bank,accounts.filter(a=>a.type==='bank').length+' account(s)']].map(x=>'<div class="refKpi"><small>'+x[0]+'</small><b>'+money(x[1])+'</b><em>'+x[2]+'</em></div>').join('');
- const cards=accounts.filter(a=>a.type==='card'), cms=cards.map(a=>({a,m:cardMetrics(a)})), creditAvail=cms.reduce((s,x)=>s+Number(x.m.available||0),0), creditUsed=cms.reduce((s,x)=>s+Number(x.m.total||0),0), limits=cms.reduce((s,x)=>s+Number(x.m.limit||0),0);
- const goldValue=(goldAssets||[]).reduce((s,a)=>s+Number(goldAssetValue(a)||0),0), goldWeight=(goldAssets||[]).reduce((s,a)=>s+Number(activeGoldWeight(a)||0),0);
- const loanMonthly=totalFixedLoans(), out=outgoingThisMonthTotal(), cardPay=Math.max(0,income-loanMonthly-out-remaining);
- const assetTotal=Math.max(0,bank)+goldValue+creditAvail, liabilities=creditUsed, net=assetTotal-liabilities;
- $('refKpis').innerHTML=[['Monthly Income',income,'Current plan'],['Remaining Monthly Cash',remaining,(income?remaining/income*100:0).toFixed(1)+'% of income'],['Bank Balance',bank,accounts.filter(a=>a.type==='bank').length+' account(s)'],['Total Credit Available',creditAvail,cards.length+' credit cards'],['Gold Assets Value',goldValue,goldWeight.toFixed(2)+' g'],['Total Assets (Net)',net,'Assets '+money(assetTotal)+' | Liabilities '+money(liabilities)]].map(x=>'<div class="refKpi"><small>'+x[0]+'</small><b>'+money(x[1])+'</b><em>'+x[2]+'</em></div>').join('');
- $('refMonth').textContent=extraIncomeMonthTitle(month);
- const vals=[Math.max(0,income),Math.max(0,loanMonthly),Math.max(0,out),Math.max(0,cardPay),Math.max(0,remaining)], total=Math.max(1,income);
- $('refCashFlow').innerHTML='<div class="refFlow">'+[['Income',vals[0]],['Bank Loans',vals[1]],['Cash / Other',vals[2]],['Card Payments',vals[3]],['Remaining',vals[4]]].map(x=>'<div class="refFlowBox"><b>'+money(x[1]).replace('SAR ','')+'</b>'+x[0]+'</div>').join('')+'</div><div class="refBar">'+vals.map((v,i)=>'<i style="width:'+Math.max(0,v/total*100)+'%;background:'+['#2ee58e','#e54b55','#e7aa19','#814be4','#278ce1'][i]+'"></i>').join('')+'</div>';
- const payRows=(cardPaymentPlan||[]).filter(p=>Number(paymentRemainingAmount(p)||0)>0).sort((x,y)=>String(x.due||'').localeCompare(String(y.due||''))).slice(0,5);
- $('refUpcoming').innerHTML=payRows.length?payRows.map(p=>'<div class="refRow"><span>'+escapeHtml(p.due||p.month||'')+' &nbsp; '+escapeHtml(accountName(p.accountId))+'</span><b>'+money(paymentRemainingAmount(p))+'</b><span style="text-align:right;color:#ff8187">Upcoming</span></div>').join(''):'<div class="meta">No upcoming card payments recorded.</div>';
- $('refCredit').innerHTML=cms.map(x=>{const pct=x.m.limit?Math.min(100,x.m.total/x.m.limit*100):0;return '<div class="refRow"><span>'+escapeHtml(x.a.bank+' '+x.a.name+' •'+x.a.ending)+'<div class="refProgress"><i style="width:'+pct+'%"></i></div></span><b>'+money(x.m.available)+' / '+money(x.m.limit)+'</b><span style="text-align:right;color:#50e5a1">'+pct.toFixed(0)+'%</span></div>'}).join('');
- const util=limits?Math.min(100,creditUsed/limits*100):0;$('refUtil').innerHTML='<div class="refUtilWrap"><div class="refDonut" style="--pct:'+util+'%"><b>'+util.toFixed(0)+'%</b></div><div><div>Used <b>'+money(creditUsed)+'</b></div><div style="margin-top:10px;color:#55e4a4">Available <b>'+money(creditAvail)+'</b></div></div></div>';
- $('refBanks').innerHTML=accounts.filter(a=>a.type==='bank').map(a=>'<div class="refRow" style="grid-template-columns:1fr 1fr"><span>'+escapeHtml(a.bank+' '+a.name+' •'+(a.ending||''))+'</span><b style="color:#50e5c1">'+money(adjustedBankBalance(a))+'</b></div>').join('')||'<div class="meta">No bank accounts.</div>';
- $('refGold').innerHTML='<div class="refGoldStats"><div class="refStat"><small>Total Weight</small><b>'+goldWeight.toFixed(2)+' g</b></div><div class="refStat"><small>Current Value</small><b>'+money(goldValue)+'</b></div><div class="refStat"><small>Active Assets</small><b>'+goldAssets.length+'</b></div></div>';
- const zakat=(goldAssets||[]).filter(a=>goldZakatDue(a)).reduce((s,a)=>s+goldAssetValue(a)*.025,0);$('refZakat').innerHTML='<div class="refStat"><small>Total Zakat Due</small><b>'+money(zakat)+'</b></div>';
- $('refPosition').innerHTML='<div class="refPosition"><div class="refStat"><small>Total Assets</small><b style="color:#55e4a4">'+money(assetTotal)+'</b></div><div class="refStat"><small>Total Liabilities</small><b style="color:#ff727b">'+money(liabilities)+'</b></div><div class="refStat"><small>Net Position</small><b style="color:#4fc9ff">'+money(net)+'</b></div></div>';
- $('refAssets').innerHTML='<div class="refRow"><span>Bank Accounts</span><b>'+money(bank)+'</b><span></span></div><div class="refRow"><span>Gold</span><b>'+money(goldValue)+'</b><span></span></div>';
- $('refLiabilities').innerHTML='<div class="refRow"><span>Credit Cards</span><b>'+money(creditUsed)+'</b><span></span></div>';
- }catch(err){console.error('Executive dashboard render error',err); const box=$('refCashFlow'); if(box)box.innerHTML='<div class="notice" style="margin:8px 0">Dashboard data error: '+escapeHtml(String(err?.message||err))+'</div>';}
-}
-
 function renderDashboard(){
- if($('execLastUpdated'))$('execLastUpdated').textContent=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const s=summaryData();
  const cardMetricsAll=accounts.filter(a=>a.type==='card').map(a=>cardMetrics(a));
  const obligations=cardMetricsAll.reduce((sum,m)=>sum+m.total,0);
@@ -4885,8 +4803,6 @@ function renderDashboard(){
  const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
  $('recentBody').innerHTML=rows.map(txRow5).join('');
  renderReviewAlerts();renderPaymentPlanner();
- 
- if($('refAddTx'))$('refAddTx').onclick=()=>$('addTransaction')?.click(); if($('refAddInst'))$('refAddInst').onclick=()=>$('addInstallment')?.click(); if($('refAddGold'))$('refAddGold').onclick=addGoldAsset;
 }
 function accountCardHTML(a){
  if(a.type==='card'){
@@ -7651,8 +7567,7 @@ function viewImportBatch(index){
  const win=window.open('','_blank','width=1050,height=720');
  if(!win){alert('Your browser blocked the preview window. Allow pop-ups for this page and try again.');return;}
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}${account(t.account)?.type==='card'?` • ${esc(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}`:''}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table>
-</body></html>`);
+ win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(h.fileName)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}</style></head><body><h2>${esc(h.fileName)}</h2><div class="meta">${esc(new Date(h.importedAt).toLocaleString())} • ${rows.length} transaction(s)</div><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${rows.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(t.description)}</td><td>${esc(accountName(t.account))}${account(t.account)?.type==='card'?` • ${esc(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}`:''}</td><td>${esc(t.category||'')}</td><td class="num">${esc(signed(Number(t.amount||0)))}</td></tr>`).join('')}</tbody></table></body></html>`);
  win.document.close();
 }
 function deleteImportBatch(index){
@@ -10593,74 +10508,6 @@ function V173SyncArchitectureAudit(){
  };
 }
 
-
-/* V195 unified modal actions — browser prompt dialogs replaced for primary finance actions */
-let customBanks=JSON.parse(localStorage.getItem('pf_custom_banks')||'[]');if(!Array.isArray(customBanks))customBanks=[];
-customBanks.forEach(b=>{if(b?.id&&!accounts.some(a=>a.id===b.id))accounts.push(b)});
-
-function actionFieldHtml(f){
- const req=f.required?'required':''; const full=f.full===false?'':'full';
- if(f.type==='select')return '<div class="field '+full+'"><label>'+escapeHtml(f.label)+'</label><select name="'+f.name+'" '+req+'>'+f.options.map(o=>'<option value="'+escapeHtml(String(o.value))+'" '+(String(o.value)===String(f.value??'')?'selected':'')+'>'+escapeHtml(o.label)+'</option>').join('')+'</select>'+(f.hint?'<div class="hint">'+escapeHtml(f.hint)+'</div>':'')+'</div>';
- return '<div class="field '+full+'"><label>'+escapeHtml(f.label)+'</label><input name="'+f.name+'" type="'+(f.type||'text')+'" value="'+escapeHtml(String(f.value??''))+'" '+(f.min!=null?'min="'+f.min+'" ':'')+(f.max!=null?'max="'+f.max+'" ':'')+(f.step!=null?'step="'+f.step+'" ':'')+(f.placeholder?'placeholder="'+escapeHtml(f.placeholder)+'" ':'')+req+'>'+(f.hint?'<div class="hint">'+escapeHtml(f.hint)+'</div>':'')+'</div>';
-}
-function closeActionForm(){document.getElementById('actionFormModal')?.classList.remove('open');document.getElementById('actionForm').onsubmit=null}
-function openActionForm(cfg){
- const m=document.getElementById('actionFormModal'); if(!m)return;
- $('actionFormTitle').textContent=cfg.title||'Action';$('actionFormSubtitle').textContent=cfg.subtitle||'';
- $('actionFormSubmit').textContent=cfg.submitLabel||'Save';$('actionFormFields').innerHTML=(cfg.fields||[]).map(actionFieldHtml).join('');
- $('actionForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),v=Object.fromEntries(fd.entries());if(cfg.onSubmit(v)!==false)closeActionForm();};
- m.classList.add('open');setTimeout(()=>m.querySelector('input:not([type=hidden]),select')?.focus(),30);
-}
-
-function addCustomBank(){
- openActionForm({title:'Add Bank',subtitle:'Create a bank account without changing existing financial calculations.',submitLabel:'Add Bank',fields:[
-  {name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Account Name',required:true,full:false},
-  {name:'ending',label:'Last 4 Digits',required:true,placeholder:'1234',full:false},{name:'balance',label:'Current Balance (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}
- ],onSubmit:v=>{const ending=String(v.ending||'').replace(/\D/g,'').slice(-4);if(ending.length!==4){alert('Enter exactly 4 digits.');return false}const bal=Number(v.balance);if(!Number.isFinite(bal)||bal<0){alert('Enter a valid balance.');return false}const b={id:'custom-bank-'+ending+'-'+Date.now(),bank:v.bank.trim(),name:v.name.trim(),ending,type:'bank',custom:true,extra:{}};customBanks.push(b);accounts.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));setTrackedBankBalance(b.id,bal);saveLocal();renderCustomBanks();renderDashboard();renderAccounts();return true;}});
-}
-function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice" style="margin-bottom:7px"><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending||'')+'</b> • Balance '+money(adjustedBankBalance(b))+'</div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>';}
-
-addGoldAsset = function(){
- openActionForm({title:'Add Gold',subtitle:'Record a gold purchase as a permanent asset.',submitLabel:'Add Gold',fields:[
-  {name:'name',label:'Asset Name',required:true,placeholder:'Gold Bar 1',full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},
-  {name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},
-  {name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
- ],onSubmit:v=>{const w=Number(v.weight),price=Number(v.purchasePrice);if(!Number.isFinite(w)||w<=0||!Number.isFinite(price)||price<0)return false;const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name:v.name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:price,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true;}});
-};
-sellGoldAsset = function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
- openActionForm({title:'Sell Gold',subtitle:a.name+' • Available '+avail.toFixed(3)+' g',submitLabel:'Record Sale',fields:[
-  {name:'weight',label:'Weight to Sell (g)',type:'number',step:'0.001',min:'0.001',max:String(avail),value:avail.toFixed(3),required:true,full:false},{name:'proceeds',label:'Sale Proceeds (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},
-  {name:'date',label:'Sale Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false},{name:'sourceId',label:'Receive Proceeds To',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false}
- ],onSubmit:v=>{const w=Number(v.weight),proceeds=Number(v.proceeds);if(!Number.isFinite(w)||w<=0||w>avail+.0001||!Number.isFinite(proceeds)||proceeds<0)return false;const src=sources.find(x=>x.id===v.sourceId)||sources[0],allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1)),gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date:v.date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date:v.date,month:v.date.slice(0,7),amount:proceeds,note:'Gold sale • '+a.name+' • '+w+' g'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds)}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();return true;}});
-};
-payGoldZakat = function(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
- openActionForm({title:'Pay Zakat',subtitle:a.name+' • Zakat due '+money(amount),submitLabel:'Record Zakat Payment',fields:[
-  {name:'amount',label:'Zakat Amount (SAR)',type:'number',value:amount.toFixed(2),step:'0.01',min:'0',required:true,full:false},{name:'sourceId',label:'Pay From',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false},
-  {name:'date',label:'Payment Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
- ],onSubmit:v=>{const paid=Number(v.amount);if(!Number.isFinite(paid)||paid<0)return false;const src=sources.find(x=>x.id===v.sourceId)||sources[0],h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount:paid,paidDate:v.date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push?.({id:'zakat-'+Date.now(),type:'gold-zakat',date:v.date,month:v.date.slice(0,7),description:'Gold Zakat • '+a.name,amount:paid,sourceId:src.id,sourceName:src.name});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-paid)}saveV194Data();saveLocal();renderGoldAssets();renderDashboard();renderAccounts();return true;}});
-};
-addStatementFormat = function(){openActionForm({title:'Add Statement Format',subtitle:'Save a reusable statement mapping.',submitLabel:'Add Format',fields:[
- {name:'name',label:'Format Name',required:true,full:false},{name:'accountId',label:'Account / Card',type:'select',options:[{value:'',label:'Any account'},...accounts.map(a=>({value:a.id,label:accountName(a.id)}))],full:false},
- {name:'fileType',label:'File Type',type:'select',value:'XLSX / CSV',options:['PDF','XLSX / CSV','XLSX','CSV'].map(x=>({value:x,label:x})),full:false},{name:'mapping',label:'Mapping Description',value:'Date / Description / Amount',required:true,full:false}
- ],onSubmit:v=>{statementFormats.push({id:'fmt-'+Date.now(),name:v.name,accountId:v.accountId,fileType:v.fileType,mapping:v.mapping,active:true,builtIn:false});saveV194Data();renderStatementFormats();return true;}})}
-addCustomCreditCard = function(){openActionForm({title:'Add Credit Card',subtitle:'New cards use the existing transaction, planner and installment logic.',submitLabel:'Add Credit Card',fields:[
- {name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',required:true,placeholder:'Visa Signature',full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',min:'0',step:'0.01',value:'0',required:true,full:false},
- {name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}
- ],onSubmit:v=>{const ending=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(ending.length!==4||!Number.isFinite(limit)||limit<0){alert('Check the last 4 digits and credit limit.');return false}const id='custom-card-'+ending+'-'+Date.now(),cc={id,bank:v.bank,name:v.name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(cc);accounts.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();return true;}})}
-
-completeInstallmentEarly = function(id){const p=installments.find(x=>x.id===id);if(!p)return;const calc=planCalc(p),a=account(p.cardId),defaultAmt=Math.max(0,Number(calc.remaining||0));const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
- openActionForm({title:'Complete Installment Early',subtitle:(a?.bank||'')+' •'+(a?.ending||'')+' • '+p.description,submitLabel:'Complete Early',fields:[
-  {name:'amount',label:'Final Settlement Amount (SAR)',type:'number',step:'0.01',min:'0',value:defaultAmt.toFixed(2),required:true,full:false},{name:'sourceId',label:'Paid From',type:'select',options:sources.map(x=>({value:x.id,label:x.name})),full:false},
-  {name:'date',label:'Settlement Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}
- ],onSubmit:v=>{const amt=Number(v.amount);if(!Number.isFinite(amt)||amt<0)return false;const src=sources.find(x=>x.id===v.sourceId)||sources[0];p.earlySettlement={amount:amt,date:v.date,sourceId:src.id,sourceName:src.name,recordedAt:new Date().toISOString()};p.completed=true;p.status='completed';p.remainingAmount=0;p.remainingPrincipal=0;if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amt)}saveLocal();renderInstallments();renderDashboard();renderAccounts();return true;}});
-};
-
-function v196ActionSelfTest(){
- const ids=['actionFormModal','actionForm','actionFormClose','actionFormCancel','actionFormSubmit','actionFormFields'];
- const missing=ids.filter(id=>!$(id));
- if(missing.length){console.error('V196 action modal missing:',missing);return false;}
- return true;
-}
 async function init(){
  const session=await cloudRefreshAuth();
  let localSavedAt='';
@@ -10708,19 +10555,13 @@ async function init(){
  const pm=plannerDefaultMonth();$('paymentMonth').value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows($('paymentMonth').value);$('paymentMonth').addEventListener('change',renderPaymentPlanner);
 
 // V194 bindings
-// V196 shared action modal bindings — DOM is fully parsed here
- if(!v196ActionSelfTest()) console.error('V196 action form self-test failed');
-$('actionFormClose')?.addEventListener('click',closeActionForm);
-$('actionFormCancel')?.addEventListener('click',closeActionForm);
-$('actionFormModal')?.addEventListener('click',e=>{if(e.target.id==='actionFormModal')closeActionForm();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('actionFormModal')?.classList.contains('open'))closeActionForm();});
 $('addGoldAsset')?.addEventListener('click',addGoldAsset);
 $('refreshGoldPrice')?.addEventListener('click',refreshGoldMarketPrice);
 $('manualGoldPrice')?.addEventListener('click',manualGoldMarketPrice);
 $('addStatementFormat')?.addEventListener('click',addStatementFormat);
 $('exportStatementFormats')?.addEventListener('click',exportStatementFormats);
 $('statementFormatFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)importStatementFormatsFile(f);e.target.value='';});
-$('addCustomCreditCard')?.addEventListener('click',addCustomCreditCard);$('addCustomBank')?.addEventListener('click',addCustomBank);
+$('addCustomCreditCard')?.addEventListener('click',addCustomCreditCard);
 renderCustomCreditCards();
 
 $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPaymentPlanner();});fillCategorySelect($('reportCategory'));
@@ -10733,10 +10574,8 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
  renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();
  updateDbStatus(true);
- setTimeout(()=>{try{renderDashboard();}catch(e){console.error('Executive dashboard refresh failed',e)}},50);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
- 
 
  // If the browser/app was reloaded while the user was reviewing another page,
  // restore that page instead of defaulting to Dashboard.
@@ -10762,7 +10601,7 @@ try{
 }catch(e){
   console.warn('Action hardening warning',e);
 }
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>init()); else init();
+init();
 
 function updateV91CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
@@ -10780,11 +10619,5 @@ setInterval(updateV91CloudStatus,1200);
 setTimeout(updateV91CloudStatus,300);
 
 </script>
-<div class="modalBack" id="actionFormModal"><div class="modal">
- <div class="modalHead"><div><div class="modalTitle" id="actionFormTitle">Action</div><div class="meta" id="actionFormSubtitle" style="margin-top:4px"></div></div><button class="closeBtn" type="button" id="actionFormClose">✕</button></div>
- <form id="actionForm" class="formGrid"><div id="actionFormFields" class="formGrid" style="grid-column:1/-1"></div>
-  <div class="field full actionModalFoot"><button class="btn" type="button" id="actionFormCancel">Cancel</button><button class="btn primary" type="submit" id="actionFormSubmit">Save</button></div>
- </form>
-</div></div>
 </body>
 </html>
