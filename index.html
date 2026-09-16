@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V227 Gold Asset Identity Fix</title>
+<title>Personal Finance • V228 Card Payment Credit Fix</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1215,7 +1215,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V227 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V228 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1263,7 +1263,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V227 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">V228 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
   </div>
  </div>
 </section>
@@ -1301,10 +1301,10 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V227 CURRENT BUILD</span></div>
+  </div><span class="pill green">V228 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V227</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V227-20260917-GOLD-ID</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V228</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V228-20260917-CARD-CREDIT</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -3891,14 +3891,29 @@ function activeManualCardBalanceDelta(cardId){
 function recordedCardPaymentCredit(cardId){
  let credit=0;
 
- // V142: normal recorded payments belong to the obligation they settled.
- // They must not remain as a permanent global credit against future purchases.
- // Only explicit extra/overpayment credit carries forward.
+ // V228: a payment against an unreleased/current calculated card cycle must
+ // immediately restore available credit. Once a genuine statement already nets
+ // the payment, or the transaction cycle is no longer live, it is not credited
+ // again. Explicit overpayments continue to carry forward separately.
+ const liveUsageByMonth={};
+ liveUnreleasedTransactionRows(cardId).forEach(t=>{
+  const month=assignedTransactionPaymentMonth(cardId,t);
+  liveUsageByMonth[month]=Math.round(((liveUsageByMonth[month]||0)+Math.abs(Number(t.amount||0)))*100)/100;
+ });
  cardPaymentPlan
   .filter(p=>p.accountId===cardId)
   .forEach(p=>{
+   const released=isGenuineReleasedStatementRow(p)||importedOfficialPlannerRow(p.accountId,p.month);
+   if(!released){
+    const liveUsage=Math.max(0,Number(liveUsageByMonth[p.month]||0));
+    // A live cycle can include transaction usage plus installment principal.
+    // The full recorded payment restores card limit; do not cap it to only the
+    // transaction slice. If the cycle has no live usage, it has already closed
+    // and its historical payment must not become a permanent future credit.
+    if(liveUsage>0)credit+=Math.max(0,Number(paymentPaidAmount(p)||0));
+   }
    (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
-    credit+=Math.max(0,Number(h.extraCredit||0));
+    credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));
    });
   });
 
@@ -10395,7 +10410,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V227 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`V228 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -10422,7 +10437,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V227: reading the complete canonical finance database. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='V228: reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -10456,13 +10471,13 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V227 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`V228 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
   recordSyncReady=false;
-  console.error('V227 manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='V227 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  console.error('V228 manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='V228 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
@@ -10899,7 +10914,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V227',
+  version:'V228',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
