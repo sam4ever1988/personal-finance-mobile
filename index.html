@@ -3840,6 +3840,18 @@ function excelCardAccounting(a){
  );
  const currentInstallment=Math.max(0,installmentAmountForPaymentMonth(a.id,activeCycle));
 
+ // V191: keep prior unreleased cycles visible instead of making the card totals
+ // look inconsistent with the selected payment-planner month. Example: if the
+ // September cycle is still unreleased and October is already accumulating,
+ // Outstanding legitimately contains both. Expose that split explicitly.
+ const liveByMonth=liveTransactionUsageByMonth(a.id);
+ const priorOpenCycleTransactions=Math.max(0,Object.entries(liveByMonth)
+  .filter(([month])=>month && month<activeCycle)
+  .reduce((sum,[,amount])=>sum+Number(amount||0),0));
+ const futureOpenCycleTransactions=Math.max(0,Object.entries(liveByMonth)
+  .filter(([month])=>month && month>activeCycle)
+  .reduce((sum,[,amount])=>sum+Number(amount||0),0));
+
  // All active transaction usage that has NOT yet been replaced by a confirmed
  // statement. This is the key V125 link between Import Statements / manual entry
  // and live card available credit.
@@ -3903,7 +3915,9 @@ function excelCardAccounting(a){
   currentCycleInstallment:currentInstallment,
   currentCycleUsage:currentCycle,
   liveTransactionUsage:liveTransactions,
-  liveTransactionUsageByMonth:liveTransactionUsageByMonth(a.id),
+  liveTransactionUsageByMonth:liveByMonth,
+  priorOpenCycleTransactions,
+  futureOpenCycleTransactions,
   releasedStatementBalance:released,
   activeCycleMonth:activeCycle,
   currentMonthlyInstallments:currentInstallment,
@@ -6333,9 +6347,10 @@ function openAccount(id,returnPage){
  }
  const rows=cardTransactionsForDetail(id);
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
- <div class="miniMetric"><span>Current Cycle Transactions</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
+ <div class="miniMetric"><span>Current Open Cycle (${cardMonthLabel(m.activeCycleMonth)})</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
+ <div class="miniMetric"><span>Prior Unreleased Cycle(s)</span><b class="amber">${money(m.priorOpenCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b></div>
- <div class="miniMetric"><span>Released / Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b></div>
+ <div class="miniMetric"><span>Released / Official Amount to Pay</span><b class="blue">${money(m.releasedStatementBalance||0)}</b></div>
  <div class="miniMetric"><span>Future Installment Reserve</span><b class="amber">${money(m.inst||0)}</b></div>
  <div class="miniMetric"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>
  <div class="miniMetric"><span>Available Credit</span><b class="green">${money(m.available)}</b></div>
@@ -6369,7 +6384,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button type="button" class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Card balance:</b> Available Credit = Credit Limit − Outstanding / Utilized. Only real manual/imported card activity, unpaid released statements and active installment obligations affect the live balance. Historical built-in rows remain visible for reference but do not consume available credit.</div>
+<div class="notice" style="margin:12px 0"><b>Card balance:</b> Outstanding / Utilized includes all still-live transaction cycles, not only the current open cycle. Prior calculated cycles remain utilized until replaced by an official/released statement or otherwise closed. Available Credit = Credit Limit − Outstanding / Utilized − current-cycle installment commitment. Historical built-in rows remain reference-only.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
