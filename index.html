@@ -690,14 +690,15 @@ tr[data-tx] button{
  <button type="button" class="navBtn" data-page="installments" onclick="mobileNavigate(event,'installments')"><span class="ic">◫</span>Installments</button>
  <button type="button" class="navBtn" data-page="categories" onclick="mobileNavigate(event,'categories')"><span class="ic">🏷</span>Categories</button>
  <button type="button" class="navBtn" data-page="importstatements" onclick="mobileNavigate(event,'importstatements')"><span class="ic">⇩</span>Import Statements</button>
+ <button type="button" class="navBtn" data-page="assets" onclick="mobileNavigate(event,'assets')"><span class="ic">◆</span>Personal Assets</button>
  <button type="button" class="navBtn" data-page="financeSettings" onclick="mobileNavigate(event,'financeSettings')"><span class="ic">⚙</span>Finance Settings</button>
  <button type="button" class="navBtn" data-page="more" onclick="mobileNavigate(event,'more')"><span class="ic">•••</span>More</button>
- <div class="sideFoot"><div style="font-size:11px;color:#a9bac8">Live bank balance</div><div class="sideValue" id="sideBalance">SAR 0.00</div><div class="sideTiny">Real statement data loaded<br>Jul–Aug 2026</div></div>
+ <div class="sideFoot"><div style="font-size:11px;color:#a9bac8">Live bank balance</div><div class="sideValue" id="sideBalance">SAR 0.00</div><div class="sideTiny" id="sideUpdatedDate">Updated today</div></div>
 </aside>
 
 <div class="main">
 <header class="topbar">
- <div><div class="pageTitle" id="pageTitle">Dashboard</div><div class="pageSub" id="pageSub">Real statement data • Jul–Aug 2026</div></div>
+ <div><div class="pageTitle" id="pageTitle">Dashboard</div><div class="pageSub" id="pageSub">Current finance position</div></div>
  <div class="topActions"><button class="btn ghost" id="quickAddTransaction">+ Transaction</button><button class="btn ghost" id="quickInstallment">+ Installment Plan</button><button class="btn primary" data-page-jump="reports">View Reports</button></div>
 </header>
 <main class="content">
@@ -707,7 +708,9 @@ tr[data-tx] button{
 <div class="sectionTitle">Card Payment Planner</div><div class="panel"><div class="paymentToolbar"><div><div class="panelTitle" style="margin-bottom:4px">How much do I need to pay?</div><div class="meta">Statement amounts, your Excel/manual plans, and estimates are kept separate. Pending statements are not guessed. If a card balance is converted to installments, the planner automatically switches to normal balance + monthly installment.</div><button class="btn" type="button" onclick="openPaymentDetails('known')" style="margin-top:10px">View Payment Breakdown</button></div><div class="field" style="min-width:170px"><label>Payment Month</label><input type="month" id="paymentMonth"></div></div><div class="paymentSummary"><div class="miniMetric plannerClick" onclick="openPaymentDetails('known')" title="Click to see which cards"><span>Known / Planned Amount</span><b id="paymentMonthKnown">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('remaining')" title="Click to see which cards"><span>Remaining to Pay</span><b id="paymentMonthRemaining">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('pending')" title="Click to see which cards"><span>Pending Statement Cards</span><b id="paymentMonthPending">0</b><small>View cards →</small></div></div><div class="payPlanner" id="paymentPlannerCards"></div><div class="meta" style="margin-top:12px">Mark payments as paid after settlement. You can edit the amount when a new statement arrives.</div></div>
  <div class="splitHead" style="margin-top:18px"><div class="sectionTitle" style="margin:0">Monthly Payment Plan</div><button class="btn" data-page-jump="incomeplan">Open Plan →</button></div><div class="meta" style="margin:6px 2px 14px">Income → active bank loans → remaining amount for credit cards</div>
  
-<div class="sectionTitle">Accounts & Cards</div>
+<div class="sectionTitle">Available / Remaining Balances</div>
+ <div class="panel" id="dashRemainingBalances"></div>
+ <div class="sectionTitle">Accounts & Cards</div>
  <div class="accountGrid" id="dashAccounts"></div>
  <div class="sectionTitle">Review Alerts</div>
  <div class="alertStack" id="reviewAlerts"></div>
@@ -978,6 +981,11 @@ tr[data-tx] button{
  </div>
  <div class="sectionTitle">2. Preview</div>
  <div class="panel"><div class="splitHead"><div><div class="panelTitle" style="margin-bottom:4px">Transactions Found</div><div class="meta" id="importPreviewMeta">Choose a statement to begin.</div></div><div style="display:flex;gap:8px"><button class="btn" id="clearImportPreview" disabled>Clear</button><button class="btn primary" id="confirmStatementImport" disabled>Import Transactions</button></div></div><div class="importPreview"><table class="txTable"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="importPreviewBody"><tr><td colspan="5">No statement loaded.</td></tr></tbody></table></div></div>
+ <div class="sectionTitle">Supported Statement Formats</div>
+ <div class="panel">
+  <div class="splitHead"><div><div class="panelTitle">Statement Format Library</div><div class="meta">Built-in formats plus formats you add/import. Export a format definition to reuse it on another machine.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="addStatementFormat" type="button">+ Add Format</button><label class="btn" for="statementFormatFile">Import Format</label><input id="statementFormatFile" type="file" accept=".json,application/json" hidden><button class="btn" id="exportStatementFormats" type="button">Export Formats</button></div></div>
+  <div style="overflow-x:auto;margin-top:12px"><table class="summaryTable"><thead><tr><th>Name</th><th>Account/Card</th><th>File Type</th><th>Mapping</th><th>Status</th><th>Action</th></tr></thead><tbody id="statementFormatsBody"></tbody></table></div>
+ </div>
  <div class="sectionTitle">Import History</div>
  <div class="panel"><div style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Imported</th><th>File</th><th>Account / Card</th><th>Transactions</th><th>Actions</th></tr></thead><tbody id="importHistoryBody"></tbody></table></div></div>
 </section>
@@ -1051,6 +1059,10 @@ tr[data-tx] button{
   <div class="sectionTitle" style="margin-top:20px">Saved Loans</div>
   <div class="meta" style="margin-bottom:10px">Saved loans roll forward once per month. When the balance month moves forward, Remaining Months decreases and the monthly payment is deducted from Remaining Amount.</div>
   <div id="savedLoanSummary"></div>
+  <div class="sectionTitle" style="margin-top:22px">Credit Cards</div>
+  <div class="meta" style="margin-bottom:10px">Add a future credit card manually. New cards use the same transaction, planner, installment and available-credit logic.</div>
+  <button class="btn" type="button" id="addCustomCreditCard">+ Add Credit Card</button>
+  <div id="customCreditCardsList" style="margin-top:10px"></div>
   <div class="sectionTitle" style="margin-top:22px">Credit Card Statement / Due Dates</div>
   <div class="meta" style="margin-bottom:10px">Set statement cutoff day and payment due day for each card.</div>
   <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div>
@@ -1063,10 +1075,10 @@ tr[data-tx] button{
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V176 CLEAN RESTORE</span></div>
+  </div><span class="pill green">V194 FEATURE UPGRADE</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V176-20260915-CLEAN</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V194-20260916-FEATURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -1100,9 +1112,20 @@ tr[data-tx] button{
  <div class="grid2">
    <div class="panel"><div class="panelTitle">Monthly Income & Payment Plan</div><div style="font-weight:900">Plan salary → loans → credit cards</div><div class="meta" style="margin-top:8px">Enter both salaries and other income, deduct active bank loans, then allocate the remaining amount to your credit cards.</div><button class="btn primary" style="margin-top:13px" data-page-jump="incomeplan">Open Income Plan</button></div>
    <div class="panel"><div class="panelTitle">Manual Corrections</div><div style="font-weight:900">Add missing transactions</div><div class="meta" style="margin-top:8px">Use this when the imported statement is missing an item or when you need to record a transaction manually.</div><button class="btn primary" style="margin-top:13px" id="moreAddTransaction">+ Add Transaction</button></div>
-    <div class="panel"><div class="panelTitle">Statement Import Status</div><div style="font-weight:900">4 real statement formats loaded</div><div class="meta" style="margin-top:8px">Al Rajhi Current Account<br>Al Rajhi Card •0955<br>Al Rajhi Card •5867<br>SAB Cashback Card •440880</div></div>
    <div class="panel"><div class="panelTitle">Storage</div><div style="font-weight:900">Local + Cloud configuration</div><div class="meta" style="margin-top:8px">Changes are saved locally immediately and automatically synchronized to Supabase whenever you are signed in.</div><button type="button" class="btn danger" style="margin-top:13px" id="resetLocal">Reset Prototype Changes</button></div>
  </div>
+</section>
+
+<section class="view" id="assets">
+ <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Personal Assets • Gold</div><div class="meta">Each purchase has its own permanent Asset ID. Same names/weights are allowed and never merged.</div></div><button class="btn primary" id="addGoldAsset" type="button">+ Add Gold</button></div>
+ <div class="kpis" id="goldKpis" style="margin-top:14px"></div>
+ <div class="panel" style="margin-top:14px"><div class="splitHead"><div><div class="panelTitle">Saudi Gold Market Price</div><div class="meta" id="goldPriceMeta">Live spot reference with manual override available.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="refreshGoldPrice" type="button">Refresh Price</button><button class="btn" id="manualGoldPrice" type="button">Manual Price</button></div></div><div id="goldPriceGrid" class="kpis" style="margin-top:12px"></div></div>
+ <div class="sectionTitle">Active Gold Assets</div>
+ <div class="panel" style="overflow-x:auto"><table class="summaryTable" style="min-width:1100px"><thead><tr><th>Asset</th><th>Type / Purity</th><th>Weight</th><th>Bought</th><th>Purchase Price</th><th>Current Value</th><th>Gain/Loss</th><th>Next Hijri Zakat</th><th>Zakat</th><th>Action</th></tr></thead><tbody id="goldAssetsBody"></tbody></table></div>
+ <div class="sectionTitle">Zakat Payment History</div>
+ <div class="panel" style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Asset</th><th>Hijri Cycle</th><th>Weight</th><th>Value Used</th><th>Zakat Paid</th><th>Paid Date</th><th>Paid From</th></tr></thead><tbody id="goldZakatHistoryBody"></tbody></table></div>
+ <div class="sectionTitle">Gold Sale History</div>
+ <div class="panel" style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Asset</th><th>Date</th><th>Weight Sold</th><th>Sale Proceeds</th><th>Received To</th><th>Realized Gain/Loss</th></tr></thead><tbody id="goldSaleHistoryBody"></tbody></table></div>
 </section>
 
 <section class="view" id="accountDetail">
@@ -1928,7 +1951,8 @@ function remainingIncomeAvailable(month=currentIncomeMonth()){
   const plan=incomePlanForMonth(month);
   availableBeforeCardPayments=plan?monthlyPlanTotal(plan)-totalFixedLoans()-outgoingForMonth(month):0;
  }
- return Math.max(0,availableBeforeCardPayments-remainingIncomePaymentsTotal(month));
+ const otherCashLedger=(cashFlowLedger||[]).filter(r=>r.status!=='reversed'&&r.sourceId==='cash-source'&&r.month===month&&r.type!=='card-payment').reduce((z,r)=>z+Math.max(0,Number(r.amount||0)),0);
+ return Math.max(0,availableBeforeCardPayments-remainingIncomePaymentsTotal(month)-otherCashLedger);
 }
 
 function manualAccountMovement(accountId){
@@ -3275,6 +3299,9 @@ let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'
 
 rebuildTransactions();
 const accounts=BASE.accounts;
+let customCreditCards=JSON.parse(localStorage.getItem('pf_custom_credit_cards')||'[]');
+if(!Array.isArray(customCreditCards))customCreditCards=[];
+customCreditCards.forEach(c=>{if(c?.id&&!accounts.some(a=>a.id===c.id))accounts.push(c)});
 normalizeCardPaymentPlan();
 removeUnbackedOfficialStatementRows();
 if(resetCardIds.has('meem-7102')){
@@ -4160,7 +4187,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
   categories:'Categories',
   incomeplan:'Income & Payment Plan',
   outgoings:'Outgoings',
-  importstatements:'Import Statements',
+  importstatements:'Import Statements',assets:'Personal Assets',
   financeSettings:'Finance Settings',
   more:'More',
   accountDetail:'Account Details'
@@ -4169,6 +4196,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
  // Re-render only what the active page needs after controls were restored.
+ if(page==='assets')renderGoldAssets();
  if(page==='transactions')renderTransactions();
  else if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
@@ -4212,7 +4240,7 @@ function nav(page){
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
- const titles={dashboard:'Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ const titles={dashboard:'Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
@@ -4664,6 +4692,96 @@ function dedupeDashboardErrorAlerts(){
   else if(key)seen.add(key);
  });
 }
+
+// V194 FEATURE UPGRADE — dashboard balances, early settlement, statement format library,
+// personal gold assets and data-driven custom credit cards.
+let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
+ {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-ar-0955',name:'Al Rajhi Visa Infinite •0955',accountId:'ar-0955',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-ar-5867',name:'Al Rajhi Visa Platinum •5867',accountId:'ar-5867',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-sab-440880',name:'SAB Cashback •440880',accountId:'sab-440880',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true}
+];
+let goldAssets=JSON.parse(localStorage.getItem('pf_gold_assets')||'[]'); if(!Array.isArray(goldAssets))goldAssets=[];
+let goldZakatHistory=JSON.parse(localStorage.getItem('pf_gold_zakat_history')||'[]'); if(!Array.isArray(goldZakatHistory))goldZakatHistory=[];
+let goldSaleHistory=JSON.parse(localStorage.getItem('pf_gold_sale_history')||'[]'); if(!Array.isArray(goldSaleHistory))goldSaleHistory=[];
+let goldMarket=JSON.parse(localStorage.getItem('pf_gold_market')||'null')||{price24k:0,updatedAt:'',source:'Gold-API',manual:false};
+function saveV194Data(){
+ localStorage.setItem('pf_statement_formats',JSON.stringify(statementFormats));
+ localStorage.setItem('pf_gold_assets',JSON.stringify(goldAssets));
+ localStorage.setItem('pf_gold_zakat_history',JSON.stringify(goldZakatHistory));
+ localStorage.setItem('pf_gold_sale_history',JSON.stringify(goldSaleHistory));
+ localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));
+ localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));
+}
+function remainingMonthlyCashFlow(){return remainingIncomeAvailable();}
+function renderDashboardRemainingBalances(){
+ const box=$('dashRemainingBalances'); if(!box)return;
+ const cards=accounts.filter(a=>a.type==='card');
+ box.innerHTML=`<div style="display:grid;grid-template-columns:minmax(220px,1.2fr) repeat(2,minmax(160px,.7fr));gap:8px;align-items:center">
+  <div><b>Remaining Monthly Cash Flow</b><div class="meta">After loans, outgoings and recorded card payments</div></div><div></div><div style="text-align:right;font-size:20px;font-weight:900">${money(remainingMonthlyCashFlow())}</div>
+  ${cards.map(a=>{const m=cardMetrics(a);return `<div><b>${a.bank} • ${a.name} •${a.ending}</b></div><div class="meta" style="text-align:right">Available / Remaining</div><div style="text-align:right;font-weight:900">${money(m.available)}</div>`}).join('')}
+  ${accounts.filter(a=>a.type==='bank').map(a=>`<div><b>${a.bank} • ${a.name} •${a.ending||''}</b></div><div class="meta" style="text-align:right">Bank Balance</div><div style="text-align:right;font-weight:900">${money(adjustedBankBalance(a))}</div>`).join('')}
+ </div><div class="meta" style="margin-top:10px">Updated ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>`;
+}
+function completeInstallmentEarly(id){
+ const p=installments.find(x=>x.id===id); if(!p)return;
+ const c=planCalc(p),a=account(p.cardId); const defaultAmt=Math.max(0,Number(c.remaining||0));
+ const raw=prompt(`EARLY INSTALLMENT SETTLEMENT\n\n${a?.bank||''} •${a?.ending||''}\n${p.description}\nRemaining principal: ${money(defaultAmt)}\n\nEnter final settlement amount (SAR):`,defaultAmt.toFixed(2)); if(raw===null)return;
+ const amt=Number(raw); if(!Number.isFinite(amt)||amt<0){alert('Enter a valid settlement amount.');return;}
+ const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
+ const choice=prompt('Paid from:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'); if(choice===null)return;
+ const src=sources[Math.max(0,Math.min(sources.length-1,Number(choice||1)-1))];
+ if(!confirm(`Complete this installment early?\n\nSettlement: ${money(amt)}\nPaid from: ${src.name}\n\nFuture installment commitments will stop and history will be retained.`))return;
+ p.completedConfirmed=true;p.completedAt=new Date().toISOString().slice(0,10);p.completionType='early-settlement';p.earlySettlementAmount=amt;p.earlySettlementSourceId=src.id;p.earlySettlementSourceName=src.name;
+ if(amt>0){
+  cashFlowLedger.push({id:`cfl-gold-${Date.now()}`,type:'installment-early-settlement',date:p.completedAt,month:currentIncomeMonth(),amount:amt,direction:'out',description:`Early installment settlement • ${a?.bank||''} •${a?.ending||''} • ${p.description}`,sourceId:src.id,targetId:p.cardId,status:'active'});
+  if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amt);}
+ }
+ localStorage.setItem('pf_installments',JSON.stringify(installments));localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();
+ renderInstallments();renderDashboard();renderPaymentPlanner();renderIncomePlan();renderAccounts();
+}
+function renderStatementFormats(){
+ const b=$('statementFormatsBody');if(!b)return;
+ b.innerHTML=statementFormats.map(f=>`<tr><td><b>${escapeHtml(f.name)}</b></td><td>${escapeHtml(accountName(f.accountId)||f.accountId||'Any')}</td><td>${escapeHtml(f.fileType||'')}</td><td>${escapeHtml(f.mapping||'')}</td><td><span class="badge ${f.active!==false?'active':''}">${f.active!==false?'Active':'Inactive'}</span></td><td>${f.builtIn?'<span class="meta">Built-in</span>':`<button class="btn small danger" data-delete-format="${f.id}">Delete</button>`}</td></tr>`).join('');
+ document.querySelectorAll('[data-delete-format]').forEach(x=>x.onclick=()=>{statementFormats=statementFormats.filter(f=>f.id!==x.dataset.deleteFormat);saveV194Data();renderStatementFormats();});
+}
+function addStatementFormat(){
+ const name=prompt('Statement format name:');if(!name)return;const acct=prompt('Account/Card ID (leave blank for any account):','')||'';const type=prompt('File type (PDF / XLSX / CSV):','XLSX / CSV')||'XLSX / CSV';const mapping=prompt('Mapping description (example: Date=A, Description=B, Amount=E):','Date / Description / Amount')||'';
+ statementFormats.push({id:'fmt-'+Date.now(),name,accountId:acct,fileType:type,mapping,active:true,builtIn:false});saveV194Data();renderStatementFormats();
+}
+function exportStatementFormats(){const blob=new Blob([JSON.stringify({type:'personal-finance-statement-formats',version:1,formats:statementFormats},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='statement-formats.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);}
+function importStatementFormatsFile(file){const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);const arr=Array.isArray(j)?j:j.formats;if(!Array.isArray(arr))throw Error('No formats found');arr.forEach(f=>{if(!f.id)f.id='fmt-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);const i=statementFormats.findIndex(x=>x.id===f.id);if(i>=0)statementFormats[i]=f;else statementFormats.push(f)});saveV194Data();renderStatementFormats();alert(`${arr.length} statement format(s) imported.`)}catch(e){alert('Could not import format file: '+e.message)}};r.readAsText(file);}
+function hijriParts(date){const parts=new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{day:'numeric',month:'numeric',year:'numeric'}).formatToParts(date);const o={};parts.forEach(p=>{if(['day','month','year'].includes(p.type))o[p.type]=Number(p.value)});return o;}
+function nextHijriAnniversary(purchaseDate,lastPaidDate=''){
+ const base=new Date((lastPaidDate||purchaseDate)+'T12:00:00');const hp=hijriParts(base);const targetY=hp.year+1;let d=new Date(base);d.setDate(d.getDate()+340);
+ for(let i=0;i<40;i++){const h=hijriParts(d);if(h.year===targetY&&h.month===hp.month&&h.day===hp.day)return d.toISOString().slice(0,10);d.setDate(d.getDate()+1)}
+ d=new Date(base);d.setDate(d.getDate()+354);return d.toISOString().slice(0,10);
+}
+function goldPricePerGram(purity){const k=Number(String(purity||'24').replace(/[^0-9.]/g,''))||24;return Number(goldMarket.price24k||0)*(k/24);}
+function activeGoldWeight(a){return Math.max(0,Number(a.weight||0)-goldSaleHistory.filter(s=>s.assetId===a.id).reduce((z,x)=>z+Number(x.weight||0),0));}
+function goldAssetValue(a){return activeGoldWeight(a)*goldPricePerGram(a.purity);}
+function goldLastZakat(a){return goldZakatHistory.filter(z=>z.assetId===a.id).sort((x,y)=>String(y.paidDate).localeCompare(String(x.paidDate)))[0]||null;}
+function goldNextDue(a){const last=goldLastZakat(a);return nextHijriAnniversary(a.purchaseDate,last?.paidDate||'');}
+function goldZakatDue(a){return new Date(goldNextDue(a)+'T00:00:00')<=new Date(new Date().toISOString().slice(0,10)+'T23:59:59');}
+function renderGoldAssets(){
+ const active=goldAssets.filter(a=>activeGoldWeight(a)>0.0001),totalWeight=active.reduce((z,a)=>z+activeGoldWeight(a),0),value=active.reduce((z,a)=>z+goldAssetValue(a),0),due=active.filter(goldZakatDue).reduce((z,a)=>z+goldAssetValue(a)*.025,0);
+ if($('goldKpis'))$('goldKpis').innerHTML=[kpiHTML('Total Gold Weight',`${MONEY.format(totalWeight)} g`,'Active physical gold only'),kpiHTML('Current Market Value',money(value),'Spot-value estimate','green'),kpiHTML('Zakat Due Now',money(due),`${active.filter(goldZakatDue).length} asset(s) due`,due>0?'amber':'green'),kpiHTML('Active Assets',String(active.length),'Each purchase has a unique Asset ID')].join('');
+ if($('goldPriceGrid'))$('goldPriceGrid').innerHTML=['24','22','21','18'].map(k=>kpiHTML(`${k}K / gram`,money(goldPricePerGram(k)),k==='24'?'Live base price':'Derived by purity')).join('');
+ if($('goldPriceMeta'))$('goldPriceMeta').textContent=`${goldMarket.manual?'Manual override':'Live spot reference'} • ${goldMarket.updatedAt?new Date(goldMarket.updatedAt).toLocaleString():'Not refreshed yet'} • Source: ${goldMarket.source||'Gold-API'}`;
+ const b=$('goldAssetsBody');if(b)b.innerHTML=active.length?active.map(a=>{const w=activeGoldWeight(a),v=goldAssetValue(a),cost=Number(a.purchasePrice||0)*(w/Math.max(.0001,Number(a.weight||0))),gain=v-cost,dueDate=goldNextDue(a),dueNow=goldZakatDue(a),zak=v*.025;return `<tr><td><b>${escapeHtml(a.name)}</b><div class="meta">${a.id}</div></td><td>${escapeHtml(a.goldType||'Gold')} • ${escapeHtml(a.purity||'24K')}</td><td><b>${MONEY.format(w)} g</b></td><td>${a.purchaseDate}</td><td>${money(cost)}</td><td><b>${money(v)}</b></td><td class="${gain>=0?'green':'red'}">${money(gain)}</td><td>${dueDate}<div class="meta">${new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{day:'numeric',month:'short',year:'numeric'}).format(new Date(dueDate+'T12:00:00'))}</div></td><td class="${dueNow?'amber':''}"><b>${money(zak)}</b><div class="meta">${dueNow?'DUE':'Not due'}</div></td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn small" data-edit-gold="${a.id}">Edit</button><button class="btn small" data-sell-gold="${a.id}">Sell</button>${dueNow?`<button class="btn small primary" data-pay-zakat="${a.id}">Pay Zakat</button>`:''}</div></td></tr>`}).join(''):'<tr><td colspan="10">No active gold assets yet.</td></tr>';
+ const zh=$('goldZakatHistoryBody');if(zh)zh.innerHTML=goldZakatHistory.length?goldZakatHistory.slice().reverse().map(z=>`<tr><td>${escapeHtml(z.assetName)}<div class="meta">${z.assetId}</div></td><td>${escapeHtml(z.hijriCycle||'')}</td><td>${MONEY.format(z.weight)} g</td><td>${money(z.valueUsed)}</td><td><b>${money(z.amount)}</b></td><td>${z.paidDate}</td><td>${escapeHtml(z.sourceName||'')}</td></tr>`).join(''):'<tr><td colspan="7">No Zakat payments recorded yet.</td></tr>';
+ const sh=$('goldSaleHistoryBody');if(sh)sh.innerHTML=goldSaleHistory.length?goldSaleHistory.slice().reverse().map(x=>`<tr><td>${escapeHtml(x.assetName)}<div class="meta">${x.assetId}</div></td><td>${x.date}</td><td>${MONEY.format(x.weight)} g</td><td>${money(x.proceeds)}</td><td>${escapeHtml(x.receivedToName||'Monthly Cash')}</td><td class="${x.gainLoss>=0?'green':'red'}">${money(x.gainLoss)}</td></tr>`).join(''):'<tr><td colspan="6">No gold sales recorded yet.</td></tr>';
+ document.querySelectorAll('[data-edit-gold]').forEach(x=>x.onclick=()=>editGoldAsset(x.dataset.editGold));document.querySelectorAll('[data-sell-gold]').forEach(x=>x.onclick=()=>sellGoldAsset(x.dataset.sellGold));document.querySelectorAll('[data-pay-zakat]').forEach(x=>x.onclick=()=>payGoldZakat(x.dataset.payZakat));
+}
+function addGoldAsset(){const name=prompt('Asset name (example: Gold Bar 1):');if(!name)return;const type=prompt('Gold type (Bar / Coin / Jewelry / Other):','Bar')||'Gold';const purity=prompt('Purity (24K / 22K / 21K / 18K):','24K')||'24K';const w=Number(prompt('Weight in grams:',''));if(!Number.isFinite(w)||w<=0)return alert('Invalid weight.');const price=Number(prompt('Total bought price (SAR):',''));if(!Number.isFinite(price)||price<0)return alert('Invalid purchase price.');const date=prompt('Bought date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:`GLD-${seq}`,name,goldType:type,purity,weight:w,purchasePrice:price,purchaseDate:date,notes:'',createdAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();}
+function editGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const name=prompt('Asset name:',a.name);if(name===null)return;const w=Number(prompt('Original weight (g):',a.weight));if(!Number.isFinite(w)||w<=0)return;const price=Number(prompt('Bought price (SAR):',a.purchasePrice));if(!Number.isFinite(price)||price<0)return;a.name=name||a.name;a.weight=w;a.purchasePrice=price;saveV194Data();renderGoldAssets();}
+function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (SAR):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}
+function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
+async function refreshGoldMarketPrice(){try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
+function manualGoldMarketPrice(){const v=Number(prompt('24K gold price per gram in SAR:',Number(goldMarket.price24k||0).toFixed(2)));if(!Number.isFinite(v)||v<=0)return;goldMarket={price24k:v,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();}
+function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
+function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
+
 function renderDashboard(){
  const s=summaryData();
  const cardMetricsAll=accounts.filter(a=>a.type==='card').map(a=>cardMetrics(a));
@@ -4678,6 +4796,8 @@ function renderDashboard(){
   kpiHTML('Total Card Bank Utilization',money(obligations),'Current balance + reserved installment principal','amber')
  ].join('');
  $('sideBalance').textContent=money(currentBankBalance());
+ if($('sideUpdatedDate'))$('sideUpdatedDate').textContent='Updated '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+ renderDashboardRemainingBalances();
  $('dashAccounts').innerHTML=accounts.map(accountCardHTML).join('');
  bindAccountCards();
  const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
@@ -5483,7 +5603,7 @@ function renderInstallments(){
 
  $('installBody').innerHTML=active.map(p=>{
   const c=planCalc(p),a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button type="button" class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button class="btn small primary" data-early-settle="${p.id}">Complete Early</button><button type="button" class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
  }).join('')||'<tr><td colspan="11">No active installment plans for this bank.</td></tr>';
 
  $('installReviewBody').innerHTML=review.map(p=>{
@@ -5498,6 +5618,7 @@ function renderInstallments(){
 
  document.querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.plan)));
  document.querySelectorAll('[data-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.deletePlan)));
+ document.querySelectorAll('[data-early-settle]').forEach(b=>b.addEventListener('click',()=>completeInstallmentEarly(b.dataset.earlySettle)));
  document.querySelectorAll('[data-confirm-completed]').forEach(b=>b.addEventListener('click',()=>confirmInstallmentCompleted(b.dataset.confirmCompleted)));
  document.querySelectorAll('[data-keep-active]').forEach(b=>b.addEventListener('click',()=>keepInstallmentActive(b.dataset.keepActive)));
  document.querySelectorAll('[data-delete-completed-plan]').forEach(b=>b.onclick=()=>deleteCompletedInstallmentRecord(b.dataset.deleteCompletedPlan));
@@ -7513,7 +7634,7 @@ function renderImportHistory(){
  document.querySelectorAll('[data-view-import]').forEach(b=>b.addEventListener('click',()=>viewImportBatch(Number(b.dataset.viewImport))));
  document.querySelectorAll('[data-delete-import]').forEach(b=>b.addEventListener('click',()=>deleteImportBatch(Number(b.dataset.deleteImport))));
 }
-function renderImportPage(){fillAccountSelect($('importAccount'));renderImportPreview();renderImportHistory()}
+function renderImportPage(){fillAccountSelect($('importAccount'));renderImportPreview();renderImportHistory();renderStatementFormats()}
 async function handleStatementFile(file){
  if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];importStatementMeta=null;renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
  try{const rows=await parseStatementFile(file,accountId,$('importStatementMonth').value);if(!rows.length)throw new Error('No transaction rows were recognized. Try Excel/CSV, or send me this statement format so I can add its PDF parser.');importPreviewRows=rows;renderImportPreview();importStatus(`Found ${rows.length} transaction(s) in ${file.name}. Assigned to ${accountName($('importAccount').value)}. Review the preview, then click Import Transactions.`,'success')}catch(e){importStatus(e.message||String(e),'error')}
@@ -10432,6 +10553,17 @@ async function init(){
  financeDB.save();
  fillAccountSelect($('txAccount'));fillAccountSelect($('reportAccount'));fillAccountSelect($('importAccount'));fillCategorySelect($('txCategory'));
  const pm=plannerDefaultMonth();$('paymentMonth').value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows($('paymentMonth').value);$('paymentMonth').addEventListener('change',renderPaymentPlanner);
+
+// V194 bindings
+$('addGoldAsset')?.addEventListener('click',addGoldAsset);
+$('refreshGoldPrice')?.addEventListener('click',refreshGoldMarketPrice);
+$('manualGoldPrice')?.addEventListener('click',manualGoldMarketPrice);
+$('addStatementFormat')?.addEventListener('click',addStatementFormat);
+$('exportStatementFormats')?.addEventListener('click',exportStatementFormats);
+$('statementFormatFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)importStatementFormatsFile(f);e.target.value='';});
+$('addCustomCreditCard')?.addEventListener('click',addCustomCreditCard);
+renderCustomCreditCards();
+
 $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPaymentPlanner();});fillCategorySelect($('reportCategory'));
  $('reportFrom').value='2026-07-31';$('reportTo').value='2026-08-28';fillReportSubcategories();
 
