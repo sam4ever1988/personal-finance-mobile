@@ -726,6 +726,17 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
 #actionFormModal .formGrid{width:100%}
 #actionFormModal.open{display:flex!important;pointer-events:auto}
 
+
+/* V198 exact approved executive-dashboard composition */
+#dashboard{max-width:none!important}.refDash{font-size:12px}.refHead{display:flex;justify-content:space-between;align-items:center;border:1px solid #16455f;border-radius:10px 10px 0 0;padding:11px 14px;background:linear-gradient(100deg,#071c2c,#061522)}
+.refHead h1{margin:0 0 3px;font-size:24px;letter-spacing:-.5px}.refHeadRight{font-size:11px;color:#a9c2d3}.refKpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:8px 10px;background:#071521;border-left:1px solid #16455f;border-right:1px solid #16455f}
+.refKpi{min-height:74px;border:1px solid #1b5473;border-radius:8px;padding:11px;background:linear-gradient(135deg,#0a2637,#0b1b2a)}.refKpi:nth-child(1){border-color:#168459;background:linear-gradient(135deg,#073a31,#09251f)}.refKpi:nth-child(4){border-color:#6342aa;background:linear-gradient(135deg,#2b1d51,#111b2c)}.refKpi:nth-child(5){border-color:#8a7117;background:linear-gradient(135deg,#423816,#17231e)}.refKpi small{display:block;color:#b7c8d3;margin-bottom:5px}.refKpi b{font-size:17px}.refKpi em{display:block;font-style:normal;color:#8fa7b8;margin-top:5px;font-size:10px}
+.refMainGrid{display:grid;grid-template-columns:1.45fr 1.1fr .7fr;gap:8px;padding:0 10px 8px;background:#071521;border-left:1px solid #16455f;border-right:1px solid #16455f}.refLeft,.refMiddle,.refRight{display:grid;gap:8px;align-content:start}.refPanel{border:1px solid #16455f;border-radius:8px;background:#071927;padding:9px}.refPanelHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px}.refPanelHead>b{font-size:14px}.refPanelHead button,.refQuick button{border:0;background:none;color:#4fc9ff;cursor:pointer;font-size:10px}
+.refFlow{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;align-items:center}.refFlowBox{border:1px solid #235a75;border-radius:5px;padding:10px 5px;text-align:center;background:#092335}.refFlowBox b{font-size:15px;display:block}.refFlowBox:nth-child(1){border-color:#20a96c;color:#62e9a7}.refFlowBox:nth-child(2){border-color:#b43e48;color:#ff8187}.refFlowBox:nth-child(3){border-color:#a67b16;color:#ffc838}.refFlowBox:nth-child(4){border-color:#704fc3;color:#c698ff}.refFlowBox:nth-child(5){border-color:#287bc0;color:#6bc8ff}.refBar{height:12px;border-radius:8px;overflow:hidden;display:flex;margin:14px 0 8px;background:#102b3c}.refBar i{height:100%}
+.refRow{display:grid;grid-template-columns:1.5fr .8fr .8fr;gap:7px;padding:7px 3px;border-bottom:1px solid #17384b;align-items:center}.refRow:last-child{border:0}.refRow b{text-align:right}.refProgress{height:7px;background:#18394c;border-radius:5px;overflow:hidden;margin-top:4px}.refProgress i{display:block;height:100%;background:linear-gradient(90deg,#36e899,#46c6ff)}
+.refUtilWrap{display:flex;align-items:center;gap:13px}.refDonut{width:108px;height:108px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#37e49b 0 var(--pct),#844cf0 var(--pct) 100%);position:relative}.refDonut:after{content:"";position:absolute;width:66px;height:66px;border-radius:50%;background:#071927}.refDonut b{z-index:1;font-size:20px}.refGoldStats,.refPosition{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.refStat{padding:9px;border:1px solid #1a4b65;border-radius:6px}.refStat small{color:#8fa7b8;display:block}.refStat b{display:block;margin-top:4px}.refBottom{display:grid;grid-template-columns:1.45fr .72fr .9fr .55fr;gap:8px;padding:0 10px 10px;background:#071521;border:1px solid #16455f;border-top:0;border-radius:0 0 10px 10px}.refQuick{display:grid;gap:5px}.refQuick button{text-align:left;padding:6px;border-bottom:1px solid #17384b;color:#dbeaf3}
+@media(max-width:1150px){.refKpis{grid-template-columns:repeat(3,1fr)}.refMainGrid{grid-template-columns:1fr 1fr}.refRight{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}.refBottom{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.refKpis{grid-template-columns:1fr 1fr}.refMainGrid{grid-template-columns:1fr}.refRight{grid-column:auto;grid-template-columns:1fr}.refBottom{grid-template-columns:1fr}.refFlow{grid-template-columns:1fr 1fr}.refHead{align-items:flex-start;gap:8px;flex-direction:column}}
+
 </style>
 </head>
 <body>
@@ -755,20 +766,32 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
 <main class="content">
 
 <section class="view active" id="dashboard">
- <div class="execHero"><div><div class="execEyebrow">A. Executive Overview</div><h1>Complete view of your financial status</h1><div class="meta">Income, cash, banks, credit, gold and net assets in one command center.</div></div><div class="execUpdated">Last updated <b id="execLastUpdated">Now</b></div></div>
- <div class="dashViewTabs"><button class="active" type="button">Executive Overview</button><button type="button" data-page-jump="incomeplan">Cash & Credit</button><button type="button" data-page-jump="reports">Financial Position</button><button type="button" data-page-jump="accounts">Compact Command Center</button></div>
- <div class="kpis executiveKpis" id="dashKpis"></div>
-<div class="sectionTitle">Card Payment Planner</div><div class="panel"><div class="paymentToolbar"><div><div class="panelTitle" style="margin-bottom:4px">How much do I need to pay?</div><div class="meta">Statement amounts, your Excel/manual plans, and estimates are kept separate. Pending statements are not guessed. If a card balance is converted to installments, the planner automatically switches to normal balance + monthly installment.</div><button class="btn" type="button" onclick="openPaymentDetails('known')" style="margin-top:10px">View Payment Breakdown</button></div><div class="field" style="min-width:170px"><label>Payment Month</label><input type="month" id="paymentMonth"></div></div><div class="paymentSummary"><div class="miniMetric plannerClick" onclick="openPaymentDetails('known')" title="Click to see which cards"><span>Known / Planned Amount</span><b id="paymentMonthKnown">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('remaining')" title="Click to see which cards"><span>Remaining to Pay</span><b id="paymentMonthRemaining">SAR 0.00</b><small>View cards →</small></div><div class="miniMetric plannerClick" onclick="openPaymentDetails('pending')" title="Click to see which cards"><span>Pending Statement Cards</span><b id="paymentMonthPending">0</b><small>View cards →</small></div></div><div class="payPlanner" id="paymentPlannerCards"></div><div class="meta" style="margin-top:12px">Mark payments as paid after settlement. You can edit the amount when a new statement arrives.</div></div>
- <div class="splitHead" style="margin-top:18px"><div class="sectionTitle" style="margin:0">Monthly Payment Plan</div><button class="btn" data-page-jump="incomeplan">Open Plan →</button></div><div class="meta" style="margin:6px 2px 14px">Income → active bank loans → remaining amount for credit cards</div>
- 
-<div class="sectionTitle">Available / Remaining Balances</div>
- <div class="panel" id="dashRemainingBalances"></div>
- <div class="sectionTitle">Accounts & Cards</div>
- <div class="accountGrid" id="dashAccounts"></div>
- <div class="sectionTitle">Review Alerts</div>
- <div class="alertStack" id="reviewAlerts"></div>
- <div class="sectionTitle">Recent Transactions</div>
- <div class="panel"><table class="txTable"><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Account</th><th>Amount</th></tr></thead><tbody id="recentBody"></tbody></table></div>
+ <div class="refDash">
+  <div class="refHead"><div><h1>A. Executive Overview</h1><div>Complete view of your financial status</div></div><div class="refHeadRight">Last updated: <b id="execLastUpdated">Now</b> ⟳</div></div>
+  <div class="refKpis" id="refKpis"></div>
+  <div class="refMainGrid">
+   <div class="refLeft">
+    <div class="refPanel"><div class="refPanelHead"><b>Monthly Cash Flow</b><span id="refMonth"></span></div><div id="refCashFlow"></div></div>
+    <div class="refPanel"><div class="refPanelHead"><b>Upcoming Payments</b><button type="button" data-page-jump="incomeplan">View All ›</button></div><div id="refUpcoming"></div></div>
+   </div>
+   <div class="refMiddle">
+    <div class="refPanel"><div class="refPanelHead"><b>Available / Remaining Credit</b><button type="button" data-page-jump="accounts">View All ›</button></div><div id="refCredit"></div></div>
+    <div class="refPanel"><div class="refPanelHead"><b>Gold & Assets</b><button type="button" data-page-jump="gold">View Assets ›</button></div><div id="refGold"></div></div>
+   </div>
+   <div class="refRight">
+    <div class="refPanel"><div class="refPanelHead"><b>Credit Utilization</b><span>(All Cards)</span></div><div id="refUtil"></div></div>
+    <div class="refPanel"><div class="refPanelHead"><b>Bank Accounts</b><button type="button" data-page-jump="accounts">View All ›</button></div><div id="refBanks"></div></div>
+    <div class="refPanel"><div class="refPanelHead"><b>Zakat Summary</b><button type="button" data-page-jump="gold">View All ›</button></div><div id="refZakat"></div></div>
+   </div>
+  </div>
+  <div class="refBottom">
+   <div class="refPanel"><div class="refPanelHead"><b>Financial Position</b><button type="button" data-page-jump="reports">View Details ›</button></div><div id="refPosition"></div></div>
+   <div class="refPanel"><div class="refPanelHead"><b>Assets Breakdown</b></div><div id="refAssets"></div></div>
+   <div class="refPanel"><div class="refPanelHead"><b>Liabilities Breakdown</b></div><div id="refLiabilities"></div></div>
+   <div class="refPanel"><div class="refPanelHead"><b>Quick Actions</b></div><div class="refQuick"><button id="refAddTx">⊕ Add Transaction</button><button id="refAddInst">▣ Add Installment</button><button data-page-jump="importstatements">▧ Import Statement</button><button id="refAddGold">♙ Add Gold Asset</button></div></div>
+  </div>
+  <div style="display:none"><div id="dashKpis"></div><div id="dashRemainingBalances"></div><div id="dashAccounts"></div><div id="reviewAlerts"></div><table><tbody id="recentBody"></tbody></table><span id="sideBalance"></span><span id="sideUpdatedDate"></span></div>
+ </div>
 </section>
 
 <section class="view" id="paymentDetails">
@@ -1134,10 +1157,10 @@ body{background:radial-gradient(circle at 75% -10%,rgba(24,184,154,.09),transpar
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V197 VERIFIED ACTION FORMS</span></div>
+  </div><span class="pill green">V198 APPROVED EXECUTIVE VISUAL</span></div>
   <div class="kpis" style="margin-top:12px">
    <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V174</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V197-20260916-FORMSURES</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">13 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V198-20260916-VISUALURES</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4752,7 +4775,7 @@ function dedupeDashboardErrorAlerts(){
  });
 }
 
-// V197 VERIFIED ACTION FORMS — dashboard balances, early settlement, statement format library,
+// V198 APPROVED EXECUTIVE VISUAL — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -4841,6 +4864,29 @@ function manualGoldMarketPrice(){openActionForm({title:'Manual Gold Price',subti
 function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderCustomBanks();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
 
+
+function renderReferenceDashboard(){
+ const month=currentIncomeMonth(), income=totalIncomePlan(), remaining=remainingIncomeAvailable(), bank=accounts.filter(a=>a.type==='bank').reduce((s,a)=>s+adjustedBankBalance(a),0);
+ const cards=accounts.filter(a=>a.type==='card'), cms=cards.map(a=>({a,m:cardMetrics(a)})), creditAvail=cms.reduce((s,x)=>s+Number(x.m.available||0),0), creditUsed=cms.reduce((s,x)=>s+Number(x.m.total||0),0), limits=cms.reduce((s,x)=>s+Number(x.m.limit||0),0);
+ const goldValue=(goldAssets||[]).reduce((s,a)=>s+Number(goldAssetValue(a)||0),0), goldWeight=(goldAssets||[]).reduce((s,a)=>s+Number(activeGoldWeight(a)||0),0);
+ const loanMonthly=(incomePlan.loans||[]).filter(x=>x.active!==false).reduce((s,x)=>s+Number(x.monthly||x.monthlyPayment||0),0), out=(incomePlan.outgoings||[]).filter(x=>x.active!==false).reduce((s,x)=>s+Number(x.amount||0),0), cardPay=Math.max(0,income-loanMonthly-out-remaining);
+ const assetTotal=Math.max(0,bank)+goldValue+creditAvail, liabilities=creditUsed, net=assetTotal-liabilities;
+ $('refKpis').innerHTML=[['Monthly Income',income,'Current plan'],['Remaining Monthly Cash',remaining,(income?remaining/income*100:0).toFixed(1)+'% of income'],['Bank Balance',bank,accounts.filter(a=>a.type==='bank').length+' account(s)'],['Total Credit Available',creditAvail,cards.length+' credit cards'],['Gold Assets Value',goldValue,goldWeight.toFixed(2)+' g'],['Total Assets (Net)',net,'Assets '+money(assetTotal)+' | Liabilities '+money(liabilities)]].map(x=>'<div class="refKpi"><small>'+x[0]+'</small><b>'+money(x[1])+'</b><em>'+x[2]+'</em></div>').join('');
+ $('refMonth').textContent=extraIncomeMonthTitle(month);
+ const vals=[Math.max(0,income),Math.max(0,loanMonthly),Math.max(0,out),Math.max(0,cardPay),Math.max(0,remaining)], total=Math.max(1,income);
+ $('refCashFlow').innerHTML='<div class="refFlow">'+[['Income',vals[0]],['Bank Loans',vals[1]],['Cash / Other',vals[2]],['Card Payments',vals[3]],['Remaining',vals[4]]].map(x=>'<div class="refFlowBox"><b>'+money(x[1]).replace('SAR ','')+'</b>'+x[0]+'</div>').join('')+'</div><div class="refBar">'+vals.map((v,i)=>'<i style="width:'+Math.max(0,v/total*100)+'%;background:'+['#2ee58e','#e54b55','#e7aa19','#814be4','#278ce1'][i]+'"></i>').join('')+'</div>';
+ const payRows=(cardPaymentPlan||[]).filter(p=>Number(paymentRemainingAmount(p)||0)>0).sort((x,y)=>String(x.due||'').localeCompare(String(y.due||''))).slice(0,5);
+ $('refUpcoming').innerHTML=payRows.length?payRows.map(p=>'<div class="refRow"><span>'+escapeHtml(p.due||p.month||'')+' &nbsp; '+escapeHtml(accountName(p.accountId))+'</span><b>'+money(paymentRemainingAmount(p))+'</b><span style="text-align:right;color:#ff8187">Upcoming</span></div>').join(''):'<div class="meta">No upcoming card payments recorded.</div>';
+ $('refCredit').innerHTML=cms.map(x=>{const pct=x.m.limit?Math.min(100,x.m.total/x.m.limit*100):0;return '<div class="refRow"><span>'+escapeHtml(x.a.bank+' '+x.a.name+' •'+x.a.ending)+'<div class="refProgress"><i style="width:'+pct+'%"></i></div></span><b>'+money(x.m.available)+' / '+money(x.m.limit)+'</b><span style="text-align:right;color:#50e5a1">'+pct.toFixed(0)+'%</span></div>'}).join('');
+ const util=limits?Math.min(100,creditUsed/limits*100):0;$('refUtil').innerHTML='<div class="refUtilWrap"><div class="refDonut" style="--pct:'+util+'%"><b>'+util.toFixed(0)+'%</b></div><div><div>Used <b>'+money(creditUsed)+'</b></div><div style="margin-top:10px;color:#55e4a4">Available <b>'+money(creditAvail)+'</b></div></div></div>';
+ $('refBanks').innerHTML=accounts.filter(a=>a.type==='bank').map(a=>'<div class="refRow" style="grid-template-columns:1fr 1fr"><span>'+escapeHtml(a.bank+' '+a.name+' •'+(a.ending||''))+'</span><b style="color:#50e5c1">'+money(adjustedBankBalance(a))+'</b></div>').join('')||'<div class="meta">No bank accounts.</div>';
+ $('refGold').innerHTML='<div class="refGoldStats"><div class="refStat"><small>Total Weight</small><b>'+goldWeight.toFixed(2)+' g</b></div><div class="refStat"><small>Current Value</small><b>'+money(goldValue)+'</b></div><div class="refStat"><small>Active Assets</small><b>'+goldAssets.length+'</b></div></div>';
+ const zakat=(goldAssets||[]).filter(a=>goldZakatDue(a)).reduce((s,a)=>s+goldAssetValue(a)*.025,0);$('refZakat').innerHTML='<div class="refStat"><small>Total Zakat Due</small><b>'+money(zakat)+'</b></div>';
+ $('refPosition').innerHTML='<div class="refPosition"><div class="refStat"><small>Total Assets</small><b style="color:#55e4a4">'+money(assetTotal)+'</b></div><div class="refStat"><small>Total Liabilities</small><b style="color:#ff727b">'+money(liabilities)+'</b></div><div class="refStat"><small>Net Position</small><b style="color:#4fc9ff">'+money(net)+'</b></div></div>';
+ $('refAssets').innerHTML='<div class="refRow"><span>Bank Accounts</span><b>'+money(bank)+'</b><span></span></div><div class="refRow"><span>Gold</span><b>'+money(goldValue)+'</b><span></span></div>';
+ $('refLiabilities').innerHTML='<div class="refRow"><span>Credit Cards</span><b>'+money(creditUsed)+'</b><span></span></div>';
+}
+
 function renderDashboard(){
  if($('execLastUpdated'))$('execLastUpdated').textContent=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const s=summaryData();
@@ -4862,7 +4908,8 @@ function renderDashboard(){
  bindAccountCards();
  const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
  $('recentBody').innerHTML=rows.map(txRow5).join('');
- renderReviewAlerts();renderPaymentPlanner();
+ renderReviewAlerts();renderPaymentPlanner();renderReferenceDashboard();
+ if($('refAddTx'))$('refAddTx').onclick=()=>$('addTransaction')?.click(); if($('refAddInst'))$('refAddInst').onclick=()=>$('addInstallment')?.click(); if($('refAddGold'))$('refAddGold').onclick=addGoldAsset;
 }
 function accountCardHTML(a){
  if(a.type==='card'){
