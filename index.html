@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V229 Card-to-Card Payment Fix</title>
+<title>Personal Finance • V230 Imported Transaction Date</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -998,7 +998,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <button class="btn danger" type="button" id="txDeleteSelected" disabled>Delete Selected</button>
   <span class="meta" id="txSelectedCount">0 selected</span>
  </div>
- <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="txMasterCheck" title="Select all visible"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="txBody"></tbody></table></div>
+ <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="txMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="txBody"></tbody></table></div>
 </div>
  <div class="hint" style="margin-top:8px">Click any transaction to change its Category/Subcategory and optionally remember the rule for the same merchant.</div>
 </section>
@@ -1039,7 +1039,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
    </div>
    <button class="btn" id="clearReportSelection" style="display:none">Clear Selection</button>
   </div>
-  <table class="txTable" style="margin-top:10px"><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="reportTxBody"></tbody></table></div>
+  <table class="txTable" style="margin-top:10px"><thead><tr><th style="width:42px">Select</th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="reportTxBody"></tbody></table></div>
  <div class="panel" style="margin-top:14px"><div class="panelTitle">Accounts & Cards Summary</div><table class="summaryTable"><thead><tr><th>Account / Card</th><th>Balance / Due</th><th>Limit</th><th>Installments</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="reportAccountsBody"></tbody></table></div>
 </section>
 
@@ -1215,7 +1215,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V229 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V230 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1263,7 +1263,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V229 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">V230 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
   </div>
  </div>
 </section>
@@ -1301,10 +1301,10 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V229 CURRENT BUILD</span></div>
+  </div><span class="pill green">V230 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V229</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V229-20260917-CARD-TO-CARD</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V230</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V230-20260917-IMPORT-DATE</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -5197,6 +5197,24 @@ function txBalanceStatusBadge(t){
  if(isLegacySeedTransaction(t))return '<span class="badge" style="margin-left:6px">Historical only</span>';
  return '';
 }
+function transactionImportedAt(t){
+ if(!t?.imported)return '';
+ if(t.importedAt)return t.importedAt;
+ const batch=t.importBatchId?(importHistory||[]).find(h=>h.batchId===t.importBatchId):null;
+ if(batch?.importedAt)return batch.importedAt;
+ const stamp=String(t._id||'').match(/^import(\d{13})_/);
+ if(stamp)return new Date(Number(stamp[1])).toISOString();
+ return '';
+}
+function transactionImportedDateCell(t){
+ if(t?.manual)return '<span class="meta">Manual entry</span>';
+ if(!t?.imported)return '<span class="meta">Historical</span>';
+ const iso=transactionImportedAt(t);
+ if(!iso)return '<span class="meta">Import date unavailable</span>';
+ const d=new Date(iso);
+ if(Number.isNaN(d.getTime()))return '<span class="meta">Import date unavailable</span>';
+ return `<span data-sort-value="${d.toISOString()}">${escapeHtml(d.toLocaleDateString())}<div class="meta">${escapeHtml(d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))}</div></span>`;
+}
 function txRow6(t){
  const group=possibleDuplicateGroups(false).find(g=>g.a._id===t._id||g.b._id===t._id);
  const other=group?(group.a._id===t._id?group.b:group.a):null;
@@ -5208,7 +5226,7 @@ function txRow6(t){
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} tabindex="-1" aria-hidden="true"></div></td><td>${t.date}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} tabindex="-1" aria-hidden="true"></div></td><td>${t.date}</td><td>${transactionImportedDateCell(t)}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -5768,7 +5786,7 @@ function renderTransactions(){
  const sm=$('txStatementMonth').value;if(sm)rows=rows.filter(t=>t.statementMonth===sm);
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
- $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="7">No matching transactions.</td></tr>'; bindTxRows();
+ $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
  if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
  requestAnimationFrame(()=>window.scrollTo(__scrollX,__scrollY));
 }
@@ -5835,7 +5853,7 @@ function renderReports(){
  const subParent={}; rows.filter(isSpend).forEach(t=>{const k=t.subcategory||'Uncategorized';if(!subParent[k])subParent[k]=t.category});
  $('topSubcategoriesBody').innerHTML=subs.slice(0,10).map(g=>`<tr class="reportClickable ${reportDrill.type==='subcategory'&&reportDrill.value===g[0]?'active':''}" data-drill-type="subcategory" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><td><b>${g[0]}</b></td><td>${subParent[g[0]]||'—'}</td><td>${money(g[1])}</td><td>${s.spend?(g[1]/s.spend*100).toFixed(1):0}%</td></tr>`).join('');
  const drillRows=rows.filter(isSpend).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
- $('reportTxBody').innerHTML=drillRows.map(txRow6).join('')||'<tr><td colspan="6">No spending transactions for this selection.</td></tr>';
+ $('reportTxBody').innerHTML=drillRows.map(txRow6).join('')||'<tr><td colspan="8">No spending transactions for this selection.</td></tr>';
  const sel=$('reportSelection'),clr=$('clearReportSelection');
  if(reportDrill.type){
    sel.innerHTML=`<span class="selectionChip">${reportDrill.type==='category'?'Category':'Subcategory'}: ${reportDrill.value}</span><span class="meta">${drillRows.length} transaction${drillRows.length===1?'':'s'} • ${money(drillRows.reduce((sum,t)=>sum+Math.abs(t.amount),0))}</span>`;
@@ -6958,8 +6976,8 @@ function openAccount(id,returnPage){
   <span class="meta" id="detailTxSelectedCount">0 selected</span>
  </div>
  <div style="overflow-x:auto"><table class="txTable">
-  <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="7">No transactions match the selected filters.</td></tr>'}</tbody>
+  <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
+  <tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="8">No transactions match the selected filters.</td></tr>'}</tbody>
  </table></div>
  ${(()=>{
    const cards=accountPhysicalCards(id);
@@ -7019,7 +7037,7 @@ function openAccount(id,returnPage){
   <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
   <span class="meta" id="detailTxSelectedCount">0 selected</span>
  </div>
- <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="7">No transactions.</td></tr>'}</tbody></table></div>
+ <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="8">No transactions.</td></tr>'}</tbody></table></div>
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
@@ -10415,7 +10433,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V229 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`V230 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -10442,7 +10460,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V229: reading the complete canonical finance database. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='V230: reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -10476,13 +10494,13 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V229 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`V230 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
   recordSyncReady=false;
-  console.error('V229 manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='V229 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  console.error('V230 manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='V230 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
@@ -10919,7 +10937,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V229',
+  version:'V230',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
