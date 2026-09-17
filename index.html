@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V235 Refresh-Safe Transaction Selection</title>
+<title>Personal Finance • V236 Sort-Safe Transaction Selection</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -10746,8 +10746,19 @@ function applyTableSort(table,colIndex,direction,remember=true){
   return (direction==='desc'?-cmp:cmp)||x.originalIndex-y.originalIndex;
  });
 
- decorated.forEach(x=>tbody.appendChild(x.row));
- fixedRows.forEach(r=>tbody.appendChild(r));
+ // V236: only touch the DOM when the requested sort actually changes row order.
+ // appendChild() on rows that are already in the correct order still produces
+ // childList mutations. The sortable-table MutationObserver then re-applies the
+ // saved sort, which used to create a continuous refresh/re-sort loop and made
+ // transaction checkboxes appear unclickable after sorting/filtering.
+ const desiredRows=[...decorated.map(x=>x.row),...fixedRows];
+ const currentRows=[...tbody.rows];
+ const orderChanged=desiredRows.length!==currentRows.length || desiredRows.some((row,i)=>currentRows[i]!==row);
+ if(orderChanged){
+  const frag=document.createDocumentFragment();
+  desiredRows.forEach(row=>frag.appendChild(row));
+  tbody.appendChild(frag);
+ }
 
  [...table.tHead?.rows?.[0]?.cells||[]].forEach(th=>{
   th.classList.remove('sortAsc','sortDesc');
