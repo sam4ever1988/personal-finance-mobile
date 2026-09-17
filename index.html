@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V236 Sort-Safe Transaction Selection</title>
+<title>Personal Finance • V237 Transactions & Financial Strategy</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -872,6 +872,15 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 .execKpi:nth-child(4) .execKpiText>b{color:#f0a8ff!important}.execKpi:nth-child(6) .execKpiText>b{color:#f7fbff!important}
 @media(max-width:1250px){.execKpis{height:auto!important}.execKpi{height:92px!important;min-height:92px!important}}
 @media(max-width:820px){.execKpi{grid-template-columns:50px minmax(0,1fr)!important;height:88px!important;min-height:88px!important}.execKpiIcon{width:50px!important;height:50px!important;min-width:50px!important}.execKpiText>b{font-size:16px!important}}
+
+/* V237 unified work pages */
+.workHero{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:20px 22px;margin-bottom:14px;border-radius:16px;background:linear-gradient(125deg,#0b2f45,#0a4550);color:#fff;box-shadow:0 12px 30px rgba(13,34,53,.12)}
+.workHero h2{margin:3px 0 5px;font-size:27px}.workHero p{margin:0;color:#c9dce6;font-size:12px}.workEyebrow{font-size:9px;letter-spacing:.14em;color:#54dfbd;font-weight:900}.workHeroActions{display:flex;gap:8px;flex-wrap:wrap}.workHero .btn:not(.primary){background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff}
+.workKpis,.strategyKpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}.workMetric{border:1px solid var(--line);background:#fff;border-radius:13px;padding:14px;box-shadow:var(--shadow)}.workMetric span{font-size:10px;color:var(--muted);font-weight:750}.workMetric b{display:block;font-size:20px;margin-top:6px}.workMetric small{display:block;color:var(--muted);font-size:9px;margin-top:5px}.workMetric.attn{border-color:#f0c36a}.workMetric.good{border-color:#78cfad}.workMetric.debt{border-color:#d9a1aa}
+.strategyHero{background:linear-gradient(125deg,#092c43,#113b4b 55%,#174638)}.strategyGrid{display:grid;grid-template-columns:1.35fr .65fr;gap:14px}.strategyGridWide{grid-template-columns:1.3fr .7fr}.strategyPanel{min-width:0}.strategyActions{display:grid;gap:8px;margin-top:14px}.strategyAction{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:11px;background:#f9fbfc}.strategyAction i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--accentSoft);color:var(--accent);font-style:normal;font-weight:900}.strategyAction b{font-size:12px}.strategyAction small{display:block;color:var(--muted);font-size:9px;margin-top:2px}.safeSpendBig{font-size:34px;font-weight:950;color:var(--green);margin:12px 0 3px}.safeSpendBar{height:10px;border-radius:99px;background:#e9eef2;overflow:hidden;margin:12px 0}.safeSpendBar i{display:block;height:100%;background:linear-gradient(90deg,#0b8f79,#35c995);border-radius:99px}.scenarioGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:13px}.scenarioCard{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfcfd}.scenarioCard.recommended{border-color:#63bea1;background:#f1fbf7}.scenarioCard b{font-size:12px}.scenarioCard .scenarioAmt{font-size:20px;font-weight:950;margin:8px 0}.coachRow{padding:9px 0;border-bottom:1px solid var(--line)}.coachRow:last-child{border-bottom:0}.coachRow b{font-size:12px}.coachRow small{display:block;color:var(--muted);margin-top:3px}.strategyTable{width:100%;border-collapse:collapse;font-size:11px}.strategyTable th,.strategyTable td{padding:10px;border-bottom:1px solid var(--line);text-align:left}.strategyTable th{font-size:9px;text-transform:uppercase;color:var(--muted)}
+#transactions>.filters{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px;box-shadow:var(--shadow)}
+@media(max-width:1100px){.workKpis,.strategyKpis{grid-template-columns:repeat(2,1fr)}.strategyGrid,.strategyGridWide{grid-template-columns:1fr}.scenarioGrid{grid-template-columns:1fr}}
+@media(max-width:760px){.workHero{align-items:flex-start;flex-direction:column;padding:16px}.workHeroActions{width:100%}.workHeroActions .btn{flex:1}.workKpis,.strategyKpis{grid-template-columns:1fr 1fr}.scenarioGrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -880,6 +889,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
  <div class="brand"><div class="brandIcon">📊</div>Personal Finance</div>
  <button type="button" class="navBtn active" data-page="dashboard" onclick="mobileNavigate(event,'dashboard')"><span class="ic">⌂</span>Dashboard</button>
  <button type="button" class="navBtn" data-page="executive" onclick="mobileNavigate(event,'executive')"><span class="ic">▦</span>Executive Dashboard</button>
+ <button type="button" class="navBtn" data-page="strategy" onclick="mobileNavigate(event,'strategy')"><span class="ic">◎</span>Financial Strategy</button>
  <button type="button" class="navBtn" data-page="accounts" onclick="mobileNavigate(event,'accounts')"><span class="ic">▣</span>Accounts</button>
  <button type="button" class="navBtn" data-page="transactions" onclick="mobileNavigate(event,'transactions')"><span class="ic">⇄</span>Transactions</button>
  <button type="button" class="navBtn" data-page="reports" onclick="mobileNavigate(event,'reports')"><span class="ic">▥</span>Reports</button>
@@ -973,6 +983,8 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 </section>
 
 <section class="view" id="transactions">
+ <div class="workHero"><div><div class="workEyebrow">TRANSACTION CONTROL CENTER</div><h2>Transactions</h2><p>Review cash movement, spending, transfers and items that still need classification.</p></div><div class="workHeroActions"><button class="btn" type="button" data-page-jump="reports">View Reports</button><button class="btn primary" type="button" id="txHeroAdd">+ Add Transaction</button></div></div>
+ <div class="workKpis" id="txWorkKpis"></div>
  <div class="filters">
    <input class="control search" id="txSearch" placeholder="Search transaction, account, category...">
    <select class="control small" id="txAccount"></select>
@@ -1008,6 +1020,20 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
  <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="txMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="txBody"></tbody></table></div>
 </div>
  <div class="hint" style="margin-top:8px">Click any transaction to change its Category/Subcategory and optionally remember the rule for the same merchant.</div>
+</section>
+
+<section class="view" id="strategy">
+ <div class="workHero strategyHero"><div><div class="workEyebrow">PERSONAL FINANCIAL STRATEGY</div><h2>Monthly Money Strategy</h2><p>Use your live finance data to understand spending capacity, upcoming pressure and alternative debt-payment approaches.</p></div><div class="workHeroActions"><button class="btn" type="button" data-page-jump="transactions">Review Spending</button><button class="btn primary" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
+ <div class="strategyKpis" id="strategyKpis"></div>
+ <div class="strategyGrid">
+  <div class="panel strategyPanel"><div class="splitHead"><div><div class="panelTitle">This Month's Action Plan</div><div class="meta">Priority sequence based on current commitments and cash position.</div></div><span class="badge active">Live Plan</span></div><div id="strategyActions" class="strategyActions"></div></div>
+  <div class="panel strategyPanel"><div class="panelTitle">Safe-to-Spend</div><div id="safeSpendBox"></div></div>
+ </div>
+ <div class="strategyGrid strategyGridWide" style="margin-top:14px">
+  <div class="panel strategyPanel"><div class="splitHead"><div><div class="panelTitle">Debt Payoff Scenarios</div><div class="meta">Compare approaches before deciding what to pay.</div></div></div><div id="debtScenarios" class="scenarioGrid"></div></div>
+  <div class="panel strategyPanel"><div class="panelTitle">Spending Coach</div><div id="spendingCoach"></div></div>
+ </div>
+ <div class="panel strategyPanel" style="margin-top:14px"><div class="splitHead"><div><div class="panelTitle">Debt & Obligation Priority</div><div class="meta">Current card and loan commitments; this is information for your decision, not an automatic payment instruction.</div></div><button class="btn" type="button" data-page-jump="incomeplan">Manage Payments</button></div><div id="strategyDebtTable" style="overflow-x:auto;margin-top:10px"></div></div>
 </section>
 
 <section class="view" id="reports">
@@ -4453,6 +4479,8 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
 
  // Re-render only what the active page needs after controls were restored.
  if(page==='executive')renderExecutiveDashboard();
+ if(page==='strategy')renderFinancialStrategy();
+ if(page==='transactions')renderTransactions();
  if(page==='assets')renderGoldAssets();
  if(page==='transactions')renderTransactions();
  else if(page==='executive')renderExecutiveDashboard();
@@ -4500,7 +4528,7 @@ function nav(page){
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
- const titles={dashboard:'Dashboard',executive:'Executive Dashboard',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ const titles={dashboard:'Dashboard',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
@@ -4562,6 +4590,7 @@ document.querySelectorAll('.navBtn').forEach(b=>{
  });
 });
 document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.pageJump)));
+if($('txHeroAdd'))$('txHeroAdd').addEventListener('click',()=>$('addTransaction')?.click());
 
 const mobileNavBar=document.querySelector('.sidebar');
 if(mobileNavBar){
@@ -5790,11 +5819,49 @@ function showDuplicateReview(){
 }
 
 let eligiblePurchasesOnly=false;
+
+function v237Money(v){return money(Number(v||0));}
+function transactionWorkMetrics(){
+ const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||''});
+ const physical=$('txPhysicalCard')?.value||'',sm=$('txStatementMonth')?.value||'';
+ const filtered=rows.filter(t=>(!physical||txMatchesPhysicalCardFilter(t,physical))&&(!sm||t.statementMonth===sm));
+ const income=filtered.filter(t=>t.type==='income').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const spend=filtered.filter(t=>t.type==='spend'||t.type==='fee').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const transfers=filtered.filter(t=>t.type==='transfer').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const unclassified=filtered.filter(t=>!t.category||String(t.category).toLowerCase().includes('unclass')).length;
+ return {count:filtered.length,income,spend,transfers,net:income-spend,unclassified};
+}
+function renderTransactionWorkKpis(){
+ const box=$('txWorkKpis');if(!box)return;const m=transactionWorkMetrics();
+ box.innerHTML=`<div class="workMetric good"><span>Total Inflow</span><b class="green">${v237Money(m.income)}</b><small>Current transaction filters</small></div><div class="workMetric debt"><span>Total Spending & Fees</span><b class="red">${v237Money(m.spend)}</b><small>Transfers excluded from spending</small></div><div class="workMetric"><span>Net Cash Flow</span><b class="${m.net>=0?'green':'red'}">${v237Money(m.net)}</b><small>Inflow less spending & fees</small></div><div class="workMetric"><span>Transfers / Card Payments</span><b>${v237Money(m.transfers)}</b><small>Tracked separately from spending</small></div><div class="workMetric ${m.unclassified?'attn':''}"><span>Transactions</span><b>${m.count}</b><small>${m.unclassified} need classification</small></div>`;
+}
+function strategySpendingRows(){
+ const ym=currentYearMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&(t.type==='spend'||t.type==='fee'));
+}
+function renderFinancialStrategy(){
+ const income=Math.max(0,totalIncomePlan()),loans=Math.max(0,totalFixedLoans()),other=Math.max(0,outgoingThisMonthTotal()),cardPay=Math.max(0,remainingIncomePaymentsTotal());
+ const spending=strategySpendingRows(),actualSpend=spending.reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const bankCash=accounts.filter(a=>a.type==='bank').reduce((s,a)=>s+Math.max(0,Number(a.balance||0)),0);
+ const required=loans+other+cardPay,safe=Math.max(0,income-required-actualSpend),weekly=safe/4.345,daily=safe/Math.max(1,new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()-new Date().getDate()+1);
+ const cards=accounts.filter(a=>a.type==='card').map(a=>({a,m:cardMetrics(a)}));
+ const cardDebt=cards.reduce((s,x)=>s+Math.max(0,Number(x.m.total||0)),0);
+ const loanDebt=(financeSettings.loans||[]).filter(l=>l.status!=='closed').reduce((s,l)=>s+Math.max(0,Number(l.remainingAmount||0)),0);
+ const totalDebt=cardDebt+loanDebt;
+ const k=$('strategyKpis');if(k)k.innerHTML=`<div class="workMetric good"><span>Monthly Income</span><b>${v237Money(income)}</b><small>Income plan</small></div><div class="workMetric debt"><span>Required Commitments</span><b>${v237Money(required)}</b><small>Loans + outgoings + planned card payments</small></div><div class="workMetric"><span>Actual Spending</span><b>${v237Money(actualSpend)}</b><small>${spending.length} spending/fee transactions this month</small></div><div class="workMetric good"><span>Safe-to-Spend</span><b>${v237Money(safe)}</b><small>After current commitments and spending</small></div><div class="workMetric debt"><span>Total Debt Exposure</span><b>${v237Money(totalDebt)}</b><small>Card usage + active loan balances</small></div>`;
+ const sb=$('safeSpendBox');if(sb){const pct=income?Math.max(0,Math.min(100,safe/income*100)):0;sb.innerHTML=`<div class="safeSpendBig">${v237Money(safe)}</div><div class="meta">Estimated remaining spending capacity this month</div><div class="safeSpendBar"><i style="width:${pct}%"></i></div><div class="grid2"><div class="miniMetric"><span>Weekly guide</span><b>${v237Money(weekly)}</b></div><div class="miniMetric"><span>Daily guide</span><b>${v237Money(daily)}</b></div></div><div class="notice" style="margin-top:10px">This is a planning estimate from the data currently recorded in the app. Keep a cash reserve appropriate to your needs before making additional debt payments.</div>`;}
+ const acts=$('strategyActions');if(acts)acts.innerHTML=`<div class="strategyAction"><i>1</i><div><b>Protect required payments</b><small>Loans, planned card payments and recurring outgoings</small></div><strong>${v237Money(required)}</strong></div><div class="strategyAction"><i>2</i><div><b>Control discretionary spending</b><small>Current month spending and fees recorded so far</small></div><strong>${v237Money(actualSpend)}</strong></div><div class="strategyAction"><i>3</i><div><b>Preserve liquidity</b><small>Current positive bank-account balances</small></div><strong>${v237Money(bankCash)}</strong></div><div class="strategyAction"><i>4</i><div><b>Review extra debt payment capacity</b><small>Only after commitments, spending and your preferred reserve</small></div><strong>${v237Money(safe)}</strong></div>`;
+ const sc=$('debtScenarios');if(sc){const cautious=Math.max(0,safe*.25),balanced=Math.max(0,safe*.5),aggressive=Math.max(0,safe*.8);sc.innerHTML=`<div class="scenarioCard"><b>Liquidity First</b><div class="scenarioAmt">${v237Money(cautious)}</div><small>Use about 25% of current free cash for extra debt reduction; retain more liquidity.</small></div><div class="scenarioCard recommended"><b>Balanced</b><div class="scenarioAmt">${v237Money(balanced)}</div><small>Use about 50% of current free cash; balance debt reduction with liquidity.</small></div><div class="scenarioCard"><b>Debt Focus</b><div class="scenarioAmt">${v237Money(aggressive)}</div><small>Use about 80% of current free cash; leaves a smaller buffer and needs closer review.</small></div>`;}
+ const byCat={};spending.forEach(t=>{const c=t.category||'Unclassified';byCat[c]=(byCat[c]||0)+Math.abs(Number(t.amount||0));});const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const coach=$('spendingCoach');if(coach)coach.innerHTML=cats.length?cats.map(([c,v],i)=>`<div class="coachRow"><b>${escapeHtml(c)}</b><small>${v237Money(v)} • ${actualSpend?Math.round(v/actualSpend*100):0}% of this month's recorded spending${i===0?' • largest category':''}</small></div>`).join(''):'<div class="notice">No spending transactions are recorded for the current month yet.</div>';
+ const dt=$('strategyDebtTable');if(dt){const cardRows=cards.map(x=>`<tr><td>${escapeHtml((x.a.bank||'Card')+' •'+(x.a.ending||''))}</td><td>Credit Card</td><td>${v237Money(x.m.total)}</td><td>${v237Money(x.m.available)}</td><td>${Math.round(Number(x.m.utilization||0))}%</td></tr>`);const loanRows=(financeSettings.loans||[]).filter(l=>l.status!=='closed').map(l=>`<tr><td>${escapeHtml(l.name||'Loan')}</td><td>Loan</td><td>${v237Money(l.remainingAmount)}</td><td>${v237Money(l.monthly)}</td><td>${Number(l.remainingMonths||0)} mo.</td></tr>`);dt.innerHTML=`<table class="strategyTable"><thead><tr><th>Account / Loan</th><th>Type</th><th>Balance / Usage</th><th>Available / Monthly</th><th>Utilization / Remaining</th></tr></thead><tbody>${[...cardRows,...loanRows].join('')||'<tr><td colspan="5">No active debt records.</td></tr>'}</tbody></table>`;}
+}
+
 function renderTransactions(){
  const __scrollX=txSelectionScrollLock?.x??window.scrollX,__scrollY=txSelectionScrollLock?.y??window.scrollY;
  const __bulkDraftWasActive=bulkUpdateDraftActive;
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
+ renderTransactionWorkKpis();
  const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value};
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
  const physical=$('txPhysicalCard')?.value||''; if(physical)rows=rows.filter(t=>txMatchesPhysicalCardFilter(t,physical));
