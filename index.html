@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V234 Sync-Safe Transaction Selection</title>
+<title>Personal Finance • V235 Refresh-Safe Transaction Selection</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -10876,6 +10876,9 @@ function hardenAllActionControls(root=document){
   });
 
   root.querySelectorAll('input[type="checkbox"]').forEach(box=>{
+    // Transaction selection has its own refresh-safe binding/delegation.
+    // Do not add a second interaction layer after a table/cloud rerender.
+    if(box.matches('[data-select-tx],#txMasterCheck,#detailTxMasterCheck'))return;
     if(box.dataset.interactionHardened==='1')return;
     box.dataset.interactionHardened='1';
 
@@ -10899,20 +10902,8 @@ function hardenAllActionControls(root=document){
     });
   });
 
-  root.querySelectorAll('[data-select-cell]').forEach(cell=>{
-    if(cell.dataset.interactionHardened==='1')return;
-    cell.dataset.interactionHardened='1';
-
-    cell.addEventListener('pointerdown',e=>{
-      beginGlobalInteractionLock();
-      e.stopPropagation();
-    });
-
-    cell.addEventListener('click',e=>{
-      e.stopPropagation();
-      restoreGlobalInteractionLock();
-    });
-  });
+  // [data-select-cell] is deliberately excluded here. bindTxRows() owns those
+  // cells so a refresh/re-render cannot stack a second click/pointer handler.
 }
 
 let ACTION_HARDEN_TIMER=null;
@@ -10926,7 +10917,7 @@ const ACTION_HARDEN_OBSERVER=new MutationObserver(mutations=>{
   clearTimeout(ACTION_HARDEN_TIMER);
   ACTION_HARDEN_TIMER=setTimeout(()=>{
     added.forEach(node=>{
-      if(node.matches?.('button,.btn,.closeBtn,input[type="checkbox"],[data-select-cell]')){
+      if(node.matches?.('button,.btn,.closeBtn,input[type="checkbox"]')){
         hardenAllActionControls(node.parentElement||document);
       }else{
         hardenAllActionControls(node);
