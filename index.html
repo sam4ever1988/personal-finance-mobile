@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V231 Checkbox Selection Fix</title>
+<title>Personal Finance • V232 Automatic Gold Asset Rendering</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1215,7 +1215,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
 <section class="view" id="cloudSync">
  <div class="sectionTitle">Cloud Database</div>
  <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V231 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
+  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V232 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
   <div id="cloudLoggedOut" style="margin-top:14px">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
@@ -1263,7 +1263,7 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
     <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
     <button class="btn" id="cloudSignOut">Sign Out</button>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V231 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
+   <div class="notice" id="cloudResult" style="margin-top:12px">V232 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
   </div>
  </div>
 </section>
@@ -1301,10 +1301,10 @@ body.execMode .execMain{width:100%!important;min-width:0!important;overflow:hidd
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V231 CURRENT BUILD</span></div>
+  </div><span class="pill green">V232 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V231</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V231-20260917-CHECKBOX-FIX</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V232</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">17 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V232-20260917-GOLD-AUTO-RENDER</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
@@ -4508,6 +4508,7 @@ function nav(page){
  if(page==='incomeplan')renderIncomePlan();
  if(page==='outgoings')renderOutgoings();
  if(page==='importstatements')renderImportPage();
+ if(page==='assets')renderGoldAssets();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
 
@@ -5050,7 +5051,7 @@ function addGoldAsset(){const name=prompt('Asset name (example: Gold Bar 1):');i
 function editGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const name=prompt('Asset name:',a.name);if(name===null)return;const w=Number(prompt('Original weight (g):',a.weight));if(!Number.isFinite(w)||w<=0)return;const price=Number(prompt('Bought price (SAR):',a.purchasePrice));if(!Number.isFinite(price)||price<0)return;a.name=name||a.name;a.weight=w;a.purchasePrice=price;saveV194Data();renderGoldAssets();}
 function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (SAR):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}
 function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
-async function refreshGoldMarketPrice(){try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
+async function refreshGoldMarketPrice(){renderGoldAssets();try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){renderGoldAssets();if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
 function manualGoldMarketPrice(){const v=Number(prompt('24K gold price per gram in SAR:',Number(goldMarket.price24k||0).toFixed(2)));if(!Number.isFinite(v)||v<=0)return;goldMarket={price24k:v,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();}
 function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderCustomBanks();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
 function renderCustomCreditCards(){const el=$('customCreditCardsList');if(!el)return;el.innerHTML=customCreditCards.length?customCreditCards.map(c=>`<div class="notice" style="margin-bottom:7px"><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${c.ending}</b> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</div>`).join(''):'<div class="meta">No manually added cards yet.</div>';}
@@ -10435,7 +10436,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V231 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`V232 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -10462,7 +10463,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V231: reading the complete canonical finance database. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='V232: reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -10496,13 +10497,13 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V231 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`V232 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
   recordSyncReady=false;
-  console.error('V231 manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='V231 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  console.error('V232 manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='V232 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
@@ -10939,7 +10940,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V231',
+  version:'V232',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -11047,7 +11048,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  renderOutgoings();
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
- renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();
+ renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderGoldAssets();
  updateDbStatus(true);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
