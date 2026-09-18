@@ -997,6 +997,72 @@ body.modernMode .btn{background:#082d43;color:#eaf5ff;border-color:#1a5875}body.
 .execBody,#strategy .strategyBody,.cashBody,body.txMode .txExecBody{grid-template-columns:205px minmax(0,1fr)!important}.execSide,.strategySide,.cashSide,.txExecSide{padding:16px 10px!important}.execSideTitle,.strategySideTitle,.cashSideTitle,.txExecSideTitle{font-size:11px!important;padding:7px 10px!important}.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{font-size:13px!important;padding:11px 10px!important;line-height:1.25!important;border-radius:8px!important;margin:2px 0!important}
 @media(max-width:1100px){.modernKpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){body.modernMode>.app>.main{margin-left:0!important}.unifiedSide{width:100%!important}.modernKpis,.modernGrid2,.fpSummaryCards{grid-template-columns:1fr!important}.modernHero{align-items:flex-start;flex-direction:column}}
 
+
+
+/* V251 — one shared sidebar geometry + remaining-page executive polish */
+:root{--executive-sidebar-width:205px;--executive-sidebar-font:13px;--executive-sidebar-row:44px}
+/* The persistent sidebar now owns the same exact geometry on every normal/modern page. */
+.sidebar.unifiedSide{
+ width:var(--executive-sidebar-width)!important;min-width:var(--executive-sidebar-width)!important;max-width:var(--executive-sidebar-width)!important;
+ padding:16px 10px!important;background:#021827!important;border-right:1px solid #155273!important;
+}
+.app>.main{margin-left:var(--executive-sidebar-width)}
+.unifiedSide .navBtn{
+ width:100%!important;min-height:var(--executive-sidebar-row)!important;height:auto!important;
+ padding:10px 10px!important;margin:2px 0!important;font-size:var(--executive-sidebar-font)!important;
+ line-height:1.25!important;border-radius:8px!important;gap:10px!important;align-items:center!important;
+}
+.unifiedSide .navBtn .ic{width:22px!important;min-width:22px!important;font-size:15px!important;line-height:1!important;text-align:center!important}
+.unifiedSideTitle{font-size:11px!important;line-height:1.2!important;padding:8px 10px!important;margin:0!important}
+.unifiedSide .brand{min-height:54px!important;padding:2px 9px 15px!important;font-size:20px!important;line-height:1.05!important}
+.unifiedSide .brand small{font-size:9px!important;line-height:1.25!important;margin-top:3px!important}
+
+/* Custom Executive pages use exactly the same sidebar box model. */
+.execBody,#strategy .strategyBody,.cashBody,body.txMode .txExecBody{grid-template-columns:var(--executive-sidebar-width) minmax(0,1fr)!important}
+.execSide,.strategySide,.cashSide,.txExecSide{
+ width:var(--executive-sidebar-width)!important;min-width:var(--executive-sidebar-width)!important;max-width:var(--executive-sidebar-width)!important;
+ box-sizing:border-box!important;padding:16px 10px!important;
+}
+.execSideTitle,.strategySideTitle,.cashSideTitle,.txExecSideTitle{font-size:11px!important;line-height:1.2!important;padding:8px 10px!important}
+.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{
+ width:100%!important;min-height:var(--executive-sidebar-row)!important;height:auto!important;
+ box-sizing:border-box!important;padding:10px 10px!important;margin:2px 0!important;
+ font-size:var(--executive-sidebar-font)!important;line-height:1.25!important;border-radius:8px!important;
+}
+.execSideSep,.strategySideSep,.cashSep,.txExecSep{margin:10px 4px!important}
+
+/* Remaining modules: same executive spacing, type scale and cards. */
+body.modernMode #financialposition,
+body.modernMode #installments,
+body.modernMode #importstatements,
+body.modernMode #assets,
+body.modernMode #reports,
+body.modernMode #financeSettings,
+body.modernMode #dashboard{font-size:13px}
+body.modernMode .sectionTitle{font-size:19px!important;line-height:1.2!important;margin-top:20px}
+body.modernMode .panelTitle{font-size:16px!important;line-height:1.25!important}
+body.modernMode .panel{padding:16px!important;border-radius:10px!important}
+body.modernMode .kpi{min-height:104px!important;padding:16px!important;border-radius:10px!important}
+body.modernMode .kpiLabel{font-size:11px!important;color:#b6ccda!important}
+body.modernMode .kpiValue{font-size:22px!important;color:#fff!important}
+body.modernMode .kpiSub{font-size:10px!important;color:#91aabd!important}
+body.modernMode .modernHero{min-height:58px;margin-bottom:14px!important}
+body.modernMode .modernHero h1{font-size:30px!important;color:#fff!important}
+body.modernMode .modernHero p{font-size:11px!important;color:#a9c0cf!important}
+body.modernMode .modernMetric{min-height:104px!important;padding:15px!important}
+body.modernMode .modernMetric small{font-size:11px!important}
+body.modernMode .modernMetric b{font-size:22px!important}
+body.modernMode .modernMetric em{font-size:10px!important}
+body.modernMode table{font-size:12px!important}
+body.modernMode table th{font-size:10px!important}
+body.modernMode table td{padding-top:12px!important;padding-bottom:12px!important}
+
+/* Keep special full-screen modes from inheriting the normal-page margin. */
+body.execMode>.app>.main,body.strategyMode>.app>.main,body.txMode>.app>.main,body.accountMode>.app>.main{margin-left:0!important}
+@media(max-width:760px){
+ .app>.main{margin-left:0!important}
+ .sidebar.unifiedSide{width:100%!important;min-width:0!important;max-width:none!important}
+}
 </style>
 </head>
 <body>
@@ -1044,7 +1110,7 @@ body.modernMode .btn{background:#082d43;color:#eaf5ff;border-color:#1a5875}body.
 <div class="execTop"><div class="execBrand"><div class="execLogo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="trend">↗</span></div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
 <div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button></div>
 <div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
-<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">▥　Financial Position</button><button class="execSideBtn" data-page-jump="strategy">⌁　Financial Strategy</button><button class="execSideBtn" data-page-jump="dashboard">▤　Compact View</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">v1.0.0</div></aside>
+<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">▥　Financial Position</button><button class="execSideBtn" data-page-jump="strategy">⌁　Financial Strategy</button><button class="execSideBtn" data-page-jump="dashboard">▤　Compact View</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">v2.51</div></aside>
 <main class="execMain">
  <div class="execHero"><div><h2>A. Executive Overview</h2><div class="meta">Complete view of your financial status</div></div><div class="execHeroRight"><span id="execUpdated"></span><span class="execQuote">❝ A clear view today<br>for a better tomorrow. ❞</span></div></div>
  <div class="execKpis" id="execKpis"></div>
@@ -1092,7 +1158,7 @@ body.modernMode .btn{background:#082d43;color:#eaf5ff;border-color:#1a5875}body.
 <section class="view" id="accounts">
 <div class="cashShell">
  <header class="cashTop"><div class="cashBrand"><span class="cashMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="cashNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="cashDate" id="cashDate"></div><div class="cashAvatar">HA</div></header>
- <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">v2.48</div></aside>
+ <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">v2.51</div></aside>
  <main class="cashMain">
   <div class="cashHero"><div><h1>Cash & Credit</h1><p>Control bank liquidity, credit availability, statement obligations and upcoming payments.</p></div><div class="cashHeroActions"><button class="cashBtn" data-page-jump="incomeplan">Open Payment Plan</button><button class="cashBtn primary" data-page-jump="transactions">Review Transactions</button></div></div>
   <div class="cashKpis" id="cashKpis"></div>
@@ -1107,7 +1173,7 @@ body.modernMode .btn{background:#082d43;color:#eaf5ff;border-color:#1a5875}body.
 <section class="view" id="transactions">
 <div class="txExecShell">
  <header class="txExecTop"><div class="txExecBrand"><span class="txExecMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="txExecNav"><button data-page-jump="executive">⌂ Dashboard</button><button class="active">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="txExecDate" id="txExecDate"></div><div class="txExecAvatar">HA</div></header>
- <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">v2.42</div></aside>
+ <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">v2.51</div></aside>
  <main class="txExecMain">
   <div class="txExecHero"><div><h2>Transactions</h2><p>Review and control your complete cash movement, spending, transfers and items that still need classification.</p></div><div class="txExecHeroActions"><select class="txDarkControl" id="txTopMonth"><option>September 2026</option></select><button class="txDarkBtn" data-page-jump="importstatements">⇩　Import Statement</button><button class="txAddBtn" id="txHeroAdd">＋ Add Transaction</button></div></div>
   <div class="txExecKpis" id="txWorkKpis"></div>
@@ -1124,7 +1190,7 @@ body.modernMode .btn{background:#082d43;color:#eaf5ff;border-color:#1a5875}body.
 <section class="view" id="strategy">
 <div class="strategyShell">
  <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
- <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.49</div></aside>
+ <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.51</div></aside>
  <main class="strategyMain">
   <div class="strategyPageHero"><div><h2>Financial Strategy</h2><p>Turn your live income, spending, credit and loan data into a clear monthly plan.</p></div><div class="strategyHeroActions"><button class="strategyDarkBtn" type="button" data-page-jump="transactions">Review Spending</button><button class="strategyPrimaryBtn" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
   <div class="strategyKpis" id="strategyKpis"></div>
