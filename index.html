@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V245 Executive Financial Strategy</title>
+<title>Personal Finance • V246 Financial Strategy Runtime Fix</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -1095,7 +1095,7 @@ body.strategyMode #strategy{min-height:100vh;background:radial-gradient(circle a
 <section class="view" id="strategy">
 <div class="strategyShell">
  <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
- <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="reports">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.45</div></aside>
+ <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="reports">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><button data-page-jump="dashboard">▦　Compact View</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.46</div></aside>
  <main class="strategyMain">
   <div class="strategyPageHero"><div><h2>Financial Strategy</h2><p>Turn your live income, spending, credit and loan data into a clear monthly plan.</p></div><div class="strategyHeroActions"><button class="strategyDarkBtn" type="button" data-page-jump="transactions">Review Spending</button><button class="strategyPrimaryBtn" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
   <div class="strategyKpis" id="strategyKpis"></div>
@@ -4556,6 +4556,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  if(page==='assets')renderGoldAssets();
  if(page==='transactions')renderTransactions();
  else if(page==='executive')renderExecutiveDashboard();
+ if(page==='strategy')renderFinancialStrategy();
  if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
  else if(page==='categories')renderCategories();
@@ -4597,6 +4598,7 @@ function nav(page){
 
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
  document.body.classList.toggle('execMode',page==='executive');
+ document.body.classList.toggle('strategyMode',page==='strategy');
  document.body.classList.toggle('txMode',page==='transactions');
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
@@ -5909,7 +5911,7 @@ function renderTransactionWorkKpis(){
  box.innerHTML=`<div class="workMetric good"><span>Total Inflow</span><b class="green">${v237Money(m.income)}</b><small>Current transaction filters</small></div><div class="workMetric debt"><span>Total Spending & Fees</span><b class="red">${v237Money(m.spend)}</b><small>Transfers excluded from spending</small></div><div class="workMetric"><span>Net Cash Flow</span><b class="${m.net>=0?'green':'red'}">${v237Money(m.net)}</b><small>Inflow less spending & fees</small></div><div class="workMetric"><span>Transfers / Card Payments</span><b>${v237Money(m.transfers)}</b><small>Tracked separately from spending</small></div><div class="workMetric ${m.unclassified?'attn':''}"><span>Transactions</span><b>${m.count}</b><small>${m.unclassified} need classification</small></div>`;
 }
 function strategySpendingRows(){
- const ym=currentYearMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&['spend','fee'].includes(txType(t)));
+ const ym=currentIncomeMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&['spend','fee'].includes(txType(t)));
 }
 function renderFinancialStrategy(){
  const income=Math.max(0,totalIncomePlan()),loans=Math.max(0,totalFixedLoans()),other=Math.max(0,outgoingThisMonthTotal()),cardPay=Math.max(0,remainingIncomePaymentsTotal());
@@ -5920,7 +5922,7 @@ function renderFinancialStrategy(){
  const cardDebt=cards.reduce((s,x)=>s+Math.max(0,Number(x.m.total||0)),0);
  const loanDebt=(financeSettings.loans||[]).filter(l=>l.status!=='closed').reduce((s,l)=>s+Math.max(0,Number(l.remainingAmount||0)),0);
  const totalDebt=cardDebt+loanDebt;
- const sd=$('strategyTopDate');if(sd)sd.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+ const sd=$('strategyTopDate');if(sd)sd.textContent=`Plan Month • ${escapeHtml(currentIncomeMonth())}`;
  const k=$('strategyKpis');if(k)k.innerHTML=`<div class="workMetric good"><span>Monthly Income</span><b>${v237Money(income)}</b><small>Income plan</small></div><div class="workMetric debt"><span>Required Commitments</span><b>${v237Money(required)}</b><small>Loans + outgoings + planned card payments</small></div><div class="workMetric"><span>Actual Spending</span><b>${v237Money(actualSpend)}</b><small>${spending.length} spending/fee transactions this month</small></div><div class="workMetric good"><span>Safe-to-Spend</span><b>${v237Money(safe)}</b><small>After current commitments and spending</small></div><div class="workMetric debt"><span>Total Debt Exposure</span><b>${v237Money(totalDebt)}</b><small>Card usage + active loan balances</small></div><div class="workMetric"><span>Cash Reserve</span><b>${v237Money(bankCash)}</b><small>Positive bank-account balances</small></div>`;
  const sb=$('safeSpendBox');if(sb){const pct=income?Math.max(0,Math.min(100,safe/income*100)):0;sb.innerHTML=`<div class="safeSpendBig">${v237Money(safe)}</div><div class="meta">Estimated remaining spending capacity this month</div><div class="safeSpendBar"><i style="width:${pct}%"></i></div><div class="grid2"><div class="miniMetric"><span>Weekly guide</span><b>${v237Money(weekly)}</b></div><div class="miniMetric"><span>Daily guide</span><b>${v237Money(daily)}</b></div></div><div class="notice" style="margin-top:10px">This is a planning estimate from the data currently recorded in the app. Keep a cash reserve appropriate to your needs before making additional debt payments.</div>`;}
  const acts=$('strategyActions');if(acts)acts.innerHTML=`<div class="strategyAction"><i>1</i><div><b>Protect required payments</b><small>Loans, planned card payments and recurring outgoings</small></div><strong>${v237Money(required)}</strong></div><div class="strategyAction"><i>2</i><div><b>Control discretionary spending</b><small>Current month spending and fees recorded so far</small></div><strong>${v237Money(actualSpend)}</strong></div><div class="strategyAction"><i>3</i><div><b>Preserve liquidity</b><small>Current positive bank-account balances</small></div><strong>${v237Money(bankCash)}</strong></div><div class="strategyAction"><i>4</i><div><b>Review extra debt payment capacity</b><small>Only after commitments, spending and your preferred reserve</small></div><strong>${v237Money(safe)}</strong></div>`;
