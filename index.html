@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V237 Transactions & Financial Strategy</title>
+<title>Personal Finance • V238 Transaction KPI Type Fix</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -5825,9 +5825,9 @@ function transactionWorkMetrics(){
  const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||''});
  const physical=$('txPhysicalCard')?.value||'',sm=$('txStatementMonth')?.value||'';
  const filtered=rows.filter(t=>(!physical||txMatchesPhysicalCardFilter(t,physical))&&(!sm||t.statementMonth===sm));
- const income=filtered.filter(t=>t.type==='income').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
- const spend=filtered.filter(t=>t.type==='spend'||t.type==='fee').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
- const transfers=filtered.filter(t=>t.type==='transfer').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const income=filtered.filter(t=>txType(t)==='income').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const spend=filtered.filter(t=>['spend','fee'].includes(txType(t))).reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
+ const transfers=filtered.filter(t=>txType(t)==='transfer').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
  const unclassified=filtered.filter(t=>!t.category||String(t.category).toLowerCase().includes('unclass')).length;
  return {count:filtered.length,income,spend,transfers,net:income-spend,unclassified};
 }
@@ -5836,7 +5836,7 @@ function renderTransactionWorkKpis(){
  box.innerHTML=`<div class="workMetric good"><span>Total Inflow</span><b class="green">${v237Money(m.income)}</b><small>Current transaction filters</small></div><div class="workMetric debt"><span>Total Spending & Fees</span><b class="red">${v237Money(m.spend)}</b><small>Transfers excluded from spending</small></div><div class="workMetric"><span>Net Cash Flow</span><b class="${m.net>=0?'green':'red'}">${v237Money(m.net)}</b><small>Inflow less spending & fees</small></div><div class="workMetric"><span>Transfers / Card Payments</span><b>${v237Money(m.transfers)}</b><small>Tracked separately from spending</small></div><div class="workMetric ${m.unclassified?'attn':''}"><span>Transactions</span><b>${m.count}</b><small>${m.unclassified} need classification</small></div>`;
 }
 function strategySpendingRows(){
- const ym=currentYearMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&(t.type==='spend'||t.type==='fee'));
+ const ym=currentYearMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&['spend','fee'].includes(txType(t)));
 }
 function renderFinancialStrategy(){
  const income=Math.max(0,totalIncomePlan()),loans=Math.max(0,totalFixedLoans()),other=Math.max(0,outgoingThisMonthTotal()),cardPay=Math.max(0,remainingIncomePaymentsTotal());
