@@ -787,7 +787,7 @@ let eligiblePurchasesOnly=false;
 
 function v237Money(v){return money(Number(v||0));}
 function transactionWorkMetrics(){
- const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||''});
+ const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||'',from:$('txFrom')?.value||'',to:$('txTo')?.value||''});
  const physical=$('txPhysicalCard')?.value||'',sm=$('txStatementMonth')?.value||'';
  const filtered=rows.filter(t=>(!physical||txMatchesPhysicalCardFilter(t,physical))&&(!sm||t.statementMonth===sm));
  const income=filtered.filter(t=>txType(t)==='income').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
