@@ -337,6 +337,10 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
  renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderGoldAssets();
+ // V255: Executive is now the default DOM view, so render it explicitly after
+ // finance data has been restored. Previously nav('executive') was not called
+ // on a clean first load, leaving the Executive containers empty.
+ renderExecutiveDashboard();
  updateDbStatus(true);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
@@ -347,6 +351,11 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  if(savedUi && savedUi.page && document.getElementById(savedUi.page)){
   restoreReviewPage(savedUi,{restoreScroll:true});
  }else{
+  // A clean/new session must start on the Executive Overview, not merely rely
+  // on the HTML active class. nav() also applies the correct body mode and
+  // navigation state after all data is available.
+  nav('executive');
+  renderExecutiveDashboard();
   captureReviewState();
  }
 
@@ -381,4 +390,3 @@ function updateV91CloudStatus(){
 }
 setInterval(updateV91CloudStatus,1200);
 setTimeout(updateV91CloudStatus,300);
-
