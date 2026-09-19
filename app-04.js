@@ -891,7 +891,7 @@ function renderTransactions(){
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
  renderTransactionWorkKpis();
- const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value};
+ const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value,from:$('txFrom')?.value||'',to:$('txTo')?.value||''};
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
  const physical=$('txPhysicalCard')?.value||''; if(physical)rows=rows.filter(t=>txMatchesPhysicalCardFilter(t,physical));
  const sm=$('txStatementMonth').value;if(sm)rows=rows.filter(t=>t.statementMonth===sm);
@@ -905,8 +905,9 @@ function renderTransactions(){
 fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
 $('applyStatementRule').addEventListener('click',applyStatementRuleToTransactions);
-['txSearch','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id).addEventListener(id==='txSearch'?'input':'change',renderTransactions));
-$('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
+['txSearch','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth','txFrom','txTo'].forEach(id=>$(id)?.addEventListener(id==='txSearch'?'input':'change',renderTransactions));
+$('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';renderTransactions()});
+$('txClearDates')?.addEventListener('click',()=>{if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
 $('txSelectAllVisible').onclick=()=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));enforceTxSelectionScrollLock();};
@@ -960,7 +961,7 @@ function renderReports(){
  const bg=$('barGroup').value;
  const bars=(bg==='subcategory'?subs:cats).slice(0,12),max=Math.max(...bars.map(x=>x[1]),1);
  $('barTitle').textContent=bg==='subcategory'?'Spending by Subcategory':'Spending by Category';
- $('barChart').innerHTML=bars.map((g,i)=>{const value=$('barMode').value==='percentage'?(s.spend?g[1]/s.spend*100:0):g[1];const h=$('barMode').value==='percentage'?(value/Math.max(...bars.map(x=>s.spend?x[1]/s.spend*100:0),1)*100):(g[1]/max*100);const label=$('barMode').value==='percentage'?value.toFixed(1)+'%':(g[1]>=1000?(g[1]/1000).toFixed(1)+'K':MONEY.format(g[1]));return `<div class="barCol"><div class="bar reportClickableBar" data-drill-type="${bg}" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}" style="height:${h}%;background:${colors[i%colors.length]}"><span class="barVal">${label}</span><span class="barLab">${g[0]}</span></div></div>`}).join('');
+ $('barChart').innerHTML=bars.map((g,i)=>{const value=$('barMode').value==='percentage'?(s.spend?g[1]/s.spend*100:0):g[1];const h=$('barMode').value==='percentage'?(value/Math.max(...bars.map(x=>s.spend?x[1]/s.spend*100:0),1)*100):(g[1]/max*100);const label=$('barMode').value==='percentage'?value.toFixed(1)+'%':(g[1]>=1000?(g[1]/1000).toFixed(1)+'K':MONEY.format(g[1]));return `<div class="reportBarRow reportClickableBar" data-drill-type="${bg}" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><div class="reportBarLabel" title="${escapeHtml(String(g[0]))}">${escapeHtml(String(g[0]))}</div><div class="reportBarTrack"><i style="width:${Math.max(2,h)}%;background:${colors[i%colors.length]}"></i></div><b class="reportBarValue">${label}</b></div>`}).join('');
  $('topCategoriesBody').innerHTML=cats.slice(0,7).map(g=>`<tr class="reportClickable ${reportDrill.type==='category'&&reportDrill.value===g[0]?'active':''}" data-drill-type="category" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><td><b>${g[0]}</b></td><td>${money(g[1])}</td><td>${s.spend?(g[1]/s.spend*100).toFixed(1):0}%</td></tr>`).join('');
  const subParent={}; rows.filter(isSpend).forEach(t=>{const k=t.subcategory||'Uncategorized';if(!subParent[k])subParent[k]=t.category});
  $('topSubcategoriesBody').innerHTML=subs.slice(0,10).map(g=>`<tr class="reportClickable ${reportDrill.type==='subcategory'&&reportDrill.value===g[0]?'active':''}" data-drill-type="subcategory" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><td><b>${g[0]}</b></td><td>${subParent[g[0]]||'—'}</td><td>${money(g[1])}</td><td>${s.spend?(g[1]/s.spend*100).toFixed(1):0}%</td></tr>`).join('');
