@@ -1096,3 +1096,58 @@ body.modernMode .content{max-width:none!important}
 
 
 body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}
+/* V254 — Account Details aligned with the Executive dark visual system */
+body.modernMode #accountDetail{color:#eaf4ff}
+body.modernMode #accountDetail #detailBack{
+ background:#082b40!important;border:1px solid #176181!important;color:#eaf4ff!important;
+ border-radius:10px!important;font-weight:800!important;padding:10px 16px!important
+}
+body.modernMode #accountDetailContent{color:#eaf4ff!important}
+body.modernMode #accountDetailContent .panel,
+body.modernMode #accountDetailContent .accountDetailHero,
+body.modernMode #accountDetailContent .accountCard,
+body.modernMode #accountDetailContent .notice{
+ background:linear-gradient(145deg,#082b40,#062235)!important;
+ border:1px solid #176181!important;color:#eaf4ff!important;
+ box-shadow:none!important;border-radius:14px!important
+}
+body.modernMode #accountDetailContent .miniMetric,
+body.modernMode #accountDetailContent .kpi,
+body.modernMode #accountDetailContent [class*="metric"]{
+ background:#0a3348!important;border:1px solid #175a75!important;color:#eaf4ff!important;
+ border-radius:10px!important
+}
+body.modernMode #accountDetailContent .meta,
+body.modernMode #accountDetailContent .hint{color:#9db8ca!important}
+body.modernMode #accountDetailContent h1,
+body.modernMode #accountDetailContent h2,
+body.modernMode #accountDetailContent h3,
+body.modernMode #accountDetailContent .sectionTitle,
+body.modernMode #accountDetailContent .panelTitle,
+body.modernMode #accountDetailContent b{color:#f4f9ff}
+body.modernMode #accountDetailContent table{background:#07283a!important;color:#eaf4ff!important}
+body.modernMode #accountDetailContent thead th{
+ background:#0c4c68!important;color:#cfe5f2!important;border-color:#1a607d!important
+}
+body.modernMode #accountDetailContent tbody td{border-color:#16465d!important;color:#eaf4ff!important}
+body.modernMode #accountDetailContent tbody tr:hover td{background:#0a3448!important}
+body.modernMode #accountDetailContent .btn:not(.primary):not(.danger){
+ background:#082b40!important;border-color:#176181!important;color:#eaf4ff!important
+}
+body.modernMode #accountDetailContent input,
+body.modernMode #accountDetailContent select{
+ background:#071f30!important;border-color:#176181!important;color:#eaf4ff!important
+}
+body.modernMode #accountDetailContent .green{color:#22d39a!important}
+body.modernMode #accountDetailContent .red{color:#ff5264!important}
+body.modernMode #accountDetailContent .amber{color:#ffb51b!important}
+body.modernMode #accountDetailContent .blue{color:#39b8ff!important}
+body.modernMode #accountDetailContent .badge.active{background:#0d725f!important;color:#d9fff4!important}
+body.modernMode #accountDetailContent .summaryTable,
+body.modernMode #accountDetailContent .installTable,
+body.modernMode #accountDetailContent .txTable{font-size:13px!important}
+body.modernMode #accountDetailContent .summaryTable th,
+body.modernMode #accountDetailContent .installTable th,
+body.modernMode #accountDetailContent .txTable th{font-size:11px!important}
+body.modernMode #accountDetailContent .amount,
+body.modernMode #accountDetailContent .big{font-size:22px!important}
