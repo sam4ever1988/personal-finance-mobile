@@ -1777,3 +1777,33 @@ body.modernMode .unifiedSide .sideFoot{display:none!important}
 @media(max-width:900px){
  body.modernMode>.app>.main{margin-left:0!important}
 }
+
+/* V283 canonical desktop sidebar — one geometry on every page */
+@media(min-width:901px){
+ html body.modernMode>.app>.sidebar.unifiedSide{
+  width:200px!important;padding:16px 9px!important;border-right:1px solid #155273!important;
+  background:#001f2c!important;overflow-y:auto!important;overflow-x:hidden!important
+ }
+ html body.modernMode>.app>.main{margin-left:200px!important}
+ html body.modernMode .unifiedSide .brand{display:none!important}
+ html body.modernMode .unifiedSide .unifiedSideTitle{
+  font-size:11px!important;line-height:1.3!important;color:#9bb4c7!important;padding:7px 11px!important
+ }
+ html body.modernMode .unifiedSide .navBtn{
+  display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;
+  min-height:0!important;height:auto!important;padding:11px!important;margin:2px 0!important;
+  border:0!important;border-radius:8px!important;background:transparent!important;color:#d9e8f2!important;
+  font-size:15px!important;line-height:1.35!important;font-weight:400!important;white-space:nowrap!important
+ }
+ html body.modernMode .unifiedSide .navBtn .ic{flex:0 0 28px!important;width:28px!important;font-size:15px!important}
+ html body.modernMode .unifiedSide .navBtn.active{
+  background:#073c63!important;border-left:3px solid #28caff!important;padding-left:8px!important;
+  color:#fff!important;font-weight:700!important
+ }
+ html body.modernMode .unifiedSide .unifiedSep{height:1px!important;background:#17475e!important;margin:10px 8px!important}
+ html body.modernMode .unifiedSide .sideFoot{display:none!important}
+}
+/* Keep long module labels compact instead of changing the sidebar width */
+@media(min-width:901px) and (max-width:1180px){
+ html body.modernMode .unifiedSide .navBtn{font-size:14px!important}
+}
