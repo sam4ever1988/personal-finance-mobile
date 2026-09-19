@@ -1703,3 +1703,23 @@ body.investmentsMode #investments .invTradeLine{border-color:#17445d}
 body.investmentsMode #investments .panelTitle{color:#f3f8fc;font-size:17px;font-weight:900}
 body.investmentsMode #investments .btn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}
 body.investmentsMode #investments .btn.primary{background:#10a889;border-color:#10a889;color:#fff}
+
+/* V283 unified sidebar — Financial Strategy is the visual reference for all pages */
+body.modernMode>.app>.sidebar.unifiedSide{
+ background:#001f2c!important;border-right:1px solid #155273!important;color:#d9e8f2!important;
+ width:260px!important;padding:18px 12px!important
+}
+body.modernMode .unifiedSide .brand{color:#f3f8fc!important}
+body.modernMode .unifiedSide .unifiedSideTitle{color:#9bb4c7!important;font-size:12px!important;padding:10px 12px 7px!important}
+body.modernMode .unifiedSide .navBtn{
+ display:flex!important;align-items:center!important;gap:14px!important;width:100%!important;
+ border:0!important;background:transparent!important;color:#d9e8f2!important;text-align:left!important;
+ padding:12px!important;border-radius:9px!important;margin:2px 0!important;font-size:14px!important
+}
+body.modernMode .unifiedSide .navBtn .ic{width:28px!important;text-align:center!important;color:#d9e8f2!important}
+body.modernMode .unifiedSide .navBtn:hover{background:#06314d!important;color:#fff!important}
+body.modernMode .unifiedSide .navBtn.active{
+ background:#073c63!important;border-left:3px solid #28caff!important;color:#fff!important;font-weight:800!important
+}
+body.modernMode .unifiedSide .unifiedSep{height:1px!important;background:#17475e!important;margin:12px 8px!important}
+body.modernMode .unifiedSide .sideFoot{margin-top:auto!important;color:#8fa9bc!important}
