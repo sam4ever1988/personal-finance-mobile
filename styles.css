@@ -1622,3 +1622,21 @@ body.execMode .execPanel:has(#execUpcoming){min-height:300px!important}
 body.execMode .execPanel:has(#execCreditAvailable){min-height:350px!important}
 body.execMode .execPanel:has(#execGold){min-height:260px!important}
 body.execMode .execPanel:has(#execCreditUtil){min-height:235px!important}
+
+
+/* Unified V283 module header — match Transactions shell */
+.modernModuleTop{display:none}
+body.modernMode>.app>.sidebar,body.modernMode>.app>.main>.topbar{display:none!important}
+body.modernMode>.app>.main{margin-left:0!important}
+body.modernMode>.app>.main>.content{padding:0 18px 40px!important;max-width:none!important;margin:0!important}
+body.modernMode .modernModuleTop{height:62px;display:flex;align-items:center;gap:24px;margin:0 -18px 16px;padding:0 14px;border-bottom:1px solid #14506c;background:#021827;position:sticky;top:0;z-index:60;color:#eaf5ff}
+.modernModuleTop .txExecBrand{width:190px;flex:0 0 190px}
+.modernModuleNav{display:flex;height:100%;align-items:stretch;flex:1;min-width:0}
+.modernModuleNav button{border:0;background:transparent;color:#d8e7f0;padding:0 14px;font-size:12px;white-space:nowrap;cursor:pointer}
+.modernModuleNav button:hover{background:#052d48;color:#fff}
+.modernModuleNav button.active{background:#073d61;border-bottom:3px solid #20c6ff;color:#fff;font-weight:800}
+.modernModuleDate{font-size:11px;color:#d6e5ee;white-space:nowrap}
+body.modernMode .modernModuleTop+.view:not(.active){display:none!important}
+body.execMode .modernModuleTop,body.txMode .modernModuleTop,body.accountMode .modernModuleTop,body.strategyMode .modernModuleTop{display:none!important}
+@media(max-width:1180px){.modernModuleNav button{padding:0 9px;font-size:11px}.modernModuleTop .txExecBrand{width:160px;flex-basis:160px}.modernModuleDate{display:none}}
+@media(max-width:900px){body.modernMode .modernModuleTop{overflow-x:auto;gap:12px}.modernModuleNav{min-width:max-content}.modernModuleTop .txExecBrand{position:sticky;left:0;background:#021827;z-index:2}}
