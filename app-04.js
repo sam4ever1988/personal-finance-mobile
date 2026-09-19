@@ -232,6 +232,7 @@ function openBulkUpdateSelected(){
   subcategory:'',
   accountId:'',
   physicalCardEnding:'',
+  type:'',
   month:'',
   description:''
  };
@@ -249,6 +250,7 @@ function openBulkUpdateSelected(){
  const physical=$('bulkUpdatePhysicalCard');
  physical.innerHTML='<option value="">— Keep Existing —</option>'+allPhysicalCardOptions().map(o=>`<option value="${o.ending}">${escapeHtml(o.label)}</option>`).join('');
 
+ if($('bulkUpdateType'))$('bulkUpdateType').value='';
  $('bulkUpdateMonth').value='';
  $('bulkUpdateDescription').value='';
  openModal('txBulkUpdateModal');
@@ -278,6 +280,7 @@ function captureBulkUpdateDraft(){
   subcategory:$('bulkUpdateSubcategory')?.value||'',
   accountId:$('bulkUpdateAccount')?.value||'',
   physicalCardEnding:$('bulkUpdatePhysicalCard')?.value||'',
+  type:$('bulkUpdateType')?.value||'',
   month:$('bulkUpdateMonth')?.value||'',
   description:$('bulkUpdateDescription')?.value||''
  };
@@ -289,6 +292,7 @@ function restoreBulkUpdateDraft(){
  const cat=$('bulkUpdateCategory');
  const sub=$('bulkUpdateSubcategory');
  const acct=$('bulkUpdateAccount');
+ const type=$('bulkUpdateType');
  const month=$('bulkUpdateMonth');
  const desc=$('bulkUpdateDescription');
 
@@ -303,6 +307,7 @@ function restoreBulkUpdateDraft(){
  if(acct && [...acct.options].some(o=>o.value===bulkUpdateDraftState.accountId)){acct.value=bulkUpdateDraftState.accountId;}
  const physical=$('bulkUpdatePhysicalCard');
  if(physical && [...physical.options].some(o=>o.value===bulkUpdateDraftState.physicalCardEnding)){physical.value=bulkUpdateDraftState.physicalCardEnding;}
+ if(type)type.value=bulkUpdateDraftState.type||'';
  if(month)month.value=bulkUpdateDraftState.month||'';
  if(desc)desc.value=bulkUpdateDraftState.description||'';
 }
@@ -324,10 +329,11 @@ function applyBulkUpdateSelected(){
  const subcategory=bulkUpdateDraftState?.subcategory||'';
  const accountId=bulkUpdateDraftState?.accountId||'';
  const physicalCardEnding=bulkUpdateDraftState?.physicalCardEnding||'';
+ const type=bulkUpdateDraftState?.type||'';
  const month=bulkUpdateDraftState?.month||'';
  const description=(bulkUpdateDraftState?.description||'').trim();
 
- if(!category && !subcategory && !accountId && !physicalCardEnding && !month && !description){
+ if(!category && !subcategory && !accountId && !physicalCardEnding && !type && !month && !description){
   alert('Choose at least one field to update.');
   return;
  }
@@ -349,6 +355,12 @@ function applyBulkUpdateSelected(){
    txOverrides[id].account=accountId;
   }else{affectedAccounts.add(current.account);}
   if(physicalCardEnding)txOverrides[id].physicalCardEnding=physicalCardEnding;
+  if(type){
+   txOverrides[id].kind=type==='spend'?'expense':type;
+   const abs=Math.abs(Number(current.amount||0));
+   if(type==='income')txOverrides[id].amount=abs;
+   else if(['spend','fee','obligation','transfer'].includes(type))txOverrides[id].amount=-abs;
+  }
   if(month){
    txOverrides[id].statementMonth=month;
    txOverrides[id].paymentMonth=month;
@@ -787,7 +799,7 @@ let eligiblePurchasesOnly=false;
 
 function v237Money(v){return money(Number(v||0));}
 function transactionWorkMetrics(){
- const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||''});
+ const rows=transactionFilters(normalizedTx(),{search:$('txSearch')?.value||'',account:$('txAccount')?.value||'',category:$('txCategory')?.value||'',type:$('txType')?.value||'',from:$('txFrom')?.value||'',to:$('txTo')?.value||''});
  const physical=$('txPhysicalCard')?.value||'',sm=$('txStatementMonth')?.value||'';
  const filtered=rows.filter(t=>(!physical||txMatchesPhysicalCardFilter(t,physical))&&(!sm||t.statementMonth===sm));
  const income=filtered.filter(t=>txType(t)==='income').reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0);
@@ -891,7 +903,7 @@ function renderTransactions(){
  if(__bulkDraftWasActive)captureBulkUpdateDraft();
  fillStatementMonthFilter(); fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);
  renderTransactionWorkKpis();
- const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value};
+ const source={search:$('txSearch').value,account:$('txAccount').value,category:$('txCategory').value,type:$('txType').value,from:$('txFrom')?.value||'',to:$('txTo')?.value||''};
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
  const physical=$('txPhysicalCard')?.value||''; if(physical)rows=rows.filter(t=>txMatchesPhysicalCardFilter(t,physical));
  const sm=$('txStatementMonth').value;if(sm)rows=rows.filter(t=>t.statementMonth===sm);
@@ -905,8 +917,8 @@ function renderTransactions(){
 fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
 $('applyStatementRule').addEventListener('click',applyStatementRuleToTransactions);
-['txSearch','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id).addEventListener(id==='txSearch'?'input':'change',renderTransactions));
-$('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';$('txAccount').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
+['txSearch','txFrom','txTo','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id)?.addEventListener(id==='txSearch'?'input':'change',renderTransactions));
+$('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
 $('txSelectAllVisible').onclick=()=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));enforceTxSelectionScrollLock();};
@@ -946,61 +958,67 @@ function groupSpend(rows,keyfn){const m={};rows.filter(isSpend).forEach(t=>{cons
 function renderReports(){
  fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
  const rows=reportRows(),s=summaryData(rows);
- $('reportKpis').innerHTML=[kpiHTML('Total Spending',money(s.spend),'Filtered period','red'),kpiHTML('Total Income',money(s.income),'Filtered period','green'),kpiHTML('Net Flow',signed(s.net),'Income less spending',s.net>=0?'green':'red'),kpiHTML('Transactions',String(rows.length),'Filtered rows','blue')].join('');
- const dm=$('donutMode').value;
- const group=dm==='account'?groupSpend(rows,t=>accountName(t.account)):dm==='subcategory'?groupSpend(rows,t=>t.subcategory||'Uncategorized'):groupSpend(rows,t=>t.category);
- const total=group.reduce((s,x)=>s+x[1],0);
+ $('reportKpis').innerHTML=[
+  '<div class="reportMetric debt"><span>Spending</span><b>'+money(s.spend)+'</b><small>Filtered period</small></div>',
+  '<div class="reportMetric good"><span>Income</span><b>'+money(s.income)+'</b><small>Filtered period</small></div>',
+  '<div class="reportMetric '+(s.net>=0?'good':'debt')+'"><span>Net Flow</span><b>'+signed(s.net)+'</b><small>Income less spending</small></div>',
+  '<div class="reportMetric"><span>Transactions</span><b>'+rows.length+'</b><small>Matching records</small></div>'
+ ].join('');
+
+ const cats=groupSpend(rows,t=>t.category||'Unclassified');
+ const subs=groupSpend(rows,t=>t.subcategory||'Uncategorized');
+ const total=cats.reduce((z,x)=>z+x[1],0);
  let cursor=0,stops=[];
- group.forEach((g,i)=>{const pct=total?g[1]/total*100:0;stops.push(`${colors[i%colors.length]} ${cursor}% ${cursor+pct}%`);cursor+=pct});
- $('donut').style.background=group.length?`conic-gradient(${stops.join(',')})`:'#eef1f4';
- $('donutCenter').innerHTML=`<div><span class="meta">Total</span><br><b>${money(total)}</b></div>`;
- $('donutLegend').innerHTML=group.map((g,i)=>`<div class="legendRow"><span class="legendDot" style="background:${colors[i%colors.length]}"></span><span>${g[0]}</span><b>${money(g[1])}</b><span>${total?(g[1]/total*100).toFixed(1):0}%</span></div>`).join('');
- const cats=groupSpend(rows,t=>t.category).slice(0,12);
- const subs=groupSpend(rows,t=>t.subcategory||'Uncategorized').slice(0,15);
- const bg=$('barGroup').value;
- const bars=(bg==='subcategory'?subs:cats).slice(0,12),max=Math.max(...bars.map(x=>x[1]),1);
- $('barTitle').textContent=bg==='subcategory'?'Spending by Subcategory':'Spending by Category';
- $('barChart').innerHTML=bars.map((g,i)=>{const value=$('barMode').value==='percentage'?(s.spend?g[1]/s.spend*100:0):g[1];const h=$('barMode').value==='percentage'?(value/Math.max(...bars.map(x=>s.spend?x[1]/s.spend*100:0),1)*100):(g[1]/max*100);const label=$('barMode').value==='percentage'?value.toFixed(1)+'%':(g[1]>=1000?(g[1]/1000).toFixed(1)+'K':MONEY.format(g[1]));return `<div class="barCol"><div class="bar reportClickableBar" data-drill-type="${bg}" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}" style="height:${h}%;background:${colors[i%colors.length]}"><span class="barVal">${label}</span><span class="barLab">${g[0]}</span></div></div>`}).join('');
- $('topCategoriesBody').innerHTML=cats.slice(0,7).map(g=>`<tr class="reportClickable ${reportDrill.type==='category'&&reportDrill.value===g[0]?'active':''}" data-drill-type="category" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><td><b>${g[0]}</b></td><td>${money(g[1])}</td><td>${s.spend?(g[1]/s.spend*100).toFixed(1):0}%</td></tr>`).join('');
- const subParent={}; rows.filter(isSpend).forEach(t=>{const k=t.subcategory||'Uncategorized';if(!subParent[k])subParent[k]=t.category});
- $('topSubcategoriesBody').innerHTML=subs.slice(0,10).map(g=>`<tr class="reportClickable ${reportDrill.type==='subcategory'&&reportDrill.value===g[0]?'active':''}" data-drill-type="subcategory" data-drill-value="${String(g[0]).replace(/"/g,'&quot;')}"><td><b>${g[0]}</b></td><td>${subParent[g[0]]||'—'}</td><td>${money(g[1])}</td><td>${s.spend?(g[1]/s.spend*100).toFixed(1):0}%</td></tr>`).join('');
- const drillRows=rows.filter(isSpend).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+ cats.slice(0,8).forEach((g,i)=>{const pct=total?g[1]/total*100:0;stops.push(colors[i%colors.length]+' '+cursor+'% '+(cursor+pct)+'%');cursor+=pct});
+ $('donut').style.background=cats.length?'conic-gradient('+stops.join(',')+')':'#153e52';
+ $('donutCenter').innerHTML='<span>Total Spend</span><b>'+money(total)+'</b>';
+ $('donutLegend').innerHTML=cats.slice(0,7).map((g,i)=>'<button type="button" class="reportLegendRow '+(reportDrill.type==='category'&&reportDrill.value===g[0]?'active':'')+'" data-drill-type="category" data-drill-value="'+escapeHtml(g[0])+'"><i style="background:'+colors[i%colors.length]+'"></i><span>'+escapeHtml(g[0])+'</span><b>'+(total?(g[1]/total*100).toFixed(1):0)+'%</b></button>').join('')||'<div class="reportEmpty">No spending in the selected filters.</div>';
+
+ const top=cats.slice(0,8),max=Math.max(1,...top.map(x=>x[1]));
+ $('barTitle').textContent='Top Spending Categories';
+ $('barChart').innerHTML=top.map((g,i)=>'<button type="button" class="reportHBar '+(reportDrill.type==='category'&&reportDrill.value===g[0]?'active':'')+'" data-drill-type="category" data-drill-value="'+escapeHtml(g[0])+'"><span class="reportHBarLabel">'+escapeHtml(g[0])+'</span><span class="reportHBarTrack"><i style="width:'+(g[1]/max*100)+'%;background:'+colors[i%colors.length]+'"></i></span><b>'+money(g[1])+'</b><em>'+(s.spend?(g[1]/s.spend*100).toFixed(1):0)+'%</em></button>').join('')||'<div class="reportEmpty">No category spending available.</div>';
+
+ const monthMap=new Map();
+ rows.filter(isSpend).forEach(t=>{const m=String(t.date||'').slice(0,7);if(/^\d{4}-\d{2}$/.test(m))monthMap.set(m,(monthMap.get(m)||0)+Math.abs(Number(t.amount||0)))});
+ const monthSeries=[...monthMap.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+ const trend=$('reportTrendChart');
+ if(trend){
+  if(!monthSeries.length)trend.innerHTML='<div class="reportEmpty">No monthly spending available.</div>';
+  else{
+   const W=760,H=250,pad=36,mx=Math.max(1,...monthSeries.map(x=>x[1]));
+   const pts=monthSeries.map((x,i)=>{const px=pad+(monthSeries.length===1?(W-pad*2)/2:i*(W-pad*2)/Math.max(1,monthSeries.length-1));const py=H-pad-(x[1]/mx)*(H-pad*2);return {x:px,y:py,label:new Date(x[0]+'-01T12:00:00').toLocaleDateString('en',{month:'short',year:'2-digit'}),value:x[1]}}); 
+   const poly=pts.map(p=>p.x+','+p.y).join(' ');
+   trend.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Monthly spending trend"><defs><linearGradient id="reportArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#35c8e8" stop-opacity=".32"/><stop offset="100%" stop-color="#35c8e8" stop-opacity=".02"/></linearGradient></defs><path d="M '+pts[0].x+' '+(H-pad)+' L '+poly.replaceAll(',',' ')+' L '+pts[pts.length-1].x+' '+(H-pad)+' Z" fill="url(#reportArea)"/><polyline points="'+poly+'" fill="none" stroke="#35c8e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'+pts.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="5" fill="#0f9f87" stroke="#dffaff" stroke-width="2"/><text x="'+p.x+'" y="'+(H-10)+'" text-anchor="middle">'+p.label+'</text><text x="'+p.x+'" y="'+Math.max(18,p.y-12)+'" text-anchor="middle" class="value">'+(p.value>=1000?(p.value/1000).toFixed(1)+'K':Math.round(p.value))+'</text>').join('')+'</svg>';
+  }
+ }
+
+ const spendRows=rows.filter(isSpend),largest=spendRows.slice().sort((a,b)=>Math.abs(b.amount)-Math.abs(a.amount))[0];
+ const monthCount=Math.max(1,monthSeries.length),avg=s.spend/monthCount,topCat=cats[0],topSub=subs[0];
+ $('reportInsights').innerHTML=[
+  '<div class="reportInsight"><span>Highest Category</span><b>'+(topCat?escapeHtml(topCat[0]):'—')+'</b><small>'+(topCat?money(topCat[1])+' • '+(s.spend?(topCat[1]/s.spend*100).toFixed(1):0)+'% of spend':'No spending')+'</small></div>',
+  '<div class="reportInsight"><span>Largest Transaction</span><b>'+(largest?money(Math.abs(largest.amount)):'—')+'</b><small>'+(largest?escapeHtml(largest.description||'Transaction'):'No spending transaction')+'</small></div>',
+  '<div class="reportInsight"><span>Average Monthly Spending</span><b>'+money(avg)+'</b><small>'+monthCount+' month'+(monthCount===1?'':'s')+' in current result</small></div>',
+  '<div class="reportInsight"><span>Top Subcategory</span><b>'+(topSub?escapeHtml(topSub[0]):'—')+'</b><small>'+(topSub?money(topSub[1]):'No spending')+'</small></div>'
+ ].join('');
+
+ const subParent={},subCount={};
+ spendRows.forEach(t=>{const k=t.subcategory||'Uncategorized';if(!subParent[k])subParent[k]=t.category||'Unclassified';subCount[k]=(subCount[k]||0)+1});
+ const recentMonths=monthSeries.map(x=>x[0]).slice(-2);
+ const subTrend={};
+ if(recentMonths.length===2){
+  const [prev,curr]=recentMonths;
+  subs.forEach(([name])=>{let a=0,b=0;spendRows.filter(t=>(t.subcategory||'Uncategorized')===name).forEach(t=>{const m=String(t.date||'').slice(0,7),v=Math.abs(Number(t.amount||0));if(m===prev)a+=v;if(m===curr)b+=v});subTrend[name]=a?((b-a)/a*100):(b?100:0)});
+ }
+ $('topSubcategoriesBody').innerHTML=subs.slice(0,12).map(g=>{const tr=subTrend[g[0]],trendText=recentMonths.length<2?'—':((tr>0?'▲ ':tr<0?'▼ ':'• ')+Math.abs(tr).toFixed(0)+'%');return '<tr class="reportClickable '+(reportDrill.type==='subcategory'&&reportDrill.value===g[0]?'active':'')+'" data-drill-type="subcategory" data-drill-value="'+escapeHtml(g[0])+'"><td><b>'+escapeHtml(g[0])+'</b></td><td>'+escapeHtml(subParent[g[0]]||'—')+'</td><td>'+Number(subCount[g[0]]||0).toLocaleString()+'</td><td>'+money(g[1])+'</td><td>'+(s.spend?(g[1]/s.spend*100).toFixed(1):0)+'%</td><td class="'+(tr>0?'red':tr<0?'green':'')+'">'+trendText+'</td></tr>'}).join('')||'<tr><td colspan="6">No subcategory spending available.</td></tr>';
+ $('topCategoriesBody').innerHTML=cats.slice(0,7).map(g=>'<tr data-drill-type="category" data-drill-value="'+escapeHtml(g[0])+'"><td>'+escapeHtml(g[0])+'</td><td>'+money(g[1])+'</td><td>'+(s.spend?(g[1]/s.spend*100).toFixed(1):0)+'%</td></tr>').join('');
+
+ const drillRows=spendRows.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
  $('reportTxBody').innerHTML=drillRows.map(txRow6).join('')||'<tr><td colspan="8">No spending transactions for this selection.</td></tr>';
  const sel=$('reportSelection'),clr=$('clearReportSelection');
- if(reportDrill.type){
-   sel.innerHTML=`<span class="selectionChip">${reportDrill.type==='category'?'Category':'Subcategory'}: ${reportDrill.value}</span><span class="meta">${drillRows.length} transaction${drillRows.length===1?'':'s'} • ${money(drillRows.reduce((sum,t)=>sum+Math.abs(t.amount),0))}</span>`;
-   clr.style.display='';
- }else{
-   sel.innerHTML=`<span class="meta">Showing all transactions for the current report filters.</span>`;
-   clr.style.display='none';
- }
- bindTxRows();
- bindReportDrill();
- $('reportAccountsBody').innerHTML=accounts.map(a=>{if(a.type==='card'){const m=cardMetrics(a);return `<tr><td><b>${a.bank} • ${a.name} •${a.ending}</b><br><span class="badge card">Credit Card</span></td><td class="red">${money(m.total)}</td><td>${money(m.limit)}</td><td class="amber">${money(m.inst)}</td><td class="green">${money(m.available)}</td><td>${m.util.toFixed(1)}%</td></tr>`}return `<tr><td><b>${a.bank} • ${a.name}</b><br><span class="badge bank">Bank Account</span></td><td class="green">${money(a.balance)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`}).join('');
-}
-['reportFrom','reportTo','reportAccount','reportType','reportSubcategory'].forEach(id=>$(id).addEventListener('change',()=>{reportDrill={type:'',value:''};renderReports()}));
-['donutMode','barMode','barGroup'].forEach(id=>$(id).addEventListener('change',renderReports));
-$('reportCategory').addEventListener('change',()=>{reportDrill={type:'',value:''};fillReportSubcategories();renderReports()});
-$('reportReset').addEventListener('click',()=>{reportDrill={type:'',value:''};$('reportFrom').value='2026-07-31';$('reportTo').value='2026-08-28';$('reportAccount').value='';$('reportPhysicalCard').value='';$('reportCategory').value='';$('reportSubcategory').value='';$('reportType').value='';fillReportSubcategories();renderReports()});
-if($('clearReportSelection'))$('clearReportSelection').addEventListener('click',()=>{reportDrill={type:'',value:''};renderReports()});
-
-
-function renderAfterInstallmentMutation(cardId=''){
- // V263: update only the page the user can currently see.
- // Hidden pages calculate from the same live state when the user navigates to them.
- const page=activeViewId();
- if(page==='installments')renderInstallments();
- else if(page==='executive')renderExecutiveDashboard();
- else if(page==='strategy')renderFinancialStrategy();
- else if(page==='financialposition')renderFinancialPosition();
- else if(page==='incomeplan')renderIncomePlan();
- else if(page==='accounts')renderAccounts();
- else if(page==='reports')renderReports();
- else if(page==='transactions')renderTransactions();
- else if(page==='accountDetail'&&currentAccountDetailId)openAccount(currentAccountDetailId,accountDetailReturnPage||'accounts');
- // Payment planner can be an active legacy/detail view.
- else if(page==='dashboard')renderPaymentPlanner();
- requestAnimationFrame(()=>captureReviewState());
+ if(reportDrill.type){sel.innerHTML='<span class="selectionChip">'+(reportDrill.type==='category'?'Category':'Subcategory')+': '+escapeHtml(reportDrill.value)+'</span><span class="meta">'+drillRows.length+' transaction'+(drillRows.length===1?'':'s')+' • '+money(drillRows.reduce((sum,t)=>sum+Math.abs(t.amount),0))+'</span>';clr.style.display='';}
+ else{sel.innerHTML='<span class="meta">Showing all transactions for the current report filters.</span>';clr.style.display='none';}
+ bindTxRows();bindReportDrill();
+ $('reportAccountsBody').innerHTML=accounts.map(a=>{if(a.type==='card'){const m=cardMetrics(a);return '<tr><td><b>'+escapeHtml(a.bank+' • '+a.name+' •'+a.ending)+'</b><br><span class="badge card">Credit Card</span></td><td class="red">'+money(m.total)+'</td><td>'+money(m.limit)+'</td><td class="amber">'+money(m.inst)+'</td><td class="green">'+money(m.available)+'</td><td>'+m.util.toFixed(1)+'%</td></tr>'}return '<tr><td><b>'+escapeHtml(a.bank+' • '+a.name)+'</b><br><span class="badge bank">Bank Account</span></td><td class="green">'+money(adjustedBankBalance(a))+'</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>'}).join('');
 }
 
 function deleteInstallmentPlan(id){

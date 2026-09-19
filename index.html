@@ -110,7 +110,7 @@
   <div class="txExecHero"><div><h2>Transactions</h2><p>Review and control your complete cash movement, spending, transfers and items that still need classification.</p></div><div class="txExecHeroActions"><select class="txDarkControl" id="txTopMonth"><option>September 2026</option></select><button class="txDarkBtn" data-page-jump="importstatements">⇩　Import Statement</button><button class="txAddBtn" id="txHeroAdd">＋ Add Transaction</button></div></div>
   <div class="txExecKpis" id="txWorkKpis"></div>
   <div class="txInsightGrid"><div class="txDarkPanel"><div class="txPanelHead"><b>Spending by Category</b><button data-page-jump="reports">View Details ›</button></div><div class="txSpendFlex"><canvas id="txSpendChart" width="300" height="220"></canvas><div id="txSpendLegend" class="txSpendLegend"></div></div></div><div class="txDarkPanel"><div class="txPanelHead"><b>Cash Flow Trend</b><button data-page-jump="reports">View All ›</button></div><canvas id="txFlowChart" width="720" height="220"></canvas></div><div class="txDarkPanel"><div class="txPanelHead"><b>Needs Attention</b><button data-page-jump="reports">View All ›</button></div><div id="txAttention"></div></div></div>
-  <div class="txFilterPanel"><div class="txFilters"><input class="txDarkControl txSearchDark" id="txSearch" placeholder="Search transaction, account, category..."><select class="txDarkControl" id="txAccount"></select><select class="txDarkControl" id="txPhysicalCard"><option value="">All Physical Cards</option></select><select class="txDarkControl" id="txCategory"></select><select class="txDarkControl" id="txType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select><select class="txDarkControl" id="txStatementMonth"><option value="">All Statement Months</option></select><button class="txDarkBtn" id="txReset">More Filters</button></div>
+  <div class="txFilterPanel"><div class="txFilters txFiltersCore"><label class="txDateField"><span>From Date</span><input type="date" class="txDarkControl" id="txFrom"></label><label class="txDateField"><span>To Date</span><input type="date" class="txDarkControl" id="txTo"></label><input class="txDarkControl txSearchDark" id="txSearch" placeholder="Search transaction, account, category..."><select class="txDarkControl" id="txAccount"></select><select class="txDarkControl" id="txPhysicalCard"><option value="">All Physical Cards</option></select><select class="txDarkControl" id="txCategory"></select><select class="txDarkControl" id="txType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select><select class="txDarkControl" id="txStatementMonth"><option value="">All Statement Months</option></select><button class="txDarkBtn txResetBtn" id="txReset">Reset</button></div>
    <div class="txRule"><span>⚙　<b>Statement Assignment Rule</b></span><span>Cutoff day: <b id="txCutoffText">24</b>　(Transactions from day 25 onward will belong to next month)</span><div class="txRuleEdit"><input type="number" id="statementCutoffDay" min="1" max="31" value="24"><button id="applyStatementRule">Apply</button></div></div></div>
   <div id="eligibleOnlyBanner" class="notice" style="display:none;margin:10px 0"><div class="splitHead"><div><b>Installment Review Filter Active</b><div class="meta">Showing eligible credit-card purchases only.</div></div><button class="btn" id="clearEligibleOnly">Show All Transactions</button></div></div>
   <div class="txTablePanel"><div class="txTableHead"><b>Transactions (<span id="txTableCount">0</span>)</b><div id="txBulkBar"><button class="txDarkBtn" type="button" id="txSelectAllVisible">☐ Select All</button><button class="txDarkBtn txHiddenClear" type="button" id="txClearSelection">Clear</button><button class="txDarkBtn" type="button" id="txUpdateSelected" disabled>Update Selected</button><button class="txDeleteBtn" type="button" id="txDeleteSelected" disabled>Delete Selected</button><span id="txSelectedCount">0 selected</span></div></div><div class="txTableScroll"><table class="txTable txExecTable"><thead><tr><th><input type="checkbox" id="txMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="txBody"></tbody></table></div><div class="txTableFoot"><span id="txShowingText">Showing transactions</span><span>Use filters above to narrow the register</span></div></div>
@@ -141,45 +141,33 @@
 </section>
 
 <section class="view" id="reports">
- <div class="kpis" id="reportKpis"></div>
- <div class="filters" style="margin-top:14px">
-   <input type="date" class="control small" id="reportFrom">
-   <input type="date" class="control small" id="reportTo">
-   <select class="control small" id="reportAccount"></select>
-   <select class="control small" id="reportPhysicalCard"><option value="">All Physical Cards</option></select>
-   <select class="control small" id="reportCategory"></select>
-   <select class="control small" id="reportSubcategory"><option value="">All Subcategories</option></select>
-   <select class="control small" id="reportType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select>
-   <button class="btn" id="reportReset">Reset</button>
+ <div class="reportHero"><div><div class="reportEyebrow">FINANCIAL ANALYTICS</div><h1>Reports</h1><p>Understand where your money goes, how spending changes over time, and which categories drive the result.</p></div></div>
+ <div class="reportFilters">
+   <label><span>From Date</span><input type="date" class="control" id="reportFrom"></label>
+   <label><span>To Date</span><input type="date" class="control" id="reportTo"></label>
+   <label><span>Account</span><select class="control" id="reportAccount"></select></label>
+   <label><span>Card</span><select class="control" id="reportPhysicalCard"><option value="">All Physical Cards</option></select></label>
+   <label><span>Category</span><select class="control" id="reportCategory"></select></label>
+   <label><span>Subcategory</span><select class="control" id="reportSubcategory"><option value="">All Subcategories</option></select></label>
+   <label><span>Type</span><select class="control" id="reportType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select></label>
+   <button class="btn reportResetBtn" id="reportReset">Reset</button>
  </div>
- <div class="reportGrid">
-   <div class="panel chartBox">
-     <div class="splitHead"><div class="panelTitle">Spending Overview • 3D</div><select class="control small" id="donutMode"><option value="category">By Category</option><option value="subcategory">By Subcategory</option><option value="account">By Account / Card</option></select></div>
-     <div class="donutWrap"><div style="position:relative"><div class="donut" id="donut"></div><div class="donutCenter" id="donutCenter"></div></div><div class="legend" id="donutLegend"></div></div>
-   </div>
-   <div class="panel chartBox">
-     <div class="splitHead"><div class="panelTitle" id="barTitle">Spending by Category • 3D</div><div style="display:flex;gap:8px"><select class="control small" id="barGroup"><option value="category">Category</option><option value="subcategory">Subcategory</option></select><select class="control small" id="barMode"><option value="amount">Amount</option><option value="percentage">Percentage</option></select></div></div>
-     <div class="barChart" id="barChart"></div>
-   </div>
+ <div class="reportKpisExecutive" id="reportKpis"></div>
+ <div class="reportAnalyticsGrid">
+   <div class="reportPanel reportTrendPanel"><div class="reportPanelHead"><div><h2>Monthly Spending Trend</h2><p>Spending movement across the selected period</p></div></div><div class="reportTrendChart" id="reportTrendChart"></div></div>
+   <div class="reportPanel reportMixPanel"><div class="reportPanelHead"><div><h2>Spending Mix</h2><p>Share of spending by category</p></div></div><div class="reportDonutLayout"><div class="reportDonut" id="donut"><div class="reportDonutCenter" id="donutCenter"></div></div><div class="reportLegend" id="donutLegend"></div></div><select id="donutMode" style="display:none"><option value="category" selected>By Category</option></select></div>
  </div>
- <div class="grid2" style="margin-top:14px">
-   <div class="panel"><div class="panelTitle">Top Spending Categories</div><table class="summaryTable"><thead><tr><th>Category</th><th>Amount</th><th>% of Spend</th></tr></thead><tbody id="topCategoriesBody"></tbody></table></div>
-   <div class="panel"><div class="panelTitle">Top Spending Subcategories</div><table class="summaryTable"><thead><tr><th>Subcategory</th><th>Category</th><th>Amount</th><th>% of Spend</th></tr></thead><tbody id="topSubcategoriesBody"></tbody></table></div>
+ <div class="reportAnalyticsGrid reportAnalyticsSecond">
+   <div class="reportPanel"><div class="reportPanelHead"><div><h2 id="barTitle">Top Spending Categories</h2><p>Click a category to filter the report</p></div></div><div class="reportHorizontalBars" id="barChart"></div><select id="barGroup" style="display:none"><option value="category" selected>Category</option></select><select id="barMode" style="display:none"><option value="amount" selected>Amount</option></select></div>
+   <div class="reportPanel"><div class="reportPanelHead"><div><h2>Key Insights</h2><p>Highlights from the current filters</p></div></div><div class="reportInsights" id="reportInsights"></div></div>
  </div>
- <div class="sectionTitle">Review & Correct Categorization</div>
- <div class="panel">
-  <div class="splitHead">
-   <div>
-    <div class="panelTitle" style="margin-bottom:4px">Filtered Spending Transactions</div>
-    <div class="meta">Click a Category/Subcategory in the charts or tables above to show only those transactions here. Click a transaction to correct its Category/Subcategory and optionally remember the merchant rule.</div>
-    <div class="reportSelection" id="reportSelection"></div>
-   </div>
-   <button class="btn" id="clearReportSelection" style="display:none">Clear Selection</button>
-  </div>
-  <table class="txTable" style="margin-top:10px"><thead><tr><th style="width:42px">Select</th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="reportTxBody"></tbody></table></div>
- <div class="panel" style="margin-top:14px"><div class="panelTitle">Accounts & Cards Summary</div><table class="summaryTable"><thead><tr><th>Account / Card</th><th>Balance / Due</th><th>Limit</th><th>Installments</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="reportAccountsBody"></tbody></table></div>
+ <div class="reportPanel reportTablePanel"><div class="reportPanelHead"><div><h2>Top Spending Subcategories</h2><p>Detailed breakdown of the categories behind your spending</p></div></div><div class="reportTableScroll"><table class="summaryTable reportSubTable"><thead><tr><th>Subcategory</th><th>Category</th><th>Transactions</th><th>Amount</th><th>% Spend</th><th>Trend</th></tr></thead><tbody id="topSubcategoriesBody"></tbody></table></div><table style="display:none"><tbody id="topCategoriesBody"></tbody></table></div>
+ <div class="reportPanel reportReviewPanel">
+  <div class="splitHead"><div><h2>Review & Correct Categorization</h2><p class="meta">Chart selections filter this transaction register. Select a transaction to correct its category or subcategory.</p><div class="reportSelection" id="reportSelection"></div></div><button class="btn" id="clearReportSelection" style="display:none">Clear Selection</button></div>
+  <div class="reportTableScroll"><table class="txTable"><thead><tr><th style="width:42px">Select</th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="reportTxBody"></tbody></table></div>
+ </div>
+ <div class="reportPanel"><div class="reportPanelHead"><div><h2>Accounts & Cards Summary</h2><p>Current balance, available credit and utilization</p></div></div><div class="reportTableScroll"><table class="summaryTable"><thead><tr><th>Account / Card</th><th>Balance / Due</th><th>Limit</th><th>Installments</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="reportAccountsBody"></tbody></table></div></div>
 </section>
-
 
 <section class="view" id="incomeplan">
  <div class="splitHead">
@@ -676,6 +664,7 @@
   <div class="field"><label>Subcategory</label><select id="bulkUpdateSubcategory"><option value="">— Keep Existing —</option></select></div>
   <div class="field"><label>Account</label><select id="bulkUpdateAccount"><option value="">— Keep Existing —</option></select></div>
   <div class="field"><label>Physical Card</label><select id="bulkUpdatePhysicalCard"><option value="">— Keep Existing —</option></select><div class="hint">Primary or supplementary card, e.g. Supplementary •9345.</div></div>
+  <div class="field"><label>Transaction Type</label><select id="bulkUpdateType"><option value="">— Keep Existing —</option><option value="spend">Spending</option><option value="transfer">Transfer / Card Payment</option><option value="income">Income</option><option value="fee">Fee</option><option value="obligation">Obligation</option></select></div>
   <div class="field"><label>Statement / Payment Month</label><input type="month" id="bulkUpdateMonth"><div class="hint">Leave blank to keep each transaction's existing month.</div></div>
   <div class="field full"><label>Description / Title</label><input id="bulkUpdateDescription" placeholder="Leave blank to keep each transaction's current description"></div>
   <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">

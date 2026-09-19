@@ -1527,3 +1527,98 @@ body.cloudMode #cloudSync textarea{
 @media(max-width:760px){
  body.cloudMode #cloudSync.cloudModern{padding:18px 14px 34px!important}
 }
+
+
+/* Reports + Transactions readability upgrade — development branch */
+html body{--pf-base:17px;--pf-secondary:15px;--pf-control:15.5px;--pf-table:15px}
+html body .pageSub,html body .meta,html body .hint{font-size:15px!important}
+html body .panelTitle{font-size:19px!important}
+html body .sectionTitle{font-size:23px!important}
+html body .btn,html body button,html body input,html body select,html body textarea{font-size:15.5px!important}
+html body table,html body.txMode #transactions table{font-size:15px!important}
+html body table th,html body.txMode #transactions th{font-size:13.5px!important}
+html body.txMode .txExecHero h2{font-size:31px!important}
+html body.txMode .txExecHero p{font-size:15px!important;line-height:1.55!important}
+html body.txMode .workMetric span{font-size:14px!important}
+html body.txMode .workMetric b{font-size:24px!important}
+html body.txMode .workMetric small{font-size:13px!important}
+html body.txMode .txPanelHead b{font-size:16px!important}
+html body.txMode .txSpendLegend,html body.txMode .txAttentionRow{font-size:14px!important}
+html body.execMode .execHero h2{font-size:31px!important}
+html body.execMode .execHero .meta{font-size:15px!important}
+html body.execMode .execTitle{font-size:17px!important}
+html body.execMode .execPanel,html body.execMode .execPanelSub{font-size:14px!important}
+html body.execMode .execKpis b{font-size:25px!important}
+html body.execMode .execKpis span,html body.execMode .execKpis small{font-size:13.5px!important}
+
+.txFiltersCore{display:grid!important;grid-template-columns:repeat(2,minmax(150px,.8fr)) minmax(260px,1.5fr) repeat(5,minmax(145px,1fr)) auto!important;gap:10px!important;align-items:end!important}
+.txDateField{display:flex;flex-direction:column;gap:5px;color:#a9c2d2;font-size:12.5px;font-weight:800}
+.txDateField .txDarkControl{width:100%!important}
+.txResetBtn{min-height:44px!important}
+#txBulkBar{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important}
+#txSelectedCount{font-size:14px!important;font-weight:800!important;color:#bcd4e3!important}
+#transactions [data-select-tx],#txMasterCheck{width:19px!important;height:19px!important;min-width:19px!important;cursor:pointer!important;position:relative!important;z-index:3!important}
+@media(max-width:1450px){.txFiltersCore{grid-template-columns:repeat(4,minmax(150px,1fr))!important}.txSearchDark{grid-column:span 2}}
+@media(max-width:820px){.txFiltersCore{grid-template-columns:1fr 1fr!important}.txSearchDark{grid-column:1/-1}}
+@media(max-width:560px){.txFiltersCore{grid-template-columns:1fr!important}.txSearchDark{grid-column:auto}}
+
+body.modernMode #reports{max-width:none!important;padding:26px 30px 48px!important;background:linear-gradient(145deg,#001d2b,#003047 55%,#001b29)!important;color:#edf8ff!important;min-height:calc(100vh - 72px)}
+.reportHero{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.reportEyebrow{font-size:12px;letter-spacing:.13em;color:#48d7f2;font-weight:900}
+.reportHero h1{font-size:34px;line-height:1.1;margin:5px 0 7px;color:#fff}
+.reportHero p{margin:0;color:#9fb9ca;font-size:15px}
+.reportFilters{display:grid;grid-template-columns:repeat(7,minmax(135px,1fr)) auto;gap:9px;align-items:end;margin-bottom:14px;padding:14px;border:1px solid #155c76;background:#052d40;border-radius:12px}
+.reportFilters label{display:flex;flex-direction:column;gap:5px;color:#9fb9ca;font-size:12px;font-weight:800}
+.reportFilters .control{width:100%;min-height:43px;background:#06283a!important;color:#edf8ff!important;border:1px solid #17627e!important}
+.reportResetBtn{min-height:43px;background:#0b3b51!important;color:#fff!important;border-color:#17627e!important}
+.reportKpisExecutive{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:12px}
+.reportMetric{border:1px solid #17627e;background:linear-gradient(145deg,#07374c,#062f43);border-radius:12px;padding:16px 17px;min-height:108px}
+.reportMetric span,.reportMetric small{display:block;color:#9fb9ca;font-size:13px}.reportMetric b{display:block;color:#fff;font-size:27px;margin:4px 0;line-height:1.15}.reportMetric.good b{color:#28dda8}.reportMetric.debt b{color:#ff6978}
+.reportAnalyticsGrid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(320px,.85fr);gap:12px;margin-bottom:12px}
+.reportAnalyticsSecond{grid-template-columns:minmax(0,1.45fr) minmax(340px,.75fr)}
+.reportPanel{border:1px solid #17627e;background:linear-gradient(145deg,#06364b,#062e42);border-radius:13px;padding:17px;box-shadow:0 16px 36px rgba(0,0,0,.1);overflow:hidden}
+.reportPanelHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:13px}.reportPanelHead h2{margin:0;color:#fff;font-size:19px}.reportPanelHead p{margin:4px 0 0;color:#8eafc1;font-size:13px}
+.reportTrendChart{min-height:270px;display:flex;align-items:center}.reportTrendChart svg{width:100%;height:270px;overflow:visible}.reportTrendChart text{fill:#9db8c8;font-size:12px}.reportTrendChart text.value{fill:#eaf8ff;font-weight:800;font-size:12px}
+.reportDonutLayout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px;align-items:center;min-height:270px}
+.reportDonut{width:180px;height:180px;border-radius:50%;position:relative;margin:auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.reportDonut:after{content:"";position:absolute;inset:34px;border-radius:50%;background:#062f43;box-shadow:0 0 0 1px #155c76}
+.reportDonutCenter{position:absolute;inset:42px;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}.reportDonutCenter span{font-size:11px;color:#8eafc1}.reportDonutCenter b{font-size:15px;color:#fff;margin-top:3px}
+.reportLegend{display:flex;flex-direction:column;gap:5px}.reportLegendRow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:center;width:100%;border:1px solid transparent;background:transparent;color:#dcecf5;border-radius:8px;padding:7px 8px;text-align:left}.reportLegendRow:hover,.reportLegendRow.active{background:#0a4259;border-color:#1a718d}.reportLegendRow i{width:9px;height:9px;border-radius:50%}.reportLegendRow span{font-size:13px}.reportLegendRow b{font-size:13px;color:#fff}
+.reportHorizontalBars{display:flex;flex-direction:column;gap:8px}.reportHBar{display:grid;grid-template-columns:minmax(150px,1fr) minmax(180px,2.4fr) 110px 54px;gap:10px;align-items:center;width:100%;border:1px solid transparent;background:transparent;color:#eaf6fc;padding:7px 8px;border-radius:8px;text-align:left}.reportHBar:hover,.reportHBar.active{background:#0a4259;border-color:#1a718d}.reportHBarLabel{font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reportHBarTrack{height:12px;background:#0b2635;border-radius:999px;overflow:hidden}.reportHBarTrack i{display:block;height:100%;border-radius:999px}.reportHBar b{text-align:right}.reportHBar em{font-style:normal;color:#9eb9c9;text-align:right}
+.reportInsights{display:grid;grid-template-columns:1fr 1fr;gap:9px}.reportInsight{border:1px solid #155a73;background:#073247;border-radius:10px;padding:13px;min-height:100px}.reportInsight span,.reportInsight small{display:block;color:#91afc0;font-size:12.5px}.reportInsight b{display:block;color:#fff;font-size:18px;margin:5px 0;overflow-wrap:anywhere}
+.reportTablePanel,.reportReviewPanel{margin-bottom:12px}.reportTableScroll{overflow:auto}.reportSubTable{min-width:850px}.reportSubTable th{background:#0d526e!important;color:#dcecf6!important}.reportSubTable td{color:#eaf4fa!important;border-color:#124b63!important}.reportClickable{cursor:pointer}.reportClickable:hover td,.reportClickable.active td{background:#0a4259!important}
+.reportSelection{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:8px}.selectionChip{border:1px solid #16826f;background:#084b47;color:#7ff1c9;border-radius:999px;padding:6px 10px;font-size:13px;font-weight:800}
+.reportEmpty{width:100%;padding:28px 16px;text-align:center;color:#8eafc1}
+#reports .txTable,#reports .summaryTable{font-size:15px!important}#reports .txTable th,#reports .summaryTable th{font-size:13.5px!important}
+@media(max-width:1250px){.reportFilters{grid-template-columns:repeat(4,minmax(140px,1fr))}.reportAnalyticsGrid,.reportAnalyticsSecond{grid-template-columns:1fr}.reportDonutLayout{grid-template-columns:220px 1fr}}
+@media(max-width:760px){body.modernMode #reports{padding:18px 14px 38px!important}.reportFilters,.reportKpisExecutive{grid-template-columns:1fr 1fr}.reportDonutLayout{grid-template-columns:1fr}.reportInsights{grid-template-columns:1fr}.reportHBar{grid-template-columns:1fr}.reportHBarTrack{min-width:100%}}
+
+
+/* Executive Overview legibility pass — requested from 2026-09-19 screenshot */
+body.execMode .execTitle{font-size:20px!important;line-height:1.25!important}
+body.execMode .execPanel .meta,body.execMode .execPanel small{font-size:13px!important;line-height:1.35!important}
+body.execMode .execRow{font-size:14px!important;min-height:48px!important;padding:9px 0!important}
+body.execMode .execRow small{font-size:13px!important;color:#c0d3df!important}
+body.execMode .execCreditName{font-size:14px!important;font-weight:800!important}
+body.execMode .execCreditPct{font-size:16px!important}
+body.execMode .execFlow small{font-size:12.5px!important}
+body.execMode .execFlow b{font-size:19px!important}
+body.execMode .execFlowMonth{font-size:15px!important}
+body.execMode .execFlowPct{font-size:11px!important}
+body.execMode .execFlowLegend{font-size:11.5px!important;height:60px!important}
+body.execMode .execFlowLegend b{font-size:11.5px!important}
+body.execMode .execEmpty{font-size:14px!important;line-height:1.45!important}
+body.execMode .execChartBox canvas{font-size:13px!important}
+body.execMode .execBig{font-size:27px!important}
+body.execMode .execDueBadge{font-size:12px!important;padding:4px 8px!important}
+body.execMode .execAssetsList,body.execMode .execLiabList{font-size:13px!important}
+body.execMode .execPosCard small{font-size:13px!important}
+body.execMode .execPosCard b{font-size:18px!important}
+body.execMode .execPanel a,body.execMode .execPanel button{font-size:14px!important}
+body.execMode .execPanel .green,body.execMode .execPanel .red,body.execMode .execPanel .amber{font-size:14px!important}
+body.execMode .execPanel:has(#execCashFlow) .execTitle{font-size:20px!important}
+body.execMode .execPanel:has(#execCashFlow){min-height:300px!important}
+body.execMode .execPanel:has(#execUpcoming){min-height:300px!important}
+body.execMode .execPanel:has(#execCreditAvailable){min-height:350px!important}
+body.execMode .execPanel:has(#execGold){min-height:260px!important}
+body.execMode .execPanel:has(#execCreditUtil){min-height:235px!important}
