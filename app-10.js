@@ -22,7 +22,7 @@ window.renderRental=function(){
  for(var p=0;p<first;p++)html+='<div class="rentalDay empty"></div>';
  for(var d=1;d<=days;d++){var dt=new Date(y,m,d),iso=rIso(dt),booking=rentalBookings.find(b=>iso>=b.checkin&&iso<b.checkout),block=rentalBlocks.find(b=>b.date===iso),cls=booking?"booked":block?.status||"available",label=booking?(booking.ref||"Booked"):(block?.status==="maintenance"?"Maintenance":block?.status==="blocked"?"Blocked":"Available");
   html+='<button class="rentalDay '+cls+'" data-date="'+iso+'"><span class="rentalDayNo">'+d+'</span><span class="rentalDayState">'+label+'</span>'+(booking?'<small>'+rMoney(Number(booking.dailyRate??(Number(booking.total||0)/rNights(booking.checkin,booking.checkout))))+'</small>':'')+'</button>'}
- cal.innerHTML=html;cal.querySelectorAll(".rentalDay:not(.empty)").forEach(b=>b.onclick=()=>rentalOpenBooking(b.dataset.date));
+ cal.innerHTML=html;cal.querySelectorAll(".rentalDay:not(.empty)").forEach(b=>b.onclick=()=>rentalOpenDay(b.dataset.date));
  document.getElementById("rentalMonthFinance").innerHTML='<div class="rentalFinanceRow"><span>Gross booking revenue</span><b>'+rMoney(md.revenue)+'</b></div><div class="rentalFinanceRow"><span>Operating expenses</span><b class="red">− '+rMoney(md.expenses)+'</b></div><div class="rentalFinanceRow total"><span>Net rental income</span><b class="'+(md.net>=0?"green":"red")+'">'+rMoney(md.net)+'</b></div><div class="rentalOcc"><div><span>Occupancy</span><b>'+md.occupancy.toFixed(0)+'%</b></div><div class="rentalOccBar"><i style="width:'+Math.min(100,md.occupancy)+'%"></i></div></div>';
  var now=rIso(new Date()),up=rentalBookings.filter(b=>b.checkout>=now).sort((a,b)=>a.checkin.localeCompare(b.checkin)).slice(0,5);
  document.getElementById("rentalUpcoming").innerHTML=up.length?up.map(b=>'<div class="rentalUpcoming"><div><b>'+b.checkin+' → '+b.checkout+'</b><span>'+(b.ref||"Booking")+' • '+rNights(b.checkin,b.checkout)+' nights</span></div><b>'+rMoney(b.total)+'</b></div>').join(""):'<div class="meta rentalEmpty">No upcoming bookings yet.</div>';
@@ -31,6 +31,15 @@ window.renderRental=function(){
  document.querySelectorAll(".rentalDeleteBooking").forEach(b=>b.onclick=()=>{if(confirm("Delete this booking?")){var sorted=rentalBookings.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)),target=sorted[Number(b.dataset.i)];rentalBookings=rentalBookings.filter(x=>x!==target);rentalSave();renderRental()}});
  var exp=rentalExpenses.filter(e=>rDate(e.date).getFullYear()===y&&rDate(e.date).getMonth()===m).sort((a,b)=>b.date.localeCompare(a.date));
  document.getElementById("rentalExpenses").innerHTML=exp.length?exp.map(e=>'<div class="rentalExpenseLine"><div><b>'+e.category+'</b><span>'+e.date+(e.note?" • "+e.note:"")+'</span></div><b>− '+rMoney(e.amount)+'</b></div>').join(""):'<div class="meta rentalEmpty">No expenses recorded for this month.</div>';
+}
+window.rentalOpenDay=function(date){
+ var booking=rentalBookings.find(b=>date>=b.checkin&&date<b.checkout);
+ if(booking){rentalOpenBooking(date);return}
+ var block=rentalBlocks.find(b=>b.date===date);
+ rentalModal("Manage "+date,'<div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Create Booking</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+(block?.note||'')+'" placeholder="Optional reason"></div>',fd=>{
+  var status=fd.get("status"),note=fd.get("note");rentalBlocks=rentalBlocks.filter(b=>b.date!==date);
+  if(status==="available"){setTimeout(()=>rentalOpenBooking(date),0)}else rentalBlocks.push({date,status,note})
+ });
 }
 function rentalModal(title,fields,onSave){
  var old=document.getElementById("rentalModal");if(old)old.remove();var d=document.createElement("div");d.className="modalBack open";d.id="rentalModal";d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">'+title+'</div><button class="closeBtn" type="button">✕</button></div><form class="formGrid" id="rentalForm">'+fields+'<div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn rentalCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>';document.body.appendChild(d);d.querySelector(".closeBtn").onclick=d.querySelector(".rentalCancel").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();onSave(new FormData(e.target));d.remove();rentalSave();renderRental()}
