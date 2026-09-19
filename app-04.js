@@ -950,6 +950,24 @@ $('reportReset').addEventListener('click',()=>{reportDrill={type:'',value:''};$(
 if($('clearReportSelection'))$('clearReportSelection').addEventListener('click',()=>{reportDrill={type:'',value:''};renderReports()});
 
 
+function renderAfterInstallmentMutation(cardId=''){
+ // V263: update only the page the user can currently see.
+ // Hidden pages calculate from the same live state when the user navigates to them.
+ const page=activeViewId();
+ if(page==='installments')renderInstallments();
+ else if(page==='executive')renderExecutiveDashboard();
+ else if(page==='strategy')renderFinancialStrategy();
+ else if(page==='financialposition')renderFinancialPosition();
+ else if(page==='incomeplan')renderIncomePlan();
+ else if(page==='accounts')renderAccounts();
+ else if(page==='reports')renderReports();
+ else if(page==='transactions')renderTransactions();
+ else if(page==='accountDetail'&&currentAccountDetailId)openAccount(currentAccountDetailId,accountDetailReturnPage||'accounts');
+ // Payment planner can be an active legacy/detail view.
+ else if(page==='dashboard')renderPaymentPlanner();
+ requestAnimationFrame(()=>captureReviewState());
+}
+
 function deleteInstallmentPlan(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
  const c=planCalc(p),a=account(p.cardId);
@@ -965,13 +983,8 @@ function deleteInstallmentPlan(id){
  installments=installments.filter(x=>x.id!==id);
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
- renderInstallments();
- renderAccounts();
- renderDashboard();
- renderPaymentPlanner();
- renderIncomePlan();
- renderReports();
- if(document.querySelector('.view#accountDetail.active')&&a)openAccount(a.id,accountDetailReturnPage);
+ // Reflect the deduction immediately in the visible page; cloud persistence continues in background.
+ renderAfterInstallmentMutation(a?.id||p.cardId||'');
 }
 
 
@@ -996,15 +1009,9 @@ function deleteCompletedInstallmentRecord(id){
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
 
- // Full record push creates a Supabase tombstone so another device cannot restore it.
+ // Full record push remains asynchronous; the visible deduction does not wait for cloud I/O.
  scheduleRecordPush('delete-completed-installment');
-
- renderInstallments();
- renderAccounts();
- renderDashboard();
- renderPaymentPlanner();
- renderIncomePlan();
- renderReports();
+ renderAfterInstallmentMutation(a?.id||p.cardId||'');
 }
 
 function confirmInstallmentCompleted(id){
@@ -1015,8 +1022,7 @@ function confirmInstallmentCompleted(id){
  p.completedAt=new Date().toISOString().slice(0,10);
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
- renderInstallments();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();renderReports();
- if(document.querySelector('#incomeplan.active'))renderIncomePlan();
+ renderAfterInstallmentMutation(p.cardId||'');
 }
 function keepInstallmentActive(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
@@ -1027,7 +1033,7 @@ function keepInstallmentActive(id){
  p.completedConfirmed=false;
  localStorage.setItem('pf_installments',JSON.stringify(installments));
  saveLocal();
- renderInstallments();renderAccounts();renderDashboard();renderPaymentPlanner();renderIncomePlan();renderReports();
+ renderAfterInstallmentMutation(p.cardId||'');
 }
 
 function migrateSabAwayFromLegacySeed(){
