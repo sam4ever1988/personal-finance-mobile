@@ -1903,3 +1903,21 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
  .canonicalTopNav{display:flex!important;min-width:0!important}
  .canonicalTopNav button{display:flex!important}
 }
+
+/* V283 FINAL top-only shell geometry — overrides retired sidebar-era constraints */
+@media(min-width:901px){
+ html,body{overflow-x:hidden!important}
+ body>.app{padding-top:62px!important;width:100%!important;max-width:none!important}
+ body>.app>.main{margin-left:0!important;width:100%!important;max-width:none!important;min-width:0!important}
+ body>.app>.main>.content{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;box-sizing:border-box!important}
+ body>.app>.main>.content>.view{width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}
+ body>.app>.main>.content>.view.active{width:100%!important;max-width:none!important;margin:0!important}
+ #rental,#reports,#investments,#assets,#installments,#outgoings,#importstatements,#financeSettings,#more{width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important;padding-left:16px!important;padding-right:16px!important}
+ body.modernMode #reports{width:100%!important;max-width:none!important;margin:0!important;padding-left:16px!important;padding-right:16px!important}
+ .rentalLayout,.rentalBottom,.rentalKpis,.reportFilters,.reportKpisExecutive,.reportAnalyticsGrid,.reportAnalyticsSecond{width:100%!important;max-width:none!important}
+ #canonicalAppTop{width:100%!important;max-width:none!important}
+ .canonicalBrand{width:190px!important;min-width:190px!important}
+ .canonicalTopNav button{font-size:11px!important;padding:0 5px!important;gap:5px!important}
+ .canonicalTopNav .navSvg{width:17px!important;height:17px!important;min-width:17px!important}
+ .canonicalDate{font-size:10px!important;padding:0 8px!important}
+}
