@@ -434,3 +434,30 @@ function updateV91CloudStatus(){
 }
 setInterval(updateV91CloudStatus,1200);
 setTimeout(updateV91CloudStatus,300);
+
+// V266: gold controls use one delegated action route.
+document.addEventListener('click',async e=>{
+ const btn=e.target.closest?.('#addGoldAsset,#manualGoldPrice,#refreshGoldPrice');
+ if(!btn)return;
+ e.preventDefault();
+ e.stopPropagation();
+ if(btn.id==='addGoldAsset'){ addGoldAsset(); return; }
+ if(btn.id==='manualGoldPrice'){ manualGoldMarketPrice(); return; }
+ if(btn.id==='refreshGoldPrice'){
+  if(btn.dataset.goldRefreshing==='1')return;
+  btn.dataset.goldRefreshing='1';
+  const old=btn.textContent;
+  btn.disabled=true;
+  btn.textContent='Refreshing…';
+  try{ await refreshGoldMarketPrice(); }
+  catch(err){
+   console.error('Gold price refresh failed',err);
+   const meta=$('goldPriceMeta');
+   if(meta)meta.textContent='Live price unavailable • '+(err?.message||'Refresh failed')+' • use Manual Price';
+  }finally{
+   btn.disabled=false;
+   btn.textContent=old;
+   delete btn.dataset.goldRefreshing;
+  }
+ }
+},true);
