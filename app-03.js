@@ -249,6 +249,20 @@ function elapsedMonths(fromMonth,toMonth=currentYearMonth()){
  const a=monthIndex(fromMonth),b=monthIndex(toMonth);return a===null||b===null?0:Math.max(0,b-a);
 }
 function installmentReferenceMonth(p){return p.referenceMonth||'2026-08';}
+function installmentPaidThroughReleasedStatement(p){
+ if(!p||p.completedConfirmed)return 0;
+ const ref=installmentReferenceMonth(p);
+ const start=monthIndex(ref);
+ if(start===null)return 0;
+ let paidThrough=0;
+ for(let i=0;i<Math.max(0,Number(p.months||0));i++){
+  const idx=start+i, y=Math.floor(idx/12), m=(idx%12)+1;
+  const ym=`${y}-${String(m).padStart(2,'0')}`;
+  if(cardCycleHasStatement(p.cardId,ym) && cardCycleFullyPaid(p.cardId,ym)) paidThrough=i+1;
+  else break;
+ }
+ return paidThrough;
+}
 function planCalc(p){
  if(p.scheduleMode==='remaining-principal-review'){
   return {schedule:[],paid:Number(p.paidInstallments||0),scheduledPaid:Number(p.paidInstallments||0),basePaid:Number(p.paidInstallments||0),autoElapsed:0,remaining:0,scheduledRemaining:0,monthly:0,remainingCount:0,scheduledRemainingCount:0,status:p.completedConfirmed?'Completed':'Review',completionCandidate:true};
@@ -267,7 +281,8 @@ function planCalc(p){
  const schedule=planMonthly(p);
  const basePaid=Math.min(Math.max(Number(p.paidInstallments||0),0),p.months);
  const autoElapsed=elapsedMonths(installmentReferenceMonth(p));
- const scheduledPaid=Math.min(p.months,basePaid+autoElapsed);
+ const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
+ const scheduledPaid=Math.min(p.months,Math.max(basePaid,basePaid+autoElapsed,releasedStatementPaid));
  const scheduledRemainingCount=Math.max(p.months-scheduledPaid,0);
  let scheduledRemaining=schedule.slice(scheduledPaid).reduce((sum,v)=>sum+v,0);
  if(p.manualRemaining!==undefined&&p.manualRemaining!==null&&autoElapsed===0)scheduledRemaining=Number(p.manualRemaining);
@@ -279,7 +294,7 @@ function planCalc(p){
  let monthly=status==='Active'?(schedule[Math.min(scheduledPaid,p.months-1)]||0):0;
  if(status==='Review'){calcPaid=Math.max(0,p.months-1);remainingCount=1;remaining=schedule[p.months-1]||0;monthly=remaining;}
  if(status==='Completed'){calcPaid=p.months;remainingCount=0;remaining=0;monthly=0;}
- return {schedule,paid:calcPaid,scheduledPaid,basePaid,autoElapsed,remaining,scheduledRemaining,monthly,remainingCount,scheduledRemainingCount,status,completionCandidate};
+ return {schedule,paid:calcPaid,scheduledPaid,basePaid,autoElapsed,releasedStatementPaid,remaining,scheduledRemaining,monthly,remainingCount,scheduledRemainingCount,status,completionCandidate};
 }
 function reconcileRemainingPrincipalPlans(){
  const nowMonth=currentYearMonth();
