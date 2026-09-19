@@ -19,6 +19,9 @@ function applyRecordSyncRows(rows){
   statementRule=singleton('statement_rule',statementRule);
   transactionActions=singleton('transaction_actions',transactionActions);
   bankBalanceOverrides=singleton('bank_balance_overrides',bankBalanceOverrides);
+  customBanks=singleton('custom_banks',Array.isArray(customBanks)?customBanks:[]);if(!Array.isArray(customBanks))customBanks=[];
+  customCreditCards=singleton('custom_credit_cards',Array.isArray(customCreditCards)?customCreditCards:[]);if(!Array.isArray(customCreditCards))customCreditCards=[];
+  if(typeof syncCustomAccountsIntoAccounts==='function')syncCustomAccountsIntoAccounts();
 
   const resetIds=singleton('reset_card_ids',[...resetCardIds]);
   resetCardIds=new Set(Array.isArray(resetIds)?resetIds:[]);
@@ -684,6 +687,8 @@ function persistRecoveredState(){
  localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
  localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+ localStorage.setItem('pf_custom_banks',JSON.stringify(Array.isArray(customBanks)?customBanks:[]));
+ localStorage.setItem('pf_custom_credit_cards',JSON.stringify(Array.isArray(customCreditCards)?customCreditCards:[]));
 }
 
 function applyRecoverySnapshot(snap){
@@ -705,6 +710,9 @@ function applyRecoverySnapshot(snap){
  statementRule=(snap.statementRule&&typeof snap.statementRule==='object')?JSON.parse(JSON.stringify(snap.statementRule)):{cutoffDay:24};
  transactionActions=(snap.transactionActions&&typeof snap.transactionActions==='object')?JSON.parse(JSON.stringify(snap.transactionActions)):{};
  bankBalanceOverrides=(snap.bankBalanceOverrides&&typeof snap.bankBalanceOverrides==='object')?JSON.parse(JSON.stringify(snap.bankBalanceOverrides)):{};
+ customBanks=Array.isArray(snap.customBanks)?JSON.parse(JSON.stringify(snap.customBanks)):[];
+ customCreditCards=Array.isArray(snap.customCreditCards)?JSON.parse(JSON.stringify(snap.customCreditCards)):[];
+ if(typeof syncCustomAccountsIntoAccounts==='function')syncCustomAccountsIntoAccounts();
  resetCardIds=new Set(Array.isArray(snap.resetCardIds)?snap.resetCardIds:[]);
  cardResetHistory=Array.isArray(snap.cardResetHistory)?JSON.parse(JSON.stringify(snap.cardResetHistory)):[];
  cardPaymentPlan=Array.isArray(snap.cardPaymentPlan)?JSON.parse(JSON.stringify(snap.cardPaymentPlan)):[];
@@ -1656,4 +1664,3 @@ function tableSortKey(table,index){
  }
  return table.dataset.sortKey;
 }
-
