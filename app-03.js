@@ -911,7 +911,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('strategyMode',page==='strategy');
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
- document.body.classList.toggle('modernMode',['dashboard','financialposition','reports','installments','importstatements','assets','financeSettings','accountDetail'].includes(page));
+ document.body.classList.toggle('modernMode',['dashboard','financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
