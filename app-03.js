@@ -30,7 +30,7 @@ function canonicalTopHTML(){
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
- +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
+ +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
@@ -48,6 +48,9 @@ function ensureCanonicalShell(){
   b.onclick=(e)=>{e.preventDefault();e.stopPropagation();var target=b.dataset.mainPage;if(target)nav(target)};
  });
  top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
+ var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
+ if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
+ top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='preferences')nav('financeSettings');else if(a==='account')nav('more');else if(a==='signout'){profile.classList.remove('open');alert('Sign out will connect to the login system when authentication is added.')}});
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
 }
 function syncCanonicalShell(page){
