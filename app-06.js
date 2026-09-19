@@ -944,7 +944,10 @@ function addExtraIncomeFromInput(){
 
 function financeSettingCards(){
  const labels={'ar-0955':{bank:'Al Rajhi Bank',name:'Visa Infinite',ending:'0955'},'ar-5867':{bank:'Al Rajhi Bank',name:'Visa Platinum',ending:'5867'},'sab-440880':{bank:'SAB',name:'Cashback Credit Card',ending:'440880'},'nbd-infinite-4411':{bank:'Emirates NBD',name:'Infinite Visa',ending:'4411'},'nbd-mazeed-8652':{bank:'Emirates NBD',name:'Mazeed Platinum Visa',ending:'8652'},'meem-7102':{bank:'meem / GIB Saudi',name:'Visa Platinum',ending:'7102'}};
- return Object.keys(DEFAULT_CARD_CYCLE_SETTINGS).map(id=>{const live=(Array.isArray(accounts)?accounts:[]).find(a=>a.id===id);return live||{id,type:'card',...(labels[id]||{bank:'Credit Card',name:id,ending:''})};});
+ const liveCards=(Array.isArray(accounts)?accounts:[]).filter(a=>a?.type==='card');
+ const byId=new Map(liveCards.map(a=>[a.id,a]));
+ Object.keys(DEFAULT_CARD_CYCLE_SETTINGS).forEach(id=>{if(!byId.has(id))byId.set(id,{id,type:'card',...(labels[id]||{bank:'Credit Card',name:id,ending:''})});});
+ return [...byId.values()];
 }
 function loanMonthIndex(ym){
  const m=String(ym||'').match(/^(\d{4})-(\d{2})$/);
@@ -1555,6 +1558,8 @@ function buildRecordSyncRowsFromState(){
  add('reset_card_ids',RECORD_SYNC_SINGLETON,[...resetCardIds]);
  add('card_reset_history',RECORD_SYNC_SINGLETON,cardResetHistory||[]);
  add('deleted_installment_ids',RECORD_SYNC_SINGLETON,[...deletedInstallmentIds]);
+ add('custom_banks',RECORD_SYNC_SINGLETON,Array.isArray(customBanks)?customBanks:[]);
+ add('custom_credit_cards',RECORD_SYNC_SINGLETON,Array.isArray(customCreditCards)?customCreditCards:[]);
 
  // Record sections.
  (manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
@@ -1585,6 +1590,8 @@ function recordRowsFromSnapshot(s){
  add('reset_card_ids',RECORD_SYNC_SINGLETON,Array.isArray(s.resetCardIds)?s.resetCardIds:[]);
  add('card_reset_history',RECORD_SYNC_SINGLETON,s.cardResetHistory||[]);
  add('deleted_installment_ids',RECORD_SYNC_SINGLETON,Array.isArray(s.deletedInstallmentIds)?s.deletedInstallmentIds:[]);
+ add('custom_banks',RECORD_SYNC_SINGLETON,Array.isArray(s.customBanks)?s.customBanks:[]);
+ add('custom_credit_cards',RECORD_SYNC_SINGLETON,Array.isArray(s.customCreditCards)?s.customCreditCards:[]);
 
  (s.manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
  (s.importedTransactions||[]).forEach((x,i)=>add('imported_transactions',syncStableId('imported_transactions',x,i),x));
@@ -1596,4 +1603,3 @@ function recordRowsFromSnapshot(s){
 
  return rows;
 }
-
