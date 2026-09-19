@@ -228,7 +228,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V281',
+  version:'V282',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -305,11 +305,7 @@ async function init(){
 
  // V275: critical controls are live BEFORE any IndexedDB/cloud wait.
  // A slow/blocked restore must never make Settings action buttons appear dead.
- const bindCriticalAccountActions=()=>{
-  if($('addCustomCreditCard'))$('addCustomCreditCard').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomCreditCard();};
-  if($('addCustomBank'))$('addCustomBank').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomBank();};
- };
- bindCriticalAccountActions();
+ bindCustomAccountButtons();
 
  // V275: paint Executive immediately from the already-loaded localStorage state.
  // Then IndexedDB may enrich/replace that state and we repaint. This removes the
