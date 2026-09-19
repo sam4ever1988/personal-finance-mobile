@@ -1220,3 +1220,11 @@ body.modernMode #incomeplan .amber{color:#ffc34d!important}
  body.modernMode #incomeplan .flowGrid{grid-template-columns:1fr!important}
  body.modernMode #incomeplan .flowBox:last-child{grid-column:auto}
 }
+/* V264 Financial Strategy usefulness */
+.strategyBudgetBreakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.strategyBudgetBreakdown>span,.scenarioFacts>span{display:flex;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid #155a73;border-radius:10px;background:rgba(7,43,61,.55);color:#a9c0cf;font-size:12px}
+.strategyBudgetBreakdown b,.scenarioFacts b{color:#f4f8fb}
+.scenarioFacts{display:grid;gap:7px;margin-top:12px}
+.strategyEmptyState{grid-column:1/-1;min-height:170px;border:1px solid #155a73;border-radius:14px;background:rgba(7,43,61,.45);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:24px;gap:10px}
+.strategyEmptyState>b{font-size:18px;color:#f4f8fb}.strategyEmptyState>span{color:#a9c0cf;max-width:760px;line-height:1.5}.strategyEmptyState>div{display:flex;gap:8px;margin-top:4px}
+@media(max-width:760px){.strategyBudgetBreakdown{grid-template-columns:1fr}}
