@@ -24,7 +24,7 @@ function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
  app.querySelectorAll('.sidebar,.unifiedSide').forEach(x=>x.remove());main.querySelectorAll('.topbar').forEach(x=>x.remove());
  var content=main.querySelector(':scope>.content');if(!content)return;content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
- if(document.getElementById('canonicalAppTop'))return;
+ if(document.getElementById('canonicalAppTop')){document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));return;}
  var top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';
  top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'+shellButton('executive','dashboard','Dashboard')+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More')+'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';app.insertBefore(top,main);
  /* top-navigation-only: no desktop sidebar is created */
