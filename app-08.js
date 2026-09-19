@@ -273,8 +273,16 @@ addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtit
 
 $('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
 async function init(){
- // V257: restore the local finance state FIRST. Authentication/network checks
- // must never block first paint or navigation.
+ // V261: show the Executive shell immediately while local finance state restores.
+ // This removes the blank/legacy first-run wait without changing financial data.
+ document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='executive'));
+ document.body.classList.add('execMode');
+ document.body.classList.remove('strategyMode','txMode','accountMode','modernMode');
+ if($('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+ const shellUpdated=$('execUpdated');if(shellUpdated)shellUpdated.textContent='Loading saved finance data…';
+ await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+
+ // Restore local finance state before calculating any financial values.
  let localSavedAt='';
  try{const localState=await financeDB.get('finance_state');localSavedAt=localState?.savedAt||'';}catch(_){}
  await financeDB.restore();
@@ -286,10 +294,8 @@ async function init(){
  // not await Supabase before becoming usable.
  const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
  let session=null;
- migrateSabAwayFromLegacySeed();
- normalizeSabInstallmentPlan();
  // Cloud startup is deferred until after the local UI is painted below.
- // This prevents a slow/offline Supabase session check from freezing navigation.
+ // Run each startup migration once only.
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
  reconcileRemainingPrincipalPlans();
