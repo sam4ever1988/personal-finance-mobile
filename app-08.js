@@ -343,7 +343,7 @@ async function init(){
    }catch(e){console.warn('Late IndexedDB repaint failed',e);}
   });
  }
- bindCriticalAccountActions();
+ bindCustomAccountButtons();
 
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
