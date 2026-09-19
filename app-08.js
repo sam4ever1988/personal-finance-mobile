@@ -346,9 +346,17 @@ async function init(){
  const pm=plannerDefaultMonth();$('paymentMonth').value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows($('paymentMonth').value);$('paymentMonth').addEventListener('change',renderPaymentPlanner);
 
 // V194 bindings
-$('addGoldAsset')?.addEventListener('click',addGoldAsset);
-$('refreshGoldPrice')?.addEventListener('click',refreshGoldMarketPrice);
-$('manualGoldPrice')?.addEventListener('click',manualGoldMarketPrice);
+// V265: assign gold controls directly after all legacy/modern function overrides are loaded.
+// onclick avoids duplicate listeners and guarantees the current unified-action implementation is called.
+if($('addGoldAsset'))$('addGoldAsset').onclick=e=>{e.preventDefault();addGoldAsset();};
+if($('refreshGoldPrice'))$('refreshGoldPrice').onclick=async e=>{
+ e.preventDefault();
+ const btn=e.currentTarget,old=btn.textContent;
+ btn.disabled=true;btn.textContent='Refreshing…';
+ try{await refreshGoldMarketPrice();}
+ finally{btn.disabled=false;btn.textContent=old;}
+};
+if($('manualGoldPrice'))$('manualGoldPrice').onclick=e=>{e.preventDefault();manualGoldMarketPrice();};
 $('addStatementFormat')?.addEventListener('click',addStatementFormat);
 $('exportStatementFormats')?.addEventListener('click',exportStatementFormats);
 $('statementFormatFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)importStatementFormatsFile(f);e.target.value='';});
