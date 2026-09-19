@@ -1527,3 +1527,90 @@ body.cloudMode #cloudSync textarea{
 @media(max-width:760px){
  body.cloudMode #cloudSync.cloudModern{padding:18px 14px 34px!important}
 }
+
+/* =========================================================
+   V284 — READABILITY + REPORTS + TRANSACTION RANGE CONTROLS
+   Deliberately appended last so older hard-coded page rules
+   cannot shrink the live UI again.
+   ========================================================= */
+html{font-size:17px}
+body{font-size:1rem;line-height:1.5}
+button,input,select,textarea{font:inherit}
+.pageTitle{font-size:1.75rem}.pageSub{font-size:.88rem}
+.btn,.control{font-size:.94rem;min-height:44px}
+.control.small{font-size:.9rem}
+.meta{font-size:.82rem;line-height:1.45}
+.panelTitle{font-size:1.08rem}
+.sectionTitle{font-size:1.28rem}
+.kpiLabel{font-size:.88rem}.kpiValue{font-size:1.65rem}.kpiSub{font-size:.82rem}
+.txTable,.summaryTable,.installTable{font-size:.9rem}
+.txTable th,.summaryTable th,.installTable th{font-size:.78rem}
+.txTable th,.txTable td,.summaryTable th,.summaryTable td,.installTable th,.installTable td{padding:13px 12px}
+
+/* Executive Overview: readable cards, legends and charts */
+body.execMode .execHero h1{font-size:2rem}
+body.execMode .execHero p,body.execMode .execPanelSub{font-size:.92rem}
+body.execMode .execTitle{font-size:1.08rem}
+body.execMode .execKpi small{font-size:.84rem}
+body.execMode .execKpi b{font-size:1.42rem}
+body.execMode .execKpi em{font-size:.78rem}
+body.execMode .execRow{font-size:.9rem}
+body.execMode .execRow small,body.execMode .execUtilPanel small{font-size:.8rem}
+body.execMode .execSideBtn,body.execMode .execTopNav button{font-size:.84rem}
+body.execMode .execChartBox{min-height:190px}
+body.execMode .donutBox{min-height:205px}
+
+/* Transactions: larger visuals + a real From/To date row */
+body.txMode .txExecHero h2{font-size:2rem}
+body.txMode .txExecHero p{font-size:.94rem}
+body.txMode .txExecSide button,body.txMode .txExecNav button{font-size:.84rem}
+body.txMode .workMetric span{font-size:.82rem}
+body.txMode .workMetric b{font-size:1.35rem}
+body.txMode .workMetric small{font-size:.78rem}
+body.txMode .txPanelHead{font-size:1rem}
+body.txMode .txSpendLegend{font-size:.84rem}
+body.txMode .txAttentionRow{font-size:.88rem}
+body.txMode .txDarkControl,body.txMode .txDarkBtn,body.txMode .txAddBtn,body.txMode .txDeleteBtn{font-size:.9rem;min-height:44px}
+body.txMode .txInsightGrid canvas{min-height:245px}
+body.txMode .txExecTable{font-size:.88rem}
+body.txMode .txExecTable th{font-size:.76rem}
+.txDateFilterRow{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.txDateFilterRow>div{display:flex;flex-direction:column;gap:5px;min-width:190px}
+.txDateFilterRow label{font-size:.78rem;font-weight:800;color:#9eb7c8;text-transform:uppercase;letter-spacing:.04em}
+.txDateFilterRow .txDarkControl{width:100%}
+
+/* Reports: remove the old 3D-column presentation and use readable analytics */
+#reports .filters{padding:14px;background:#07364a;border:1px solid #145873;border-radius:14px;gap:10px}
+#reports .filters .control,#reports .filters .btn{min-height:46px;font-size:.9rem}
+#reports .kpi{padding:20px}
+#reports .kpiLabel{font-size:.88rem}
+#reports .kpiValue{font-size:1.65rem}
+#reports .reportGrid{grid-template-columns:minmax(440px,.9fr) minmax(560px,1.1fr);gap:16px}
+#reports .chartBox{min-height:390px;padding:20px}
+#reports .donutWrap{grid-template-columns:280px 1fr;gap:24px}
+#reports .donut{width:250px;height:250px}
+#reports .donut:after{inset:62px}
+#reports .donutCenter b{font-size:1.1rem}
+#reports .legendRow{grid-template-columns:13px minmax(150px,1fr) auto auto;gap:10px;padding:7px 0;font-size:.86rem}
+#reports .barChart{height:auto;min-height:300px;display:flex;flex-direction:column;align-items:stretch;gap:11px;padding:12px 4px;border:0}
+#reports .reportBarRow{display:grid;grid-template-columns:minmax(155px,220px) minmax(180px,1fr) 78px;gap:12px;align-items:center;cursor:pointer;padding:5px 4px;border-radius:8px}
+#reports .reportBarRow:hover{background:rgba(255,255,255,.045)}
+#reports .reportBarLabel{font-size:.84rem;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reports .reportBarTrack{height:18px;background:#123e52;border-radius:999px;overflow:hidden}
+#reports .reportBarTrack i{display:block;height:100%;border-radius:999px;min-width:4px}
+#reports .reportBarValue{text-align:right;font-size:.84rem}
+#reports .grid2{gap:16px}
+#reports .summaryTable{font-size:.88rem}
+#reports .reportSelection{font-size:.88rem}
+#reports .selectionChip{font-size:.82rem}
+@media(max-width:1150px){
+ #reports .reportGrid{grid-template-columns:1fr}
+ #reports .donutWrap{grid-template-columns:240px 1fr}
+}
+@media(max-width:760px){
+ html{font-size:16px}
+ #reports .donutWrap{grid-template-columns:1fr}
+ #reports .reportBarRow{grid-template-columns:minmax(110px,150px) 1fr 64px}
+ .txDateFilterRow>div{min-width:100%;width:100%}
+ .txDateFilterRow .txDarkBtn{width:100%}
+}
