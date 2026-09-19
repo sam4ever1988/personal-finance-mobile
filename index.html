@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-<link rel="stylesheet" href="styles.css?v=283r5">
+<link rel="stylesheet" href="styles.css?v=283r6">
 </head>
 <body class="execMode">
 <div class="app">
@@ -713,7 +713,7 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283r5');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283r6');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
