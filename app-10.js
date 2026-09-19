@@ -38,7 +38,7 @@ window.rentalOpenDay=function(date){
  var block=rentalBlocks.find(b=>b.date===date);
  rentalModal("Manage "+date,'<div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Create Booking</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+(block?.note||'')+'" placeholder="Optional reason"></div>',fd=>{
   var status=fd.get("status"),note=fd.get("note");rentalBlocks=rentalBlocks.filter(b=>b.date!==date);
-  if(status==="available"){setTimeout(()=>rentalOpenBooking(date),0)}else rentalBlocks.push({date,status,note})
+  if(status==="available"){if(block){/* restore this date to available only */}else setTimeout(()=>rentalOpenBooking(date),0)}else rentalBlocks.push({date,status,note})
  });
 }
 function rentalModal(title,fields,onSave){
