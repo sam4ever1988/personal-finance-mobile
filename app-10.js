@@ -2,10 +2,10 @@
 var rentalBookings=JSON.parse(localStorage.getItem("pf_rental_bookings")||"[]");
 var rentalExpenses=JSON.parse(localStorage.getItem("pf_rental_expenses")||"[]");
 var rentalBlocks=JSON.parse(localStorage.getItem("pf_rental_blocks")||"[]");
-var rentalView=new Date();rentalView.setDate(1);
+window.rentalView=new Date();rentalView.setDate(1);
 function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks))}
 function rDate(s){return new Date(s+"T12:00:00")}
-function rIso(d){return d.toISOString().slice(0,10)}
+window.rIso=function(d){return d.toISOString().slice(0,10)}
 function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
 function rentalMonthData(){
@@ -14,7 +14,7 @@ function rentalMonthData(){
  var expenses=rentalExpenses.filter(e=>{var d=rDate(e.date);return d>=start&&d<end}).reduce((s,e)=>s+Number(e.amount||0),0);
  return{revenue,expenses,net:revenue-expenses,booked,days,occupancy:days?booked/days*100:0,adr:booked?revenue/booked:0}
 }
-function renderRental(){
+window.renderRental=function(){
  var cal=document.getElementById("rentalCalendar");if(!cal)return;var y=rentalView.getFullYear(),m=rentalView.getMonth(),md=rentalMonthData();
  document.getElementById("rentalMonthTitle").textContent=rentalView.toLocaleDateString("en-US",{month:"long",year:"numeric"});
  document.getElementById("rentalKpis").innerHTML=[["Monthly Revenue",rMoney(md.revenue),"income"],["Monthly Expenses",rMoney(md.expenses),"expense"],["Net Rental Income",rMoney(md.net),md.net>=0?"income":"expense"],["Occupancy",md.occupancy.toFixed(0)+"%","occupancy"],["Booked Nights",md.booked.toFixed(0)+" / "+md.days,"nights"],["Avg. Nightly Rate",rMoney(md.adr),"rate"]].map(x=>'<div class="rentalKpi '+x[2]+'"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
@@ -34,10 +34,10 @@ function renderRental(){
 function rentalModal(title,fields,onSave){
  var old=document.getElementById("rentalModal");if(old)old.remove();var d=document.createElement("div");d.className="modalBack open";d.id="rentalModal";d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">'+title+'</div><button class="closeBtn" type="button">✕</button></div><form class="formGrid" id="rentalForm">'+fields+'<div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn rentalCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>';document.body.appendChild(d);d.querySelector(".closeBtn").onclick=d.querySelector(".rentalCancel").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();onSave(new FormData(e.target));d.remove();rentalSave();renderRental()}
 }
-function rentalOpenBooking(date){
+window.rentalOpenBooking=function(date){
  rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rIso(new Date(rDate(date||rIso(new Date())).getTime()+86400000))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Total Rent (SAR)</label><input name="total" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),total:Number(fd.get("total")),paid:fd.get("paid")==="1",note:fd.get("note")})});
 }
-function rentalOpenExpense(){rentalModal("Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+rIso(new Date())+'"></div><div class="field"><label>Category</label><select name="category"><option>Cleaning</option><option>Laundry</option><option>Utilities</option><option>Internet</option><option>Maintenance</option><option>Supplies</option><option>Platform Fee</option><option>Furniture</option><option>Other</option></select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="field"><label>Note</label><input name="note"></div>',fd=>rentalExpenses.push({id:Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")}))}
+window.rentalOpenExpense=function(){rentalModal("Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+rIso(new Date())+'"></div><div class="field"><label>Category</label><select name="category"><option>Cleaning</option><option>Laundry</option><option>Utilities</option><option>Internet</option><option>Maintenance</option><option>Supplies</option><option>Platform Fee</option><option>Furniture</option><option>Other</option></select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="field"><label>Note</label><input name="note"></div>',fd=>rentalExpenses.push({id:Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")}))}
 /* Rental controls are bound by delegation because this file executes before
    the page loader has necessarily exposed every lazy-rendered control. */
 if(!window.__rentalDelegated){
