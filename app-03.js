@@ -931,7 +931,8 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails'].includes(page));
+ document.body.classList.toggle('cloudMode',page==='cloudSync');
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
@@ -1004,7 +1005,8 @@ function nav(page){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails'].includes(page));
+ document.body.classList.toggle('cloudMode',page==='cloudSync');
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
