@@ -1649,3 +1649,172 @@ body.modernMode .modernModuleTop{margin-left:-18px!important}
  body.modernMode>.app>.main{margin-left:0!important}
  body.modernMode>.app>.sidebar{display:none!important}
 }
+
+/* V283 Investments — same visual language as Personal Finance */
+.invHero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:8px 2px 16px}
+.invHero h1{margin:3px 0 6px;font-size:27px;letter-spacing:-.03em}.invEyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:#4baed8}.invActions{display:flex;gap:8px}
+.invStatus{padding:10px 13px;border:1px solid #d6e4ec;background:#f7fbfd;border-radius:9px;font-size:12px;color:#496272;margin-bottom:12px}
+.invKpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}.invKpi{background:#fff;border:1px solid #dce5ea;border-radius:10px;padding:13px 14px;box-shadow:0 2px 8px rgba(2,24,39,.04)}.invKpi span{display:block;color:#617481;font-size:11px;font-weight:700;margin-bottom:6px}.invKpi b{font-size:19px;letter-spacing:-.02em}
+.invGood{color:#087b54!important}.invBad{color:#c23c4a!important}.invNeutral{color:#09283b!important}
+.invToolbar{display:flex;gap:8px;align-items:center;padding:10px;margin-bottom:12px}.invToolbar input{flex:1;min-width:240px}.invToolbar input,.invToolbar select{height:36px;border:1px solid #ccdbe3;border-radius:7px;background:#fff;padding:0 10px;color:#17394d}
+.invTablePanel{padding:0;overflow:hidden}.invTable{width:100%;border-collapse:collapse}.invTable th{background:#f3f8fa;color:#607682;font-size:10px;text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:10px 9px;border-bottom:1px solid #dbe5ea}.invTable th:first-child,.invTable td:first-child{text-align:left}.invTable td{text-align:right;padding:10px 9px;border-bottom:1px solid #edf2f5;font-size:12px;vertical-align:middle}.invTicker{font-size:14px;font-weight:900;color:#09283b}.invMarket{display:inline-flex;padding:4px 7px;border-radius:12px;font-size:10px;font-weight:800}.invMarket.sa{background:#e7f7f1;color:#087b54}.invMarket.us{background:#e9f3fb;color:#17678d}.invEdit{width:76px;height:30px;border:1px solid #cad9e1;border-radius:6px;text-align:right;padding:0 6px;background:#fff}.invTable small{display:block;font-size:9px;color:#7b8f9a;margin-top:2px}.invRowActions{display:flex;justify-content:flex-end;gap:5px}.invRowActions .btn{padding:5px 8px;font-size:10px}
+.invGrid{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-top:12px}.invGrid .panel{padding:14px}.invAlloc{margin:10px 0}.invAlloc>div:first-child{display:flex;justify-content:space-between;font-size:11px}.invBar{height:6px;border-radius:6px;background:#e7eef2;margin-top:5px;overflow:hidden}.invBar i{display:block;height:100%;background:#1f83ad;border-radius:6px}.invTradeLine{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #e7eef2;font-size:11px}
+#invModal.show{display:flex!important}
+@media(max-width:1100px){.invKpis{grid-template-columns:repeat(3,1fr)}.invTablePanel{overflow-x:auto}.invTable{min-width:1050px}}
+@media(max-width:760px){.invHero{flex-direction:column}.invKpis{grid-template-columns:1fr 1fr}.invGrid{grid-template-columns:1fr}.invToolbar{flex-wrap:wrap}.invToolbar input{min-width:100%;width:100%}}
+
+/* Investments V283 visual correction — match Executive / Transactions / Personal Assets */
+body.investmentsMode{background:#001f2c!important;color:#f3f8fc}
+body.investmentsMode>.app>.main>.content{background:#001f2c!important}
+body.investmentsMode #investments{background:#001f2c!important;color:#f3f8fc;min-height:calc(100vh - 80px)}
+body.investmentsMode #investments .invHero h1{color:#f3f8fc;font-size:28px}
+body.investmentsMode #investments .meta{color:#9fb9ca}
+body.investmentsMode #investments .invEyebrow{color:#28caff}
+body.investmentsMode #investments .invStatus{background:#082f43;border:1px solid #12617d;color:#b9d0dd;box-shadow:none}
+body.investmentsMode #investments .invKpi{
+ background:linear-gradient(135deg,#08344d,#082238)!important;
+ border:1px solid #176381!important;border-radius:9px!important;color:#fff!important;
+ box-shadow:inset 0 0 22px rgba(0,0,0,.15)!important;min-height:92px;padding:15px 16px
+}
+body.investmentsMode #investments .invKpi:nth-child(1){border-color:#0fa87a!important;background:linear-gradient(120deg,#063d2d,#082b31)!important}
+body.investmentsMode #investments .invKpi:nth-child(2){border-color:#149cd4!important}
+body.investmentsMode #investments .invKpi:nth-child(3){border-color:#d34758!important;background:linear-gradient(120deg,#3a2029,#162738)!important}
+body.investmentsMode #investments .invKpi:nth-child(4){border-color:#7650d5!important;background:linear-gradient(120deg,#242052,#172647)!important}
+body.investmentsMode #investments .invKpi:nth-child(5){border-color:#b79218!important;background:linear-gradient(120deg,#3b3516,#172d38)!important}
+body.investmentsMode #investments .invKpi span{color:#b9ceda;font-size:12px}
+body.investmentsMode #investments .invKpi b{color:#fff!important;font-size:21px}
+body.investmentsMode #investments .invKpi .invGood{color:#24dca8!important}
+body.investmentsMode #investments .invKpi .invBad{color:#ff6474!important}
+body.investmentsMode #investments .panel{background:linear-gradient(145deg,#082d43,#061f32)!important;border:1px solid #155273!important;color:#f3f8fc!important;box-shadow:none!important}
+body.investmentsMode #investments .invToolbar input,
+body.investmentsMode #investments .invToolbar select,
+body.investmentsMode #investments .invEdit{background:#06283c!important;border:1px solid #1d607e!important;color:#eaf5ff!important}
+body.investmentsMode #investments .invTable th{background:#0d526e!important;color:#dcecf6!important;border-color:#176581!important}
+body.investmentsMode #investments .invTable td{background:#082f43!important;color:#eaf4fa!important;border-color:#124b63!important}
+body.investmentsMode #investments .invTicker{color:#fff}
+body.investmentsMode #investments .invTable small{color:#8faabc}
+body.investmentsMode #investments .invMarket.sa{background:#073f36;color:#38e0a4}
+body.investmentsMode #investments .invMarket.us{background:#073c63;color:#62c8ff}
+body.investmentsMode #investments .invGood{color:#38e0a4!important}
+body.investmentsMode #investments .invBad{color:#ff6f7d!important}
+body.investmentsMode #investments .invBar{background:#173a50}
+body.investmentsMode #investments .invBar i{background:#24d39b}
+body.investmentsMode #investments .invTradeLine{border-color:#17445d}
+body.investmentsMode #investments .panelTitle{color:#f3f8fc;font-size:17px;font-weight:900}
+body.investmentsMode #investments .btn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}
+body.investmentsMode #investments .btn.primary{background:#10a889;border-color:#10a889;color:#fff}
+
+/* V283 unified sidebar — Financial Strategy is the visual reference for all pages */
+body.modernMode>.app>.sidebar.unifiedSide{
+ background:#001f2c!important;border-right:1px solid #155273!important;color:#d9e8f2!important;
+ width:260px!important;padding:18px 12px!important
+}
+body.modernMode .unifiedSide .brand{color:#f3f8fc!important}
+body.modernMode .unifiedSide .unifiedSideTitle{color:#9bb4c7!important;font-size:12px!important;padding:10px 12px 7px!important}
+body.modernMode .unifiedSide .navBtn{
+ display:flex!important;align-items:center!important;gap:14px!important;width:100%!important;
+ border:0!important;background:transparent!important;color:#d9e8f2!important;text-align:left!important;
+ padding:12px!important;border-radius:9px!important;margin:2px 0!important;font-size:14px!important
+}
+body.modernMode .unifiedSide .navBtn .ic{width:28px!important;text-align:center!important;color:#d9e8f2!important}
+body.modernMode .unifiedSide .navBtn:hover{background:#06314d!important;color:#fff!important}
+body.modernMode .unifiedSide .navBtn.active{
+ background:#073c63!important;border-left:3px solid #28caff!important;color:#fff!important;font-weight:800!important
+}
+body.modernMode .unifiedSide .unifiedSep{height:1px!important;background:#17475e!important;margin:12px 8px!important}
+body.modernMode .unifiedSide .sideFoot{margin-top:auto!important;color:#8fa9bc!important}
+
+/* V283 sidebar geometry lock — match Financial Strategy reference exactly */
+body.modernMode>.app>.sidebar.unifiedSide{
+ width:205px!important;
+ padding:18px 10px!important;
+ overflow-y:auto!important;
+ overflow-x:hidden!important;
+ scrollbar-width:none!important;
+}
+body.modernMode>.app>.sidebar.unifiedSide::-webkit-scrollbar{display:none!important}
+body.modernMode>.app>.main{margin-left:205px!important}
+body.modernMode .unifiedSide .brand{display:none!important}
+body.modernMode .unifiedSide .unifiedSideTitle{
+ font-size:12px!important;
+ color:#9bb4c7!important;
+ padding:8px 12px!important;
+ margin:0!important;
+ line-height:1.25!important;
+}
+body.modernMode .unifiedSide .navBtn{
+ display:flex!important;
+ align-items:center!important;
+ gap:10px!important;
+ width:100%!important;
+ min-height:42px!important;
+ padding:10px 12px!important;
+ margin:2px 0!important;
+ border-radius:9px!important;
+ font-size:14px!important;
+ line-height:1.25!important;
+ font-weight:500!important;
+ white-space:normal!important;
+ word-break:normal!important;
+}
+body.modernMode .unifiedSide .navBtn .ic{
+ flex:0 0 28px!important;
+ width:28px!important;
+ font-size:15px!important;
+ line-height:1!important;
+}
+body.modernMode .unifiedSide .navBtn.active{
+ background:#073c63!important;
+ border-left:3px solid #28caff!important;
+ padding-left:9px!important;
+ font-weight:800!important;
+}
+body.modernMode .unifiedSide .unifiedSep{
+ margin:12px 8px!important;
+ background:#17475e!important;
+}
+body.modernMode .unifiedSide .sideFoot{display:none!important}
+@media(max-width:900px){
+ body.modernMode>.app>.main{margin-left:0!important}
+}
+
+/* V283 canonical desktop sidebar — one geometry on every page */
+@media(min-width:901px){
+ html body.modernMode>.app>.sidebar.unifiedSide{
+  width:200px!important;padding:16px 9px!important;border-right:1px solid #155273!important;
+  background:#001f2c!important;overflow-y:auto!important;overflow-x:hidden!important
+ }
+ html body.modernMode>.app>.main{margin-left:200px!important}
+ html body.modernMode .unifiedSide .brand{display:none!important}
+ html body.modernMode .unifiedSide .unifiedSideTitle{
+  font-size:11px!important;line-height:1.3!important;color:#9bb4c7!important;padding:7px 11px!important
+ }
+ html body.modernMode .unifiedSide .navBtn{
+  display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;
+  min-height:0!important;height:auto!important;padding:11px!important;margin:2px 0!important;
+  border:0!important;border-radius:8px!important;background:transparent!important;color:#d9e8f2!important;
+  font-size:15px!important;line-height:1.35!important;font-weight:400!important;white-space:nowrap!important
+ }
+ html body.modernMode .unifiedSide .navBtn .ic{flex:0 0 28px!important;width:28px!important;font-size:15px!important}
+ html body.modernMode .unifiedSide .navBtn.active{
+  background:#073c63!important;border-left:3px solid #28caff!important;padding-left:8px!important;
+  color:#fff!important;font-weight:700!important
+ }
+ html body.modernMode .unifiedSide .unifiedSep{height:1px!important;background:#17475e!important;margin:10px 8px!important}
+ html body.modernMode .unifiedSide .sideFoot{display:none!important}
+}
+/* Keep long module labels compact instead of changing the sidebar width */
+@media(min-width:901px) and (max-width:1180px){
+ html body.modernMode .unifiedSide .navBtn{font-size:14px!important}
+}
+
+/* V283 Airbnb / Rental — native My Finance visual */
+body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh - 80px)}
+.rentalHero{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:6px 2px 14px}.rentalHero h1{font-size:28px;margin:3px 0 4px}.rentalHero p{margin:0;color:#9fb9ca;font-size:13px}.rentalEyebrow{font-size:10px;letter-spacing:.14em;font-weight:900;color:#28caff}.rentalHeroActions{display:flex;gap:8px}
+.rentalKpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:10px}.rentalKpi{min-height:88px;padding:13px;border:1px solid #176381;background:linear-gradient(135deg,#08344d,#082238);border-radius:9px}.rentalKpi span{display:block;color:#b9ceda;font-size:11px;margin-bottom:7px}.rentalKpi b{font-size:18px}.rentalKpi.income{border-color:#0fa87a;background:linear-gradient(120deg,#063d2d,#082b31)}.rentalKpi.expense{border-color:#d34758;background:linear-gradient(120deg,#3a2029,#162738)}.rentalKpi.occupancy{border-color:#7650d5;background:linear-gradient(120deg,#242052,#172647)}.rentalKpi.nights{border-color:#149cd4}.rentalKpi.rate{border-color:#b79218;background:linear-gradient(120deg,#3b3516,#172d38)}
+#rental .panel{background:linear-gradient(145deg,#082d43,#061f32);border:1px solid #155273;color:#f3f8fc;box-shadow:none}#rental .btn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}#rental .btn.primary{background:#10a889;border-color:#10a889}
+.rentalLayout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:10px}.rentalCalendarPanel{padding:12px}.rentalCalHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}.rentalCalHead>div:nth-child(2){flex:1}.rentalWeek,.rentalCalendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.rentalWeek span{text-align:center;color:#8faabc;font-size:10px;font-weight:800;padding:5px}.rentalDay{min-height:84px;background:#06283c;border:1px solid #174b68;border-radius:7px;color:#eaf5ff;text-align:left;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:5px}.rentalDay:hover{border-color:#28caff}.rentalDay.empty{visibility:hidden}.rentalDayNo{font-weight:900;font-size:13px}.rentalDayState{font-size:10px;color:#9fb9ca}.rentalDay small{font-size:9px;color:#d6e8f2}.rentalDay.booked{background:#07493d;border-color:#0fa87a}.rentalDay.booked .rentalDayState{color:#55e3b8}.rentalDay.blocked{background:#382c19;border-color:#9b711b}.rentalDay.maintenance{background:#40232c;border-color:#b64155}.rentalLegend{display:flex;gap:15px;margin-top:10px;color:#9fb9ca;font-size:10px}.rentalLegend span{display:flex;align-items:center;gap:5px}.rentalLegend i{width:8px;height:8px;border-radius:50%;background:#174b68}.rentalLegend i.booked{background:#0fa87a}.rentalLegend i.blocked{background:#b79218}.rentalLegend i.maintenance{background:#d34758}
+.rentalRight{display:grid;gap:10px;align-content:start}.rentalRight .panel{padding:13px}.rentalFinanceRow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #17445d;font-size:11px}.rentalFinanceRow.total{font-size:13px;border-bottom:0}.rentalOcc{margin-top:12px}.rentalOcc>div:first-child{display:flex;justify-content:space-between;font-size:11px}.rentalOccBar{height:7px;background:#173a50;border-radius:8px;margin-top:6px;overflow:hidden}.rentalOccBar i{display:block;height:100%;background:#24d39b}.rentalUpcoming,.rentalExpenseLine{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #17445d;font-size:11px}.rentalUpcoming span,.rentalExpenseLine span{display:block;color:#9fb9ca;margin-top:2px}.rentalEmpty{padding:14px 0}
+.rentalBottom{display:grid;grid-template-columns:1.5fr .7fr;gap:10px;margin-top:10px}.rentalBottom>.panel{padding:13px}.rentalTable{width:100%;border-collapse:collapse}.rentalTable th{background:#0d526e;color:#dcecf6;text-align:left;padding:9px;font-size:10px}.rentalTable td{padding:9px;border-bottom:1px solid #124b63;font-size:11px}.rentalTable td small{display:block;color:#8faabc}.rentalBadge{padding:3px 7px;border-radius:10px;font-size:9px}.rentalBadge.paid{background:#073f36;color:#38e0a4}.rentalBadge.pending{background:#3b3516;color:#ffd86a}
+@media(max-width:1200px){.rentalKpis{grid-template-columns:repeat(3,1fr)}.rentalLayout,.rentalBottom{grid-template-columns:1fr}.rentalDay{min-height:72px}}
+@media(max-width:760px){.rentalKpis{grid-template-columns:1fr 1fr}.rentalHero{flex-direction:column}.rentalCalendarPanel{overflow-x:auto}.rentalWeek,.rentalCalendar{min-width:700px}}
