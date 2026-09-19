@@ -1824,3 +1824,45 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
 .rentalPaymentToggle:hover{filter:brightness(1.18);transform:translateY(-1px)}
 .rentalPaymentToggle.pending{padding:6px 10px}
 .rentalPaymentToggle.paid{padding:6px 10px}
+
+/* V283 global shell lock — identical header/sidebar geometry on every desktop page */
+@media(min-width:901px){
+ body.modernMode .execTop,body.modernMode .cashTop,body.modernMode .txExecTop,body.modernMode .strategyTop{
+  height:62px!important;min-height:62px!important;padding:0 16px!important;background:#001b2a!important;
+  border-bottom:1px solid #155273!important;box-sizing:border-box!important
+ }
+ body.modernMode .execBrand,body.modernMode .cashBrand,body.modernMode .txExecBrand,body.modernMode .strategyBrand{
+  width:200px!important;min-width:200px!important;margin-left:-16px!important;padding-left:16px!important;box-sizing:border-box!important
+ }
+ body.modernMode .execTopNav,body.modernMode .cashNav,body.modernMode .txExecNav,body.modernMode .strategyNav{
+  height:62px!important;align-items:stretch!important;gap:0!important
+ }
+ body.modernMode .execTopNav button,body.modernMode .cashNav button,body.modernMode .txExecNav button,body.modernMode .strategyNav button{
+  min-height:62px!important;padding:0 16px!important;border-radius:0!important;white-space:nowrap!important
+ }
+ body.modernMode .execBody,body.modernMode .cashBody,body.modernMode .txExecBody,body.modernMode .strategyBody{
+  grid-template-columns:200px minmax(0,1fr)!important
+ }
+ body.modernMode .execSide,body.modernMode .cashSide,body.modernMode .txExecSide,body.modernMode .strategySide{
+  width:200px!important;min-width:200px!important;padding:16px 9px!important;background:#001f2c!important;
+  border-right:1px solid #155273!important;box-sizing:border-box!important;overflow-y:auto!important;scrollbar-width:none!important
+ }
+ body.modernMode .execSide::-webkit-scrollbar,body.modernMode .cashSide::-webkit-scrollbar,
+ body.modernMode .txExecSide::-webkit-scrollbar,body.modernMode .strategySide::-webkit-scrollbar{display:none!important}
+ body.modernMode .execSideTitle,body.modernMode .cashSideTitle,body.modernMode .txExecSideTitle,body.modernMode .strategySideTitle{
+  font-size:11px!important;line-height:1.3!important;color:#9bb4c7!important;padding:7px 11px!important;margin:0!important
+ }
+ body.modernMode .execSideBtn,body.modernMode .cashSide button,body.modernMode .txExecSide button,body.modernMode .strategySide button{
+  display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;min-height:0!important;height:auto!important;
+  padding:11px!important;margin:2px 0!important;border:0!important;border-radius:8px!important;background:transparent!important;
+  color:#d9e8f2!important;font-size:15px!important;line-height:1.35!important;font-weight:400!important;text-align:left!important;white-space:normal!important
+ }
+ body.modernMode .execSideBtn.active,body.modernMode .cashSide button.active,body.modernMode .txExecSide button.active,body.modernMode .strategySide button.active{
+  background:#073c63!important;border-left:3px solid #28caff!important;padding-left:8px!important;color:#fff!important;font-weight:700!important
+ }
+ body.modernMode .execSideSep,body.modernMode .cashSep,body.modernMode .txExecSep,body.modernMode .strategySep{
+  height:1px!important;background:#17475e!important;margin:10px 8px!important
+ }
+ body.modernMode .execVer,body.modernMode .cashVer,body.modernMode .txExecVer,body.modernMode .strategyVer,
+ body.modernMode .execSideQuote,body.modernMode .cashQuote,body.modernMode .txExecQuote,body.modernMode .strategyQuote{display:none!important}
+}
