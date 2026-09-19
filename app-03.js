@@ -22,18 +22,19 @@ function navIcon(name){
 function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
- var oldSide=app.querySelector(':scope>.sidebar');if(oldSide)oldSide.remove();var oldTop=main.querySelector(':scope>.topbar');if(oldTop)oldTop.remove();
- var content=main.querySelector(':scope>.content');if(!content)return;var oldModule=content.querySelector(':scope>.modernModuleTop');if(oldModule)oldModule.remove();
+ app.querySelectorAll('.sidebar,.unifiedSide').forEach(x=>x.remove());main.querySelectorAll('.topbar').forEach(x=>x.remove());
+ var content=main.querySelector(':scope>.content');if(!content)return;content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
  if(document.getElementById('canonicalAppTop'))return;
  var top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';
  top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'+shellButton('executive','dashboard','Dashboard')+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More')+'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';app.insertBefore(top,main);
- var side=document.createElement('aside');side.id='canonicalAppSide';side.className='canonicalAppSide';
- side.innerHTML='<div class="canonicalSideTitle">Dashboard Views</div>'+shellButton('executive','dashboard','Executive Overview')+shellButton('accounts','cash','Cash & Credit')+shellButton('financialposition','position','Financial Position')+shellButton('strategy','strategy','Financial Strategy')+'<div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div>'+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Cash & Other Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More');app.insertBefore(side,main);
- document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
+ /* top-navigation-only: no desktop sidebar is created */
+ var side=null; /* retired sidebar source */
+ var retiredSideHTML='<div class="canonicalSideTitle">Dashboard Views</div>'+shellButton('executive','dashboard','Executive Overview')+shellButton('accounts','cash','Cash & Credit')+shellButton('financialposition','position','Financial Position')+shellButton('strategy','strategy','Financial Strategy')+'<div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div>'+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Cash & Other Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More');
+ document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
 }
 function syncCanonicalShell(page){
  ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
- document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
+ document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
 }
 
 function rebuildTransactions(){
