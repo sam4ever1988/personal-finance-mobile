@@ -1,3 +1,26 @@
+
+/* V283 single-source application shell */
+function ensureCanonicalShell(){
+ var app=document.querySelector('body>.app'), main=app?.querySelector(':scope>.main'); if(!app||!main)return;
+ var oldSide=app.querySelector(':scope>.sidebar'); if(oldSide)oldSide.remove();
+ var oldTop=main.querySelector(':scope>.topbar'); if(oldTop)oldTop.remove();
+ var content=main.querySelector(':scope>.content'); if(!content)return;
+ var oldModule=content.querySelector(':scope>.modernModuleTop'); if(oldModule)oldModule.remove();
+ if(document.getElementById('canonicalAppTop'))return;
+ var top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';
+ top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button><button data-page-jump="more">••• More</button></nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
+ app.insertBefore(top,main);
+ var side=document.createElement('aside');side.id='canonicalAppSide';side.className='canonicalAppSide';
+ side.innerHTML='<div class="canonicalSideTitle">Dashboard Views</div><button data-page-jump="executive">▧ <span>Executive Overview</span></button><button data-page-jump="accounts">▤ <span>Cash & Credit</span></button><button data-page-jump="financialposition">▥ <span>Financial Position</span></button><button data-page-jump="strategy">⌁ <span>Financial Strategy</span></button><div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div><button data-page-jump="transactions">☷ <span>Transactions</span></button><button data-page-jump="outgoings">↗ <span>Cash & Other Outgoings</span></button><button data-page-jump="installments">▤ <span>Installments</span></button><button data-page-jump="importstatements">▧ <span>Import Statements</span></button><button data-page-jump="investments">◈ <span>Investments</span></button><button data-page-jump="assets">◇ <span>Personal Assets</span></button><button data-page-jump="rental">⌂ <span>Airbnb / Rental</span></button><button data-page-jump="reports">▥ <span>Reports</span></button><button data-page-jump="financeSettings">⚙ <span>Settings</span></button><button data-page-jump="more">••• <span>More</span></button>';
+ app.insertBefore(side,main);
+ document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
+}
+function syncCanonicalShell(page){
+ ensureCanonicalShell();
+ var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+ document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page||(b.dataset.pageJump==='executive'&&page==='executive')));
+}
+
 function rebuildTransactions(){
  // V155: embedded BASE transactions never enter the live finance database.
  transactions=[
@@ -918,6 +941,7 @@ function restoreReviewControls(state){
 }
 
 function restoreReviewPage(state,{restoreScroll=true}={}){
+ ensureCanonicalShell();
  if(!state)return;
 
  restoreReviewControls(state);
@@ -995,6 +1019,7 @@ function loadSavedReviewState(){
 }
 
 function nav(page){
+ syncCanonicalShell(page);
  const previousPage=activeViewId();
  if(previousPage)captureReviewState();
 
