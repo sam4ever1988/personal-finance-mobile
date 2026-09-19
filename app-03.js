@@ -50,7 +50,7 @@ function ensureCanonicalShell(){
  top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
  var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
  if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
- top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='preferences')nav('financeSettings');else if(a==='account')nav('more');else if(a==='signout'){profile.classList.remove('open');alert('Sign out will connect to the login system when authentication is added.')}});
+ top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='preferences')nav('preferences');else if(a==='account')nav('accountprofile');else if(a==='signout'){profile.classList.remove('open');alert('Sign out will connect to the login system when authentication is added.')}});
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
 }
 function syncCanonicalShell(page){
@@ -1026,7 +1026,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  else if(page==='strategy')renderFinancialStrategy();
  else if(page==='assets')renderGoldAssets();
  else if(page==='investments')renderInvestments();
- else if(page==='rental')renderRental();
+ else if(page==='rental')renderRental();else if(page==='accountprofile'){window.renderAccountProfile?.();}else if(page==='preferences'){window.applyFinancePreferences?.();}
  if(page==='financialposition')renderFinancialPosition();
  if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
