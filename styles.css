@@ -1365,3 +1365,20 @@ body.modernMode #categories{color:#edf7ff}
 .cloudDangerZone{margin-top:12px;border:1px solid #684557;background:#2c2432;border-radius:10px;padding:12px}.cloudDangerTitle{color:#ff9eaa;font-weight:850;font-size:12px}.cloudDangerText{color:#ba9aa4;font-size:10px;margin-top:3px}.cloudStepGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}.cloudStep{cursor:pointer;display:flex;gap:8px;align-items:center;border:1px solid #735060;background:#342936;color:#f8edf1;border-radius:8px;padding:9px}.cloudStep span{display:grid;place-items:center;min-width:22px;height:22px;border-radius:50%;background:#503847;font-size:10px}.cloudStep b{font-size:10px}.cloudStep.danger{border-color:#8b4553;color:#ff9aaa}.cloudStep.primary{border-color:#15866f;background:#0b4c48;color:#86f4d0}.cloudAuditActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.cloudTextBtn{border:0;background:transparent;color:#8fdcf1;padding:5px 0}.cloudAuditPanel{margin-top:12px;max-height:520px;overflow:auto;border:1px solid #17627e;border-radius:10px;background:#041f2d;padding:12px;color:#dcecf4}.cloudSyncActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 #cloudSync .notice.success,#cloudSync .cloudNotice.success{border-color:#16826f!important;background:#073c3a!important;color:#8beacb!important}#cloudSync .notice.danger,#cloudSync .cloudNotice.danger{border-color:#804755!important;background:#352531!important;color:#ffadb7!important}
 @media(max-width:900px){.cloudHero,.cloudStatusTop,.cloudSectionHead{flex-direction:column}.cloudMetrics,.cloudRecoveryGrid,.cloudStepGrid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.cloudMetrics,.cloudRecoveryGrid,.cloudStepGrid{grid-template-columns:1fr}}
+/* V277 Cloud Database wide desktop layout */
+@media(min-width:1100px){
+ #cloudSync.cloudModern{padding-left:32px;padding-right:32px}
+ #cloudSync .cloudStatusCard{max-width:none;width:100%;box-sizing:border-box}
+ #cloudSync .cloudMetrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #cloudSync .cloudSection{width:100%;box-sizing:border-box}
+ #cloudSync .cloudRecoveryGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #cloudSync .cloudStepGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #cloudSync .cloudNotice{width:100%;box-sizing:border-box}
+}
+@media(min-width:1450px){
+ #cloudSync.cloudModern{padding-left:36px;padding-right:36px}
+ #cloudSync .cloudStatusCard{padding:18px}
+ #cloudSync .cloudMetrics{gap:12px}
+ #cloudSync .cloudSection{padding:16px}
+ #cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{gap:10px}
+}
