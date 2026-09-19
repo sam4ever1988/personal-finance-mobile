@@ -804,9 +804,8 @@ function strategySpendingRows(){
  const ym=currentIncomeMonth();return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===ym&&['spend','fee'].includes(txType(t)));
 }
 function renderFinancialStrategy(){
- // V247: render the Strategy page defensively so one unavailable metric can never blank the whole page.
- const safeCall=(fn,fallback=0)=>{try{const v=fn();return Number.isFinite(Number(v))?Number(v):fallback}catch(err){console.error('Financial Strategy metric error:',err);return fallback}};
- const planMonths=(incomePlan&&Array.isArray(incomePlan.monthlyPlans)?incomePlan.monthlyPlans:[]).map(p=>p&&p.month).filter(Boolean).sort();
+ const safeCall=(fn,fallback=0)=>{try{const v=fn();return Number.isFinite(Number(v))?Number(v):fallback}catch(_){return fallback}};
+ const planMonths=Object.keys(incomePlan?.monthlyPlans||{}).sort();
  const txMonths=normalizedTx().map(t=>String(t.date||'').slice(0,7)).filter(m=>/^\d{4}-\d{2}$/.test(m)).sort();
  const current=currentIncomeMonth();
  const planMonth=incomePlanForMonth(current)?current:(planMonths[planMonths.length-1]||txMonths[txMonths.length-1]||current);
@@ -816,22 +815,58 @@ function renderFinancialStrategy(){
  const spending=normalizedTx().filter(t=>String(t.date||'').slice(0,7)===planMonth&&['spend','fee'].includes(txType(t)));
  const actualSpend=spending.reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
  const bankCash=(Array.isArray(accounts)?accounts:[]).filter(a=>a.type==='bank').reduce((sum,a)=>sum+Math.max(0,Number(a.balance||0)),0);
- const required=Math.max(0,loans)+Math.max(0,other)+Math.max(0,cardPay),safe=Math.max(0,income-required-actualSpend),weekly=safe/4.345;
- const now=new Date(), daysLeft=planMonth===current?Math.max(1,new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1):30, daily=safe/daysLeft;
+ const required=Math.max(0,loans)+Math.max(0,other)+Math.max(0,cardPay);
+
+ // V264: Safe-to-Spend is a monthly budget measure, not the live bank balance.
+ // Protect planned commitments first, then subtract spending already recorded in the plan month.
+ const budgetAfterCommitments=income-required;
+ const safeRaw=budgetAfterCommitments-actualSpend;
+ const safe=Math.max(0,safeRaw);
+ const overBudget=Math.max(0,-safeRaw);
+ const now=new Date();
+ const daysLeft=planMonth===current?Math.max(1,new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1):30;
+ const weeksLeft=Math.max(1,daysLeft/7);
+ const weekly=safe/weeksLeft,daily=safe/daysLeft;
+
  let cards=[];try{cards=(Array.isArray(accounts)?accounts:[]).filter(a=>a.type==='card').map(a=>{try{return {a,m:cardMetrics(a)}}catch(_){return {a,m:{total:Math.max(0,Number(a.balance||0)),available:Math.max(0,Number(a.limit||0)-Math.max(0,Number(a.balance||0))),utilization:0}}}})}catch(_){}
  const cardDebt=cards.reduce((sum,x)=>sum+Math.max(0,Number(x.m.total||0)),0);
  const activeLoans=((financeSettings&&Array.isArray(financeSettings.loans))?financeSettings.loans:[]).filter(l=>l.status!=='closed');
  const loanDebt=activeLoans.reduce((sum,l)=>sum+Math.max(0,Number(l.remainingAmount||0)),0),totalDebt=cardDebt+loanDebt;
+
  const sd=$('strategyTopDate');if(sd)sd.textContent=`Plan Month • ${planMonth}`;
- const k=$('strategyKpis');if(k)k.innerHTML=`<div class="workMetric good"><span>Monthly Income</span><b>${v237Money(income)}</b><small>${plan?'Saved income plan':'Current income data'}</small></div><div class="workMetric debt"><span>Required Commitments</span><b>${v237Money(required)}</b><small>Loans + outgoings + planned card payments</small></div><div class="workMetric"><span>Actual Spending</span><b>${v237Money(actualSpend)}</b><small>${spending.length} spending/fee transactions • ${planMonth}</small></div><div class="workMetric good"><span>Safe-to-Spend</span><b>${v237Money(safe)}</b><small>After commitments and recorded spending</small></div><div class="workMetric debt"><span>Total Debt Exposure</span><b>${v237Money(totalDebt)}</b><small>Cards + active loan balances</small></div><div class="workMetric"><span>Cash Reserve</span><b>${v237Money(bankCash)}</b><small>Positive bank-account balances</small></div>`;
- const sb=$('safeSpendBox');if(sb){const pct=income?Math.max(0,Math.min(100,safe/income*100)):0;sb.innerHTML=`<div class="safeSpendBig">${v237Money(safe)}</div><div class="meta">Estimated remaining spending capacity for ${planMonth}</div><div class="safeSpendBar"><i style="width:${pct}%"></i></div><div class="grid2"><div class="miniMetric"><span>Weekly guide</span><b>${v237Money(weekly)}</b></div><div class="miniMetric"><span>Daily guide</span><b>${v237Money(daily)}</b></div></div>`;}
- const acts=$('strategyActions');if(acts)acts.innerHTML=`<div class="strategyAction"><i>1</i><div><b>Protect required payments</b><small>Loans, planned card payments and recurring outgoings</small></div><strong>${v237Money(required)}</strong></div><div class="strategyAction"><i>2</i><div><b>Control recorded spending</b><small>${spending.length} spending/fee transactions in ${planMonth}</small></div><strong>${v237Money(actualSpend)}</strong></div><div class="strategyAction"><i>3</i><div><b>Preserve liquidity</b><small>Current positive bank-account balances</small></div><strong>${v237Money(bankCash)}</strong></div><div class="strategyAction"><i>4</i><div><b>Review extra debt capacity</b><small>After commitments and recorded spending</small></div><strong>${v237Money(safe)}</strong></div>`;
- const sc=$('debtScenarios');if(sc){const a=safe*.25,b=safe*.5,c=safe*.8;sc.innerHTML=`<div class="scenarioCard"><b>Liquidity First</b><div class="scenarioAmt">${v237Money(a)}</div><small>25% of available capacity toward extra debt reduction.</small></div><div class="scenarioCard recommended"><b>Balanced</b><div class="scenarioAmt">${v237Money(b)}</div><small>50% toward debt while retaining half as liquidity.</small></div><div class="scenarioCard"><b>Debt Focus</b><div class="scenarioAmt">${v237Money(c)}</div><small>80% toward debt, leaving a smaller liquidity buffer.</small></div>`;}
+ const k=$('strategyKpis');if(k)k.innerHTML=`<div class="workMetric good"><span>Monthly Income</span><b>${v237Money(income)}</b><small>${plan?'Saved income plan':'Current income data'}</small></div><div class="workMetric debt"><span>Required Commitments</span><b>${v237Money(required)}</b><small>Loans + outgoings + planned card payments</small></div><div class="workMetric"><span>Actual Spending</span><b>${v237Money(actualSpend)}</b><small>${spending.length} spending/fee transactions • ${planMonth}</small></div><div class="workMetric good"><span>Safe-to-Spend</span><b>${v237Money(safe)}</b><small>${overBudget>0?'Budget exceeded by '+v237Money(overBudget):'After commitments and recorded spending'}</small></div><div class="workMetric debt"><span>Total Debt Exposure</span><b>${v237Money(totalDebt)}</b><small>Cards + active loan balances</small></div><div class="workMetric"><span>Cash Reserve</span><b>${v237Money(bankCash)}</b><small>Positive bank-account balances</small></div>`;
+
+ const sb=$('safeSpendBox');
+ if(sb){
+  const commitmentPct=income?Math.min(100,required/income*100):0;
+  const spendPct=income?Math.min(100,actualSpend/income*100):0;
+  const safePct=income?Math.min(100,safe/income*100):0;
+  const status=overBudget>0?'Over monthly budget':safe===0?'No unallocated monthly budget':'Available after plan';
+  sb.innerHTML=`<div class="safeSpendBig">${v237Money(safe)}</div>
+   <div class="meta">${status} • ${planMonth}</div>
+   <div class="safeSpendBar"><i style="width:${safePct}%"></i></div>
+   <div class="grid2"><div class="miniMetric"><span>Weekly allowance • ${weeksLeft.toFixed(1)} weeks left</span><b>${v237Money(weekly)}</b></div><div class="miniMetric"><span>Daily allowance • ${daysLeft} days left</span><b>${v237Money(daily)}</b></div></div>
+   <div class="strategyBudgetBreakdown"><span>Income <b>${v237Money(income)}</b></span><span>Commitments <b>${v237Money(required)} (${commitmentPct.toFixed(0)}%)</b></span><span>Spent <b>${v237Money(actualSpend)} (${spendPct.toFixed(0)}%)</b></span>${overBudget>0?`<span class="debt">Over budget <b>${v237Money(overBudget)}</b></span>`:''}</div>`;
+ }
+
+ const acts=$('strategyActions');if(acts)acts.innerHTML=`<div class="strategyAction"><i>1</i><div><b>Protect required payments</b><small>Loans, planned card payments and recurring outgoings</small></div><strong>${v237Money(required)}</strong></div><div class="strategyAction"><i>2</i><div><b>Control recorded spending</b><small>${spending.length} spending/fee transactions in ${planMonth}</small></div><strong>${v237Money(actualSpend)}</strong></div><div class="strategyAction"><i>3</i><div><b>Preserve liquidity</b><small>Current positive bank-account balances</small></div><strong>${v237Money(bankCash)}</strong></div><div class="strategyAction"><i>4</i><div><b>Review extra debt capacity</b><small>Only unallocated monthly budget can be considered</small></div><strong>${v237Money(safe)}</strong></div>`;
+
+ const sc=$('debtScenarios');
+ if(sc){
+  const scenario=(name,pct,note,cls='')=>{
+   const extra=safe*pct,liquidity=safe-extra,after=Math.max(0,totalDebt-extra);
+   return `<div class="scenarioCard ${cls}"><b>${name}</b><div class="scenarioAmt">${v237Money(extra)}</div><small>Extra debt payment this month</small><div class="scenarioFacts"><span>Keep for spending/liquidity <b>${v237Money(liquidity)}</b></span><span>Debt after extra payment <b>${v237Money(after)}</b></span><span>Share of safe budget <b>${Math.round(pct*100)}%</b></span></div></div>`;
+  };
+  sc.innerHTML=safe>0
+   ?scenario('Liquidity First',.25,'','')+scenario('Balanced',.5,'','recommended')+scenario('Debt Focus',.8,'','')
+   :`<div class="strategyEmptyState"><b>No extra debt-payment capacity this month</b><span>${overBudget>0?'Recorded spending and commitments exceed the monthly income plan by '+v237Money(overBudget)+'.':'All planned income is currently allocated to commitments and recorded spending.'}</span><div><button type="button" class="strategyDarkBtn" data-page-jump="incomeplan">Review Payment Plan</button><button type="button" class="strategyDarkBtn" data-page-jump="transactions">Review Spending</button></div></div>`;
+  sc.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
+ }
+
  const byCat={};spending.forEach(t=>{const c=t.category||'Unclassified';byCat[c]=(byCat[c]||0)+Math.abs(Number(t.amount||0))});const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,6);
  const coach=$('spendingCoach');if(coach)coach.innerHTML=cats.length?cats.map(([c,v],i)=>`<div class="coachRow"><b>${escapeHtml(c)}</b><small>${v237Money(v)} • ${actualSpend?Math.round(v/actualSpend*100):0}%${i===0?' • largest spending category':''}</small></div>`).join(''):`<div class="notice">No spending/fee transactions found for ${planMonth}.</div>`;
  const dt=$('strategyDebtTable');if(dt){const cardRows=cards.map(x=>`<tr><td>${escapeHtml((x.a.bank||x.a.name||'Card')+' •'+(x.a.ending||''))}</td><td>Credit Card</td><td>${v237Money(x.m.total)}</td><td>${v237Money(x.m.available)}</td><td>${Math.round(Number(x.m.utilization||0))}%</td></tr>`);const loanRows=activeLoans.map(l=>`<tr><td>${escapeHtml(l.name||'Loan')}</td><td>Loan</td><td>${v237Money(l.remainingAmount)}</td><td>${v237Money(l.monthly)}</td><td>${Number(l.remainingMonths||0)} mo.</td></tr>`);dt.innerHTML=`<table class="strategyTable"><thead><tr><th>Account / Loan</th><th>Type</th><th>Balance / Usage</th><th>Available / Monthly</th><th>Utilization / Remaining</th></tr></thead><tbody>${[...cardRows,...loanRows].join('')||'<tr><td colspan="5">No active debt records found.</td></tr>'}</tbody></table>`;}
 }
-
 
 function renderTxExecutiveInsights(filtered){
  const all=Array.isArray(filtered)?filtered:transactions;
