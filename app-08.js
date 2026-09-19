@@ -299,7 +299,7 @@ async function init(){
  // This removes the blank/legacy first-run wait without changing financial data.
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='executive'));
  document.body.classList.add('execMode');
- document.body.classList.remove('strategyMode','txMode','accountMode','modernMode');
+ document.body.classList.remove('strategyMode','txMode','accountMode','modernMode','cloudMode');
  if($('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  const shellUpdated=$('execUpdated');if(shellUpdated)shellUpdated.textContent='Loading saved finance data…';
 
