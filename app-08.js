@@ -228,7 +228,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V278',
+  version:'V279',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -401,6 +401,20 @@ $('exportStatementFormats')?.addEventListener('click',exportStatementFormats);
 $('statementFormatFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)importStatementFormatsFile(f);e.target.value='';});
 if($('addCustomCreditCard'))$('addCustomCreditCard').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomCreditCard();};
 if($('addCustomBank'))$('addCustomBank').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomBank();};
+
+// V279: delegated fallback survives page rerenders and late DOM replacement.
+// Direct handlers remain for normal use; this only fires when a rendered control
+// has lost its direct binding.
+if(!window.__v279AccountActionDelegation){
+ window.__v279AccountActionDelegation=true;
+ document.addEventListener('click',e=>{
+  const bank=e.target.closest?.('#addCustomBank');
+  const card=e.target.closest?.('#addCustomCreditCard');
+  if(!bank&&!card)return;
+  e.preventDefault();e.stopPropagation();
+  if(bank)addCustomBank(); else addCustomCreditCard();
+ },true);
+}
 renderCustomCreditCards();
 
 $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPaymentPlanner();});fillCategorySelect($('reportCategory'));
@@ -458,6 +472,30 @@ try{
 }catch(e){
   console.warn('Action hardening warning',e);
 }
+// V279: final browser-load hydration. The Executive page is rendered again only
+// after the complete DOM, split scripts and local persistence layer are available.
+// This makes a direct cold load follow the same render path as navigating away/back.
+function v279HydrateActivePage(){
+ try{
+  if(typeof syncCustomAccountsIntoAccounts==='function')syncCustomAccountsIntoAccounts();
+  if(document.getElementById('executive')?.classList.contains('active')){
+   rebuildTransactions();
+   normalizeCardPaymentPlan();
+   ensureLedgerBackedPlannerRows();
+   rebuildAllPlannerPaymentsFromLedger();
+   reconcileRemainingPrincipalPlans();
+   ensurePartialPaymentFields();
+   renderExecutiveDashboard();
+  }
+  if(document.getElementById('financeSettings')?.classList.contains('active'))renderFinanceSettings(true);
+ }catch(e){console.error('V279 final hydration failed',e);}
+}
+window.addEventListener('load',()=>{
+ v279HydrateActivePage();
+ setTimeout(v279HydrateActivePage,250);
+ setTimeout(v279HydrateActivePage,1000);
+},{once:true});
+
 init().catch(err=>{
  console.error('V275 initialization failed',err);
  const u=$('execUpdated');if(u)u.textContent='Local data loaded • startup maintenance warning';
