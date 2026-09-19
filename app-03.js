@@ -934,13 +934,10 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Current data':'Current data • '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
  // Re-render only what the active page needs after controls were restored.
- if(page==='executive')renderExecutiveDashboard();
- if(page==='strategy')renderFinancialStrategy();
- if(page==='transactions')renderTransactions();
- if(page==='assets')renderGoldAssets();
  if(page==='transactions')renderTransactions();
  else if(page==='executive')renderExecutiveDashboard();
- if(page==='strategy')renderFinancialStrategy();
+ else if(page==='strategy')renderFinancialStrategy();
+ else if(page==='assets')renderGoldAssets();
  if(page==='financialposition')renderFinancialPosition();
  if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
@@ -986,7 +983,7 @@ function nav(page){
  document.body.classList.toggle('strategyMode',page==='strategy');
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
- document.body.classList.toggle('modernMode',['dashboard','financialposition','reports','installments','importstatements','assets','financeSettings'].includes(page));
+ document.body.classList.toggle('modernMode',['dashboard','financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
@@ -1046,13 +1043,8 @@ function mobileNavigate(event,page){
  return false;
 }
 
-document.querySelectorAll('.navBtn').forEach(b=>{
- // Desktop fallback. Mobile buttons use the explicit onclick above.
- b.addEventListener('click',e=>{
-  if(window.matchMedia('(max-width:760px)').matches)return;
-  nav(b.dataset.page);
- });
-});
+/* V258: sidebar buttons already call mobileNavigate(). A second desktop
+   listener caused two nav()/render passes for every desktop click. */
 document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.pageJump)));
 if($('txHeroAdd'))$('txHeroAdd').addEventListener('click',()=>$('addTransaction')?.click());
 
