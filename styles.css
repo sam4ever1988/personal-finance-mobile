@@ -1988,3 +1988,11 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
  body>.app{padding-top:106px!important}
  .canonicalDate{display:none!important}
 }
+
+/* V283 dropdown interaction fix: menus must escape the top-bar clipping */
+#canonicalAppTop,.canonicalTopNav,.canonicalMenu{overflow:visible!important}
+.canonicalMenu{z-index:10030}
+.canonicalMenu:hover>.canonicalDropdown,.canonicalMenu.open>.canonicalDropdown{display:grid!important}
+.canonicalDropdown{z-index:10040!important;pointer-events:auto!important}
+.canonicalMenuTrigger{pointer-events:auto!important}
+@media(min-width:901px){.canonicalTopNav{overflow:visible!important}}
