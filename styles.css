@@ -1355,151 +1355,65 @@ body.modernMode #categories{color:#edf7ff}
 .catRulesPanel{margin-top:12px}.catTableWrap{overflow:auto}.catRulesTable{min-width:760px}.catRulesTable th{background:#0d5876!important;color:#eaf8ff!important;border-color:#1c6c87!important}.catRulesTable td{color:#eaf5fb!important;border-color:#15536a!important;background:transparent!important}
 @media(max-width:900px){.catModernHero{flex-direction:column}.catStats,.catModernGrid{grid-template-columns:1fr}#categories .subList{grid-template-columns:1fr}}
 /* V276 Cloud Database */
-#cloudSync.cloudModern{max-width:none!important;padding:22px 26px 48px;background:linear-gradient(145deg,#001d2b,#003047 55%,#001b29);min-height:calc(100vh - 72px);color:#edf8ff}
-.cloudHero{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px}.cloudEyebrow{font-size:11px;letter-spacing:.12em;color:#47d8f2;font-weight:850}.cloudHero h1{font-size:30px;line-height:1.1;margin:5px 0 7px;color:#fff}.cloudHero p{margin:0;color:#9dbacc;font-size:13px}.cloudHeroState{display:flex;gap:8px;align-items:center;border:1px solid #16718a;background:#07394d;border-radius:999px;padding:9px 13px;font-size:11px;font-weight:850;color:#72f0c4}.cloudLiveDot{width:8px;height:8px;border-radius:50%;background:#37dfa8;box-shadow:0 0 0 4px rgba(55,223,168,.12)}
-.cloudStatusCard{max-width:1120px;border:1px solid #17627e;background:linear-gradient(145deg,#06364b,#062e42);border-radius:14px;padding:16px;box-shadow:0 18px 44px rgba(0,0,0,.12)}.cloudStatusTop{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #124e66}.cloudStatusTop h2{margin:0;color:#fff;font-size:18px}.cloudVersion{color:#83a9be;font-size:11px;margin-top:5px}.cloudConnection{color:#b9d2df;font-size:12px;margin-top:7px}.cloudShield,.cloudBadge{border:1px solid #16826f;background:#084b47;color:#7ff1c9;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:850;white-space:nowrap}
-.cloudLogin{margin-top:15px;max-width:560px}.cloudLogin label{color:#b9d2df!important}.cloudLogin input{background:#062c3e!important;border-color:#17627e!important;color:#fff!important}.cloudPrimaryBtn,.cloudActionSimple,.cloudTextBtn{cursor:pointer;border-radius:9px;font-weight:800}.cloudPrimaryBtn{border:1px solid #11aa8c;background:#11aa8c;color:#fff;padding:10px 14px}.cloudActionSimple{border:1px solid #17627e;background:#07364a;color:#eef9ff;padding:10px 14px}.cloudInfo,.cloudNotice{margin-top:10px;border:1px solid #17627e;background:#062c3e;color:#b9d2df;border-radius:9px;padding:10px 12px;font-size:11px;line-height:1.5}
-.cloudUserLine{margin-top:12px;color:#87aabd;font-size:11px}.cloudMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:12px}.cloudMetric{border:1px solid #17627e;background:#073247;border-radius:10px;padding:12px}.cloudMetric span,.cloudMetric small{display:block;color:#88aabd;font-size:10px}.cloudMetric b{display:block;color:#fff;font-size:16px;line-height:1.2;margin:5px 0}
-.cloudSection{margin-top:12px;border:1px solid #145a73;background:#052d40;border-radius:11px;padding:14px}.cloudSectionHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.cloudSectionHead h3{margin:0;color:#fff;font-size:16px}.cloudSectionHead p{margin:4px 0 0;color:#8eafc1;font-size:11px;max-width:720px}
-.cloudRecoveryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.cloudActionBtn{cursor:pointer;text-align:left;border:1px solid #17627e;background:#07364a;border-radius:9px;padding:11px;color:#f3fbff}.cloudActionBtn b,.cloudActionBtn small{display:block}.cloudActionBtn small{color:#83a7ba;font-size:9px;margin-top:4px;line-height:1.35}.cloudActionBtn:hover,.cloudActionSimple:hover{background:#0b455d}
-.cloudDangerZone{margin-top:12px;border:1px solid #684557;background:#2c2432;border-radius:10px;padding:12px}.cloudDangerTitle{color:#ff9eaa;font-weight:850;font-size:12px}.cloudDangerText{color:#ba9aa4;font-size:10px;margin-top:3px}.cloudStepGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}.cloudStep{cursor:pointer;display:flex;gap:8px;align-items:center;border:1px solid #735060;background:#342936;color:#f8edf1;border-radius:8px;padding:9px}.cloudStep span{display:grid;place-items:center;min-width:22px;height:22px;border-radius:50%;background:#503847;font-size:10px}.cloudStep b{font-size:10px}.cloudStep.danger{border-color:#8b4553;color:#ff9aaa}.cloudStep.primary{border-color:#15866f;background:#0b4c48;color:#86f4d0}.cloudAuditActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.cloudTextBtn{border:0;background:transparent;color:#8fdcf1;padding:5px 0}.cloudAuditPanel{margin-top:12px;max-height:520px;overflow:auto;border:1px solid #17627e;border-radius:10px;background:#041f2d;padding:12px;color:#dcecf4}.cloudSyncActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-#cloudSync .notice.success,#cloudSync .cloudNotice.success{border-color:#16826f!important;background:#073c3a!important;color:#8beacb!important}#cloudSync .notice.danger,#cloudSync .cloudNotice.danger{border-color:#804755!important;background:#352531!important;color:#ffadb7!important}
-@media(max-width:900px){.cloudHero,.cloudStatusTop,.cloudSectionHead{flex-direction:column}.cloudMetrics,.cloudRecoveryGrid,.cloudStepGrid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.cloudMetrics,.cloudRecoveryGrid,.cloudStepGrid{grid-template-columns:1fr}}
-/* V277 Cloud Database wide desktop layout */
-@media(min-width:1100px){
- #cloudSync.cloudModern{padding-left:32px;padding-right:32px}
- #cloudSync .cloudStatusCard{max-width:none;width:100%;box-sizing:border-box}
- #cloudSync .cloudMetrics{grid-template-columns:repeat(4,minmax(0,1fr))}
- #cloudSync .cloudSection{width:100%;box-sizing:border-box}
- #cloudSync .cloudRecoveryGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
- #cloudSync .cloudStepGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
- #cloudSync .cloudNotice{width:100%;box-sizing:border-box}
-}
-@media(min-width:1450px){
- #cloudSync.cloudModern{padding-left:36px;padding-right:36px}
- #cloudSync .cloudStatusCard{padding:18px}
- #cloudSync .cloudMetrics{gap:12px}
- #cloudSync .cloudSection{padding:16px}
- #cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{gap:10px}
-}
-/* V278 Global readability + page consistency */
-:root{--pf-body-font:15px;--pf-small-font:12.5px;--pf-meta-font:13px;--pf-control-font:14px;--pf-table-font:13.5px}
-body{font-size:var(--pf-body-font)!important;line-height:1.45}
-body.modernMode .content{font-size:var(--pf-body-font)!important}
-body.modernMode .meta,body.modernMode .hint,body.modernMode small{font-size:var(--pf-small-font)!important;line-height:1.45!important}
-body.modernMode .pageSub,body.modernMode .modernHero p{font-size:13.5px!important;line-height:1.45!important}
-body.modernMode .sectionTitle{font-size:22px!important}
-body.modernMode .panelTitle{font-size:18px!important}
-body.modernMode .pageTitle{font-size:30px!important}
-body.modernMode .btn,body.modernMode button,body.modernMode input,body.modernMode select,body.modernMode textarea{font-size:var(--pf-control-font)!important}
-body.modernMode .btn,body.modernMode button{line-height:1.25}
-body.modernMode input,body.modernMode select,body.modernMode textarea{min-height:42px}
-body.modernMode table{font-size:var(--pf-table-font)!important;line-height:1.4!important}
-body.modernMode table th{font-size:12px!important;letter-spacing:.015em}
-body.modernMode table th,body.modernMode table td{padding-top:13px!important;padding-bottom:13px!important}
-body.modernMode .kpiLabel{font-size:12.5px!important}
-body.modernMode .kpiValue{font-size:24px!important}
-body.modernMode .kpiSub{font-size:12px!important}
-body.modernMode .modernMetric small{font-size:12.5px!important}
-body.modernMode .modernMetric b{font-size:23px!important}
-body.modernMode .modernMetric em{font-size:12px!important}
-.unifiedSide .navBtn,.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{font-size:14px!important}
-.unifiedSideTitle,.execSideTitle,.strategySideTitle,.cashSideTitle,.txExecSideTitle{font-size:12px!important}
-.unifiedSide .brand small{font-size:11px!important}
 
-/* Full-screen custom dashboard shells */
-.execBody,#strategy .strategyBody,.cashBody,body.txMode .txExecBody{font-size:14px!important}
-.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{min-height:46px!important}
-.strategyPageHero p,.cashBrand small,.strategyBrand small{font-size:12px!important}
-#strategy .strategyKpis .workMetric span{font-size:12.5px!important}
-#strategy .strategyKpis .workMetric small{font-size:11.5px!important}
-.strategyAction b,.coachRow b{font-size:14px!important}
-.strategyAction small,.coachRow small{font-size:12px!important}
-#strategy .strategyTable{font-size:13px!important}
+/* V281 CANONICAL READABILITY SYSTEM — single source of truth */
+:root{--pf-base:16px;--pf-secondary:14px;--pf-control:15px;--pf-table:14px}
+body{font-size:var(--pf-base)!important;line-height:1.5!important}
+.pageTitle{font-size:30px!important}.pageSub{font-size:14px!important}
+.navBtn{font-size:14px!important;min-height:46px}.sideTiny{font-size:12px!important}
+.btn,button,input,select,textarea{font-size:var(--pf-control)!important}
+.meta,.hint{font-size:var(--pf-secondary)!important;line-height:1.5!important}
+.panelTitle{font-size:18px!important}.sectionTitle{font-size:22px!important}
+.kpiLabel{font-size:13px!important}.kpiValue{font-size:25px!important}.kpiSub{font-size:13px!important}
+.txTable,.summaryTable,.installTable{font-size:var(--pf-table)!important}
+.txTable th,.summaryTable th,.installTable th{font-size:12.5px!important}
+.field label{font-size:13.5px!important}.notice{font-size:13.5px!important}
+.modal{font-size:15px!important}.modalTitle{font-size:21px!important}
 
-/* Categories */
-.catEyebrow{font-size:12px!important}.catModernHero p{font-size:14px!important}
-.catStat span{font-size:12.5px!important}.catStat small{font-size:12px!important}
-.catModernHead p{font-size:12.5px!important}.catModernHead h2{font-size:18px!important}
-
-/* Cloud Database readability and consistent page width */
-#cloudSync.cloudModern{width:100%!important;max-width:none!important;box-sizing:border-box!important}
-#cloudSync .cloudStatusCard{width:100%!important;max-width:none!important}
-.cloudEyebrow{font-size:12px!important}.cloudHero p{font-size:14px!important}.cloudHeroState{font-size:12px!important}
-.cloudStatusTop h2{font-size:20px!important}.cloudVersion{font-size:12.5px!important}.cloudConnection{font-size:13px!important}
-.cloudShield,.cloudBadge{font-size:11.5px!important}.cloudUserLine{font-size:12.5px!important}
-.cloudMetric span,.cloudMetric small{font-size:12px!important}.cloudMetric b{font-size:18px!important}
-.cloudSectionHead h3{font-size:18px!important}.cloudSectionHead p{font-size:12.5px!important;line-height:1.45!important;max-width:900px}
-.cloudInfo,.cloudNotice{font-size:12.5px!important;line-height:1.5!important}
-.cloudActionBtn{min-height:66px}.cloudActionBtn b{font-size:14px!important}.cloudActionBtn small{font-size:11.5px!important}
-.cloudDangerTitle{font-size:13.5px!important}.cloudDangerText{font-size:11.5px!important}
-.cloudStep{min-height:44px}.cloudStep b{font-size:12px!important}.cloudStep span{font-size:11px!important}
-.cloudPrimaryBtn,.cloudActionSimple,.cloudTextBtn{font-size:14px!important}
-
-/* Modal/action readability */
-.modalBack .modal{font-size:14px!important}.modalBack .modal .meta{font-size:12.5px!important}
-.modalBack .modal .field label{font-size:13px!important}.modalBack .modal input,.modalBack .modal select,.modalBack .modal textarea{font-size:14px!important;min-height:42px}
-
-/* Keep dense layouts usable at smaller laptop widths */
-@media(max-width:1200px){
- :root{--pf-body-font:14px;--pf-small-font:12px;--pf-meta-font:12.5px;--pf-control-font:13.5px;--pf-table-font:13px}
- body.modernMode .pageTitle{font-size:28px!important}
- .cloudMetric b{font-size:16px!important}
-}
-/* V279 Readability pass — desktop comfort without browser zoom */
-@media(min-width:821px){
- :root{--pf-body-font:16px;--pf-small-font:13.5px;--pf-meta-font:14px;--pf-control-font:15px;--pf-table-font:14px}
- body.modernMode .pageSub,body.modernMode .modernHero p{font-size:14.5px!important}
- body.modernMode .unifiedSide .navBtn,.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{font-size:14.5px!important;min-height:46px!important}
- body.modernMode .meta,body.modernMode .hint,body.modernMode small{font-size:13.5px!important}
- body.modernMode table th{font-size:12.5px!important}
- .execKpiText small{font-size:12.5px!important}.execKpiText>b{font-size:20px!important}.execKpiText em{font-size:11.5px!important}
- .execTitle{font-size:18px!important}.execPanelSub{font-size:12.5px!important}.execRow{font-size:13.5px!important}
- .execCreditPanel .execCreditName b,.execCreditPanel .execRow>div:last-child b,.execUpcomingPanel .execRow>div:first-child,.execUpcomingPanel .execRow>div:last-child b,.execZakatPanel #execZakat .execRow{font-size:12.5px!important}
- .execPositionPanel .execPosCard small{font-size:12px!important}.execPositionPanel .execPosCard b{font-size:16px!important}
- .cloudVersion,.cloudConnection,.cloudUserLine{font-size:13.5px!important}
- .cloudMetric span,.cloudMetric small{font-size:13px!important}.cloudMetric b{font-size:19px!important}
- .cloudSectionHead p,.cloudInfo,.cloudNotice{font-size:13.5px!important}
- .cloudActionBtn b{font-size:15px!important}.cloudActionBtn small{font-size:12.5px!important}
- .cloudStep b{font-size:13px!important}.cloudDangerText{font-size:12.5px!important}
-}
-/* V280 Cloud Database isolated typography/layout.
-   This intentionally overrides legacy global small/meta/button rules. */
-@media(min-width:821px){
- #cloudSync.cloudModern{
-   font-size:16px!important;
-   line-height:1.5!important;
-   padding:30px 38px 56px!important;
- }
- #cloudSync .cloudHero h1{font-size:34px!important;line-height:1.15!important}
- #cloudSync .cloudEyebrow{font-size:13px!important}
- #cloudSync .cloudHero p{font-size:15px!important;line-height:1.5!important}
- #cloudSync .cloudHeroState{font-size:13px!important;padding:10px 15px!important}
- #cloudSync .cloudStatusCard{padding:22px!important;border-radius:15px!important}
- #cloudSync .cloudStatusTop h2{font-size:22px!important}
- #cloudSync .cloudVersion{font-size:14px!important;line-height:1.5!important}
- #cloudSync .cloudConnection{font-size:14.5px!important;line-height:1.5!important}
- #cloudSync .cloudShield,#cloudSync .cloudBadge{font-size:12.5px!important}
- #cloudSync .cloudUserLine{font-size:14px!important}
- #cloudSync .cloudMetrics{gap:12px!important;margin-top:16px!important}
- #cloudSync .cloudMetric{padding:15px!important;min-height:92px!important}
- #cloudSync .cloudMetric span,#cloudSync .cloudMetric small{font-size:13px!important;line-height:1.45!important}
- #cloudSync .cloudMetric b{font-size:20px!important;line-height:1.25!important}
- #cloudSync .cloudSection{padding:18px!important;margin-top:14px!important}
- #cloudSync .cloudSectionHead h3{font-size:20px!important}
- #cloudSync .cloudSectionHead p{font-size:14px!important;line-height:1.5!important}
- #cloudSync .cloudInfo,#cloudSync .cloudNotice,#cloudSync .notice{font-size:14px!important;line-height:1.55!important;padding:12px 14px!important}
- #cloudSync .cloudRecoveryGrid{gap:11px!important}
- #cloudSync .cloudActionBtn{padding:14px!important;min-height:78px!important}
- #cloudSync .cloudActionBtn b{font-size:15.5px!important;line-height:1.35!important}
- #cloudSync .cloudActionBtn small{font-size:13px!important;line-height:1.45!important;margin-top:5px!important}
- #cloudSync .cloudDangerZone{padding:15px!important}
- #cloudSync .cloudDangerTitle{font-size:15px!important}
- #cloudSync .cloudDangerText{font-size:13px!important;line-height:1.5!important}
- #cloudSync .cloudStep{padding:12px!important;min-height:50px!important}
- #cloudSync .cloudStep b{font-size:13.5px!important}
- #cloudSync .cloudStep span{font-size:12px!important;min-width:24px!important;height:24px!important}
- #cloudSync .cloudTextBtn{font-size:14px!important}
- #cloudSync .cloudPrimaryBtn,#cloudSync .cloudActionSimple{font-size:15px!important;padding:11px 15px!important}
- #cloudSync .cloudSyncActions{gap:9px!important;margin-top:14px!important}
-}
+/* Cloud Database — canonical page rules, no legacy 9/10/11px definitions */
+#cloudSync.cloudModern{width:100%!important;max-width:none!important;box-sizing:border-box!important;padding:30px 38px 56px!important;background:linear-gradient(145deg,#001d2b,#003047 55%,#001b29)!important;min-height:calc(100vh - 72px);color:#edf8ff;font-size:16px!important;line-height:1.5!important}
+#cloudSync .cloudHero{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:16px}
+#cloudSync .cloudEyebrow{font-size:13px!important;letter-spacing:.12em;color:#47d8f2;font-weight:850}
+#cloudSync .cloudHero h1{font-size:34px!important;line-height:1.15!important;margin:5px 0 7px;color:#fff}
+#cloudSync .cloudHero p{margin:0;color:#9dbacc;font-size:15px!important}
+#cloudSync .cloudHeroState{display:flex;gap:8px;align-items:center;border:1px solid #16718a;background:#07394d;border-radius:999px;padding:10px 15px;font-size:13px!important;font-weight:850;color:#72f0c4}
+#cloudSync .cloudLiveDot{width:8px;height:8px;border-radius:50%;background:#37dfa8;box-shadow:0 0 0 4px rgba(55,223,168,.12)}
+#cloudSync .cloudStatusCard{width:100%!important;max-width:none!important;box-sizing:border-box;border:1px solid #17627e;background:linear-gradient(145deg,#06364b,#062e42);border-radius:15px;padding:22px!important;box-shadow:0 18px 44px rgba(0,0,0,.12)}
+#cloudSync .cloudStatusTop{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #124e66}
+#cloudSync .cloudStatusTop h2{margin:0;color:#fff;font-size:22px!important}
+#cloudSync .cloudVersion{color:#83a9be;font-size:14px!important;margin-top:5px}
+#cloudSync .cloudConnection{color:#b9d2df;font-size:14.5px!important;margin-top:7px}
+#cloudSync .cloudShield,#cloudSync .cloudBadge{border:1px solid #16826f;background:#084b47;color:#7ff1c9;border-radius:999px;padding:7px 10px;font-size:12.5px!important;font-weight:850;white-space:nowrap}
+#cloudSync .cloudUserLine{margin-top:14px;color:#87aabd;font-size:14px!important}
+#cloudSync .cloudMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+#cloudSync .cloudMetric{border:1px solid #17627e;background:#073247;border-radius:10px;padding:15px;min-height:92px}
+#cloudSync .cloudMetric span,#cloudSync .cloudMetric small{display:block;color:#88aabd;font-size:13px!important;line-height:1.45}
+#cloudSync .cloudMetric b{display:block;color:#fff;font-size:20px!important;line-height:1.25;margin:5px 0}
+#cloudSync .cloudSection{margin-top:14px;border:1px solid #145a73;background:#052d40;border-radius:11px;padding:18px;width:100%;box-sizing:border-box}
+#cloudSync .cloudSectionHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#cloudSync .cloudSectionHead h3{margin:0;color:#fff;font-size:20px!important}
+#cloudSync .cloudSectionHead p{margin:4px 0 0;color:#8eafc1;font-size:14px!important;line-height:1.5;max-width:900px}
+#cloudSync .cloudInfo,#cloudSync .cloudNotice,#cloudSync .notice{margin-top:10px;border:1px solid #17627e;background:#062c3e;color:#b9d2df;border-radius:9px;padding:12px 14px;font-size:14px!important;line-height:1.55}
+#cloudSync .cloudRecoveryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-top:12px}
+#cloudSync .cloudActionBtn{cursor:pointer;text-align:left;border:1px solid #17627e;background:#07364a;border-radius:9px;padding:14px;color:#f3fbff;min-height:78px}
+#cloudSync .cloudActionBtn b,#cloudSync .cloudActionBtn small{display:block}
+#cloudSync .cloudActionBtn b{font-size:15.5px!important}.cloudActionBtn small{color:#83a7ba}
+#cloudSync .cloudActionBtn small{font-size:13px!important;margin-top:5px;line-height:1.45;color:#83a7ba}
+#cloudSync .cloudDangerZone{margin-top:12px;border:1px solid #684557;background:#2c2432;border-radius:10px;padding:15px}
+#cloudSync .cloudDangerTitle{color:#ff9eaa;font-weight:850;font-size:15px!important}
+#cloudSync .cloudDangerText{color:#ba9aa4;font-size:13px!important;margin-top:3px}
+#cloudSync .cloudStepGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+#cloudSync .cloudStep{cursor:pointer;display:flex;gap:8px;align-items:center;border:1px solid #735060;background:#342936;color:#f8edf1;border-radius:8px;padding:12px;min-height:50px}
+#cloudSync .cloudStep span{display:grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:#503847;font-size:12px!important}
+#cloudSync .cloudStep b{font-size:13.5px!important}
+#cloudSync .cloudStep.danger{border-color:#8b4553;color:#ff9aaa}#cloudSync .cloudStep.primary{border-color:#15866f;background:#0b4c48;color:#86f4d0}
+#cloudSync .cloudAuditActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#cloudSync .cloudTextBtn{border:0;background:transparent;color:#8fdcf1;padding:5px 0;font-size:14px!important}
+#cloudSync .cloudSyncActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+#cloudSync .cloudPrimaryBtn,#cloudSync .cloudActionSimple{cursor:pointer;border-radius:9px;font-weight:800;font-size:15px!important;padding:11px 15px}
+#cloudSync .cloudPrimaryBtn{border:1px solid #11aa8c;background:#11aa8c;color:#fff}
+#cloudSync .cloudActionSimple{border:1px solid #17627e;background:#07364a;color:#eef9ff}
+#cloudSync .notice.success,#cloudSync .cloudNotice.success{border-color:#16826f!important;background:#073c3a!important;color:#8beacb!important}
+#cloudSync .notice.danger,#cloudSync .cloudNotice.danger{border-color:#804755!important;background:#352531!important;color:#ffadb7!important}
+@media(max-width:900px){#cloudSync .cloudHero,#cloudSync .cloudStatusTop,#cloudSync .cloudSectionHead{flex-direction:column}#cloudSync .cloudMetrics,#cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){#cloudSync .cloudMetrics,#cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{grid-template-columns:1fr}}
