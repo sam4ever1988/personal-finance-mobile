@@ -247,7 +247,7 @@ $('addTransaction').addEventListener('click',()=>{setTimeout(()=>{
 },0)});
 $('addTransaction').addEventListener('click',()=>openManualTransaction());
 if($('moreAddTransaction'))$('moreAddTransaction').addEventListener('click',()=>openManualTransaction());
-$('quickAddTransaction').addEventListener('click',()=>openManualTransaction());
+$('quickAddTransaction')?.addEventListener('click',()=>openManualTransaction());
 $('manualTxCategory').addEventListener('change',()=>fillSubcategorySelect($('manualTxSubcategory'),$('manualTxCategory').value));
 $('manualTxAccount').addEventListener('change',()=>{fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,'');updateManualInstallmentEligibility();});
 ['manualTxType','manualTxAmount'].forEach(id=>$(id).addEventListener('input',updateManualInstallmentEligibility));
@@ -446,7 +446,7 @@ $('outgoingPaymentForm').addEventListener('submit',e=>{
 
 
 $('installmentBankFilter').addEventListener('change',renderInstallments);
-$('addInstallment').addEventListener('click',()=>openInstallment());$('quickInstallment').addEventListener('click',()=>openInstallment());
+$('addInstallment').addEventListener('click',()=>openInstallment());$('quickInstallment')?.addEventListener('click',()=>openInstallment());
 $('instCategory').addEventListener('change',()=>fillSubcategorySelect($('instSubcategory'),$('instCategory').value));
 ['instAmount','instRemainingAmount','instMonths','instPaid','instStart'].forEach(id=>$(id).addEventListener('input',updateInstallPreview));
 function updateInstallPreview(){
