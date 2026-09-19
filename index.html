@@ -484,6 +484,22 @@
  <div id="accountDetailContent" style="margin-top:14px"></div>
 </section>
 
+<section class="view" id="accountprofile">
+ <div class="prefsPage"><div class="prefsEyebrow">PROFILE</div><h1>Account</h1><p class="prefsLead">Manage the identity that will be used by My Finance and the future login system.</p>
+ <div class="prefsGrid"><div class="panel prefsCard"><div class="profileLarge"><div class="profileLargeAvatar" id="accountAvatarPreview">HA</div><div><h2 id="accountNamePreview">Hussam Ahmad</h2><div class="meta" id="accountEmailPreview">Local profile • Login not connected yet</div></div></div></div>
+ <div class="panel prefsCard"><div class="panelTitle">Profile Details</div><form id="accountProfileForm" class="prefsForm"><label>Display Name<input id="accountDisplayName" autocomplete="name"></label><label>Email<input id="accountEmail" type="email" autocomplete="email" placeholder="name@example.com"></label><label>Initials<input id="accountInitials" maxlength="3" placeholder="HA"></label><button class="btn primary" type="submit">Save Profile</button></form></div>
+ <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">This area is ready for authentication. Password, sessions and secure sign-out will be connected when the login screen is implemented.</p><div class="prefsStatus"><span>Authentication</span><b>Not connected</b></div></div></div></div>
+</section>
+<section class="view" id="preferences">
+ <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Control how My Finance looks on this device. Changes apply immediately and are saved locally.</p>
+ <div class="prefsGrid"><div class="panel prefsCard prefsWide"><div class="panelTitle">Appearance</div><div class="themeChoices" id="themeChoices">
+ <button type="button" data-theme-choice="dark"><span class="themePreview themeDark"></span><b>Dark</b><small>Current finance dashboard style</small></button>
+ <button type="button" data-theme-choice="light"><span class="themePreview themeLight"></span><b>Light</b><small>Bright workspace</small></button>
+ <button type="button" data-theme-choice="system"><span class="themePreview themeSystem"></span><b>System</b><small>Follow your Mac/browser appearance</small></button>
+ </div></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label></div>
+ <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Dark</b></div><div class="prefsStatus"><span>Storage</span><b>On this device</b></div></div></div></div>
+</section>
+
 </main>
 </div>
 </div>
@@ -735,21 +751,6 @@
   }
 })();
 </script>
-<section class="view" id="accountprofile">
- <div class="prefsPage"><div class="prefsEyebrow">PROFILE</div><h1>Account</h1><p class="prefsLead">Manage the identity that will be used by My Finance and the future login system.</p>
- <div class="prefsGrid"><div class="panel prefsCard"><div class="profileLarge"><div class="profileLargeAvatar" id="accountAvatarPreview">HA</div><div><h2 id="accountNamePreview">Hussam Ahmad</h2><div class="meta" id="accountEmailPreview">Local profile • Login not connected yet</div></div></div></div>
- <div class="panel prefsCard"><div class="panelTitle">Profile Details</div><form id="accountProfileForm" class="prefsForm"><label>Display Name<input id="accountDisplayName" autocomplete="name"></label><label>Email<input id="accountEmail" type="email" autocomplete="email" placeholder="name@example.com"></label><label>Initials<input id="accountInitials" maxlength="3" placeholder="HA"></label><button class="btn primary" type="submit">Save Profile</button></form></div>
- <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">This area is ready for authentication. Password, sessions and secure sign-out will be connected when the login screen is implemented.</p><div class="prefsStatus"><span>Authentication</span><b>Not connected</b></div></div></div></div>
-</section>
-<section class="view" id="preferences">
- <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Control how My Finance looks on this device. Changes apply immediately and are saved locally.</p>
- <div class="prefsGrid"><div class="panel prefsCard prefsWide"><div class="panelTitle">Appearance</div><div class="themeChoices" id="themeChoices">
- <button type="button" data-theme-choice="dark"><span class="themePreview themeDark"></span><b>Dark</b><small>Current finance dashboard style</small></button>
- <button type="button" data-theme-choice="light"><span class="themePreview themeLight"></span><b>Light</b><small>Bright workspace</small></button>
- <button type="button" data-theme-choice="system"><span class="themePreview themeSystem"></span><b>System</b><small>Follow your Mac/browser appearance</small></button>
- </div></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label></div>
- <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Dark</b></div><div class="prefsStatus"><span>Storage</span><b>On this device</b></div></div></div></div>
-</section>
 <div class="modalBack" id="unifiedActionModal"><div class="modal">
  <div class="modalHead"><div><div class="modalTitle" id="unifiedActionTitle">Add</div><div class="meta" id="unifiedActionSub"></div></div><button class="closeBtn" type="button" data-close="unifiedActionModal">✕</button></div>
  <form id="unifiedActionForm" class="formGrid"><div id="unifiedActionFields" class="formGrid" style="grid-column:1/-1"></div><div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="unifiedActionModal">Cancel</button><button class="btn primary" type="submit" id="unifiedActionSave">Save</button></div></form>
