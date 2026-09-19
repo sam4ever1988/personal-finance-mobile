@@ -1007,6 +1007,9 @@ function nav(page){
  if(page==='assets')renderGoldAssets();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
+ // V263: Transactions must render on every intentional navigation.
+ // It was missing from nav(), leaving the old/empty table in the DOM until another action rebuilt it.
+ if(page==='transactions')renderTransactions();
 
  // Persist the destination as soon as the user moves there.
  requestAnimationFrame(()=>captureReviewState());
