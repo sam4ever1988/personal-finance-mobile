@@ -1,0 +1,98 @@
+/* V283 Airbnb / Rental Management */
+var rentalBookings=JSON.parse(localStorage.getItem("pf_rental_bookings")||"[]");
+var rentalExpenses=JSON.parse(localStorage.getItem("pf_rental_expenses")||"[]");
+var rentalBlocks=JSON.parse(localStorage.getItem("pf_rental_blocks")||"[]");
+window.rentalView=new Date();rentalView.setDate(1);
+function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks))}
+function rDate(s){return new Date(s+"T12:00:00")}
+window.rIso=function(d){return d.toISOString().slice(0,10)}
+function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
+function rentalMonthData(){
+ var y=rentalView.getFullYear(),m=rentalView.getMonth(),start=new Date(y,m,1),end=new Date(y,m+1,1),days=new Date(y,m+1,0).getDate(),revenue=0,booked=0;
+ rentalBookings.forEach(b=>{var a=rDate(b.checkin),z=rDate(b.checkout),over=Math.max(0,(Math.min(z,end)-Math.max(a,start))/86400000);if(over>0){booked+=over;revenue+=Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*over}});
+ var expenses=rentalExpenses.filter(e=>{var d=rDate(e.date);return d>=start&&d<end}).reduce((s,e)=>s+Number(e.amount||0),0);
+ return{revenue,expenses,net:revenue-expenses,booked,days,occupancy:days?booked/days*100:0,adr:booked?revenue/booked:0}
+}
+window.renderRental=function(){
+ var cal=document.getElementById("rentalCalendar");if(!cal)return;var y=rentalView.getFullYear(),m=rentalView.getMonth(),md=rentalMonthData();
+ document.getElementById("rentalMonthTitle").textContent=rentalView.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+ document.getElementById("rentalKpis").innerHTML=[["Monthly Revenue",rMoney(md.revenue),"income"],["Monthly Expenses",rMoney(md.expenses),"expense"],["Net Rental Income",rMoney(md.net),md.net>=0?"income":"expense"],["Occupancy",md.occupancy.toFixed(0)+"%","occupancy"],["Booked Nights",md.booked.toFixed(0)+" / "+md.days,"nights"],["Avg. Nightly Rate",rMoney(md.adr),"rate"]].map(x=>'<div class="rentalKpi '+x[2]+'"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
+ var first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),html="";
+ for(var p=0;p<first;p++)html+='<div class="rentalDay empty"></div>';
+ for(var d=1;d<=days;d++){var dt=new Date(y,m,d),iso=rIso(dt),booking=rentalBookings.find(b=>iso>=b.checkin&&iso<b.checkout),block=rentalBlocks.find(b=>b.date===iso),cls=booking?"booked":block?.status||"available",label=booking?(booking.ref||"Booked"):(block?.status==="maintenance"?"Maintenance":block?.status==="blocked"?"Blocked":"Available");
+  html+='<button class="rentalDay '+cls+'" data-date="'+iso+'"><span class="rentalDayNo">'+d+'</span><span class="rentalDayState">'+label+'</span>'+(booking?'<small>'+rMoney(Number(booking.dailyRate??(Number(booking.total||0)/rNights(booking.checkin,booking.checkout))))+'</small>':'')+'</button>'}
+ cal.innerHTML=html;cal.querySelectorAll(".rentalDay:not(.empty)").forEach(b=>b.onclick=()=>rentalOpenDay(b.dataset.date));
+ document.getElementById("rentalMonthFinance").innerHTML='<div class="rentalFinanceRow"><span>Gross booking revenue</span><b>'+rMoney(md.revenue)+'</b></div><div class="rentalFinanceRow"><span>Operating expenses</span><b class="red">− '+rMoney(md.expenses)+'</b></div><div class="rentalFinanceRow total"><span>Net rental income</span><b class="'+(md.net>=0?"green":"red")+'">'+rMoney(md.net)+'</b></div><div class="rentalOcc"><div><span>Occupancy</span><b>'+md.occupancy.toFixed(0)+'%</b></div><div class="rentalOccBar"><i style="width:'+Math.min(100,md.occupancy)+'%"></i></div></div>';
+ var now=rIso(new Date()),up=rentalBookings.filter(b=>b.checkout>=now).sort((a,b)=>a.checkin.localeCompare(b.checkin)).slice(0,5);
+ document.getElementById("rentalUpcoming").innerHTML=up.length?up.map(b=>'<div class="rentalUpcoming"><div><b>'+b.checkin+' → '+b.checkout+'</b><span>'+(b.ref||"Booking")+' • '+rNights(b.checkin,b.checkout)+' nights</span></div><b>'+rMoney(b.total)+'</b></div>').join(""):'<div class="meta rentalEmpty">No upcoming bookings yet.</div>';
+ document.getElementById("rentalBookingBody").innerHTML=rentalBookings.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)).map((b,i)=>'<tr><td><b>'+b.checkin+'</b><small>to '+b.checkout+'</small></td><td>'+(b.ref||"—")+'</td><td>'+rNights(b.checkin,b.checkout)+'</td><td><b>'+rMoney(Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout))))+'</b><small>/ night</small></td><td><button type="button" class="rentalBadge rentalPaymentToggle '+(b.paid?"paid":"pending")+'" data-id="'+b.id+'" title="Click to change payment status">'+(b.paid?("Received ✓<small>"+rMoney(Number(b.paidAmount||Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*rNights(b.checkin,b.checkout)))+(b.paymentDate?" • "+b.paymentDate:"")+"</small>"):"Pending • Mark Paid")+'</button></td><td>'+((b.checkout<now)?"Completed":b.checkin<=now?"Occupied":"Booked")+'</td><td><button class="btn rentalDeleteBooking" data-i="'+i+'">Delete</button></td></tr>').join("")||'<tr><td colspan="7" class="meta">No bookings recorded.</td></tr>';
+ document.querySelectorAll(".rentalPaymentToggle").forEach(b=>b.onclick=()=>{var x=rentalBookings.find(v=>String(v.id)===String(b.dataset.id));if(!x)return;var newPaid=!x.paid;x.paid=newPaid;x.paidAmount=newPaid?Number(x.dailyRate??(Number(x.total||0)/rNights(x.checkin,x.checkout)))*rNights(x.checkin,x.checkout):0;x.paymentDate=newPaid?rIso(new Date()):"";if(newPaid){var related=rentalBookings.filter(v=>v!==x&&!v.paid&&v.ref&&x.ref&&v.ref.trim().toLowerCase()===x.ref.trim().toLowerCase());if(related.length&&confirm("Mark all "+(related.length+1)+" bookings in this sequence/reference as paid?"))related.forEach(v=>{v.paid=true;v.paidAmount=Number(v.dailyRate??(Number(v.total||0)/rNights(v.checkin,v.checkout)))*rNights(v.checkin,v.checkout);v.paymentDate=rIso(new Date())})}rentalSave();renderRental()});
+ document.querySelectorAll(".rentalDeleteBooking").forEach(b=>b.onclick=()=>{if(confirm("Delete this booking?")){var sorted=rentalBookings.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)),target=sorted[Number(b.dataset.i)];rentalBookings=rentalBookings.filter(x=>x!==target);rentalSave();renderRental()}});
+ var exp=rentalExpenses.filter(e=>rDate(e.date).getFullYear()===y&&rDate(e.date).getMonth()===m).sort((a,b)=>b.date.localeCompare(a.date));
+ document.getElementById("rentalExpenses").innerHTML=exp.length?exp.map(e=>'<div class="rentalExpenseLine"><div><b>'+e.category+'</b><span>'+e.date+(e.note?" • "+e.note:"")+'</span></div><div class="rentalExpenseRight"><b>− '+rMoney(e.amount)+'</b><div class="rentalExpenseActions"><button type="button" class="btn rentalEditExpense" data-id="'+e.id+'">Edit</button><button type="button" class="btn danger rentalDeleteExpense" data-id="'+e.id+'">Delete</button></div></div></div>').join(""):'<div class="meta rentalEmpty">No expenses recorded for this month.</div>';
+ document.querySelectorAll(".rentalEditExpense").forEach(b=>b.onclick=()=>rentalOpenExpense(b.dataset.id));
+ document.querySelectorAll(".rentalDeleteExpense").forEach(b=>b.onclick=()=>{var x=rentalExpenses.find(e=>String(e.id)===String(b.dataset.id));if(!x)return;if(confirm("Delete "+x.category+" expense of "+rMoney(x.amount)+"?")){rentalExpenses=rentalExpenses.filter(e=>String(e.id)!==String(b.dataset.id));rentalSave();renderRental()}});
+
+}
+window.rentalOpenDay=function(date){
+ var booking=rentalBookings.find(b=>date>=b.checkin&&date<b.checkout);
+ if(booking){rentalOpenBooking(date);return}
+ var block=rentalBlocks.find(b=>b.date===date);
+ rentalModal("Manage "+date,'<div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Create Booking</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+(block?.note||'')+'" placeholder="Optional reason"></div>',fd=>{
+  var status=fd.get("status"),note=fd.get("note");rentalBlocks=rentalBlocks.filter(b=>b.date!==date);
+  if(status==="available"){if(block){/* restore this date to available only */}else setTimeout(()=>rentalOpenBooking(date),0)}else rentalBlocks.push({date,status,note})
+ });
+}
+function rentalModal(title,fields,onSave){
+ var old=document.getElementById("rentalModal");if(old)old.remove();var d=document.createElement("div");d.className="modalBack open";d.id="rentalModal";d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">'+title+'</div><button class="closeBtn" type="button">✕</button></div><form class="formGrid" id="rentalForm">'+fields+'<div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn rentalCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>';document.body.appendChild(d);d.querySelector(".closeBtn").onclick=d.querySelector(".rentalCancel").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();onSave(new FormData(e.target));d.remove();rentalSave();renderRental()}
+}
+window.rentalOpenBooking=function(date){
+ rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rIso(new Date(rDate(date||rIso(new Date())).getTime()+86400000))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Daily Rate (SAR / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),dailyRate:Number(fd.get("dailyRate")),paid:fd.get("paid")==="1",paidAmount:fd.get("paid")==="1"?Number(fd.get("dailyRate"))*rNights(a,z):0,paymentDate:fd.get("paid")==="1"?rIso(new Date()):"",note:fd.get("note")})});
+}
+window.rentalOpenExpense=function(id){
+ var existing=id!=null?rentalExpenses.find(e=>String(e.id)===String(id)):null;
+ var categories=["Cleaning","Laundry","Utilities","Internet","Maintenance","Supplies","Platform Fee","Furniture","Other"];
+ var categoryOptions=categories.map(c=>'<option'+(existing&&existing.category===c?' selected':'')+'>'+c+'</option>').join("");
+ rentalModal(existing?"Edit Rental Expense":"Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+(existing?.date||rIso(new Date()))+'"></div><div class="field"><label>Category</label><select name="category">'+categoryOptions+'</select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required value="'+(existing?.amount??"")+'"></div><div class="field"><label>Note</label><input name="note" value="'+String(existing?.note||"").replace(/"/g,"&quot;")+'"></div>',fd=>{
+  var data={id:existing?.id||Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")};
+  if(existing){Object.assign(existing,data)}else rentalExpenses.push(data)
+ })
+}
+/* Rental controls use direct inline handlers from index.html. */
+
+/* V283 initialize the single-source top shell after the combined bundle is ready */
+setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'executive'):'executive');}catch(e){console.error('Canonical shell init',e)}},0);
+
+/* V283 account + preferences */
+(function(){
+ const PROFILE_KEY='pf_profile_v283',PREF_KEY='pf_preferences_v283';
+ const getProfile=()=>{try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch(e){return {}}};
+ const getPrefs=()=>{try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}};
+ function effectiveTheme(t){return t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):(t||'dark')}
+ window.applyFinancePreferences=function(){
+  const p=getPrefs(),theme=p.theme||'dark',resolved=effectiveTheme(theme);
+  document.documentElement.dataset.financeTheme=resolved;
+  document.documentElement.dataset.themePreference=theme;
+  document.documentElement.style.colorScheme=resolved;
+  if(document.body)document.body.classList.toggle('compactFinanceNav',!!p.compactNav);
+  const st=document.getElementById('prefThemeStatus');if(st)st.textContent=theme[0].toUpperCase()+theme.slice(1);
+  const ck=document.getElementById('prefCompactNav');if(ck)ck.checked=!!p.compactNav;
+  document.querySelectorAll('[data-theme-choice]').forEach(b=>{const on=b.dataset.themeChoice===theme;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',on?'true':'false')});
+  try{if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'preferences'):'preferences')}catch(e){}
+ };
+ window.renderAccountProfile=function(){
+  const p=getProfile(),name=p.name||'Hussam Ahmad',email=p.email||'',initials=(p.initials||'HA').toUpperCase().slice(0,3);
+  ['accountAvatarPreview'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=initials});
+  const n=document.getElementById('accountNamePreview');if(n)n.textContent=name;
+  const em=document.getElementById('accountEmailPreview');if(em)em.textContent=email||'Local profile • Login not connected yet';
+  const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei)ei.value=email;const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
+  document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b').forEach(e=>e.textContent=initials);
+  const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
+ };
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
+ document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
+ document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=document.getElementById('accountEmail').value.trim(),initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'HA').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
+ if(matchMedia)matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if((getPrefs().theme||'dark')==='system')applyFinancePreferences()});
+ applyFinancePreferences();setTimeout(renderAccountProfile,0);
+})();

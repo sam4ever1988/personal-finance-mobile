@@ -1,3 +1,65 @@
+
+/* V283 single-source application shell */
+function navIcon(name){
+ var paths={
+  dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  transactions:'<path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/><path d="M18 7l-3 3"/><path d="M6 17l3-3"/>',
+  outgoings:'<path d="M5 19L19 5"/><path d="M10 5h9v9"/>',
+  installments:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><circle cx="12" cy="15" r="2"/><path d="M12 13v2l1 1"/>',
+  import:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v7M9 15l3 3 3-3"/>',
+  investments:'<path d="M3 20h18"/><path d="M5 16l5-5 4 3 6-8"/><path d="M15 6h5v5"/>',
+  assets:'<path d="M12 3l8 6-8 12L4 9z"/><path d="M4 9h16M9 9l3 12 3-12"/>',
+  rental:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/><circle cx="17" cy="14" r="1"/>',
+  reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H21v4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  cash:'<rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 12h6"/><circle cx="16" cy="13" r="1"/><path d="M5 6V4h13v2"/>',
+  position:'<path d="M12 3v18M5 7h14"/><path d="M5 7l-3 6h6zM19 7l-3 6h6z"/><path d="M7 21h10"/>',
+  strategy:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/><path d="M15 9l6-6M17 3h4v4"/>'
+ };
+ return '<svg class="navSvg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+paths[name]+'</svg>';
+}
+function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
+function canonicalTopHTML(){
+ function menu(label,icon,mainPage,items){return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" data-main-page="'+mainPage+'" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+items.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>'}
+ return '<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'
+ +menu('Dashboard','dashboard','executive',[['executive','dashboard','Executive Overview'],['accounts','cash','Cash & Credit'],['financialposition','position','Financial Position'],['strategy','strategy','Financial Strategy']])
+ +menu('Transactions','transactions','transactions',[['transactions','transactions','Transactions'],['incomeplan','cash','Monthly Income & Payment Plan'],['outgoings','outgoings','Cash & Other Outgoings'],['installments','installments','Installments']])
+ +shellButton('investments','investments','Investments')
+ +shellButton('assets','assets','Personal Assets')
+ +shellButton('rental','rental','Airbnb / Rental')
+ +shellButton('reports','reports','Reports')
+ +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
+ +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
+}
+function ensureCanonicalShell(){
+ var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
+ app.querySelectorAll('.sidebar,.unifiedSide,#canonicalAppSide').forEach(x=>x.remove());
+ main.querySelectorAll('.topbar').forEach(x=>x.remove());
+ var content=main.querySelector(':scope>.content');if(!content)return;
+ content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
+ var top=document.getElementById('canonicalAppTop');
+ if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
+ top.innerHTML=canonicalTopHTML();
+ top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
+ top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
+  var m=b.closest('[data-nav-menu]');
+  b.onmouseenter=()=>{top.querySelectorAll('[data-nav-menu]').forEach(x=>{if(x!==m)x.classList.remove('open')});m.classList.add('open');b.setAttribute('aria-expanded','true')};
+  b.onclick=(e)=>{e.preventDefault();e.stopPropagation();var target=b.dataset.mainPage;if(target)nav(target)};
+ });
+ top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
+ var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
+ if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
+ top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='preferences')nav('preferences');else if(a==='account')nav('accountprofile');else if(a==='signout'){profile.classList.remove('open');alert('Sign out will connect to the login system when authentication is added.')}});
+ if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
+}
+function syncCanonicalShell(page){
+ ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+ document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
+ var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
+ document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
+}
+
 function rebuildTransactions(){
  // V155: embedded BASE transactions never enter the live finance database.
  transactions=[
@@ -918,6 +980,7 @@ function restoreReviewControls(state){
 }
 
 function restoreReviewPage(state,{restoreScroll=true}={}){
+ ensureCanonicalShell();
  if(!state)return;
 
  restoreReviewControls(state);
@@ -931,8 +994,9 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
+ document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
@@ -948,7 +1012,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
   categories:'Categories',
   incomeplan:'Income & Payment Plan',
   outgoings:'Outgoings',
-  importstatements:'Import Statements',assets:'Personal Assets',
+  importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',
   financeSettings:'Finance Settings',
   more:'More',
   accountDetail:'Account Details'
@@ -961,6 +1025,8 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  else if(page==='executive')renderExecutiveDashboard();
  else if(page==='strategy')renderFinancialStrategy();
  else if(page==='assets')renderGoldAssets();
+ else if(page==='investments')renderInvestments();
+ else if(page==='rental')renderRental();else if(page==='accountprofile'){window.renderAccountProfile?.();}else if(page==='preferences'){window.applyFinancePreferences?.();}
  if(page==='financialposition')renderFinancialPosition();
  if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
@@ -992,6 +1058,7 @@ function loadSavedReviewState(){
 }
 
 function nav(page){
+ syncCanonicalShell(page);
  const previousPage=activeViewId();
  if(previousPage)captureReviewState();
 
@@ -1007,16 +1074,17 @@ function nav(page){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
+ document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
- const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
- $('pageTitle').textContent=titles[page]||'Personal Finance';
- $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
+ if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
  // Intentional user navigation starts at the top. Realtime restore does NOT use nav().
  window.scrollTo({top:0,behavior:'auto'});
@@ -1032,6 +1100,8 @@ function nav(page){
  if(page==='outgoings')renderOutgoings();
  if(page==='importstatements')renderImportPage();
  if(page==='assets')renderGoldAssets();
+ else if(page==='investments')renderInvestments();
+ else if(page==='rental')renderRental();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
  // V263: Transactions must render on every intentional navigation.

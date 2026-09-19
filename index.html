@@ -8,54 +8,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-<link rel="stylesheet" href="styles.css?v=283">
+<link rel="stylesheet" href="styles.css?v=283r13">
 </head>
 <body class="execMode">
 <div class="app">
-<aside class="sidebar unifiedSide">
- <div class="brand"><div class="brandIcon">▥</div><div>My Finance<small>Control Today • Plan Tomorrow</small></div></div>
- <div class="unifiedSideTitle">Dashboard Views</div>
- <button type="button" class="navBtn" data-page="executive" onclick="mobileNavigate(event,'executive')"><span class="ic">▧</span>Executive Overview</button>
- <button type="button" class="navBtn" data-page="accounts" onclick="mobileNavigate(event,'accounts')"><span class="ic">▤</span>Cash & Credit</button>
- <button type="button" class="navBtn" data-page="financialposition" onclick="mobileNavigate(event,'financialposition')"><span class="ic">▥</span>Financial Position</button>
- <button type="button" class="navBtn" data-page="strategy" onclick="mobileNavigate(event,'strategy')"><span class="ic">⌁</span>Financial Strategy</button>
- <div class="unifiedSep"></div><div class="unifiedSideTitle">Modules</div>
- <button type="button" class="navBtn" data-page="transactions" onclick="mobileNavigate(event,'transactions')"><span class="ic">☷</span>Transactions</button>
- <button type="button" class="navBtn" data-page="outgoings" onclick="mobileNavigate(event,'outgoings')"><span class="ic">↗</span>Cash & Other Outgoings</button>
- <button type="button" class="navBtn" data-page="installments" onclick="mobileNavigate(event,'installments')"><span class="ic">▤</span>Installments</button>
- <button type="button" class="navBtn" data-page="importstatements" onclick="mobileNavigate(event,'importstatements')"><span class="ic">▧</span>Import Statements</button>
- <button type="button" class="navBtn" data-page="assets" onclick="mobileNavigate(event,'assets')"><span class="ic">◇</span>Personal Assets</button>
- <button type="button" class="navBtn" data-page="reports" onclick="mobileNavigate(event,'reports')"><span class="ic">▥</span>Reports</button>
- <button type="button" class="navBtn" data-page="financeSettings" onclick="mobileNavigate(event,'financeSettings')"><span class="ic">⚙</span>Settings</button>
-  <button type="button" class="navBtn" data-page="categories" onclick="mobileNavigate(event,'categories')"><span class="ic">≡</span>Categories & Rules</button>
- <button type="button" class="navBtn" data-page="more" onclick="mobileNavigate(event,'more')"><span class="ic">•••</span>More</button>
- <div class="sideFoot"><div class="sideTiny">“A better financial tomorrow starts with clarity today.”</div><div class="sideTiny">v2.83</div></div>
-</aside>
-
+<header id="canonicalAppTop" class="canonicalAppTop"></header>
 <div class="main">
-<header class="topbar">
- <div><div class="pageTitle" id="pageTitle">Dashboard</div><div class="pageSub" id="pageSub">Current finance position</div></div>
- <div class="topActions"><button class="btn ghost" id="quickAddTransaction">+ Transaction</button><button class="btn ghost" id="quickInstallment">+ Installment Plan</button><button class="btn primary" data-page-jump="reports">View Reports</button></div>
-</header>
 <main class="content">
-<div class="modernModuleTop" id="modernModuleTop">
- <div class="txExecBrand"><span class="txExecMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div>
- <nav class="modernModuleNav">
-  <button data-modern-page="executive" data-page-jump="executive">⌂ Dashboard</button>
-  <button data-modern-page="transactions" data-page-jump="transactions">☷ Transactions</button>
-  <button data-modern-page="outgoings" data-page-jump="outgoings">↗ Outgoings</button>
-  <button data-modern-page="installments" data-page-jump="installments">▤ Installments</button>
-  <button data-modern-page="importstatements" data-page-jump="importstatements">⇩ Import Statements</button>
-  <button data-modern-page="assets" data-page-jump="assets">◇ Personal Assets</button>
-  <button data-modern-page="reports" data-page-jump="reports">▥ Reports</button>
-  <button data-modern-page="financeSettings" data-page-jump="financeSettings">⚙ Settings</button>
- </nav>
- <div class="modernModuleDate" id="modernModuleDate"></div><div class="txExecAvatar">HA</div>
-</div>
+
 
 <section class="view active" id="executive"><div class="execShell">
 <div class="execTop"><div class="execBrand"><div class="execLogo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="trend">↗</span></div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
-<div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="outgoings">↗　Outgoings</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button></div>
+<div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="outgoings">↗　Outgoings</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button></div>
 <div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
 <div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">▥　Financial Position</button><button class="execSideBtn" data-page-jump="strategy">⌁　Financial Strategy</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><button class="execSideBtn" data-page-jump="more">•••　More</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">v2.83</div></aside>
 <main class="execMain">
@@ -104,8 +68,8 @@
 
 <section class="view" id="accounts">
 <div class="cashShell">
- <header class="cashTop"><div class="cashBrand"><span class="cashMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="cashNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="cashDate" id="cashDate"></div><div class="cashAvatar">HA</div></header>
- <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">v2.83</div></aside>
+ <header class="cashTop"><div class="cashBrand"><span class="cashMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="cashNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="cashDate" id="cashDate"></div><div class="cashAvatar">HA</div></header>
+ <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">v2.83</div></aside>
  <main class="cashMain">
   <div class="cashHero"><div><h1>Cash & Credit</h1><p>Control bank liquidity, credit availability, statement obligations and upcoming payments.</p></div><div class="cashHeroActions"><button class="cashBtn" data-page-jump="incomeplan">Open Payment Plan</button><button class="cashBtn primary" data-page-jump="transactions">Review Transactions</button></div></div>
   <div class="cashKpis" id="cashKpis"></div>
@@ -119,8 +83,8 @@
 
 <section class="view" id="transactions">
 <div class="txExecShell">
- <header class="txExecTop"><div class="txExecBrand"><span class="txExecMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="txExecNav"><button data-page-jump="executive">⌂ Dashboard</button><button class="active">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="txExecDate" id="txExecDate"></div><div class="txExecAvatar">HA</div></header>
- <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">v2.83</div></aside>
+ <header class="txExecTop"><div class="txExecBrand"><span class="txExecMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="txExecNav"><button data-page-jump="executive">⌂ Dashboard</button><button class="active">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="txExecDate" id="txExecDate"></div><div class="txExecAvatar">HA</div></header>
+ <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">v2.83</div></aside>
  <main class="txExecMain">
   <div class="txExecHero"><div><h2>Transactions</h2><p>Review and control your complete cash movement, spending, transfers and items that still need classification.</p></div><div class="txExecHeroActions"><select class="txDarkControl" id="txTopMonth"><option>September 2026</option></select><button class="txDarkBtn" data-page-jump="importstatements">⇩　Import Statement</button><button class="txAddBtn" id="txHeroAdd">＋ Add Transaction</button></div></div>
   <div class="txExecKpis" id="txWorkKpis"></div>
@@ -136,8 +100,8 @@
 
 <section class="view" id="strategy">
 <div class="strategyShell">
- <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
- <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.83</div></aside>
+ <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
+ <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">v2.83</div></aside>
  <main class="strategyMain">
   <div class="strategyPageHero"><div><h2>Financial Strategy</h2><p>Turn your live income, spending, credit and loan data into a clear monthly plan.</p></div><div class="strategyHeroActions"><button class="strategyDarkBtn" type="button" data-page-jump="transactions">Review Spending</button><button class="strategyPrimaryBtn" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
   <div class="strategyKpis" id="strategyKpis"></div>
@@ -153,6 +117,16 @@
  <div class="modernKpis" id="fpKpis"></div>
  <div class="modernGrid2"><div class="panel"><div class="panelTitle">Assets Breakdown</div><div id="fpAssets"></div></div><div class="panel"><div class="panelTitle">Liabilities Breakdown</div><div id="fpLiabilities"></div></div></div>
  <div class="panel" style="margin-top:12px"><div class="panelTitle">Net Position Summary</div><div id="fpSummary"></div></div>
+</section>
+
+<section class="view" id="rental">
+ <div class="rentalHero"><div><div class="rentalEyebrow">PROPERTY INCOME • AIRBNB / RENTAL</div><h1>Rental Management</h1><p>Manage availability, bookings, rental income and monthly operating expenses from one calendar.</p></div><div class="rentalHeroActions"><button class="btn" id="rentalExpenseBtn" type="button" onclick="rentalOpenExpense()">− Add Expense</button><button class="btn primary" id="rentalBookingBtn" type="button" onclick="rentalOpenBooking(rIso(new Date()))">+ Add Booking</button></div></div>
+ <div class="rentalKpis" id="rentalKpis"></div>
+ <div class="rentalLayout">
+  <div class="panel rentalCalendarPanel"><div class="rentalCalHead"><button class="btn" id="rentalPrev" type="button" onclick="rentalView.setMonth(rentalView.getMonth()-1);renderRental()">‹</button><div><div class="panelTitle" id="rentalMonthTitle"></div><div class="meta">Click a day to create a booking. Existing reservations span their booked nights.</div></div><button class="btn" id="rentalToday" type="button" onclick="rentalView=new Date();rentalView.setDate(1);renderRental()">Today</button><button class="btn" id="rentalNext" type="button" onclick="rentalView.setMonth(rentalView.getMonth()+1);renderRental()">›</button></div><div class="rentalWeek"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="rentalCalendar" id="rentalCalendar"></div><div class="rentalLegend"><span><i class="available"></i>Available</span><span><i class="booked"></i>Booked</span><span><i class="blocked"></i>Blocked</span><span><i class="maintenance"></i>Maintenance</span></div></div>
+  <div class="rentalRight"><div class="panel"><div class="splitHead"><div><div class="panelTitle">This Month</div><div class="meta">Income vs operating cost</div></div></div><div id="rentalMonthFinance"></div></div><div class="panel"><div class="panelTitle">Upcoming Bookings</div><div id="rentalUpcoming"></div></div></div>
+ </div>
+ <div class="rentalBottom"><div class="panel"><div class="splitHead"><div><div class="panelTitle">Bookings</div><div class="meta">Reservation and payment register</div></div></div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Stay</th><th>Booking</th><th>Nights</th><th>Daily Rate</th><th>Payment</th><th>Status</th><th></th></tr></thead><tbody id="rentalBookingBody"></tbody></table></div></div><div class="panel"><div class="panelTitle">Monthly Expenses</div><div id="rentalExpenses"></div></div></div>
 </section>
 
 <section class="view" id="reports">
@@ -485,6 +459,14 @@
  </div>
 </section>
 
+<section class="view" id="investments">
+ <div class="invHero"><div><div class="invEyebrow">WEALTH • INVESTMENTS</div><h1>Stock Portfolio</h1><div class="meta">Live Saudi & U.S. market values using your original portfolio. Quantities and average costs remain editable.</div></div><div class="invActions"><button class="btn" id="invRefresh">↻ Refresh Live Prices</button><button class="btn primary" id="invAddHolding">+ Add Holding</button></div></div>
+ <div class="invStatus" id="invStatus">Loading your saved portfolio…</div><div class="invKpis" id="invKpis"></div>
+ <div class="panel invToolbar"><input id="invSearch" placeholder="Search ticker or company"><select id="invMarket"><option value="ALL">All Markets</option><option value="SA">Saudi Arabia</option><option value="US">United States</option></select><select id="invSort"><option value="value">Market Value</option><option value="pl">Gain / Loss</option><option value="pct">Return %</option><option value="ticker">Ticker</option></select></div>
+ <div class="panel invTablePanel"><div class="tableWrap"><table class="invTable"><thead><tr><th>Holding</th><th>Market</th><th>Shares</th><th>Avg Cost</th><th>Live Price</th><th>Market Value</th><th>Gain / Loss</th><th>Return</th><th>Weight</th><th>Actions</th></tr></thead><tbody id="invBody"></tbody></table></div></div>
+ <div class="invGrid"><div class="panel"><div class="panelTitle">Portfolio Allocation</div><div id="invAllocation"></div></div><div class="panel"><div class="panelTitle">Recent Stock Activity</div><div id="invTrades" class="meta">No stock activity recorded yet.</div></div></div>
+</section>
+
 <section class="view" id="assets">
  <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Personal Assets • Gold</div><div class="meta">Each asset name has one permanent Asset ID. Entering the same name again updates that asset instead of duplicating its weight and value.</div></div><button class="btn primary" id="addGoldAsset" type="button">+ Add Gold</button></div>
  <div class="kpis" id="goldKpis" style="margin-top:14px"></div>
@@ -500,6 +482,22 @@
 <section class="view" id="accountDetail">
  <button class="btn" id="detailBack">← Back</button>
  <div id="accountDetailContent" style="margin-top:14px"></div>
+</section>
+
+<section class="view" id="accountprofile">
+ <div class="prefsPage"><div class="prefsEyebrow">PROFILE</div><h1>Account</h1><p class="prefsLead">Manage the identity that will be used by My Finance and the future login system.</p>
+ <div class="prefsGrid"><div class="panel prefsCard"><div class="profileLarge"><div class="profileLargeAvatar" id="accountAvatarPreview">HA</div><div><h2 id="accountNamePreview">Hussam Ahmad</h2><div class="meta" id="accountEmailPreview">Local profile • Login not connected yet</div></div></div></div>
+ <div class="panel prefsCard"><div class="panelTitle">Profile Details</div><form id="accountProfileForm" class="prefsForm"><label>Display Name<input id="accountDisplayName" autocomplete="name"></label><label>Email<input id="accountEmail" type="email" autocomplete="email" placeholder="name@example.com"></label><label>Initials<input id="accountInitials" maxlength="3" placeholder="HA"></label><button class="btn primary" type="submit">Save Profile</button></form></div>
+ <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">This area is ready for authentication. Password, sessions and secure sign-out will be connected when the login screen is implemented.</p><div class="prefsStatus"><span>Authentication</span><b>Not connected</b></div></div></div></div>
+</section>
+<section class="view" id="preferences">
+ <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Control how My Finance looks on this device. Changes apply immediately and are saved locally.</p>
+ <div class="prefsGrid"><div class="panel prefsCard prefsWide"><div class="panelTitle">Appearance</div><div class="themeChoices" id="themeChoices">
+ <button type="button" data-theme-choice="dark"><span class="themePreview themeDark"></span><b>Dark</b><small>Current finance dashboard style</small></button>
+ <button type="button" data-theme-choice="light"><span class="themePreview themeLight"></span><b>Light</b><small>Bright workspace</small></button>
+ <button type="button" data-theme-choice="system"><span class="themePreview themeSystem"></span><b>System</b><small>Follow your Mac/browser appearance</small></button>
+ </div></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label></div>
+ <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Dark</b></div><div class="prefsStatus"><span>Storage</span><b>On this device</b></div></div></div></div>
 </section>
 
 </main>
@@ -731,7 +729,7 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283r13');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
