@@ -20,17 +20,34 @@ function navIcon(name){
  return '<svg class="navSvg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+paths[name]+'</svg>';
 }
 function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
+function canonicalTopHTML(){
+ return '<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'
+ +shellButton('executive','dashboard','Dashboard')
+ +shellButton('accounts','cash','Cash & Credit')
+ +shellButton('financialposition','position','Financial Position')
+ +shellButton('strategy','strategy','Financial Strategy')
+ +shellButton('transactions','transactions','Transactions')
+ +shellButton('outgoings','outgoings','Outgoings')
+ +shellButton('installments','installments','Installments')
+ +shellButton('importstatements','import','Import Statements')
+ +shellButton('investments','investments','Investments')
+ +shellButton('assets','assets','Personal Assets')
+ +shellButton('rental','rental','Airbnb / Rental')
+ +shellButton('reports','reports','Reports')
+ +shellButton('financeSettings','settings','Settings')
+ +shellButton('more','more','More')
+ +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
+}
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
- app.querySelectorAll('.sidebar,.unifiedSide').forEach(x=>x.remove());main.querySelectorAll('.topbar').forEach(x=>x.remove());
- var content=main.querySelector(':scope>.content');if(!content)return;content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
- if(document.getElementById('canonicalAppTop')){document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));return;}
- var top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';
- top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'+shellButton('executive','dashboard','Dashboard')+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More')+'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';app.insertBefore(top,main);
- /* top-navigation-only: no desktop sidebar is created */
- var side=null; /* retired sidebar source */
- var retiredSideHTML='<div class="canonicalSideTitle">Dashboard Views</div>'+shellButton('executive','dashboard','Executive Overview')+shellButton('accounts','cash','Cash & Credit')+shellButton('financialposition','position','Financial Position')+shellButton('strategy','strategy','Financial Strategy')+'<div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div>'+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Cash & Other Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More');
- document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
+ app.querySelectorAll('.sidebar,.unifiedSide,#canonicalAppSide').forEach(x=>x.remove());
+ main.querySelectorAll('.topbar').forEach(x=>x.remove());
+ var content=main.querySelector(':scope>.content');if(!content)return;
+ content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
+ var top=document.getElementById('canonicalAppTop');
+ if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
+ top.innerHTML=canonicalTopHTML();
+ top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
 }
 function syncCanonicalShell(page){
  ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
