@@ -867,7 +867,9 @@ function captureReviewState(){
    physicalCard:$('txPhysicalCard')?.value||'',
    category:$('txCategory')?.value||'',
    type:$('txType')?.value||'',
-   statementMonth:$('txStatementMonth')?.value||''
+   statementMonth:$('txStatementMonth')?.value||'',
+   from:$('txFrom')?.value||'',
+   to:$('txTo')?.value||''
   },
   reportFilters:{
    from:$('reportFrom')?.value||'',
@@ -894,6 +896,8 @@ function restoreReviewControls(state){
   if($('txCategory'))$('txCategory').value=state.txFilters.category||'';
   if($('txType'))$('txType').value=state.txFilters.type||'';
   if($('txStatementMonth'))$('txStatementMonth').value=state.txFilters.statementMonth||'';
+  if($('txFrom'))$('txFrom').value=state.txFilters.from||'';
+  if($('txTo'))$('txTo').value=state.txFilters.to||'';
  }
 
  if(state.reportFilters){
