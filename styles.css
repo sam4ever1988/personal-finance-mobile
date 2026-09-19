@@ -1818,3 +1818,9 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
 .rentalBottom{display:grid;grid-template-columns:1.5fr .7fr;gap:10px;margin-top:10px}.rentalBottom>.panel{padding:13px}.rentalTable{width:100%;border-collapse:collapse}.rentalTable th{background:#0d526e;color:#dcecf6;text-align:left;padding:9px;font-size:10px}.rentalTable td{padding:9px;border-bottom:1px solid #124b63;font-size:11px}.rentalTable td small{display:block;color:#8faabc}.rentalBadge{padding:3px 7px;border-radius:10px;font-size:9px}.rentalBadge.paid{background:#073f36;color:#38e0a4}.rentalBadge.pending{background:#3b3516;color:#ffd86a}
 @media(max-width:1200px){.rentalKpis{grid-template-columns:repeat(3,1fr)}.rentalLayout,.rentalBottom{grid-template-columns:1fr}.rentalDay{min-height:72px}}
 @media(max-width:760px){.rentalKpis{grid-template-columns:1fr 1fr}.rentalHero{flex-direction:column}.rentalCalendarPanel{overflow-x:auto}.rentalWeek,.rentalCalendar{min-width:700px}}
+
+/* V283 Rental payment status action */
+.rentalPaymentToggle{cursor:pointer;border:0;font:inherit;transition:transform .12s ease,filter .12s ease}
+.rentalPaymentToggle:hover{filter:brightness(1.18);transform:translateY(-1px)}
+.rentalPaymentToggle.pending{padding:6px 10px}
+.rentalPaymentToggle.paid{padding:6px 10px}
