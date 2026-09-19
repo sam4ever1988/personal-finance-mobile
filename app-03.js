@@ -916,7 +916,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
  const titles={
-  dashboard:'Compact View',financialposition:'Financial Position',
+  financialposition:'Financial Position',
   executive:'Executive Dashboard',
   accounts:'Accounts & Cards',
   transactions:'Transactions',
@@ -987,7 +987,7 @@ function nav(page){
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
 
- const titles={dashboard:'Compact View',financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
@@ -1045,7 +1045,7 @@ function mobileNavigate(event,page){
 
 /* V258: sidebar buttons already call mobileNavigate(). A second desktop
    listener caused two nav()/render passes for every desktop click. */
-document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.pageJump)));
+document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.pageJump==='dashboard'?'executive':b.dataset.pageJump)));
 if($('txHeroAdd'))$('txHeroAdd').addEventListener('click',()=>$('addTransaction')?.click());
 
 const mobileNavBar=document.querySelector('.sidebar');
