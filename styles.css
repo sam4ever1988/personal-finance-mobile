@@ -2072,3 +2072,46 @@ body.compactFinanceNav #canonicalAppTop{grid-template-columns:165px minmax(0,1fr
 body.compactFinanceNav .canonicalBrand{width:165px!important;min-width:165px!important}
 body.compactFinanceNav .canonicalMenuTrigger,body.compactFinanceNav .canonicalTopNav>button{padding-left:2px!important;padding-right:2px!important;font-size:9.5px!important;gap:3px!important}
 body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px!important;min-width:15px!important}
+
+
+/* V283r13 Account / Preferences viewport anchor — remove inherited vertical flow gap */
+@media(min-width:901px){
+  html body #accountprofile.view.active,
+  html body #preferences.view.active{
+    position:fixed!important;
+    top:62px!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    width:100vw!important;
+    height:calc(100vh - 62px)!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:auto!important;
+    z-index:20!important;
+  }
+  html body #accountprofile.view.active>.prefsPage,
+  html body #preferences.view.active>.prefsPage{
+    position:relative!important;
+    top:0!important;
+    left:0!important;
+    width:100%!important;
+    max-width:none!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:22px 24px 30px!important;
+    transform:none!important;
+  }
+}
+@media(max-width:900px){
+  html body #accountprofile.view.active,
+  html body #preferences.view.active{
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+  }
+}
