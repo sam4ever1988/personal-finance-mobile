@@ -931,6 +931,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
+ document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
  document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
@@ -1008,6 +1009,7 @@ function nav(page){
  document.body.classList.toggle('txMode',page==='transactions');
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
+ document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
  document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
