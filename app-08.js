@@ -273,17 +273,19 @@ addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtit
 
 $('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
 async function init(){
- const session=await cloudRefreshAuth();
+ // V257: restore the local finance state FIRST. Authentication/network checks
+ // must never block first paint or navigation.
  let localSavedAt='';
  try{const localState=await financeDB.get('finance_state');localSavedAt=localState?.savedAt||'';}catch(_){}
  await financeDB.restore();
+ // Auth is intentionally started in parallel after local restore; the UI does
+ // not await Supabase before becoming usable.
+ const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
+ let session=null;
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
- if(session){
-  const ok=await startRealtimeRecordSync();
-  updateCloudSyncPanel(ok);
-  if(!ok)cloudSetStatus('Signed in • realtime startup pull pending');
- }
+ // Cloud startup is deferred until after the local UI is painted below.
+ // This prevents a slow/offline Supabase session check from freezing navigation.
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
  reconcileRemainingPrincipalPlans();
@@ -359,7 +361,18 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
   captureReviewState();
  }
 
- if(session)setTimeout(()=>startRealtimeRecordSync(),120);
+ // Finish cloud authentication/sync in the background. Never block the page.
+ sessionPromise.then(s=>{
+  session=s;
+  if(!s)return;
+  setTimeout(async()=>{
+   try{
+    const ok=await startRealtimeRecordSync();
+    updateCloudSyncPanel(ok);
+    if(!ok)cloudSetStatus('Signed in • protected sync pending');
+   }catch(e){console.warn('Deferred cloud sync warning',e);}
+  },250);
+ });
 }
 
 try{
