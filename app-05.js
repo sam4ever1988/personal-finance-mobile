@@ -62,6 +62,11 @@ function renderInstallments(){
 
 function renderCategories(){
  const names=Object.keys(categories);if(!categories[selectedCategory])selectedCategory=names[0]||'';
+ const subCount=names.reduce((sum,name)=>sum+(categories[name]||[]).length,0);
+ const ruleCount=Object.keys(merchantRules||{}).length;
+ if($('categoryCountMetric'))$('categoryCountMetric').textContent=names.length;
+ if($('subcategoryCountMetric'))$('subcategoryCountMetric').textContent=subCount;
+ if($('merchantRuleCountMetric'))$('merchantRuleCountMetric').textContent=ruleCount;
  $('categoryList').innerHTML=names.map(c=>`<div class="catEditRow"><button class="${c===selectedCategory?'selected':''}" data-cat="${c}" style="flex:1;text-align:left">${c}<span style="float:right;color:#98a2b3">${(categories[c]||[]).length}</span></button><div class="catEditActions"><button class="catEditBtn" data-edit-cat="${c}">Edit</button><button type="button" class="catEditBtn danger" data-del-cat="${c}">Delete</button></div></div>`).join('');
  document.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{selectedCategory=b.dataset.cat;renderCategories()}));
  document.querySelectorAll('[data-edit-cat]').forEach(b=>b.addEventListener('click',()=>openSimple('edit-category',b.dataset.editCat)));
