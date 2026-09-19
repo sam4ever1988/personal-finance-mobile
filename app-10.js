@@ -49,3 +49,6 @@ window.rentalOpenBooking=function(date){
 }
 window.rentalOpenExpense=function(){rentalModal("Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+rIso(new Date())+'"></div><div class="field"><label>Category</label><select name="category"><option>Cleaning</option><option>Laundry</option><option>Utilities</option><option>Internet</option><option>Maintenance</option><option>Supplies</option><option>Platform Fee</option><option>Furniture</option><option>Other</option></select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="field"><label>Note</label><input name="note"></div>',fd=>rentalExpenses.push({id:Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")}))}
 /* Rental controls use direct inline handlers from index.html. */
+
+/* V283 initialize the single-source top shell after the combined bundle is ready */
+setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'executive'):'executive');}catch(e){console.error('Canonical shell init',e)}},0);
