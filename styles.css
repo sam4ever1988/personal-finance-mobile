@@ -1170,3 +1170,53 @@ body.modernMode table th{background:#0c4c68!important;color:#cfe5f2!important}
 body.modernMode table td{background:transparent!important;color:#eaf5ff!important}
 body.modernMode .btn:not(.primary):not(.danger){background:#082b40!important;border-color:#176181!important;color:#eaf5ff!important}
 body.modernMode .meta,body.modernMode small,body.modernMode .hint{color:#9fb8c9!important}
+
+/* V261 — Income & Payment Plan: same executive visual system, no legacy white cards */
+body.modernMode #incomeplan{color:#edf7ff!important}
+body.modernMode #incomeplan .incomeCard,
+body.modernMode #incomeplan .flowBox,
+body.modernMode #incomeplan .dueCard,
+body.modernMode #incomeplan .notice,
+body.modernMode #incomeplan .reviewAlert{
+ background:linear-gradient(145deg,#082f45,#062438)!important;
+ border:1px solid #17607d!important;color:#edf7ff!important;box-shadow:none!important
+}
+body.modernMode #incomeplan .incomeCard label{color:#a9c1d0!important}
+body.modernMode #incomeplan .incomeCard input{
+ background:#061f30!important;border:1px solid #1b607d!important;color:#f4f9ff!important
+}
+body.modernMode #incomeplan .incomeCard input::placeholder{color:#7895a8!important}
+body.modernMode #incomeplan .flowGrid{
+ grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;align-items:stretch!important
+}
+body.modernMode #incomeplan .flowArrow{display:none!important}
+body.modernMode #incomeplan .flowBox{
+ min-width:0!important;min-height:112px!important;padding:16px 12px!important;border-radius:12px!important
+}
+body.modernMode #incomeplan .flowBox .meta{color:#9fb8c9!important;font-size:11px!important}
+body.modernMode #incomeplan .flowBox .big{font-size:22px!important;white-space:normal!important;overflow-wrap:anywhere!important}
+body.modernMode #incomeplan .flowBox:first-child{border-color:#138c6f!important}
+body.modernMode #incomeplan .flowBox:last-child{border-color:#7754c9!important}
+body.modernMode #incomeplan .notice{
+ background:#092b3d!important;border-color:#245f78!important;color:#c9dce8!important;border-radius:10px!important
+}
+body.modernMode #incomeplan .notice b{color:#fff!important}
+body.modernMode #incomeplan .panel{overflow:hidden!important}
+body.modernMode #incomeplan .summaryTable{width:100%!important;background:transparent!important}
+body.modernMode #incomeplan .summaryTable th{
+ background:#0b4f6c!important;color:#cce0ec!important;border-color:#1c6683!important
+}
+body.modernMode #incomeplan .summaryTable td{color:#eaf5ff!important;border-color:#17485f!important}
+body.modernMode #incomeplan .summaryTable tbody tr:hover td{background:#0a3448!important}
+body.modernMode #incomeplan .splitHead{gap:12px!important}
+body.modernMode #incomeplan .green{color:#27d99d!important}
+body.modernMode #incomeplan .red{color:#ff5c6c!important}
+body.modernMode #incomeplan .amber{color:#ffc34d!important}
+@media(max-width:1150px){
+ body.modernMode #incomeplan .flowGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ body.modernMode #incomeplan .flowBox:last-child{grid-column:1/-1}
+}
+@media(max-width:700px){
+ body.modernMode #incomeplan .flowGrid{grid-template-columns:1fr!important}
+ body.modernMode #incomeplan .flowBox:last-child{grid-column:auto}
+}
