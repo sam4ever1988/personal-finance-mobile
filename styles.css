@@ -2044,3 +2044,22 @@ html[data-finance-theme="light"] input,html[data-finance-theme="light"] select,h
 html[data-finance-theme="light"] .themeChoices button{background:#f8fbfc;color:#163242;border-color:#aac9d7}
 body.compactFinanceNav .canonicalMenuTrigger,body.compactFinanceNav .canonicalTopNav>button{padding-left:3px!important;padding-right:3px!important;font-size:10px!important}
 @media(max-width:760px){.prefsGrid,.themeChoices{grid-template-columns:1fr}.prefsWide{grid-column:auto}.prefsPage{padding:16px}}
+
+/* V283r11 Account/Preferences vertical alignment fix */
+#accountprofile.view.active,#preferences.view.active{
+ min-height:0!important;
+ height:auto!important;
+ align-items:initial!important;
+ justify-content:initial!important;
+ padding-top:0!important;
+ margin-top:0!important;
+}
+#accountprofile .prefsPage,#preferences .prefsPage{
+ width:100%!important;
+ max-width:none!important;
+ margin:0!important;
+ padding:24px!important;
+ min-height:0!important;
+ transform:none!important;
+ box-sizing:border-box!important;
+}
