@@ -338,26 +338,19 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  renderOutgoings();
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
- renderDashboard();renderAccounts();renderTransactions();renderInstallments();renderCategories();renderReports();renderIncomePlan();renderGoldAssets();
- // V255: Executive is now the default DOM view, so render it explicitly after
- // finance data has been restored. Previously nav('executive') was not called
- // on a clean first load, leaving the Executive containers empty.
- renderExecutiveDashboard();
+ // V259: first-load performance. Do not render every hidden page here.
+ // The active page renderer is selected below after local finance state is ready.
  updateDbStatus(true);
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
 
- // If the browser/app was reloaded while the user was reviewing another page,
- // restore that page instead of defaulting to Dashboard.
+ // Restore only the page the user was reviewing. A clean session renders
+ // Executive Overview once. Other modules are rendered lazily by nav().
  const savedUi=loadSavedReviewState();
  if(savedUi && savedUi.page && document.getElementById(savedUi.page)){
   restoreReviewPage(savedUi,{restoreScroll:true});
  }else{
-  // A clean/new session must start on the Executive Overview, not merely rely
-  // on the HTML active class. nav() also applies the correct body mode and
-  // navigation state after all data is available.
   nav('executive');
-  renderExecutiveDashboard();
   captureReviewState();
  }
 
