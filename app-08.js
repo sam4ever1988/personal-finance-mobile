@@ -290,6 +290,21 @@ async function init(){
  // importedTransactions/manualTransactions, so rebuild it before any lazy page render.
  // Without this, Transactions can show 0 rows until another action happens to rebuild it.
  rebuildTransactions();
+
+ // V262: FIRST-DATA PAINT.
+ // The previous startup restored IndexedDB correctly but then ran every migration,
+ // reconciliation and hidden-page setup BEFORE rendering Executive Overview.
+ // That is why navigating to another page and back made Executive suddenly appear.
+ // Render the restored data now, then yield to the browser before maintenance work.
+ const startupUi=loadSavedReviewState();
+ if(!startupUi || !startupUi.page || startupUi.page==='executive'){
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='executive'));
+  document.body.classList.add('execMode');
+  renderExecutiveDashboard();
+  window.__financeFirstDataPaint=true;
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ }
+
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
  const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
@@ -345,7 +360,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 
  if($('addLoanSetting'))$('addLoanSetting').onclick=addLoanSetting;
  if($('saveFinanceSettingsBtn'))$('saveFinanceSettingsBtn').onclick=()=>saveFinanceSettings(true);
- renderOutgoings();
+ // V262: do not render a hidden Outgoings page during first load.
  const selfTestIssues=runtimeSelfTest();
  if(selfTestIssues.length)console.error('Runtime self-test issues:',selfTestIssues);
  // V259: first-load performance. Do not render every hidden page here.
@@ -356,11 +371,16 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
 
  // Restore only the page the user was reviewing. A clean session renders
  // Executive Overview once. Other modules are rendered lazily by nav().
- const savedUi=loadSavedReviewState();
+ const savedUi=startupUi||loadSavedReviewState();
  if(savedUi && savedUi.page && document.getElementById(savedUi.page)){
-  restoreReviewPage(savedUi,{restoreScroll:true});
+  if(savedUi.page==='executive' && window.__financeFirstDataPaint){
+   restoreReviewControls(savedUi);
+   requestAnimationFrame(()=>captureReviewState());
+  }else{
+   restoreReviewPage(savedUi,{restoreScroll:true});
+  }
  }else{
-  nav('executive');
+  if(!window.__financeFirstDataPaint)nav('executive');
   captureReviewState();
  }
 
