@@ -2063,3 +2063,12 @@ body.compactFinanceNav .canonicalMenuTrigger,body.compactFinanceNav .canonicalTo
  transform:none!important;
  box-sizing:border-box!important;
 }
+
+/* V283r12 Preferences are first-class app views; no inherited viewport spacer */
+#accountprofile,#preferences{padding:0!important;min-height:0!important;background:transparent!important}
+#accountprofile.view.active,#preferences.view.active{display:block!important;position:static!important;inset:auto!important;min-height:0!important;height:auto!important}
+#accountprofile .prefsPage,#preferences .prefsPage{padding:20px 24px 28px!important;margin:0!important;position:static!important;top:auto!important}
+body.compactFinanceNav #canonicalAppTop{grid-template-columns:165px minmax(0,1fr) auto 54px!important}
+body.compactFinanceNav .canonicalBrand{width:165px!important;min-width:165px!important}
+body.compactFinanceNav .canonicalMenuTrigger,body.compactFinanceNav .canonicalTopNav>button{padding-left:2px!important;padding-right:2px!important;font-size:9.5px!important;gap:3px!important}
+body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px!important;min-width:15px!important}
