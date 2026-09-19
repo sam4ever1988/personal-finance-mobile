@@ -21,21 +21,15 @@ function navIcon(name){
 }
 function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
 function canonicalTopHTML(){
+ function menu(label,icon,items){return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+items.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>'}
  return '<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'
- +shellButton('executive','dashboard','Dashboard')
- +shellButton('accounts','cash','Cash & Credit')
- +shellButton('financialposition','position','Financial Position')
- +shellButton('strategy','strategy','Financial Strategy')
- +shellButton('transactions','transactions','Transactions')
- +shellButton('outgoings','outgoings','Outgoings')
- +shellButton('installments','installments','Installments')
- +shellButton('importstatements','import','Import Statements')
+ +menu('Dashboard','dashboard',[['executive','dashboard','Executive Overview'],['accounts','cash','Cash & Credit'],['financialposition','position','Financial Position'],['strategy','strategy','Financial Strategy']])
+ +menu('Transactions','transactions',[['transactions','transactions','Transactions'],['incomeplan','cash','Monthly Income & Payment Plan'],['outgoings','outgoings','Cash & Other Outgoings'],['installments','installments','Installments']])
  +shellButton('investments','investments','Investments')
  +shellButton('assets','assets','Personal Assets')
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
- +shellButton('financeSettings','settings','Settings')
- +shellButton('more','more','More')
+ +menu('Settings','settings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
  +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
 }
 function ensureCanonicalShell(){
@@ -47,11 +41,15 @@ function ensureCanonicalShell(){
  var top=document.getElementById('canonicalAppTop');
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
  top.innerHTML=canonicalTopHTML();
- top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
+ top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
+ top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var m=b.closest('[data-nav-menu]'),was=m.classList.contains('open');top.querySelectorAll('[data-nav-menu]').forEach(x=>x.classList.remove('open'));if(!was)m.classList.add('open')});
+ if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
 }
 function syncCanonicalShell(page){
  ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
+ var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
+ document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
 }
 
 function rebuildTransactions(){
