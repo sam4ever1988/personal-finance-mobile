@@ -95,7 +95,9 @@ function renderExecutiveDashboard(){
  $('execUpcoming').innerHTML=future.length?future.map(p=>{const days=Math.ceil((p.date-new Date())/86400000);return '<div class="execRow"><div><b>'+p.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</b> • '+escapeHtml(p.kind)+'<br><small>'+escapeHtml(p.label)+'</small></div><div style="text-align:right"><b>'+money(p.amount)+'</b><br><span class="execDueBadge '+(days<=7?'soon':'')+'">'+Math.max(0,days)+' days</span></div></div>'}).join(''):'<div class="execEmpty">No upcoming payable obligations recorded.</div>';
  const drawExecCharts=()=>{if(!$('executive'))return;
   const fallback=(id,label)=>{const cv=$(id);if(!cv)return;const box=cv.parentElement;if(box&&!box.querySelector('.execChartFallback')){const d=document.createElement('div');d.className='execChartFallback';d.textContent=label;box.appendChild(d);}};execDonut('execCreditChart',[cardUsed,cardAvail],['Used','Available'],util.toFixed(0)+'%',['#7657ff','#31d7a1']);execDonut('execAssetsChart',[bank,goldValue,otherAssets],['Bank','Gold','Other'],'100%',['#31d7a1','#ffc44d','#3d9cff']);execDonut('execLiabilitiesChart',[loanLiability,cardUsed,installmentLiability],['Loans','Cards','Installments'],'100%',['#ff4d5f','#d91f32','#31d45b']);execGoldTrend('execGoldChart',goldValue);};
- requestAnimationFrame(()=>requestAnimationFrame(drawExecCharts));[120,350,800,1500].forEach(ms=>setTimeout(drawExecCharts,ms));
+ // V261: draw once after layout settles. Repeated 120/350/800/1500ms redraws
+ // made the Executive Overview feel slow and recreated canvases unnecessarily.
+ requestAnimationFrame(()=>requestAnimationFrame(drawExecCharts));
 }
 
 
