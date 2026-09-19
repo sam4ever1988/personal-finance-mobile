@@ -21,15 +21,15 @@ function navIcon(name){
 }
 function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
 function canonicalTopHTML(){
- function menu(label,icon,items){return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+items.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>'}
+ function menu(label,icon,mainPage,items){return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" data-main-page="'+mainPage+'" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+items.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>'}
  return '<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'
- +menu('Dashboard','dashboard',[['executive','dashboard','Executive Overview'],['accounts','cash','Cash & Credit'],['financialposition','position','Financial Position'],['strategy','strategy','Financial Strategy']])
- +menu('Transactions','transactions',[['transactions','transactions','Transactions'],['incomeplan','cash','Monthly Income & Payment Plan'],['outgoings','outgoings','Cash & Other Outgoings'],['installments','installments','Installments']])
+ +menu('Dashboard','dashboard','executive',[['executive','dashboard','Executive Overview'],['accounts','cash','Cash & Credit'],['financialposition','position','Financial Position'],['strategy','strategy','Financial Strategy']])
+ +menu('Transactions','transactions','transactions',[['transactions','transactions','Transactions'],['incomeplan','cash','Monthly Income & Payment Plan'],['outgoings','outgoings','Cash & Other Outgoings'],['installments','installments','Installments']])
  +shellButton('investments','investments','Investments')
  +shellButton('assets','assets','Personal Assets')
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
- +menu('Settings','settings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
+ +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
  +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
 }
 function ensureCanonicalShell(){
@@ -42,7 +42,12 @@ function ensureCanonicalShell(){
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
  top.innerHTML=canonicalTopHTML();
  top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
- top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var m=b.closest('[data-nav-menu]'),was=m.classList.contains('open');top.querySelectorAll('[data-nav-menu]').forEach(x=>x.classList.remove('open'));if(!was)m.classList.add('open')});
+ top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
+  var m=b.closest('[data-nav-menu]');
+  b.onmouseenter=()=>{top.querySelectorAll('[data-nav-menu]').forEach(x=>{if(x!==m)x.classList.remove('open')});m.classList.add('open');b.setAttribute('aria-expanded','true')};
+  b.onclick=(e)=>{e.preventDefault();e.stopPropagation();var target=b.dataset.mainPage;if(target)nav(target)};
+ });
+ top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
 }
 function syncCanonicalShell(page){
