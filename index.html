@@ -159,10 +159,10 @@
 </section>
 
 <section class="view" id="rental">
- <div class="rentalHero"><div><div class="rentalEyebrow">PROPERTY INCOME • AIRBNB / RENTAL</div><h1>Rental Management</h1><p>Manage availability, bookings, rental income and monthly operating expenses from one calendar.</p></div><div class="rentalHeroActions"><button class="btn" id="rentalExpenseBtn">− Add Expense</button><button class="btn primary" id="rentalBookingBtn">+ Add Booking</button></div></div>
+ <div class="rentalHero"><div><div class="rentalEyebrow">PROPERTY INCOME • AIRBNB / RENTAL</div><h1>Rental Management</h1><p>Manage availability, bookings, rental income and monthly operating expenses from one calendar.</p></div><div class="rentalHeroActions"><button class="btn" id="rentalExpenseBtn" type="button" onclick="rentalOpenExpense()">− Add Expense</button><button class="btn primary" id="rentalBookingBtn" type="button" onclick="rentalOpenBooking(rIso(new Date()))">+ Add Booking</button></div></div>
  <div class="rentalKpis" id="rentalKpis"></div>
  <div class="rentalLayout">
-  <div class="panel rentalCalendarPanel"><div class="rentalCalHead"><button class="btn" id="rentalPrev">‹</button><div><div class="panelTitle" id="rentalMonthTitle"></div><div class="meta">Click a day to create a booking. Existing reservations span their booked nights.</div></div><button class="btn" id="rentalToday">Today</button><button class="btn" id="rentalNext">›</button></div><div class="rentalWeek"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="rentalCalendar" id="rentalCalendar"></div><div class="rentalLegend"><span><i class="available"></i>Available</span><span><i class="booked"></i>Booked</span><span><i class="blocked"></i>Blocked</span><span><i class="maintenance"></i>Maintenance</span></div></div>
+  <div class="panel rentalCalendarPanel"><div class="rentalCalHead"><button class="btn" id="rentalPrev" type="button" onclick="rentalView.setMonth(rentalView.getMonth()-1);renderRental()">‹</button><div><div class="panelTitle" id="rentalMonthTitle"></div><div class="meta">Click a day to create a booking. Existing reservations span their booked nights.</div></div><button class="btn" id="rentalToday" type="button" onclick="rentalView=new Date();rentalView.setDate(1);renderRental()">Today</button><button class="btn" id="rentalNext" type="button" onclick="rentalView.setMonth(rentalView.getMonth()+1);renderRental()">›</button></div><div class="rentalWeek"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="rentalCalendar" id="rentalCalendar"></div><div class="rentalLegend"><span><i class="available"></i>Available</span><span><i class="booked"></i>Booked</span><span><i class="blocked"></i>Blocked</span><span><i class="maintenance"></i>Maintenance</span></div></div>
   <div class="rentalRight"><div class="panel"><div class="splitHead"><div><div class="panelTitle">This Month</div><div class="meta">Income vs operating cost</div></div></div><div id="rentalMonthFinance"></div></div><div class="panel"><div class="panelTitle">Upcoming Bookings</div><div id="rentalUpcoming"></div></div></div>
  </div>
  <div class="rentalBottom"><div class="panel"><div class="splitHead"><div><div class="panelTitle">Bookings</div><div class="meta">Reservation and payment register</div></div></div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Stay</th><th>Booking</th><th>Nights</th><th>Revenue</th><th>Payment</th><th>Status</th><th></th></tr></thead><tbody id="rentalBookingBody"></tbody></table></div></div><div class="panel"><div class="panelTitle">Monthly Expenses</div><div id="rentalExpenses"></div></div></div>
@@ -752,7 +752,7 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283r1');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=283r2');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
