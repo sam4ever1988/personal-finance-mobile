@@ -1,0 +1,1874 @@
+function cardCycleSetting(cardId){return financeSettings.cardCycles?.[cardId]||DEFAULT_CARD_CYCLE_SETTINGS[cardId]||{statementDay:1,dueDay:25};}
+function persistFinanceSettingsDraft(){localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));financeSettingsDirty=true;saveLocal();}
+function saveFinanceSettings(showMessage=true){
+ rollAllLoansToMonth(currentYearMonth());
+ persistFinanceSettingsDraft();
+ renderSavedLoanSummary();
+ renderIncomeLoanGrid();
+ if(showMessage)alert('Finance settings saved. Loan balances will roll forward once when a new month begins.');
+}
+const FIXED_PLAN={get loans(){return financeSettings.loans||[]},get cardCycles(){return financeSettings.cardCycles||{}}};
+let incomePlan=JSON.parse(localStorage.getItem('pf_income_plan')||'null')||{
+ mySalary:0,wifeSalary:0,extraIncome:0,extraIncomeHistory:[],otherIncome:0,
+ allocations:{'ar-0955':0,'ar-5867':0,'sab-440880':0,'nbd-infinite-4411':0,'nbd-mazeed-8652':0,'meem-7102':0}
+};
+if(!Array.isArray(incomePlan.extraIncomeHistory))incomePlan.extraIncomeHistory=[];
+if(!Array.isArray(incomePlan.monthlyPlans))incomePlan.monthlyPlans=[];
+if(Number(incomePlan.extraIncome||0)>0 && incomePlan.extraIncomeHistory.length===0){
+ incomePlan.extraIncomeHistory=[{id:'legacy-extra-income',date:'2026-09-03',amount:Number(incomePlan.extraIncome||0),note:'Existing saved extra income'}];
+}
+incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory.map(x=>({...x,month:x.month||String(x.date||new Date().toISOString()).slice(0,7)}));
+incomePlan.extraIncome=(incomePlan.extraIncomeHistory||[]).filter(x=>x.month===new Date().toISOString().slice(0,7)).reduce((sum,x)=>sum+Number(x.amount||0),0);
+if(incomePlan.monthlyPlans.length===0 && (Number(incomePlan.mySalary||0)>0 || Number(incomePlan.wifeSalary||0)>0 || Number(incomePlan.otherIncome||0)>0)){
+ const _m=new Date().toISOString().slice(0,7);
+ incomePlan.monthlyPlans.push({
+  month:_m,
+  mySalary:Number(incomePlan.mySalary||0),
+  wifeSalary:Number(incomePlan.wifeSalary||0),
+  extraIncome:Number(incomePlan.extraIncome||0),
+  otherIncome:Number(incomePlan.otherIncome||0),
+  allocations:{...(incomePlan.allocations||{})},
+  savedAt:new Date().toISOString(),
+  migrated:true
+ });
+ localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));
+}
+let outgoings=JSON.parse(localStorage.getItem('pf_outgoings')||'[]');
+
+function escapeHtml(v){
+ return String(v??'').replace(/[&<>"']/g,c=>({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ }[c]));
+}
+
+const MONEY=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const $=id=>document.getElementById(id);
+const colors=['#2878f0','#39a844','#ff9c1a','#7b55d9','#17a6ad','#ec5d8c','#a96f45','#f2b705','#607fbd','#dc4545','#7d8794','#7950d8','#2aa5c0','#8e6cd1','#22a06b'];
+
+let categories=JSON.parse(localStorage.getItem('pf_categories')||'null')||BASE.categoryTree;
+let installments=JSON.parse(localStorage.getItem('pf_installments')||'null')||[];
+let deletedInstallmentIds=new Set(JSON.parse(localStorage.getItem('pf_deleted_installment_ids')||'[]'));
+installments=installments.filter(p=>!deletedInstallmentIds.has(p.id));
+
+const MEEM_SEEDED_PLANS=[]; // V155: no automatic seeded installment plans.
+
+const REQUIRED_0955_INSTALLMENTS=[]; // V155: no automatic seeded installment plans.
+
+let merchantRules=JSON.parse(localStorage.getItem('pf_merchant_rules')||'{}');
+let txOverrides=JSON.parse(localStorage.getItem('pf_tx_overrides')||'{}');
+let manualTransactions=JSON.parse(localStorage.getItem('pf_manual_transactions')||'[]');
+
+const DEFAULT_CARD_PAYMENT_PLAN=[]; // V155: no hard-coded payment-plan rows.
+let cardPaymentPlan=JSON.parse(localStorage.getItem('pf_card_payment_plan')||'null')||[];
+let cashFlowLedger=JSON.parse(localStorage.getItem('pf_cash_flow_ledger')||'[]')||[];
+
+const LEGACY_PAYMENT_PLAN_IDS=new Set([
+ 'p-meem-sep','p-meem-aug',
+ 'p-nbdinf-sep','p-nbdinf-oct',
+ 'p-ar5867-sep','p-ar0955-sep',
+ 'p-nbdmazeed-sep-upcoming','p-nbdmazeed-oct'
+]);
+let legacyPlannerCleanupPending=false;
+function isLegacySeedPaymentPlanRow(p){
+ if(!p||!LEGACY_PAYMENT_PLAN_IDS.has(String(p.id||'')))return false;
+ if(p.statementOfficial===true){try{if(officialStatementImportMatches(p))return false;}catch(_){}}
+ if(Array.isArray(p.paymentHistory)&&p.paymentHistory.length)return false;
+ return true;
+}
+function purgeLegacySeedPaymentPlans(){
+ const before=cardPaymentPlan.length;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>!isLegacySeedPaymentPlanRow(p));
+ const removed=before-cardPaymentPlan.length;
+ if(removed){legacyPlannerCleanupPending=true;localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}
+ return removed;
+}
+
+
+cardPaymentPlan=cardPaymentPlan.filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+purgeLegacySeedPaymentPlans();
+ // Keep only one rolling row per card/payment month.
+ cardPaymentPlan=cardPaymentPlan.filter((p,i,a)=>!p.autoGenerated || a.findIndex(x=>x.autoGenerated&&x.accountId===p.accountId&&x.month===p.month)===i);
+localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+function saveCardPaymentPlan(){
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+ // Full-state save is safe only after startup initialization has completed.
+ if(window.__financeStateInitialized===true)saveLocal();
+}
+
+
+function officialStatementImportMatches(p){
+ if(!p||p.statementOfficial!==true)return false;
+ const file=String(p.statementFileName||p.statementImportedFile||'').trim();
+ return importHistory.some(h=>{
+  if(h.accountId!==p.accountId)return false;
+  if(h.officialStatementConfirmed!==true)return false;
+  if(h.officialStatementMonth && p.month && h.officialStatementMonth!==p.month)return false;
+  if(file && h.fileName && String(h.fileName)!==file)return false;
+  return true;
+ });
+}
+
+function removeUnbackedOfficialStatementRows(){
+ let changed=0;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.statementOfficial!==true)return true;
+  if(officialStatementImportMatches(p))return true;
+  changed++;
+  return false;
+ });
+ if(changed)localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+ return changed;
+}
+
+function officialStatementAmountForCardMonth(cardId,month){
+ const rows=cardPaymentPlan.filter(p=>p.accountId===cardId&&p.month===month&&p.statementOfficial===true);
+ const backed=rows.find(officialStatementImportMatches);
+ return backed?Number(backed.statementOriginalAmount??backed.amount??0):0;
+}
+
+
+
+function purgeLegacyAr0955StatementRows(){
+ let removed=0;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='ar-0955')return true;
+
+  const isLegacy0955 =
+   String(p.id||'')==='p-ar0955-sep' ||
+   (
+    p.statementOfficial!==true &&
+    p.userConfirmedStatement!==true &&
+    p.statementConfirmedByUser!==true &&
+    (
+     String(p.source||'')==='confirmed' ||
+     /august statement/i.test(String(p.label||'')) ||
+     /43,?995\.56/i.test(String(p.note||''))
+    )
+   );
+
+  // Keep only a genuinely imported official statement or a statement the user
+  // explicitly confirms now. Old "confirmed" rows are retired.
+  if(isLegacy0955){
+   if(p.statementOfficial===true && officialStatementImportMatches(p))return true;
+   if(p.userConfirmedStatement===true || p.statementConfirmedByUser===true)return true;
+   removed++;
+   return false;
+  }
+  return true;
+ });
+
+ if(removed){
+  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+  legacyPlannerCleanupPending=true;
+ }
+ return removed;
+}
+
+function purgeLegacyAr5867SeedRows(){
+ let removed=0;
+
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='ar-5867')return true;
+
+  const id=String(p.id||'');
+  const amount=Number(p.amount||0);
+  const label=String(p.label||'').toLowerCase();
+  const note=String(p.note||'').toLowerCase();
+
+  // Retired historical SAR 40 seed from older builds.
+  // A genuine imported official statement is never removed.
+  const legacy40 =
+    Math.abs(amount-40)<0.01 &&
+    p.statementOfficial!==true &&
+    (
+      id==='p-ar5867-aug' ||
+      label.includes('july statement') ||
+      note.includes('advance payment') ||
+      (p.source==='confirmed' && p.month==='2026-08')
+    );
+
+  if(legacy40){removed++; return false;}
+  return true;
+ });
+
+ // Suppress only the exact built-in legacy +SAR 40 transaction if still present in BASE.
+ // Imported/manual user transactions are not touched.
+ try{
+  BASE.transactions.forEach((t,i)=>{
+   const isLegacy=
+    t.account==='ar-5867' &&
+    String(t.date||'').slice(0,10)==='2026-08-01' &&
+    Math.abs(Number(t.amount||0)-40)<0.01 &&
+    /advance payment|top[- ]?up/i.test(String(t.description||''));
+   if(isLegacy){
+    const id='tx'+i;
+    transactionActions[id]={
+     status:'deleted',
+     reason:'V121 retired legacy Al Rajhi •5867 SAR 40 seed',
+     updatedAt:new Date().toISOString()
+    };
+    removed++;
+   }
+  });
+ }catch(e){}
+
+ if(removed){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+  try{localStorage.setItem('pf_transaction_actions',JSON.stringify(transactionActions));}catch(e){}
+ }
+ return removed;
+}
+
+function normalizeCardPaymentPlan(){
+ purgeLegacyAr0955StatementRows();
+ purgeLegacyAr5867SeedRows();
+ // V119 permanent migration: every local/IndexedDB/cloud restore passes through this
+ // function. Remove the retired SAB SAR 28,627.50 historical anchor HERE so a
+ // synced/older snapshot cannot reintroduce it after startup.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='sab-440880')return true;
+  if(String(p.id||'')==='p-sab-sep')return false;
+  const amt=Number(p.amount||0);
+  const label=String(p.label||'').toLowerCase();
+  const note=String(p.note||'').toLowerCase();
+  if(Math.abs(amt-28627.50)<0.01 &&
+     (label.includes('manual tracked cycle') ||
+      note.includes('sab special rule') ||
+      note.includes('manual/shared transactions only') ||
+      (p.source==='manual' && p.statementOfficial!==true)))return false;
+  return true;
+ });
+
+ // V102: an official statement row is valid only when a matching import-history record
+ // was explicitly confirmed by the user as the official statement.
+ removeUnbackedOfficialStatementRows();
+
+ // Remove obsolete legacy meem rows that were hard-coded in older versions.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.id!=='p-meem-aug' && p.id!=='p-meem-sep');
+
+ // V95: Official statement rows are NEVER manufactured here.
+ // A statementOfficial row may exist only when an actual statement file was imported.
+ // If no official row exists for a cycle, Payment Planner falls back to date-driven
+ // manual/imported transactions + active installment monthly commitment.
+ DEFAULT_CARD_PAYMENT_PLAN.forEach(def=>{
+  if(def.accountId==='meem-7102')return; // meem is fully statement/date-driven now.
+  if(!cardPaymentPlan.some(p=>p.id===def.id))cardPaymentPlan.push({...def,paid:false});
+ });
+
+ // Remove duplicate rows for the same card/month:
+ // priority = official statement > explicit manual row > rolling/auto row.
+ const priority=p=>p.statementOfficial===true?3:(p.source==='manual'?2:1);
+ const grouped=new Map();
+ cardPaymentPlan.forEach(p=>{
+  const key=`${p.accountId}|${p.month}`;
+  const existing=grouped.get(key);
+  if(!existing || priority(p)>priority(existing))grouped.set(key,p);
+ });
+ cardPaymentPlan=[...grouped.values()];
+
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+}
+
+
+function cashFlowLedgerKey(x){
+ return [
+  x.type||'',
+  x.referenceId||'',
+  x.date||'',
+  Number(x.amount||0).toFixed(2),
+  x.sourceId||'',
+  x.targetId||''
+ ].join('|');
+}
+function addCashFlowLedgerEntry(entry,persist=true){
+ const row={
+  id:entry.id||`cfl-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+  type:entry.type||'other',
+  date:entry.date||new Date().toISOString().slice(0,10),
+  month:entry.month||incomeMonthKey(entry.date||new Date()),
+  description:entry.description||'',
+  amount:Number(entry.amount||0),
+  sourceId:entry.sourceId||'',
+  sourceName:entry.sourceName||'',
+  targetId:entry.targetId||'',
+  targetName:entry.targetName||'',
+  targetPaymentMonth:entry.targetPaymentMonth||'',
+  deductFromIncome:entry.deductFromIncome===true,
+  referenceId:entry.referenceId||'',
+  referenceType:entry.referenceType||'',
+  status:entry.status||'active',
+  createdAt:entry.createdAt||new Date().toISOString()
+ };
+ const key=cashFlowLedgerKey(row);
+ if(!cashFlowLedger.some(x=>cashFlowLedgerKey(x)===key))cashFlowLedger.push(row);
+ if(persist)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
+ return row;
+}
+function reverseCashFlowLedgerByReference(referenceId,fallback={}){
+ let changed=false;
+ const now=new Date().toISOString();
+
+ cashFlowLedger.forEach(x=>{
+  if(referenceId && x.referenceId===referenceId && x.status!=='reversed'){
+   x.status='reversed';
+   x.reversedAt=now;
+   x.reversalReason='Undo Last Payment';
+   changed=true;
+  }
+ });
+
+ if(!changed && fallback?.targetId){
+  const amount=Math.max(0,Number(fallback.amount||0));
+  const date=String(fallback.date||'').slice(0,10);
+  const month=String(fallback.targetPaymentMonth||fallback.month||'');
+  const sourceId=String(fallback.sourceId||'');
+
+  const candidates=cashFlowLedger.filter(x=>
+   x.type==='card-payment' &&
+   x.status!=='reversed' &&
+   x.targetId===fallback.targetId &&
+   (!month || (x.targetPaymentMonth||x.month)===month) &&
+   (!sourceId || x.sourceId===sourceId) &&
+   Math.abs(Number(x.amount||0)-amount)<0.01 &&
+   (!date || String(x.date||'').slice(0,10)===date)
+  ).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+
+  if(candidates.length){
+   candidates[0].status='reversed';
+   candidates[0].reversedAt=now;
+   candidates[0].reversalReason='Undo Last Payment • legacy matched';
+   changed=true;
+  }
+ }
+
+ if(changed)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(_){}
+ return changed;
+}
+function migrateCashFlowLedger(){
+ let added=0;
+
+ // Rebuild ledger from any surviving card-payment history.
+ cardPaymentPlan.forEach(p=>{
+  (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach((h,i)=>{
+   const before=cashFlowLedger.length;
+   addCashFlowLedgerEntry({
+    type:'card-payment',
+    date:h.date||String(h.recordedAt||'').slice(0,10),
+    month:paymentBudgetMonth(h),
+    description:`Card payment • ${accountName(p.accountId)}`,
+    amount:Number(h.amount||0),
+    sourceId:h.sourceId||'',
+    sourceName:h.sourceName||'',
+    targetId:p.accountId,
+    targetName:accountName(p.accountId),
+    targetPaymentMonth:p.month,
+    deductFromIncome:h.sourceId==='cash-source'||h.deductFromIncome===true,
+    referenceId:`payment:${p.id}:${h.recordedAt||h.date||i}:${Number(h.amount||0).toFixed(2)}`,
+    referenceType:'card-payment-history',
+    createdAt:h.recordedAt||new Date().toISOString()
+   },false);
+   if(cashFlowLedger.length>before)added++;
+  });
+ });
+
+ // Rebuild outgoing payments as well.
+ outgoings.forEach(o=>{
+  Object.entries(o.payments||{}).forEach(([month,p])=>{
+   const before=cashFlowLedger.length;
+   addCashFlowLedgerEntry({
+    type:'outgoing-payment',
+    date:p.date||`${month}-01`,
+    month,
+    description:o.description,
+    amount:Number(p.amount||0),
+    sourceId:p.sourceId||'',
+    sourceName:p.sourceId==='cash-source'?'Monthly Planned Income':accountName(p.sourceId),
+    targetId:o.id,
+    targetName:o.description,
+    deductFromIncome:p.sourceId==='cash-source',
+    referenceId:`outgoing:${o.id}:${month}`,
+    referenceType:'outgoing-payment',
+    createdAt:p.recordedAt||new Date().toISOString()
+   },false);
+   if(cashFlowLedger.length>before)added++;
+  });
+ });
+
+ if(added)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
+ return added;
+}
+function cashFlowLedgerRows(month=currentIncomeMonth(),activeOnly=true){
+ return cashFlowLedger
+  .filter(x=>(!activeOnly||x.status!=='reversed') && (x.month||incomeMonthKey(x.date))===month)
+  .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+function monthlyIncomeLedgerRows(month=currentIncomeMonth()){
+ return cashFlowLedgerRows(month).filter(x=>x.deductFromIncome===true);
+}
+
+function allPaymentHistory(){
+ return cardPaymentPlan.flatMap(p=>(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored).map(h=>({...h,targetCardId:p.accountId,paymentPlanId:p.id})));
+}
+function paymentSourceImpact(accountId){
+ return allPaymentHistory().reduce((sum,h)=>{
+  const amt=Number(h.amount||0);
+  if(h.sourceId===accountId)return sum-amt;
+  if(h.targetCardId===accountId)return sum+amt;
+  return sum;
+ },0);
+}
+function paymentBudgetMonth(h){
+ const raw=String(h?.budgetMonth||h?.date||h?.recordedAt||'');
+ const ym=raw.match(/^(\d{4})[-\/](\d{1,2})/);
+ if(ym)return `${ym[1]}-${String(Number(ym[2])).padStart(2,'0')}`;
+ return currentIncomeMonth();
+}
+function plannedIncomePaymentHistory(month=currentIncomeMonth()){
+ // V122: use independent cash-flow ledger so card planner cleanup/reset cannot erase
+ // a Monthly Planned Income payment from the monthly cash-flow history.
+ migrateCashFlowLedger();
+ return monthlyIncomeLedgerRows(month)
+  .filter(x=>x.type==='card-payment')
+  .map(x=>({
+   amount:x.amount,
+   date:x.date,
+   sourceId:x.sourceId,
+   sourceName:x.sourceName||'Monthly Planned Income',
+   targetCardId:x.targetId,
+   deductFromIncome:true,
+   budgetMonth:x.month,
+   ledgerId:x.id,
+   _budgetLegacy:false
+  }))
+  .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+
+function recomputePlanPaidAmountFromHistory(p){
+ if(!p)return;
+ const history=Array.isArray(p.paymentHistory)?p.paymentHistory.filter(h=>!h.mirrored):[];
+ p.paidAmount=Math.round(history.reduce((sum,h)=>
+   sum+Math.max(0,Number(h.duePortion!=null?h.duePortion:h.amount||0)),0
+ )*100)/100;
+ const due=Number(plannerAmountForRow(p));
+ p.paid=Number.isFinite(due)&&due>0&&p.paidAmount>=due-0.005;
+}
+
+function deleteMonthlyIncomeCardPayment(ledgerId){
+ const row=(cashFlowLedger||[]).find(x=>x.id===ledgerId && x.status!=='reversed');
+ if(!row || row.type!=='card-payment')return;
+
+ const cardLabel=row.targetName||accountName(row.targetId)||'this card';
+ if(!confirm(`Delete this recorded payment?\n\n${cardLabel}\n${money(Number(row.amount||0))} • ${row.date||''}\n\nThis will automatically restore Monthly Planned Income and update the card payment balance, available credit, dashboard and payment planner.`))return;
+
+ // Recovery snapshot before any connected financial reversal.
+ try{saveRecoverySnapshot('before-delete-monthly-income-card-payment');}catch(_){}
+
+ const ref=String(row.referenceId||'');
+ const refParts=ref.split(':');
+ const planId=ref.startsWith('payment:')?refParts[1]:'';
+ const targetPlan=cardPaymentPlan.find(p=>p.id===planId) ||
+   cardPaymentPlan.find(p=>p.accountId===row.targetId && (!row.targetPaymentMonth || p.month===row.targetPaymentMonth));
+
+ // The ledger row is the independent cash-flow audit source. Reverse it first,
+ // so durableLedgerPaidAmountForPlan() immediately stops counting this payment.
+ row.status='reversed';
+ row.reversedAt=new Date().toISOString();
+ row.reversalReason='Deleted from Card Payments Deducted From This Month';
+
+ // Remove the exact payment history record from its planner row.
+ const recordedAt=ref.startsWith('payment:') && refParts.length>=4
+   ? refParts.slice(2,-1).join(':')
+   : '';
+ const amount=Number(row.amount||0);
+
+ if(targetPlan){
+  targetPlan.paymentHistory=Array.isArray(targetPlan.paymentHistory)?targetPlan.paymentHistory:[];
+  let removed=false;
+  targetPlan.paymentHistory=targetPlan.paymentHistory.filter(h=>{
+   if(removed)return true;
+   const sameAmount=Math.abs(Number(h.amount||0)-amount)<0.005;
+   const sameSource=(h.sourceId||'')===(row.sourceId||'');
+   const sameTime=recordedAt
+     ? String(h.recordedAt||h.date||'')===recordedAt
+     : String(h.date||'')===String(row.date||'');
+   if(sameAmount&&sameSource&&sameTime){removed=true;return false;}
+   return true;
+  });
+  recomputePlanPaidAmountFromHistory(targetPlan);
+
+  // Remove any mirrored planner copy of the same payment (e.g. NBD upcoming/real row).
+  cardPaymentPlan.forEach(p=>{
+   if(p===targetPlan || !Array.isArray(p.paymentHistory))return;
+   const before=p.paymentHistory.length;
+   p.paymentHistory=p.paymentHistory.filter(h=>{
+    if(!h.mirrored)return true;
+    const sameAmount=Math.abs(Number(h.amount||0)-amount)<0.005;
+    const sameTime=recordedAt
+      ? String(h.recordedAt||h.date||'')===recordedAt
+      : String(h.date||'')===String(row.date||'');
+    return !(sameAmount&&sameTime);
+   });
+   if(p.paymentHistory.length!==before)recomputePlanPaidAmountFromHistory(p);
+  });
+ }
+
+ localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+ saveLocal();
+
+ // One connected refresh: every dependent screen must update from the same reversal.
+ if(row.targetId)refreshAfterTransactionChange(row.targetId);
+ renderPaymentPlanner();
+ renderDashboard();
+ renderAccounts();
+ renderIncomePlan();
+ renderReports();
+ scheduleCloudAutoSave();
+}
+
+function remainingIncomePaymentsTotal(month=currentIncomeMonth()){
+ return plannedIncomePaymentHistory(month).reduce((sum,h)=>sum+Number(h.amount||0),0);
+}
+function remainingIncomeAvailable(month=currentIncomeMonth()){
+ let availableBeforeCardPayments=0;
+ if(month===currentIncomeMonth())availableBeforeCardPayments=afterLoansAmount();
+ else{
+  const plan=incomePlanForMonth(month);
+  availableBeforeCardPayments=plan?monthlyPlanTotal(plan)-totalFixedLoans()-outgoingForMonth(month):0;
+ }
+ const otherCashLedger=(cashFlowLedger||[]).filter(r=>r.status!=='reversed'&&r.sourceId==='cash-source'&&r.month===month&&r.type!=='card-payment').reduce((z,r)=>z+Math.max(0,Number(r.amount||0)),0);
+ return Math.max(0,availableBeforeCardPayments-remainingIncomePaymentsTotal(month)-otherCashLedger);
+}
+
+function manualAccountMovement(accountId){
+ return manualTransactions
+  .filter(t=>t.account===accountId && !transactionActions[t._id]?.status)
+  .reduce((sum,t)=>sum+Number(t.amount||0),0);
+}
+function legacyAdjustedBankBalance(a){
+ return Number(a.balance||0)+manualAccountMovement(a.id)+paymentSourceImpact(a.id);
+}
+function adjustedBankBalance(a){
+ const v=Number(bankBalanceOverrides?.[a.id]);
+ return Number.isFinite(v)?v:legacyAdjustedBankBalance(a);
+}
+function setTrackedBankBalance(accountId,value){
+ const n=Number(value);if(!Number.isFinite(n))return false;
+ bankBalanceOverrides[accountId]=Math.round(n*100)/100;
+ localStorage.setItem('pf_bank_balance_overrides',JSON.stringify(bankBalanceOverrides));
+ localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
+ localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
+ return true;
+}
+function paymentCardBalanceImpact(cardId){
+ // Positive means payments received by this card; negative means this card funded another card.
+ return paymentSourceImpact(cardId);
+}
+function paymentSourceOptions(targetCardId){
+ const opts=[...accounts.filter(a=>a.id!==targetCardId).map(a=>({id:a.id,label:`${a.bank} • ${a.name} •${a.ending}${a.type==='card'?' (Credit Card)':' (Bank Account)'}`})),{id:'cash-source',label:'Monthly Planned Income / Remaining Available'}];
+ return opts;
+}
+function openRecordPayment(id){
+ const p=cardPaymentPlan.find(x=>x.id===id);if(!p)return;
+ const remaining=paymentRemainingAmount(p);
+ if(remaining===null){alert('Set the payment amount first.');return;}
+ if(remaining<=0){alert('This card payment is already fully paid.');return;}
+ const a=account(p.accountId);
+ $('paymentPlanId').value=id;
+ $('paymentTargetCard').value=`${a.bank} • ${a.name} •${a.ending}`;
+ $('paymentAmountInput').value=remaining.toFixed(2);
+ $('paymentAmountInput').removeAttribute('max');
+ $('paymentAmountInput').dataset.currentDue=remaining.toFixed(2);
+ $('paymentDateInput').value=new Date().toISOString().slice(0,10);
+ $('paymentSourceSelect').innerHTML=paymentSourceOptions(p.accountId).map(o=>`<option value="${o.id}">${o.label}</option>`).join('');
+ syncPaymentIncomeChoiceToSource();
+ updatePaymentSourcePreview();
+ $('paymentSourceModal').classList.add('open');
+}
+function closePaymentSourceModal(){delete $('paymentSourceModal').dataset.incomeCardId;$('paymentSourceModal').classList.remove('open')}
+function sourceAvailableLabel(sourceId){
+ if(sourceId==='cash-source')return `Monthly Planned Income — available ${money(remainingIncomeAvailable())}`;
+ const a=account(sourceId);if(!a)return 'Unknown source';
+ if(a.type==='bank')return `${a.bank} • ${a.name} — available ${money(adjustedBankBalance(a))}`;
+ const m=cardMetrics(a);return `${a.bank} • ${a.name} •${a.ending} — available credit ${money(m.available)}`;
+}
+function syncPaymentIncomeChoiceToSource(){
+ const cb=$('paymentUseMonthlyIncome');if(!cb)return;
+ const sourceId=$('paymentSourceSelect')?.value||'';
+ if(sourceId==='cash-source'){
+  cb.checked=true;
+  cb.disabled=true;
+ }else{
+  cb.checked=false;
+  cb.disabled=false;
+ }
+}
+function updatePaymentSourcePreview(){
+ const id=$('paymentSourceSelect').value,amt=Number($('paymentAmountInput').value||0);
+ const useIncome=$('paymentSourceSelect').value==='cash-source'||$('paymentUseMonthlyIncome')?.checked===true;
+ const payMonth=incomeMonthKey($('paymentDateInput')?.value||new Date());
+ const currentDue=Math.max(0,Number($('paymentAmountInput').dataset.currentDue||0));
+ const extra=Math.max(0,amt-currentDue);
+ let msg=`Actual payment source: ${sourceAvailableLabel(id)}. `;
+ if(id==='cash-source')msg+=`Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
+ else{
+  const a=account(id);
+  if(a?.type==='bank')msg+=`Estimated bank balance after payment: ${money(adjustedBankBalance(a)-amt)}.`;
+  else if(a?.type==='card'){const m=cardMetrics(a);msg+=`Estimated available credit on source card after payment: ${money(Math.max(0,m.available-amt))}.`;}
+  if(useIncome)msg+=` Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
+  else msg+=` This payment will not be deducted from Monthly Planned Income.`;
+ }
+ if(extra>0)msg+=` Extra payment: ${money(extra)} stays as credit on the target card.`;
+ $('paymentSourcePreview').textContent=msg;
+}
+
+function durableLedgerPaidAmountForPlan(p){
+ if(!p)return 0;
+
+ const active=(cashFlowLedger||[]).filter(x=>
+  x.type==='card-payment' &&
+  x.status!=='reversed' &&
+  x.targetId===p.accountId
+ );
+
+ const exact=active.filter(x=>
+  x.referenceId && String(x.referenceId).startsWith(`payment:${p.id}:`)
+ );
+
+ const byCycle=active.filter(x=>{
+  if(x.targetPaymentMonth)return x.targetPaymentMonth===p.month;
+  // Legacy V122–V129 ledger rows did not store targetPaymentMonth.
+  // For those rows, same card + same budget month is the safest recovery.
+  return !x.targetPaymentMonth && x.month===p.month;
+ });
+
+ const rows=exact.length?exact:byCycle;
+ const seen=new Set();
+ return Math.round(rows.reduce((sum,x)=>{
+  const key=x.id||cashFlowLedgerKey(x);
+  if(seen.has(key))return sum;
+  seen.add(key);
+  return sum+Math.max(0,Number(x.amount||0));
+ },0)*100)/100;
+}
+
+function ensurePartialPaymentFields(){
+ cardPaymentPlan.forEach(p=>{
+  if(!Array.isArray(p.paymentHistory))p.paymentHistory=[];
+  if(!Number.isFinite(Number(p.paidAmount)))p.paidAmount=p.paid?Number(plannerAmountForRow(p)||p.amount||0):0;
+
+  const durablePaid=durableLedgerPaidAmountForPlan(p);
+  p.paidAmount=Math.max(0,Number(p.paidAmount||0),durablePaid);
+
+  const due=Number(plannerAmountForRow(p));
+  p.paid=Number.isFinite(due)&&due>0&&p.paidAmount>=due-0.005;
+ });
+}
+function paymentPaidAmount(p){
+ return Math.max(0,Number(p?.paidAmount||0),durableLedgerPaidAmountForPlan(p));
+}
+function releasedStatementAudit(p){
+ const original=Math.max(0,Number(inferStatementOriginalAmount(p)||0));
+ const installmentAdjustment=Math.min(original,Math.max(0,Number(statementAdjustmentTotal(p)||0)));
+ const adjusted=Math.max(0,Math.round((original-installmentAdjustment)*100)/100);
+ const paid=Math.max(0,Math.round(Number(paymentPaidAmount(p)||0)*100)/100);
+ const remaining=Math.max(0,Math.round((adjusted-paid)*100)/100);
+ return {original,installmentAdjustment,adjusted,paid,remaining};
+}
+
+function paymentRemainingAmount(p){
+ if(isGenuineReleasedStatementRow(p) || importedOfficialPlannerRow(p.accountId,p.month)){
+  return releasedStatementAudit(p).remaining;
+ }
+ const due=Number(plannerAmountForRow(p));
+ return Number.isFinite(due)?Math.max(0,Math.round((due-paymentPaidAmount(p))*100)/100):null;
+}
+function recordPartialPayment(id){openRecordPayment(id)}
+function undoLastPartialPayment(id){
+ const p=cardPaymentPlan.find(x=>x.id===id);
+ if(!p||!Array.isArray(p.paymentHistory)||!p.paymentHistory.length)return;
+
+ let idx=p.paymentHistory.length-1;
+ while(idx>=0 && p.paymentHistory[idx]?.mirrored===true)idx--;
+ if(idx<0)return;
+
+ const last=p.paymentHistory[idx];
+ const amount=Math.max(0,Number(last.amount||0));
+ const src=last.sourceId==='cash-source'?'Monthly Planned Income':accountName(last.sourceId);
+
+ if(!confirm(`Undo the last payment of ${money(amount)} from ${src}?`))return;
+
+ p.paymentHistory.splice(idx,1);
+
+ const ref=last.ledgerReferenceId||
+  `payment:${p.id}:${last.recordedAt||last.date||''}:${amount.toFixed(2)}`;
+
+ reverseCashFlowLedgerByReference(ref,{
+  targetId:p.accountId,
+  targetPaymentMonth:p.month,
+  month:last.budgetMonth||paymentBudgetMonth(last),
+  amount,
+  date:last.date||String(last.recordedAt||'').slice(0,10),
+  sourceId:last.sourceId||''
+ });
+
+ const sourceAccount=last.sourceId==='cash-source'?null:account(last.sourceId);
+ if(sourceAccount?.type==='bank'){
+  setTrackedBankBalance(sourceAccount.id,adjustedBankBalance(sourceAccount)+amount);
+ }
+
+ const survivingPaid=Math.round(
+  p.paymentHistory
+   .filter(h=>!h.mirrored)
+   .reduce((sum,h)=>sum+Math.max(0,Number(h.duePortion!=null?h.duePortion:h.amount||0)),0)
+  *100
+ )/100;
+
+ p.paidAmount=survivingPaid;
+ p.paid=false;
+
+ cardPaymentPlan.forEach(other=>{
+  if(other===p||!Array.isArray(other.paymentHistory))return;
+  other.paymentHistory=other.paymentHistory.filter(h=>{
+   if(h.mirrored!==true)return true;
+   if(last.recordedAt && h.recordedAt===last.recordedAt && Math.abs(Number(h.amount||0)-amount)<0.01)return false;
+   return true;
+  });
+ });
+
+ saveCardPaymentPlan();
+ saveLocal();
+ syncCardPaymentPlanImmediate();
+ syncCashFlowLedgerImmediate();
+
+ ensurePartialPaymentFields();
+ renderPaymentPlanner();
+ renderDashboard();
+ renderAccounts();
+
+ setTimeout(()=>alert(
+  `Payment undone.\n\nPaid so far: ${money(paymentPaidAmount(p))}\nRemaining to pay: ${money(paymentRemainingAmount(p))}`
+ ),20);
+}
+
+function plannerDefaultMonth(){const d=new Date();let y=d.getFullYear(),m=d.getMonth()+1;if(d.getDate()>=25){m++;if(m===13){m=1;y++;}}return `${y}-${String(m).padStart(2,'0')}`;}
+const BANK_LOGO_URLS={
+ 'Al Rajhi Bank':'https://upload.wikimedia.org/wikipedia/commons/f/f1/Al_Rajhi_Bank_Logo.svg',
+ 'SAB':'https://upload.wikimedia.org/wikipedia/commons/5/52/SAB_logo_%28since_2023%29.svg',
+ 'meem / GIB Saudi':'https://pbs.twimg.com/profile_images/1972280844992565248/dufPEB2l_400x400.jpg',
+ 'Emirates NBD':'data:image/gif;base64,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'
+};
+const CENTRAL_BANK_LOGO_BANKS=new Set(Object.keys(BANK_LOGO_URLS));
+function bankLogoURL(a){
+ const bank=String(a?.bank||'').trim();
+ if(CENTRAL_BANK_LOGO_BANKS.has(bank))return BANK_LOGO_URLS[bank]||'';
+ return a?.logo||'';
+}
+function bankLogoHTML(a){
+ const bank=String(a?.bank||'').trim();
+ const logo=bankLogoURL(a);
+ const isNBD=bank==='Emirates NBD';
+ const isMeem=bank==='meem / GIB Saudi';
+ const boxStyle=isNBD
+  ?'background:#072447;border-color:#072447;padding:4px 7px;'
+  :isMeem
+   ?'background:#fff;border-color:#ded6f7;padding:4px 7px;'
+   :'background:#fff;padding:4px 7px;';
+ return `<div class="bankLogoBox" style="${boxStyle}">
+  ${logo?`<img src="${logo}" alt="${escapeHtml(bank||'Bank')} logo" loading="lazy" referrerpolicy="no-referrer" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
+  <div class="bankLogoFallback" style="${logo?'display:none;':'display:flex;'}${isNBD?'color:#fff;':''}align-items:center;justify-content:center;width:100%;height:100%;font-weight:800;font-size:10px;text-align:center">${escapeHtml(bank||'Bank')}</div>
+ </div>`;
+}
+function paymentStatusClass(p){if(p.paid)return'confirmed';const t=new Date();t.setHours(0,0,0,0);const d=p.due?new Date(p.due+'T00:00:00'):null;if(d&&d<t)return'overdue';return p.source||'pending';}
+function paymentStatusText(p){
+ if(p.paid)return'PAID';
+ const c=paymentStatusClass(p);
+ if(c==='overdue')return'DUE DATE PASSED';
+ if(p.source==='confirmed')return'STATEMENT CONFIRMED';
+ if(p.accountId==='ar-0955'&&p.month==='2026-09'&&(p.amount===null||p.source==='pending'))return'ESTIMATED FROM TRANSACTIONS';
+ return p.source==='manual'?'YOUR PLAN':p.source==='estimated'?'ESTIMATED':'PENDING STATEMENT';
+}
+
+
+function paymentFormatDate(v){
+ if(!v)return 'Pending';
+ const d=new Date(v+'T00:00:00');
+ if(Number.isNaN(d.getTime()))return v;
+ return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function paymentMonthTitle(month){
+ const [y,m]=month.split('-').map(Number);
+ return new Date(y,m-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+function openPaymentDetails(mode='known'){
+ const month=$('paymentMonth').value||plannerDefaultMonth();
+ purgeNonCardPaymentPlannerRows();
+ const allRows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
+ let rows=allRows;
+ if(mode==='remaining')rows=allRows.filter(p=>!p.paid);
+ if(mode==='pending')rows=allRows.filter(p=>p.amount===null||p.amount===''||!Number.isFinite(Number(p.amount)));
+ const known=allRows.filter(p=>Number.isFinite(Number(plannerAmountForRow(p)))).reduce((z,p)=>z+Number(plannerAmountForRow(p)),0);
+ ensurePartialPaymentFields();
+ const remaining=allRows.reduce((z,p)=>{const r=paymentRemainingAmount(p);return z+(Number.isFinite(r)?r:0)},0);
+ const pending=allRows.filter(p=>plannerAmountForRow(p)===null||plannerAmountForRow(p)===''||!Number.isFinite(Number(plannerAmountForRow(p)))).length;
+ $('paymentDetailsMonthLabel').textContent=paymentMonthTitle(month);
+ $('paymentDetailsKnown').textContent=money(known);
+ $('paymentDetailsRemaining').textContent=money(remaining);
+ $('paymentDetailsPending').textContent=pending;
+ $('paymentDetailsBody').innerHTML=rows.length?rows.map(p=>{
+  const a=account(p.accountId),effective=plannerAmountForRow(p),amt=Number.isFinite(Number(effective))?money(Number(effective)):'Awaiting statement';
+  return `<tr>
+   <td><div class="paymentCardCell">${bankLogoHTML(a)}<div><b>${a?.bank||'Bank'} • ${a?.name||''} •${a?.ending||''}</b><div class="meta">${p.label||''}</div></div></div></td>
+   <td><b>${amt}</b><div class="meta">Paid ${money(paymentPaidAmount(p))} • Remaining ${paymentRemainingAmount(p)===null?'—':money(paymentRemainingAmount(p))}</div></td>
+   <td>${p.due?paymentFormatDate(p.due):'Pending'}</td>
+   <td><span class="payStatus ${paymentStatusClass(p)}">${paymentStatusText(p)}</span></td>
+   <td>${p.source||'pending'}</td>
+   <td>${plannerAmountExplanation(p)}</td>
+   <td><button class="btn" data-payment-card="${p.accountId}">Open Card</button></td>
+  </tr>`;
+ }).join(''):`<tr><td colspan="7" class="meta">No cards in this group for ${paymentMonthTitle(month)}.</td></tr>`;
+ document.querySelectorAll('[data-payment-card]').forEach(b=>b.addEventListener('click',()=>openAccount(b.dataset.paymentCard)));
+ nav('paymentDetails');
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+
+
+function paymentBreakdownSelfTest(){
+ const issues=[];
+ try{
+  const sample=cardPaymentPlan.find(p=>p.due);
+  if(sample){
+   const x=paymentFormatDate(sample.due);
+   if(!x||typeof x!=='string')issues.push('date formatting failed');
+  }
+  const month='2026-09';
+  const rows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
+  rows.forEach(p=>{
+   const a=account(p.accountId);
+   if(!a)issues.push(`missing account ${p.accountId}`);
+   if(p.due)paymentFormatDate(p.due);
+  });
+ }catch(e){issues.push(e.message);}
+ return issues;
+}
+
+window.openPaymentDetails=openPaymentDetails;
+
+
+function normalizeBalanceOffers(){
+ let changed=false;
+ const hasAccounts=!!window.__financeAccountsReady;
+ installments.forEach(p=>{
+  if(p.planType!=='balance-offer')return;
+  if(!p.referenceMonth){
+   p.referenceMonth=p.startMonth||currentYearMonth();
+   changed=true;
+  }
+  if(!p.offerScope){
+   const a=hasAccounts?account(p.cardId):null;
+   const limit=Number(a?.extra?.['Credit Limit']||0);
+   const utilized=Number(a?.extra?.['Current Outstanding']||a?.balance||0);
+   // Existing SAB balance offer around SAR 27.5k on a SAR 29k card is clearly a full-balance conversion.
+   p.offerScope=(Number(p.fullAmount||0)>=Math.max(limit*0.85,utilized*0.85))?'full':'current';
+   changed=true;
+  }
+  if(!p.createdAt){
+   p.createdAt=(p.startMonth||currentYearMonth())+'-01';
+   changed=true;
+  }
+ });
+ if(changed){
+  localStorage.setItem('pf_installments',JSON.stringify(installments));
+ }
+}
+function fullBalanceOfferPlans(cardId){
+ return installments.filter(p=>p.cardId===cardId && p.planType==='balance-offer' && p.offerScope==='full' && !p.completedConfirmed);
+}
+function fullBalanceOfferNormalUsage(cardId){
+ const a=account(cardId);if(!a)return 0;
+ const offers=fullBalanceOfferPlans(cardId);
+ if(!offers.length)return null;
+ const converted=offers.reduce((sum,p)=>sum+Number(p.fullAmount||0),0);
+ const m=cardMetrics(a);
+ return Math.max(0,Math.round((Number(m.total||0)-converted)*100)/100);
+}
+function activeBalanceOfferPlans(cardId){
+ return installments.filter(p=>p.cardId===cardId && p.planType==='balance-offer' && planCalc(p).status==='Active');
+}
+
+function estimateAlRajhi0955Statement(paymentMonth){
+ if(paymentMonth!=='2026-09')return null;
+
+ // Estimate the Aug statement from transactions we already have.
+ // Include August debits/purchases/fees, but exclude card payments/top-ups/transfers.
+ const rows=normalizedTx().filter(t=>{
+  if(t.account!=='ar-0955')return false;
+  if(!String(t.date||'').startsWith('2026-08'))return false;
+  if(Number(t.amount||0)>=0)return false;
+  const type=txType(t);
+  if(type==='transfer'||type==='income')return false;
+  const d=String(t.description||'').toLowerCase();
+  if(/advance payment|top[- ]?up|payment received|credit card payment|move to payment plan|credit adjustment/.test(d))return false;
+  return true;
+ });
+
+ const normalDebits=rows.reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
+ const installmentMonthly=cardMonthlyCommitment('ar-0955');
+ return {
+  normalDebits:Math.round(normalDebits*100)/100,
+  installmentMonthly:Math.round(installmentMonthly*100)/100,
+  total:Math.round((normalDebits+installmentMonthly)*100)/100,
+  count:rows.length
+ };
+}
+
+
+function addMonthsToYM(ym,delta){
+ const [y,m]=String(ym).split('-').map(Number);
+ const d=new Date(y,m-1+delta,1);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function dueDateForPaymentMonth(cardId,paymentMonth){
+ const cyc=cardCycleSetting(cardId);
+ const [y,m]=String(paymentMonth).split('-').map(Number);
+ const maxDay=new Date(y,m,0).getDate();
+ return `${y}-${String(m).padStart(2,'0')}-${String(Math.min(Number(cyc.dueDay||25),maxDay)).padStart(2,'0')}`;
+}
+function paymentMonthForTransaction(cardId,dateValue){
+ const cyc=cardCycleSetting(cardId);
+ const d=new Date(String(dateValue||'')+'T00:00:00');
+ if(Number.isNaN(d.getTime()))return currentYearMonth();
+ const txMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+ // meem / GIB Saudi •7102 statement period is the 3rd through the 2nd.
+ // Example: 03 Aug–02 Sep belongs to the September statement.
+ const cutoffDay=cardId==='meem-7102'?2:Number(cyc.statementDay||1);
+ const statementMonth=d.getDate()<=cutoffDay?txMonth:addMonthsToYM(txMonth,1);
+
+ // meem due date is within the same statement month (27th).
+ if(cardId==='meem-7102')return statementMonth;
+
+ return Number(cyc.dueDay||25)>=Number(cyc.statementDay||1)
+  ? statementMonth
+  : addMonthsToYM(statementMonth,1);
+}
+
+function cardActiveCycleMonth(cardId,asOfDate=new Date()){
+ const y=asOfDate.getFullYear();
+ const m=String(asOfDate.getMonth()+1).padStart(2,'0');
+ const d=String(asOfDate.getDate()).padStart(2,'0');
+ return paymentMonthForTransaction(cardId,`${y}-${m}-${d}`);
+}
+function transactionAmountForPaymentMonthAll(cardId,paymentMonth){
+ return liveCardTransactions().filter(t=>{
+  if(t.account!==cardId)return false;
+  const assignedMonth=assignedTransactionPaymentMonth(cardId,t);
+  if(assignedMonth!==paymentMonth)return false;
+  if(Number(t.amount||0)>=0)return false;
+  if(['transfer','income'].includes(txType(t)))return false;
+
+  // V144: completed historical card-to-card payments are not purchases.
+  if(isCreditCardPaymentTx(t) && linkedPaymentCycleClosedForTx(t))return false;
+
+  if(linkedActiveInstallment(t._id))return false;
+  const d=String(t.description||'').toLowerCase();
+  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  return true;
+ }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
+}
+function cardCurrentCycleTransactionUsage(cardId){
+ const activeMonth=cardActiveCycleMonth(cardId);
+ const spend=transactionAmountForPaymentMonthAll(cardId,activeMonth);
+ const credits=normalizedTx().filter(t=>
+  t.account===cardId &&
+  paymentMonthForTransaction(cardId,t.date)===activeMonth &&
+  Number(t.amount||0)>0 &&
+  t.manual &&
+  !['transfer'].includes(txType(t))
+ ).reduce((s,t)=>s+Number(t.amount||0),0);
+ return Math.max(0,Math.round((spend-credits)*100)/100);
+}
+function releasedPaymentRowPriority(p){
+ if(!p)return -999;
+ let score=0;
+ if(p.upcomingOnly===true)score-=1000; // visibility alias, never a real second obligation
+ if(p.statementOfficial===true && officialStatementImportMatches(p))score+=500;
+ if(p.source==='confirmed')score+=40; // V159 legacy label only; not proof of a released statement
+ else if(p.source==='manual')score+=300;
+ else if(p.source==='estimated')score+=200;
+ else if(p.source==='rolling')score+=100;
+ else if(p.source==='pending')score+=50;
+ if(p.autoReleasedCycle===true)score+=25;
+ if(Number.isFinite(Number(p.manualOverrideAmount)))score+=15;
+ // Prefer the later/canonical month when two rows refer to the same due date.
+ score+=Math.max(0,monthIndex(p.month)||0)/100000;
+ return score;
+}
+
+
+function isGenuineReleasedStatementRow(p){
+ if(!p || p.upcomingOnly===true)return false;
+
+ // Highest confidence: an actually imported statement which the user confirmed.
+ if(p.statementOfficial===true && officialStatementImportMatches(p))return true;
+
+ // Explicit user confirmation is allowed even without an imported statement file.
+ // A legacy source='confirmed' or source='manual' value by itself is NOT enough.
+ if(p.userConfirmedStatement===true || p.statementConfirmedByUser===true)return true;
+
+ return false;
+}
+
+function canonicalReleasedPaymentRows(cardId){
+ const activeMonth=cardActiveCycleMonth(cardId);
+
+ // Only closed/released cycles. "upcomingOnly" rows are display aliases and must
+ // never be counted in card Released / Amount to Pay.
+ const candidates=cardPaymentPlan.filter(p=>
+  p.accountId===cardId &&
+  p.month<activeMonth &&
+  isGenuineReleasedStatementRow(p) &&
+  Number(paymentRemainingAmount(p)||0)>0.005
+ );
+
+ // One card normally has one payable obligation per due date.
+ // If an estimate/manual/official row overlap for the same due date, keep only
+ // the highest-priority row so the same statement cannot be counted twice.
+ const groups=new Map();
+ candidates.forEach(p=>{
+  const dueKey=p.due?`due:${p.due}`:`month:${p.month}`;
+  const existing=groups.get(dueKey);
+  if(!existing || releasedPaymentRowPriority(p)>releasedPaymentRowPriority(existing)){
+   groups.set(dueKey,p);
+  }
+ });
+
+ return [...groups.values()].sort((a,b)=>String(a.due||a.month).localeCompare(String(b.due||b.month)));
+}
+
+function cardReleasedStatementBalance(cardId){
+ return canonicalReleasedPaymentRows(cardId)
+  .reduce((sum,p)=>sum+Math.max(0,Number(paymentRemainingAmount(p)||0)),0);
+}
+
+
+
+
+
+
+
+function ar0955StatementAudit(){
+ const rows=cardPaymentPlan.filter(p=>p.accountId==='ar-0955');
+ const released=canonicalReleasedPaymentRows('ar-0955');
+ return {
+  plannerRows:rows.map(p=>({
+   id:p.id,month:p.month,source:p.source,
+   statementOfficial:p.statementOfficial===true,
+   importBacked:p.statementOfficial===true?officialStatementImportMatches(p):false,
+   userConfirmed:p.userConfirmedStatement===true||p.statementConfirmedByUser===true,
+   amount:Number(p.amount||0),
+   remaining:Number(paymentRemainingAmount(p)||0)
+  })),
+  releasedRows:released.map(p=>p.id),
+  releasedBalance:cardReleasedStatementBalance('ar-0955')
+ };
+}
+
+
+function hardCodedAndSyncAudit(){
+ const cardSeedState=accounts.filter(a=>a.type==='card').map(a=>({
+  id:a.id,
+  balance:Number(a.balance||0),
+  extra:Object.keys(a.extra||{})
+ }));
+ return {
+  embeddedBaseTransactions:Array.isArray(BASE.transactions)?BASE.transactions.length:0,
+  embeddedInitialInstallments:Array.isArray(BASE.initialInstallments)?BASE.initialInstallments.length:0,
+  cardSeedState,
+  manualTransactions:manualTransactions.length,
+  importedTransactions:importedTransactions.length,
+  recordSyncReady,
+  realtimeLastEventAt:recordSyncLastEventAt||0,
+  pending:getCloudMeta().pending===true
+ };
+}
+
+function unifiedCardEngineAudit(cardId){
+ const a=account(cardId);
+ if(!a||a.type!=='card')return null;
+ const m=cardMetrics(a);
+ const live=liveUnreleasedTransactionRows(cardId);
+ const legacy=liveCardTransactions().filter(t=>t.account===cardId&&isLegacySeedTransaction(t));
+ return {
+  cardId,
+  liveUserRows:live.length,
+  liveUserAmount:Math.round(live.reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)*100)/100,
+  archivedLegacyRows:legacy.length,
+  archivedLegacyAmount:Math.round(legacy.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)*100)/100,
+  released:m.releasedStatementBalance,
+  installmentPrincipal:m.fullRemainingInstallmentPrincipal,
+  fundedOtherCards:m.fundedOtherCards,
+  utilized:m.total,
+  available:m.available
+ };
+}
+
+function connectedPaymentStateAudit(cardId){
+ const ledger=(cashFlowLedger||[]).filter(x=>x.type==='card-payment'&&x.status!=='reversed'&&x.targetId===cardId);
+ const plans=cardPaymentPlan.filter(p=>p.accountId===cardId).map(p=>({
+  id:p.id,
+  month:p.month,
+  due:Number(plannerAmountForRow(p)||0),
+  paid:Number(paymentPaidAmount(p)||0),
+  remaining:Number(paymentRemainingAmount(p)||0),
+  history:(p.paymentHistory||[]).length,
+  ledgerRows:ledgerRowsForCardCycle(cardId,p.month).length
+ }));
+ return {cardId,ledgerRows:ledger.length,ledgerAmount:ledger.reduce((s,x)=>s+Number(x.amount||0),0),plans};
+}
+
+function liveCardBalanceTrace(cardId){
+ const a=account(cardId);
+ if(!a||a.type!=='card')return null;
+
+ const activeCycle=cardActiveCycleMonth(cardId);
+ const included=liveUnreleasedTransactionRows(cardId).map(t=>({
+  id:t._id,
+  date:t.date,
+  description:t.description,
+  amount:Math.abs(Number(t.amount||0)),
+  paymentMonth:assignedTransactionPaymentMonth(cardId,t),
+  source:t.imported?'Imported':t.manual?'Manual':'Base'
+ }));
+
+ const excludedPast=liveCardTransactions().filter(t=>{
+  if(t.account!==cardId || Number(t.amount||0)>=0)return false;
+  const m=assignedTransactionPaymentMonth(cardId,t);
+  return m && m<activeCycle;
+ }).map(t=>({
+  id:t._id,date:t.date,description:t.description,
+  amount:Math.abs(Number(t.amount||0)),
+  paymentMonth:assignedTransactionPaymentMonth(cardId,t)
+ }));
+
+ const funded=cardFundedPaymentBreakdown(cardId);
+ const m=cardMetrics(a);
+
+ return {
+  card:accountName(cardId),
+  activeCycle,
+  creditLimit:m.limit,
+  includedLiveTransactions:included,
+  includedLiveTransactionTotal:Math.round(included.reduce((s,x)=>s+x.amount,0)*100)/100,
+  historicalTransactionsExcluded:excludedPast,
+  cardFundedPayments:funded,
+  separatelyCountedFundedPayments:Math.round(funded.filter(x=>x.countsSeparately).reduce((s,x)=>s+x.amount,0)*100)/100,
+  remainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
+  releasedAmountToPay:m.releasedStatementBalance,
+  paymentsAndCredits:m.totalCardCredits,
+  utilized:m.total,
+  available:m.available,
+  expectedUtilized:Math.round((m.releasedStatementBalance+m.liveTransactionUsage+m.fullRemainingInstallmentPrincipal+m.fundedOtherCards)*100)/100,
+  statementPaymentsAlreadyApplied:true
+ };
+}
+
+function liveCreditRegressionAudit(){
+ return accounts.filter(a=>a.type==='card').map(a=>{
+  const m=cardMetrics(a);
+  return {
+   cardId:a.id,
+   card:`${a.bank} • ${a.name} •${a.ending}`,
+   limit:m.limit,
+   liveTransactions:m.liveTransactionUsage,
+   remainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
+   fundedOtherCards:m.fundedOtherCards,
+   paymentsAndCredits:m.totalCardCredits,
+   utilized:m.total,
+   available:m.available,
+   releasedAmountToPay:m.releasedStatementBalance,
+   releasedIncludedInUtilization:m.releasedIncludedInLiveUtilization===true,
+   installmentIncludedInUtilized:m.installmentIncludedInUtilized,
+   limitReconciles:Math.abs((m.total+Math.min(m.available,m.limit))-m.limit)<0.02 || m.available>m.limit
+  };
+ });
+}
+
+function legacyTestDataAudit(){
+ return cardPaymentPlan.filter(p=>
+  (p.accountId==='ar-0955' && Math.abs(Number(p.amount||0)-45429.75)<0.01) ||
+  (p.accountId==='sab-440880' && Math.abs(Number(p.amount||0)-28627.50)<0.01)
+ ).map(p=>({id:p.id,accountId:p.accountId,month:p.month,amount:p.amount,label:p.label,source:p.source,official:p.statementOfficial===true}));
+}
+
+function allCardStatementRegressionAudit(){
+ return accounts.filter(a=>a.type==='card').map(a=>{
+  const rows=canonicalReleasedPaymentRows(a.id).map(p=>{
+   const s=releasedStatementAudit(p);
+   return {id:p.id,month:p.month,original:s.original,installmentAdjustment:s.installmentAdjustment,
+    adjustedStatement:s.adjusted,paid:s.paid,remaining:s.remaining,
+    statementInvariantOK:Math.abs(s.remaining-Math.max(0,s.adjusted-s.paid))<0.011};
+  });
+  const m=cardMetrics(a);
+  return {cardId:a.id,card:`${a.bank} • ${a.name} •${a.ending}`,releasedStatements:rows,
+   available:Number(m.available||0),utilized:Number(m.utilized||0)};
+ });
+}
+
+function transactionCycleAudit(cardId,month){
+ return liveCardTransactions(true)
+  .filter(t=>t.account===cardId)
+  .map(t=>({
+   id:t._id,
+   date:t.date,
+   description:t.description,
+   amount:Number(t.amount||0),
+   visibleStatementMonth:t.statementMonth||'',
+   storedPaymentMonth:t.paymentMonth||'',
+   override:txOverrides?.[t._id]||null,
+   effectivePaymentMonth:assignedTransactionPaymentMonth(cardId,t),
+   countsInRequestedMonth:
+    assignedTransactionPaymentMonth(cardId,t)===month &&
+    Number(t.amount||0)<0 &&
+    !['transfer','income'].includes(txType(t)) &&
+    !linkedActiveInstallment(t._id) &&
+    !transactionActions[t._id]?.status
+  }))
+  .filter(x=>x.countsInRequestedMonth || x.visibleStatementMonth===month || x.storedPaymentMonth===month || x.override?.statementMonth===month);
+}
+
+function dashboardPlannerAudit(cardId,month){
+ const p=cardPaymentPlan.find(x=>x.accountId===cardId&&x.month===month);
+ return {
+  cardId,
+  month,
+  rawStoredAmount:p?Number(p.amount||0):0,
+  rawStoredSource:p?.source||'',
+  officialImported:!!importedOfficialPlannerRow(cardId,month),
+  calculatedTransactions:Number(transactionAmountForPaymentMonthAll(cardId,month)||0),
+  calculatedInstallment:Number(installmentAmountForPaymentMonth(cardId,month)||0),
+  dashboardAmount:p?Number(plannerAmountForRow(p)||0):calculatedPaymentCycleAmount(cardId,month),
+  dashboardSource:p?plannerAmountSource(p):'DATE-DRIVEN CYCLE'
+ };
+}
+
+function releasedAmountProvenance(cardId){
+ return canonicalReleasedPaymentRows(cardId).map(p=>({
+  id:p.id,
+  month:p.month,
+  due:p.due||'',
+  label:p.label||'',
+  amount:Number(paymentRemainingAmount(p)||0),
+  source:p.source||'',
+  official:p.statementOfficial===true,
+  importBacked:p.statementOfficial===true?officialStatementImportMatches(p):false,
+  file:p.statementFileName||p.statementImportedFile||''
+ }));
+}
+
+function cardReleasedStatementBreakdown(cardId){
+ return canonicalReleasedPaymentRows(cardId).map(p=>({
+  id:p.id,
+  month:p.month,
+  due:p.due||'',
+  label:p.label||'Released cycle',
+  source:p.statementOfficial===true?'official':(p.source||'manual'),
+  remaining:Math.max(0,Number(paymentRemainingAmount(p)||0))
+ }));
+}
+
+
+function purgeAr0955JulyTestStatement(){
+ const before=cardPaymentPlan.length;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='ar-0955')return true;
+  if(p.statementOfficial===true && officialStatementImportMatches(p))return true;
+
+  const isKnownTest=
+   String(p.id||'')==='p-ar0955-aug' ||
+   (
+    p.month==='2026-08' &&
+    Math.abs(Number(p.amount||0)-45429.75)<0.01 &&
+    String(p.label||'').toLowerCase().includes('july statement') &&
+    String(p.note||'').toLowerCase().includes('verify if already paid')
+   );
+
+  return !isKnownTest;
+ });
+
+ if(cardPaymentPlan.length!==before){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+ }
+ return before-cardPaymentPlan.length;
+}
+
+function purgeLegacySabAnchorRows(){
+ const before=cardPaymentPlan.length;
+ cardPaymentPlan=cardPaymentPlan.filter(p=>{
+  if(p.accountId!=='sab-440880')return true;
+  if(String(p.id||'')==='p-sab-sep')return false;
+  const amt=Number(p.amount||0);
+  const label=String(p.label||'').toLowerCase();
+  const note=String(p.note||'').toLowerCase();
+
+  // Retired historical SAB balance anchor, regardless of which older app version
+  // changed its id/label. A genuine imported official statement is never removed.
+  if(Math.abs(amt-28627.50)<0.01 &&
+     p.statementOfficial!==true &&
+     (p.source==='manual' ||
+      label.includes('manual tracked cycle') ||
+      note.includes('sab special rule') ||
+      note.includes('manual/shared transactions only')))return false;
+  return true;
+ });
+ if(cardPaymentPlan.length!==before){
+  try{localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));}catch(e){}
+ }
+ return before-cardPaymentPlan.length;
+}
+function normalizeReleasedPaymentAliases(){
+ // Known historical alias: NBD Mazeed September "upcoming" row mirrors the October row.
+ // Keep it visible in the September planner, but explicitly tag it as a non-payable alias.
+ cardPaymentPlan.forEach(p=>{
+  if(p.upcomingOnly===true){
+   p.excludeFromReleasedBalance=true;
+  }
+ });
+
+ // Generic protection: same card + same due date + same payable amount => only the
+ // highest-priority row is canonical for Released / Amount to Pay.
+ const byCardDue=new Map();
+ cardPaymentPlan.forEach(p=>{
+  if(!p.accountId||!p.due)return;
+  const key=`${p.accountId}|${p.due}`;
+  if(!byCardDue.has(key))byCardDue.set(key,[]);
+  byCardDue.get(key).push(p);
+ });
+ byCardDue.forEach(rows=>{
+  if(rows.length<2)return;
+  const sorted=[...rows].sort((a,b)=>releasedPaymentRowPriority(b)-releasedPaymentRowPriority(a));
+  sorted.forEach((p,i)=>p.releaseCanonical=(i===0));
+ });
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+}
+function ensureReleasedCyclePlannerRows(){
+ accounts.filter(a=>a.type==='card').forEach(a=>{
+  const activeMonth=cardActiveCycleMonth(a.id);
+  const months=new Set();
+  normalizedTx().filter(t=>t.account===a.id).forEach(t=>{
+   const pm=paymentMonthForTransaction(a.id,t.date);
+   if(pm && pm<activeMonth)months.add(pm);
+  });
+  [...months].sort().forEach(month=>{
+   if(cardPaymentPlan.some(p=>p.accountId===a.id&&p.month===month))return;
+   cardPaymentPlan.push({
+    id:`released-${a.id}-${month}`,
+    accountId:a.id,
+    month,
+    amount:0,
+    due:dueDateForPaymentMonth(a.id,month),
+    label:'Released statement cycle',
+    source:'rolling',
+    note:'Closed statement cycle moved from current card usage to the Payment Planner. An uploaded/confirmed official statement will replace this estimate.',
+    autoGenerated:true,
+    autoReleasedCycle:true,
+    dateDrivenAllTransactions:true,
+    paid:false,
+    paidAmount:0,
+    paymentHistory:[]
+   });
+  });
+ });
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+}
+
+function resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth){
+ if(!resetCardIds.has(cardId) && cardId!=='meem-7102')return null;
+ return normalizedTx().filter(t=>{
+  if(t.account!==cardId)return false;
+  if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
+  if(Number(t.amount||0)>=0)return false;
+  if(['transfer','income'].includes(txType(t)))return false;
+  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
+  const d=String(t.description||'').toLowerCase();
+  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  return true;
+ }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
+}
+function manualCardAmountForPaymentMonth(cardId,paymentMonth){
+ return manualTransactions.filter(t=>{
+  if(t.account!==cardId)return false;
+  if(transactionActions[t._id]?.status)return false;
+  if(paymentMonthForTransaction(cardId,t.date)!==paymentMonth)return false;
+  if(Number(t.amount||0)>=0)return false;
+  if(['transfer','income'].includes(txType(t)))return false;
+  // Converted purchases are removed from normal card spending; only their installment monthly commitment is due.\n  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
+  const d=String(t.description||'').toLowerCase();
+  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  return true;
+ }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
+}
+function installmentAmountForPaymentMonth(cardId,paymentMonth){
+ const plans=installments.filter(p=>p.cardId===cardId && !p.completedConfirmed);
+ return plans.reduce((sum,p)=>{
+  const c=planCalc(p);
+  const ref=p.referenceMonth||p.startMonth||currentYearMonth();
+  const refIdx=monthIndex(ref),payIdx=monthIndex(paymentMonth);
+  if(refIdx!==null&&payIdx!==null&&payIdx<refIdx)return sum;
+
+  // User-edited plans use remaining principal / remaining months as the source of truth.
+  // This is the critical V91 fix: changing remaining amount or months immediately changes
+  // the payment planner for SAB, meem, Al Rajhi, NBD, and every other card.
+  if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null || p.planType==='balance-offer'){
+   const elapsed=(refIdx!==null&&payIdx!==null)?Math.max(0,payIdx-refIdx):0;
+   if(elapsed>=Number(c.remainingCount||0))return sum;
+   return sum+Number(c.schedule?.[elapsed]??c.monthly??0);
+  }
+
+  const idx=Math.max(0,Number(p.paidInstallments||0)+elapsedMonths(ref,paymentMonth));
+  if(idx>=Number(p.months||1))return sum;
+  const schedule=planMonthly(p);
+  return sum+Number(schedule[idx]||0);
+ },0);
+}
+function provisionalPaymentForMonth(cardId,paymentMonth){
+ if(cardId==='meem-7102'){
+  const transactionAmount=Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0);
+  const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
+  return Math.round((transactionAmount+installment)*100)/100;
+ }
+
+ const transactionAmount=(resetCardIds.has(cardId)||cardId==='meem-7102')
+  ? Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0)
+  : manualCardAmountForPaymentMonth(cardId,paymentMonth);
+ const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
+ return Math.round((transactionAmount+installment)*100)/100;
+}
+
+function ledgerRowsForCardCycle(cardId,month){
+ return (cashFlowLedger||[]).filter(x=>
+  x.type==='card-payment' &&
+  x.status!=='reversed' &&
+  x.targetId===cardId &&
+  (
+   x.targetPaymentMonth===month ||
+   (!x.targetPaymentMonth && x.month===month)
+  )
+ );
+}
+
+function rebuildPlannerPaymentHistoryFromLedger(p){
+ if(!p)return p;
+ const rows=ledgerRowsForCardCycle(p.accountId,p.month);
+ if(!rows.length)return p;
+
+ const existing=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
+ const merged=[...existing];
+
+ rows.forEach((x,i)=>{
+  const key=String(x.referenceId||x.id||`${x.date}|${x.amount}|${x.sourceId}`);
+  const already=merged.some(h=>
+   String(h.ledgerId||h.referenceId||'')===String(x.id||x.referenceId||'') ||
+   (
+    Math.abs(Number(h.amount||0)-Number(x.amount||0))<0.005 &&
+    String(h.date||'')===String(x.date||'') &&
+    String(h.sourceId||'')===String(x.sourceId||'')
+   )
+  );
+  if(already)return;
+
+  merged.push({
+   amount:Number(x.amount||0),
+   duePortion:Number(x.amount||0),
+   extraPortion:0,
+   date:x.date||'',
+   recordedAt:x.createdAt||x.date||new Date().toISOString(),
+   sourceId:x.sourceId||'',
+   sourceName:x.sourceName||'',
+   ledgerId:x.id||'',
+   referenceId:key,
+   restoredFromLedger:true
+  });
+ });
+
+ p.paymentHistory=merged;
+ p.paidAmount=Math.round(
+  rows.reduce((s,x)=>s+Math.max(0,Number(x.amount||0)),0)*100
+ )/100;
+
+ return p;
+}
+
+function rebuildAllPlannerPaymentsFromLedger(){
+ cardPaymentPlan.forEach(p=>rebuildPlannerPaymentHistoryFromLedger(p));
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+}
+
+function ensureLedgerBackedPlannerRows(){
+ const groups=new Map();
+
+ (cashFlowLedger||[]).filter(x=>
+  x.type==='card-payment' &&
+  x.status!=='reversed' &&
+  x.targetId
+ ).forEach(x=>{
+  const month=x.targetPaymentMonth||x.month;
+  if(!month)return;
+  const key=`${x.targetId}|${month}`;
+  if(!groups.has(key))groups.set(key,{cardId:x.targetId,month});
+ });
+
+ groups.forEach(({cardId,month})=>{
+  let p=cardPaymentPlan.find(x=>x.accountId===cardId&&x.month===month);
+
+  if(!p){
+   // Reconstruct the payable cycle from the card's actual transaction dates
+   // + that month's installment commitment. This restores cards such as meem
+   // when a reset/cloud sync removed the planner row but payment ledger survived.
+   const calc=Math.max(0,Number(calculatedPaymentCycleAmount(cardId,month)||0));
+   p={
+    id:`ledger-${cardId}-${month}`,
+    accountId:cardId,
+    month,
+    amount:calc,
+    due:dueDateForPaymentMonth(cardId,month),
+    label:'Recovered payment cycle',
+    source:'recovered-ledger',
+    note:'Automatically reconstructed from card transactions/installments and durable payment ledger.',
+    autoGenerated:true,
+    resetDateDriven:true,
+    paid:false,
+    paidAmount:0,
+    paymentHistory:[]
+   };
+   cardPaymentPlan.push(p);
+  }
+
+  rebuildPlannerPaymentHistoryFromLedger(p);
+
+  // For non-official reconstructed cycles, keep amount aligned to actual cycle math.
+  if(p.statementOfficial!==true && p.source==='recovered-ledger'){
+   p.amount=Math.max(0,Number(calculatedPaymentCycleAmount(cardId,month)||0));
+  }
+
+  const due=Number(plannerAmountForRow(p));
+  const paid=paymentPaidAmount(p);
+  p.paid=Number.isFinite(due)&&due>0&&paid>=due-0.005;
+ });
+
+ normalizeCardPaymentPlan();
+ localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
+}
+
+function rebuildResetCardPlannerRows(cardId){
+ if(!resetCardIds.has(cardId) && cardId!=='meem-7102')return;
+ // Remove legacy/fixed rows for this reset card. New rows are rebuilt from the fresh transactions.
+ cardPaymentPlan=cardPaymentPlan.filter(p=>p.accountId!==cardId || p.statementOfficial===true);
+
+ const months=new Set();
+ normalizedTx().filter(t=>t.account===cardId).forEach(t=>months.add(paymentMonthForTransaction(cardId,t.date)));
+ installments.filter(p=>p.cardId===cardId && !p.completedConfirmed).forEach(p=>{
+  const start=p.referenceMonth||p.startMonth||currentYearMonth();
+  const c=planCalc(p);
+  for(let i=0;i<Math.max(1,Number(c.remainingCount||1));i++)months.add(addMonthsToYM(start,i));
+ });
+ if(cardId==='meem-7102')months.add(currentYearMonth());
+ if(!months.size)months.add(currentYearMonth());
+
+ [...months].sort().forEach(month=>{
+  if(cardPaymentPlan.some(p=>p.accountId===cardId&&p.month===month&&p.statementOfficial===true))return;
+  const p={
+   id:`reset-${cardId}-${month}`,
+   accountId:cardId,
+   month,
+   amount:0,
+   due:dueDateForPaymentMonth(cardId,month),
+   label:'Reset / Date-driven cycle',
+   source:'rolling',
+   note:'Rebuilt from imported/manual transactions using each transaction date and this card statement cycle.',
+   autoGenerated:true,
+   resetDateDriven:true,
+   paid:false,
+   paidAmount:0,
+   paymentHistory:[]
+  };
+  rebuildPlannerPaymentHistoryFromLedger(p);
+  cardPaymentPlan.push(p);
+ });
+ ensureLedgerBackedPlannerRows();
+ saveCardPaymentPlan();
+}
+
+function ensureImportedTransactionPlannerRows(cardId,rows=[]){
+ const months=[...new Set(
+  (rows||[])
+   .filter(t=>t.account===cardId)
+   .map(t=>assignedTransactionPaymentMonth(cardId,t))
+   .filter(Boolean)
+ )];
+
+ months.forEach(month=>{
+  const official=importedOfficialPlannerRow(cardId,month);
+  if(official)return;
+
+  let p=cardPaymentPlan.find(x=>x.accountId===cardId&&x.month===month&&!x.upcomingOnly);
+  if(!p){
+   p={
+    id:`import-cycle-${cardId}-${month}`,
+    accountId:cardId,
+    month,
+    amount:0,
+    due:dueDateForPaymentMonth(cardId,month),
+    label:'Imported transaction cycle',
+    source:'rolling',
+    note:'Calculated from imported statement transactions using transaction dates and this card statement cycle.',
+    autoGenerated:true,
+    dateDrivenAllTransactions:true,
+    paid:false,
+    paidAmount:0,
+    paymentHistory:[]
+   };
+   cardPaymentPlan.push(p);
+  }else if(p.statementOfficial!==true && !Number.isFinite(Number(p.manualOverrideAmount))){
+   // Old seeded estimates/manual placeholders may remain for audit history, but
+   // live dashboard amount is now date-driven.
+   p.source='rolling';
+   p.autoGenerated=true;
+   p.dateDrivenAllTransactions=true;
+   p.label='Imported transaction cycle';
+   p.note='Calculated from imported statement transactions using transaction dates and this card statement cycle.';
+  }
+ });
+ saveCardPaymentPlan();
+}
+
+function ensureMonthlyPlannerRows(month){
+ accounts.filter(a=>a.type==='card').forEach(a=>{
+  if(cardPaymentPlan.some(p=>p.accountId===a.id && p.month===month))return;
+  cardPaymentPlan.push({
+   id:`auto-${a.id}-${month}`,
+   accountId:a.id,
+   month,
+   amount:0,
+   due:dueDateForPaymentMonth(a.id,month),
+   label:'Rolling monthly plan',
+   source:'rolling',
+   note:'Automatically calculated from manual transactions and active installment plans for this statement cycle.',
+   autoGenerated:true,
+   paid:false,
+   paidAmount:0,
+   paymentHistory:[]
+  });
+ });
+}
+function rollingAdditionForExistingPlan(p){
+ if(p.source==='confirmed')return 0;
+ if(resetCardIds.has(p.accountId)){
+  return Number(resetCardTransactionAmountForPaymentMonth(p.accountId,p.month)||0);
+ }
+ if(p.accountId==='sab-440880'){
+  const sabPlans=installments.filter(x=>x.cardId==='sab-440880' && x.planType==='balance-offer' && !x.completedConfirmed);
+  if(sabPlans.length)return 0;
+ }
+ return manualCardAmountForPaymentMonth(p.accountId,p.month);
+}
+
+function statementAdjustmentTotal(p){
+ return Object.values(p?.installmentTransferAdjustments||{}).reduce((s,v)=>s+Math.max(0,Number(v||0)),0);
+}
+function inferStatementOriginalAmount(p){
+ if(Number.isFinite(Number(p?.statementOriginalAmount)))return Number(p.statementOriginalAmount);
+ // Known official Al Rajhi August statement.
+ const note=String(p?.note||'');
+ const m=note.match(/total amount due\s*SAR\s*([\d,]+(?:\.\d+)?)/i);
+ if(m)return Number(m[1].replace(/,/g,''));
+ return Number(p?.amount||0);
+}
+function adjustedConfirmedStatementAmount(p){
+ const original=inferStatementOriginalAmount(p);
+ const moved=statementAdjustmentTotal(p);
+ return Math.max(0,Math.round((original-moved)*100)/100);
+}
+
+function importedOfficialPlannerRow(cardId,month){
+ return cardPaymentPlan.find(p=>
+  p.accountId===cardId &&
+  p.month===month &&
+  p.statementOfficial===true &&
+  officialStatementImportMatches(p)
+ )||null;
+}
+
+function calculatedPaymentCycleAmount(cardId,month){
+ const transactions=Number(transactionAmountForPaymentMonthAll(cardId,month)||0);
+ const installment=Number(installmentAmountForPaymentMonth(cardId,month)||0);
+ return Math.round((transactions+installment)*100)/100;
+}
+
+function plannerAmountSource(p){
+ const official=importedOfficialPlannerRow(p.accountId,p.month);
+ if(official)return 'IMPORTED OFFICIAL STATEMENT';
+ if(Number.isFinite(Number(p.manualOverrideAmount)))return 'MANUAL OVERRIDE';
+ return 'DATE-DRIVEN CYCLE';
+}
+
+function plannerDisplayLabel(p){
+ const official=importedOfficialPlannerRow(p.accountId,p.month);
+ if(official)return `Official imported statement • ${cardMonthLabel(p.month)}`;
+ if(Number.isFinite(Number(p.manualOverrideAmount)))return `Manual payment amount • ${cardMonthLabel(p.month)}`;
+ return `Calculated ${cardMonthLabel(p.month)} payment cycle`;
+}
+
+function plannerAmountForRow(p){
+ // V131: released statement obligation is fixed independently from payments.
+ const official=importedOfficialPlannerRow(p.accountId,p.month);
+ if(official){
+  if(Number.isFinite(Number(official.manualOverrideAmount)))return Number(official.manualOverrideAmount);
+  return adjustedConfirmedStatementAmount(official);
+ }
+ if(isGenuineReleasedStatementRow(p)){
+  if(Number.isFinite(Number(p.manualOverrideAmount)))return Number(p.manualOverrideAmount);
+  return adjustedConfirmedStatementAmount(p);
+ }
+ return calculatedPaymentCycleAmount(p.accountId,p.month);
+}
+function plannerAmountExplanation(p){
+ const official=importedOfficialPlannerRow(p.accountId,p.month);
+ if(official){
+  const original=Number(official.statementOriginalAmount??official.amount??0);
+  const effective=Number(plannerAmountForRow(p)||0);
+  return `Official imported statement for ${cardMonthLabel(p.month)}: ${money(original)}${official.due?` due ${paymentFormatDate(official.due)}`:''}.${statementAdjustmentTotal(official)>0?` ${money(statementAdjustmentTotal(official))} converted to installments; adjusted amount ${money(effective)}.`:''}${Number.isFinite(Number(official.manualOverrideAmount))?` Manual payment override ${money(Number(official.manualOverrideAmount))}.`:''}`;
+ }
+
+ if(Number.isFinite(Number(p.manualOverrideAmount))){
+  return `Manual payment amount for ${cardMonthLabel(p.month)}: ${money(Number(p.manualOverrideAmount))}. This remains in use until an imported official statement is confirmed for this card/month.`;
+ }
+
+ const activity=Number(transactionAmountForPaymentMonthAll(p.accountId,p.month)||0);
+ const installment=Number(installmentAmountForPaymentMonth(p.accountId,p.month)||0);
+ const total=Math.round((activity+installment)*100)/100;
+ return `Date-driven ${cardMonthLabel(p.month)} cycle: ${money(activity)} transaction activity + ${money(installment)} installment commitment = ${money(total)}. Transactions are assigned by this card's statement/payment-cycle dates. An imported official statement will replace this calculated amount.`;
+}
+function syncUpcomingNbdMazeed(){
+ // V155: legacy fixed Mazeed SAR 9,321 planner rows are retired.
+ return false;
+}
+function adjustCurrentStatementForInstallment(linkedTx,plan){
+ if(!linkedTx||!plan)return;
+ const cardId=linkedTx.account, originalMonth=paymentMonthForTransaction(cardId,linkedTx.date);
+ const purchase=Math.abs(Number(linkedTx.amount||0)); if(!purchase)return;
+ cardPaymentPlan.filter(r=>r.accountId===cardId && r.month===originalMonth).forEach(r=>{
+  if(!Number.isFinite(Number(r.statementOriginalAmount)))r.statementOriginalAmount=inferStatementOriginalAmount(r);
+  r.installmentTransferAdjustments={...(r.installmentTransferAdjustments||{}),[linkedTx._id]:purchase};
+  // Keep amount as the adjusted current-cycle amount for compatibility with older UI/data,
+  // while plannerAmountForRow also derives the same result from statementOriginalAmount.
+  r.amount=adjustedConfirmedStatementAmount(r);
+  r.note=((r.note||'')+` ${money(purchase)} converted to installment and removed from this statement.`).trim();
+ });
+ const next=addMonths(originalMonth,1);
+ if(!plan.startMonth || plan.startMonth<=originalMonth)plan.startMonth=next;
+ ensureMonthlyPlannerRows(plan.startMonth);
+ saveCardPaymentPlan();
+}
+function reconcileExistingInstallmentStatementTransfers(){
+ let changed=0;
+ const allTx=normalizedTx(true);
+ installments.filter(p=>p.linkedTransactionId && !p.completedConfirmed).forEach(plan=>{
+  const tx=allTx.find(t=>t._id===plan.linkedTransactionId);if(!tx)return;
+  const originalMonth=paymentMonthForTransaction(tx.account,tx.date);
+  const rows=cardPaymentPlan.filter(r=>r.accountId===tx.account && r.month===originalMonth);
+  rows.forEach(r=>{
+   if(!Number.isFinite(Number(r.statementOriginalAmount))){r.statementOriginalAmount=inferStatementOriginalAmount(r);changed++;}
+  });
+  const needs=rows.some(r=>!r.installmentTransferAdjustments?.[tx._id]);
+  if(needs){adjustCurrentStatementForInstallment(tx,plan);changed++;}
+ });
+ // Recompute every confirmed row that already has installment adjustments.
+ cardPaymentPlan.filter(r=>r.source==='confirmed' && statementAdjustmentTotal(r)>0).forEach(r=>{
+  if(!Number.isFinite(Number(r.statementOriginalAmount)))r.statementOriginalAmount=inferStatementOriginalAmount(r);
+  const correct=adjustedConfirmedStatementAmount(r);
+  if(Math.abs(Number(r.amount||0)-correct)>0.005){r.amount=correct;changed++;}
+ });
+ if(changed){
+  localStorage.setItem('pf_installments',JSON.stringify(installments));
+  saveCardPaymentPlan();
+ }
+ return changed;
+}
+function renderPaymentPlanner(){
+ purgeNonCardPaymentPlannerRows();
+ const el=$('paymentMonth');if(!el)return;if(!el.value)el.value=plannerDefaultMonth();
+ const month=el.value;
+ ensureMonthlyPlannerRows(month);
+ ensurePartialPaymentFields();
+ syncUpcomingNbdMazeed();
+ const rows=cardPaymentPlan.filter(p=>p.month===month && isCreditCardAccountId(p.accountId));
+ const countedRows=rows.filter(p=>!p.upcomingOnly);
+ const known=countedRows.filter(p=>Number.isFinite(Number(plannerAmountForRow(p)))).reduce((z,p)=>z+Number(plannerAmountForRow(p)),0);
+ const remaining=countedRows.reduce((z,p)=>{const r=paymentRemainingAmount(p);return z+(Number.isFinite(r)?r:0)},0);
+ const pending=countedRows.filter(p=>plannerAmountForRow(p)===null||plannerAmountForRow(p)===''||!Number.isFinite(Number(plannerAmountForRow(p)))).length;
+ $('paymentMonthKnown').textContent=money(known);$('paymentMonthRemaining').textContent=money(remaining);$('paymentMonthPending').textContent=pending;
+ $('paymentPlannerCards').innerHTML=rows.length?rows.map(p=>{
+  const a=account(p.accountId),effective=plannerAmountForRow(p),paid=paymentPaidAmount(p),rem=paymentRemainingAmount(p);
+  const displayAmount=p.upcomingOnly?money(0):(effective===null?'Awaiting statement':money(Number.isFinite(rem)?rem:Number(effective)));
+  const sourceTag=p.upcomingOnly?'UPCOMING • NOT INCLUDED IN THIS MONTH TOTAL':(p.paid?'PAID':paid>0?'PARTIALLY PAID':plannerAmountSource(p));
+  return `<div class="payCard ${p.amount===null?'pending':''}" data-open-payment-account="${p.accountId}" role="button" tabindex="0" aria-label="Open ${a.bank} ${a.name} ending ${a.ending} account and transactions">
+   <div style="display:flex;align-items:center;gap:9px">${bankLogoHTML(a)}<div style="min-width:0"><b>${a.bank} • ${a.name} •${a.ending}</b><div class="meta">${plannerDisplayLabel(p)}</div></div></div>
+   <div class="amount">${displayAmount}</div>
+   <div class="meta" style="margin-top:2px">${p.upcomingOnly?'Amount due in selected month':(Number.isFinite(rem)?'Amount still to pay':'Payment amount')}</div>
+   <div class="meta" style="margin-top:4px">${p.due?'Due '+paymentFormatDate(p.due):'Due date pending'}</div>
+   ${p.upcomingOnly?`<div class="meta" style="margin-top:7px"><b>September due:</b> ${money(0)} &nbsp; • &nbsp; <b>Upcoming 01 Oct:</b> ${money(Number(effective||0))}${paid>0?` &nbsp; • &nbsp; <b>Early paid:</b> ${money(paid)}`:''}</div>`:(Number.isFinite(rem)?`<div class="meta" style="margin-top:7px">${p.statementOfficial===true?`<b>Official statement:</b> ${money(Number(p.statementOriginalAmount||p.amount||0))}${Number.isFinite(Number(p.manualOverrideAmount))?` &nbsp; • &nbsp; <b>Edited payment amount:</b> ${money(Number(p.manualOverrideAmount))}`:''}`:statementAdjustmentTotal(p)>0?`<b>Original statement:</b> ${money(inferStatementOriginalAmount(p))} &nbsp; • &nbsp; <b>Adjusted due:</b> ${money(Number(effective||0))}`:`<b>Original due:</b> ${money(Number(effective||0))}`} &nbsp; • &nbsp; <b>Paid so far:</b> ${money(paid)} &nbsp; • &nbsp; <b>Remaining:</b> ${money(rem)}</div>`:'')}
+   <span class="payStatus ${p.upcomingOnly?'estimated':paymentStatusClass(p)}">${sourceTag}</span>
+   <div class="sourceNote">${p.upcomingOnly?`This payment belongs to a later due month and is shown for visibility only. It is not added to the selected month's totals.`:plannerAmountExplanation(p)}</div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">
+    <button class="btn" data-pay-edit="${p.id}">Edit</button>
+    ${Number(effective)>0&&!p.paid&&!p.upcomingOnly?`<button class="btn primary" data-pay-partial="${p.id}">Record Payment</button>`:''}
+    ${p.upcomingOnly?`<button class="btn primary" data-pay-partial="${p.id}">Record Early Payment</button>`:''}
+    ${p.paymentHistory?.length?`<button class="btn" data-pay-undo="${p.id}">Undo Last Payment</button>`:''}
+    ${p.paymentHistory?.length?`<div class="meta" style="width:100%;margin-top:5px">Last payment from: ${p.paymentHistory[p.paymentHistory.length-1].sourceName||'Previous version / source not recorded'}</div>`:''}
+   ${cardMetrics(a).creditBalance>0?`<div class="meta green" style="width:100%;margin-top:5px"><b>Extra card credit:</b> ${money(cardMetrics(a).creditBalance)} • not included in this month's amount to pay</div>`:''}${p.installmentTransferAdjustments&&Object.keys(p.installmentTransferAdjustments).length?`<div class="meta amber" style="width:100%;margin-top:5px"><b>Statement reduced for installments:</b> ${money(statementAdjustmentTotal(p))} removed from this cycle • Adjusted statement ${money(adjustedConfirmedStatementAmount(p))}</div>`:''}
+   </div>
+  </div>`;
+ }).join(''):'<div class="meta">No payment plans for this month.</div>';
+ document.querySelectorAll('[data-open-payment-account]').forEach(card=>{
+  const open=()=>openAccount(card.dataset.openPaymentAccount,'incomeplan');
+  card.addEventListener('click',e=>{
+   if(e.target.closest('button,a,input,select,textarea,label'))return;
+   open();
+  });
+  card.addEventListener('keydown',e=>{
+   if((e.key==='Enter'||e.key===' ')&&!e.target.closest('button,a,input,select,textarea')){
+    e.preventDefault();
+    open();
+   }
+  });
+ });
+ document.querySelectorAll('[data-pay-partial]').forEach(b=>b.addEventListener('click',()=>recordPartialPayment(b.dataset.payPartial)));
+ document.querySelectorAll('[data-pay-undo]').forEach(b=>b.addEventListener('click',()=>undoLastPartialPayment(b.dataset.payUndo)));
+ document.querySelectorAll('[data-pay-edit]').forEach(b=>b.addEventListener('click',()=>{
+  const p=cardPaymentPlan.find(x=>x.id===b.dataset.payEdit);if(!p)return;
+  const current=plannerAmountForRow(p);
+  const a=prompt('Payment amount to use (SAR). Leave blank to return to the official statement amount.',Number.isFinite(Number(current))?Number(current).toFixed(2):'');
+  if(a===null)return;
+  if(a.trim()===''){
+   delete p.manualOverrideAmount;
+  }else{
+   const n=Number(a);
+   if(!Number.isFinite(n)||n<0){alert('Enter a valid amount.');return;}
+   if(p.source==='confirmed'||p.statementOfficial===true)p.manualOverrideAmount=n;
+   else{
+    p.manualOverrideAmount=n;
+    p.source='manual';
+    p.label=p.accountId==='meem-7102'?'Manual payment amount':'Manual payment plan';
+   }
+  }
+  const d=prompt('Due date (YYYY-MM-DD)',p.due||'');
+  if(d!==null&&d.trim())p.due=d.trim();
+  if(p.source==='pending'&&p.amount!==null)p.source='manual';
+  saveCardPaymentPlan();renderPaymentPlanner();
+ }));
+}
+
+let importedTransactions=JSON.parse(localStorage.getItem('pf_imported_transactions')||'[]');
+let importHistory=JSON.parse(localStorage.getItem('pf_import_history')||'[]');
