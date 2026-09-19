@@ -297,36 +297,52 @@ async function init(){
  document.body.classList.remove('strategyMode','txMode','accountMode','modernMode');
  if($('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  const shellUpdated=$('execUpdated');if(shellUpdated)shellUpdated.textContent='Loading saved finance data…';
- await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
 
- // Restore local finance state before calculating any financial values.
- let localSavedAt='';
- try{const localState=await financeDB.get('finance_state');localSavedAt=localState?.savedAt||'';}catch(_){}
- await financeDB.restore();
- // V271: financeDB.restore() restores the raw persisted collections, but several
- // dashboard figures depend on derived planner/payment/installment state. Rebuild
- // those dependencies BEFORE the first Executive render so the initial visit uses
- // the same state that was previously only available after navigating away/back.
- rebuildTransactions();
- normalizeCardPaymentPlan();
- ensureLedgerBackedPlannerRows();
- rebuildAllPlannerPaymentsFromLedger();
- reconcileRemainingPrincipalPlans();
- ensurePartialPaymentFields();
+ // V275: critical controls are live BEFORE any IndexedDB/cloud wait.
+ // A slow/blocked restore must never make Settings action buttons appear dead.
+ const bindCriticalAccountActions=()=>{
+  if($('addCustomCreditCard'))$('addCustomCreditCard').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomCreditCard();};
+  if($('addCustomBank'))$('addCustomBank').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomBank();};
+ };
+ bindCriticalAccountActions();
 
- // V271: FIRST-DATA PAINT.
- // The previous startup restored IndexedDB correctly but then ran every migration,
- // reconciliation and hidden-page setup BEFORE rendering Executive Overview.
- // That is why navigating to another page and back made Executive suddenly appear.
- // Render the restored data now, then yield to the browser before maintenance work.
+ // V275: paint Executive immediately from the already-loaded localStorage state.
+ // Then IndexedDB may enrich/replace that state and we repaint. This removes the
+ // first-load dependency that previously left the dashboard empty until navigation.
  const startupUi=loadSavedReviewState();
  if(!startupUi || !startupUi.page || startupUi.page==='executive'){
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='executive'));
-  document.body.classList.add('execMode');
-  renderExecutiveDashboard();
-  window.__financeFirstDataPaint=true;
-  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  try{
+   rebuildTransactions();
+   normalizeCardPaymentPlan();
+   ensureLedgerBackedPlannerRows();
+   rebuildAllPlannerPaymentsFromLedger();
+   reconcileRemainingPrincipalPlans();
+   ensurePartialPaymentFields();
+   renderExecutiveDashboard();
+   window.__financeFirstDataPaint=true;
+  }catch(e){console.error('V275 immediate Executive paint failed',e);}
  }
+ await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+
+ // Restore IndexedDB, but never let a blocked database hold the whole application.
+ let localSavedAt='';
+ try{const localState=await Promise.race([financeDB.get('finance_state'),new Promise(resolve=>setTimeout(()=>resolve(null),900))]);localSavedAt=localState?.savedAt||'';}catch(_){}
+ const restorePromise=Promise.resolve().then(()=>financeDB.restore()).catch(e=>{console.warn('Deferred IndexedDB restore failed',e);return false;});
+ const restored=await Promise.race([restorePromise,new Promise(resolve=>setTimeout(()=>resolve(false),1200))]);
+ if(restored){
+  rebuildTransactions();normalizeCardPaymentPlan();ensureLedgerBackedPlannerRows();rebuildAllPlannerPaymentsFromLedger();reconcileRemainingPrincipalPlans();ensurePartialPaymentFields();
+  if(!startupUi || !startupUi.page || startupUi.page==='executive')renderExecutiveDashboard();
+ }else{
+  // If IndexedDB finishes later, repaint the active Executive page with restored data.
+  restorePromise.then(ok=>{
+   if(!ok)return;
+   try{
+    rebuildTransactions();normalizeCardPaymentPlan();ensureLedgerBackedPlannerRows();rebuildAllPlannerPaymentsFromLedger();reconcileRemainingPrincipalPlans();ensurePartialPaymentFields();
+    if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();
+   }catch(e){console.warn('Late IndexedDB repaint failed',e);}
+  });
+ }
+ bindCriticalAccountActions();
 
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
@@ -442,7 +458,11 @@ try{
 }catch(e){
   console.warn('Action hardening warning',e);
 }
-init();
+init().catch(err=>{
+ console.error('V275 initialization failed',err);
+ const u=$('execUpdated');if(u)u.textContent='Local data loaded • startup maintenance warning';
+ try{if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();}catch(_){}
+});
 
 function updateV91CloudStatus(){
  const el=document.getElementById('v74CloudStatus'); if(!el)return;
