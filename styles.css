@@ -1492,3 +1492,38 @@ html body #cloudSync .cloudStep b{font-size:14px!important}
 html body #cloudSync .cloudTextBtn,
 html body #cloudSync .cloudPrimaryBtn,
 html body #cloudSync .cloudActionSimple{font-size:15px!important}
+
+/* V283 CLOUD LAYOUT ROOT
+   Cloud Database must escape the legacy centered .content max-width and use the
+   same readable typography scale as the modern workspace. */
+body.cloudMode>.app>.main>.content{
+  max-width:none!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  box-sizing:border-box!important;
+}
+body.cloudMode #cloudSync.cloudModern{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:34px 42px 60px!important;
+  box-sizing:border-box!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;
+  font-size:17px!important;
+  line-height:1.5!important;
+}
+body.cloudMode #cloudSync .cloudStatusCard{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+}
+body.cloudMode #cloudSync button,
+body.cloudMode #cloudSync input,
+body.cloudMode #cloudSync select,
+body.cloudMode #cloudSync textarea{
+  font-family:inherit!important;
+}
+@media(max-width:760px){
+ body.cloudMode #cloudSync.cloudModern{padding:18px 14px 34px!important}
+}
