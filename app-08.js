@@ -461,3 +461,92 @@ document.addEventListener('click',async e=>{
   }
  }
 },true);
+
+// V267: statement format library uses Excel mapping templates and delegated actions.
+function statementFormatExcelTemplate(){
+ const rows=[
+  ['Statement Format Template','','','','','','','',''],
+  ['Format Name','Example Bank / Card','','','','','','',''],
+  ['Account/Card ID','Use account/card ID from My Finance or leave blank for any account','','','','','','',''],
+  ['Header Row','1','','','','','','',''],
+  ['Data Starts Row','2','','','','','','',''],
+  ['','','','','','','','',''],
+  ['FIELD','COLUMN LETTER','REQUIRED','EXAMPLE','NOTES','','','',''],
+  ['Date','A','YES','2026-09-19','Transaction date','','','',''],
+  ['Description','B','YES','Merchant / transaction description','Main transaction text','','','',''],
+  ['Debit','C','NO','125.50','Use when debit and credit are separate columns','','','',''],
+  ['Credit','D','NO','500.00','Use when debit and credit are separate columns','','','',''],
+  ['Amount','E','NO','-125.50','Use instead of Debit/Credit when statement has one signed amount column','','','',''],
+  ['Balance','F','NO','8425.35','Optional running/available balance','','','',''],
+  ['Reference','G','NO','REF12345','Optional transaction reference','','','',''],
+  ['Card Last 4','H','NO','0955','Optional physical-card identifier','','','',''],
+  ['Type','I','NO','Purchase','Optional bank transaction type','','','','']
+ ];
+ const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ return rows.map(r=>r.map(esc).join(',')).join('\r\n');
+}
+function downloadStatementFormatExcelTemplate(){
+ const csv='\ufeff'+statementFormatExcelTemplate();
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+ a.download='statement-format-mapping-template.csv';
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+function openStatementFormatBuilder(){
+ openUnifiedAction({
+  title:'Add Statement Format',
+  subtitle:'Create an Excel/CSV column map. Use column letters from the bank statement.',
+  save:'Save Format',
+  fields:[
+   {name:'name',label:'Format Name',required:true,placeholder:'Example: Al Rajhi Current Account Excel'},
+   {name:'accountId',label:'Account / Card ID',placeholder:'Optional — blank means any account'},
+   {name:'fileType',label:'Statement File Type',type:'select',value:'XLSX',options:[
+    {value:'XLSX',label:'Excel (.xlsx)'},{value:'CSV',label:'CSV (.csv)'}
+   ]},
+   {name:'headerRow',label:'Header Row',type:'number',value:'1',min:1,required:true},
+   {name:'dataStartRow',label:'Data Starts Row',type:'number',value:'2',min:1,required:true},
+   {name:'dateColumn',label:'Date Column',value:'A',required:true,placeholder:'A'},
+   {name:'descriptionColumn',label:'Description Column',value:'B',required:true,placeholder:'B'},
+   {name:'amountColumn',label:'Amount Column',placeholder:'E — use this OR Debit/Credit'},
+   {name:'debitColumn',label:'Debit Column',placeholder:'C — optional'},
+   {name:'creditColumn',label:'Credit Column',placeholder:'D — optional'},
+   {name:'balanceColumn',label:'Balance Column',placeholder:'F — optional'},
+   {name:'referenceColumn',label:'Reference Column',placeholder:'G — optional'},
+   {name:'cardLast4Column',label:'Card Last 4 Column',placeholder:'H — optional'}
+  ],
+  submit:v=>{
+   const clean=x=>String(x||'').trim().toUpperCase();
+   if(!clean(v.amountColumn)&&!clean(v.debitColumn)&&!clean(v.creditColumn)){
+    $('unifiedActionSub').textContent='Map Amount, or map Debit/Credit columns.';
+    $('unifiedActionSub').style.color='#ff6474';return false;
+   }
+   const mappingObj={
+    headerRow:Number(v.headerRow||1),dataStartRow:Number(v.dataStartRow||2),
+    date:clean(v.dateColumn),description:clean(v.descriptionColumn),
+    amount:clean(v.amountColumn),debit:clean(v.debitColumn),credit:clean(v.creditColumn),
+    balance:clean(v.balanceColumn),reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column)
+   };
+   statementFormats.push({
+    id:'fmt-'+Date.now(),name:String(v.name).trim(),accountId:String(v.accountId||'').trim(),
+    fileType:v.fileType||'XLSX',mapping:'Excel column mapping',mappingConfig:mappingObj,
+    active:true,builtIn:false
+   });
+   saveV194Data();renderStatementFormats();return true;
+  }
+ });
+}
+function exportStatementFormatsV267(){
+ const payload={type:'personal-finance-statement-formats',version:2,exportedAt:new Date().toISOString(),formats:statementFormats};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-finance-statement-formats.json';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+document.addEventListener('click',e=>{
+ const btn=e.target.closest?.('#addStatementFormat,#exportStatementFormats,#downloadStatementFormatTemplate');
+ if(!btn)return;
+ e.preventDefault();e.stopPropagation();
+ if(btn.id==='addStatementFormat')openStatementFormatBuilder();
+ else if(btn.id==='exportStatementFormats')exportStatementFormatsV267();
+ else downloadStatementFormatExcelTemplate();
+},true);
