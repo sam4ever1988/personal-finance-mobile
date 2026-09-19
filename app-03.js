@@ -1060,8 +1060,8 @@ function nav(page){
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
  const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
- $('pageTitle').textContent=titles[page]||'Personal Finance';
- $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
+ if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
+ if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
  // Intentional user navigation starts at the top. Realtime restore does NOT use nav().
  window.scrollTo({top:0,behavior:'auto'});
