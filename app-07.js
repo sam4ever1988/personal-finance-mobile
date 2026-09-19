@@ -1389,7 +1389,7 @@ async function cloudUploadAll(){
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
-  $('cloudResult').textContent=`V234 SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
+  $('cloudResult').textContent=`SYNC PUBLISHED AND VERIFIED • Device kept unchanged: ${s.transactions} transactions, ${s.installments} installments. Cloud: ${cc.manual+cc.imported} transaction rows, ${cc.installments} installments, ${cc.paymentRows} payment rows, ${cc.cashFlowRows} cash-flow rows.`;
   await renderCloudReconciliation();
  }catch(e){
   setCloudMeta({pending:true});
@@ -1416,7 +1416,7 @@ async function cloudDownloadAll(){
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
-  if(result){result.className='notice';result.textContent='V234: reading the complete canonical finance database. No upload will occur during this operation…';}
+  if(result){result.className='notice';result.textContent='Reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
   while((recordSyncPullBusy||recordSyncPushBusy||recordSyncApplying) && Date.now()-waitStarted<10000){await new Promise(resolve=>setTimeout(resolve,150));}
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
@@ -1450,13 +1450,13 @@ async function cloudDownloadAll(){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:'manual-authoritative-full-load-v185'});
   const summary=localSyncSummary();
-  if(result){result.className='notice success';result.textContent=`V234 CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
+  if(result){result.className='notice success';result.textContent=`CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
  }catch(e){
   recordSyncReady=false;
-  console.error('V234 manual cloud load failed',e);
-  if(result){result.className='notice danger';result.textContent='V234 CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  console.error('Manual cloud load failed',e);
+  if(result){result.className='notice danger';result.textContent='CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
