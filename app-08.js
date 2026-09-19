@@ -286,12 +286,18 @@ async function init(){
  let localSavedAt='';
  try{const localState=await financeDB.get('finance_state');localSavedAt=localState?.savedAt||'';}catch(_){}
  await financeDB.restore();
- // V260: transactions[] is a derived runtime array. financeDB.restore() replaces
- // importedTransactions/manualTransactions, so rebuild it before any lazy page render.
- // Without this, Transactions can show 0 rows until another action happens to rebuild it.
+ // V271: financeDB.restore() restores the raw persisted collections, but several
+ // dashboard figures depend on derived planner/payment/installment state. Rebuild
+ // those dependencies BEFORE the first Executive render so the initial visit uses
+ // the same state that was previously only available after navigating away/back.
  rebuildTransactions();
+ normalizeCardPaymentPlan();
+ ensureLedgerBackedPlannerRows();
+ rebuildAllPlannerPaymentsFromLedger();
+ reconcileRemainingPrincipalPlans();
+ ensurePartialPaymentFields();
 
- // V262: FIRST-DATA PAINT.
+ // V271: FIRST-DATA PAINT.
  // The previous startup restored IndexedDB correctly but then ran every migration,
  // reconciliation and hidden-page setup BEFORE rendering Executive Overview.
  // That is why navigating to another page and back made Executive suddenly appear.
