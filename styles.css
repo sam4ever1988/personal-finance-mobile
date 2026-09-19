@@ -1228,3 +1228,73 @@ body.modernMode #incomeplan .amber{color:#ffc34d!important}
 .strategyEmptyState{grid-column:1/-1;min-height:170px;border:1px solid #155a73;border-radius:14px;background:rgba(7,43,61,.45);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:24px;gap:10px}
 .strategyEmptyState>b{font-size:18px;color:#f4f8fb}.strategyEmptyState>span{color:#a9c0cf;max-width:760px;line-height:1.5}.strategyEmptyState>div{display:flex;gap:8px;margin-top:4px}
 @media(max-width:760px){.strategyBudgetBreakdown{grid-template-columns:1fr}}
+/* V265 — one visual system for forms, modals and Personal Assets */
+body.execMode .modalBack,
+body.cashMode .modalBack,
+body.strategyMode .modalBack,
+body.txModernMode .modalBack{
+ background:rgba(0,18,29,.78);
+ backdrop-filter:blur(5px)
+}
+body.execMode .modal,
+body.cashMode .modal,
+body.strategyMode .modal,
+body.txModernMode .modal,
+#unifiedActionModal .modal{
+ background:#082f43;
+ border:1px solid #12617d;
+ color:#f3f8fc;
+ box-shadow:0 24px 70px rgba(0,0,0,.42)
+}
+#unifiedActionModal .modalTitle,
+body.execMode .modalTitle,
+body.cashMode .modalTitle,
+body.strategyMode .modalTitle{color:#f3f8fc}
+#unifiedActionModal .meta,
+body.execMode .modal .meta,
+body.cashMode .modal .meta,
+body.strategyMode .modal .meta{color:#9fb9ca}
+#unifiedActionModal .field label,
+body.execMode .modal .field label,
+body.cashMode .modal .field label,
+body.strategyMode .modal .field label{color:#dcecf6}
+#unifiedActionModal .field input,
+#unifiedActionModal .field select,
+body.execMode .modal .field input,
+body.execMode .modal .field select,
+body.cashMode .modal .field input,
+body.cashMode .modal .field select,
+body.strategyMode .modal .field input,
+body.strategyMode .modal .field select{
+ background:#062b3d;color:#f3f8fc;border:1px solid #176581;min-height:44px
+}
+#unifiedActionModal .closeBtn,
+body.execMode .modal .closeBtn,
+body.cashMode .modal .closeBtn,
+body.strategyMode .modal .closeBtn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}
+#unifiedActionModal .btn:not(.primary),
+body.execMode .modal .btn:not(.primary),
+body.cashMode .modal .btn:not(.primary),
+body.strategyMode .modal .btn:not(.primary){background:#0b3b51;color:#f3f8fc;border-color:#176581}
+#unifiedActionModal .btn.primary,
+body.execMode .modal .btn.primary,
+body.cashMode .modal .btn.primary,
+body.strategyMode .modal .btn.primary{background:#10a889;color:white;border-color:#10a889}
+
+/* Personal Assets uses the same navy/teal system as Executive/Cash & Credit. */
+body.assetsModernMode{background:#001f2c;color:#f3f8fc}
+body.assetsModernMode .content{background:#001f2c}
+body.assetsModernMode #assets{color:#f3f8fc}
+body.assetsModernMode #assets .sectionTitle,
+body.assetsModernMode #assets .panelTitle{color:#f3f8fc}
+body.assetsModernMode #assets .meta{color:#9fb9ca}
+body.assetsModernMode #assets .panel,
+body.assetsModernMode #assets .kpi{
+ background:#082f43;border:1px solid #12617d;color:#f3f8fc;box-shadow:none
+}
+body.assetsModernMode #assets .summaryTable th{background:#0d526e;color:#dcecf6;border-color:#176581}
+body.assetsModernMode #assets .summaryTable td{background:#082f43;color:#eaf4fa;border-color:#124b63}
+body.assetsModernMode #assets .btn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}
+body.assetsModernMode #assets .btn.primary{background:#10a889;border-color:#10a889;color:#fff}
+body.assetsModernMode #assets .green{color:#24dca8}
+body.assetsModernMode #assets .red{color:#ff6474}
