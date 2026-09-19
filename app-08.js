@@ -550,3 +550,89 @@ document.addEventListener('click',e=>{
  else if(btn.id==='exportStatementFormats')exportStatementFormatsV267();
  else downloadStatementFormatExcelTemplate();
 },true);
+
+// V268: editable/remappable statement format library.
+function statementFormatMappingSummary(f){
+ const m=f?.mappingConfig;
+ if(!m)return f?.mapping||'Built-in parser';
+ const bits=[m.date&&('Date='+m.date),m.description&&('Description='+m.description),m.amount&&('Amount='+m.amount),m.debit&&('Debit='+m.debit),m.credit&&('Credit='+m.credit),m.balance&&('Balance='+m.balance)].filter(Boolean);
+ return bits.join(' · ')||'Excel column mapping';
+}
+function openStatementFormatBuilderV268(existing=null){
+ const m=existing?.mappingConfig||{};
+ openUnifiedAction({
+  title:existing?'Edit / Remap Statement Format':'Add Statement Format',
+  subtitle:'Map the exact Excel/CSV columns. Changing a mapping affects future imports only.',
+  save:existing?'Save Remapping':'Save Format',
+  fields:[
+   {name:'name',label:'Format Name',required:true,value:existing?.name||'',placeholder:'Example: Al Rajhi Current Account Excel'},
+   {name:'accountId',label:'Account / Card ID',value:existing?.accountId||'',placeholder:'Optional — blank means any account'},
+   {name:'fileType',label:'Statement File Type',type:'select',value:(existing?.fileType||'XLSX').includes('CSV')?'CSV':'XLSX',options:[
+    {value:'XLSX',label:'Excel (.xlsx)'},{value:'CSV',label:'CSV (.csv)'}
+   ]},
+   {name:'headerRow',label:'Header Row',type:'number',value:String(m.headerRow||1),min:1,required:true},
+   {name:'dataStartRow',label:'Data Starts Row',type:'number',value:String(m.dataStartRow||2),min:1,required:true},
+   {name:'dateColumn',label:'Date Column',value:m.date||'A',required:true,placeholder:'A'},
+   {name:'descriptionColumn',label:'Description Column',value:m.description||'B',required:true,placeholder:'B'},
+   {name:'amountColumn',label:'Amount Column',value:m.amount||'',placeholder:'E — use this OR Debit/Credit'},
+   {name:'debitColumn',label:'Debit Column',value:m.debit||'',placeholder:'C — optional'},
+   {name:'creditColumn',label:'Credit Column',value:m.credit||'',placeholder:'D — optional'},
+   {name:'balanceColumn',label:'Balance Column',value:m.balance||'',placeholder:'F — optional'},
+   {name:'referenceColumn',label:'Reference Column',value:m.reference||'',placeholder:'G — optional'},
+   {name:'cardLast4Column',label:'Card Last 4 Column',value:m.cardLast4||'',placeholder:'H — optional'}
+  ],
+  submit:v=>{
+   const clean=x=>String(x||'').trim().toUpperCase();
+   if(!clean(v.amountColumn)&&!clean(v.debitColumn)&&!clean(v.creditColumn)){
+    $('unifiedActionSub').textContent='Map Amount, or map Debit/Credit columns.';
+    $('unifiedActionSub').style.color='#ff6474';return false;
+   }
+   const obj={
+    headerRow:Number(v.headerRow||1),dataStartRow:Number(v.dataStartRow||2),
+    date:clean(v.dateColumn),description:clean(v.descriptionColumn),amount:clean(v.amountColumn),
+    debit:clean(v.debitColumn),credit:clean(v.creditColumn),balance:clean(v.balanceColumn),
+    reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column)
+   };
+   const target=existing||{id:'fmt-'+Date.now(),active:true,builtIn:false};
+   target.name=String(v.name).trim();target.accountId=String(v.accountId||'').trim();
+   target.fileType=v.fileType||'XLSX';target.mapping='Excel column mapping';target.mappingConfig=obj;
+   target.builtIn=false;target.active=target.active!==false;
+   if(!existing)statementFormats.push(target);
+   saveV194Data();renderStatementFormatsV268();return true;
+  }
+ });
+}
+function renderStatementFormatsV268(){
+ const b=$('statementFormatsBody');if(!b)return;
+ b.innerHTML=statementFormats.map(f=>`<tr>
+  <td><b>${escapeHtml(f.name)}</b></td>
+  <td>${escapeHtml(accountName(f.accountId)||f.accountId||'Any')}</td>
+  <td>${escapeHtml(f.fileType||'')}</td>
+  <td>${escapeHtml(statementFormatMappingSummary(f))}</td>
+  <td><span class="badge ${f.active!==false?'active':''}">${f.active!==false?'Active':'Inactive'}</span></td>
+  <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+   <button class="btn small" type="button" data-edit-format="${f.id}">${f.mappingConfig?'Edit / Remap':'Remap'}</button>
+   <button class="btn small danger" type="button" data-delete-format-v268="${f.id}">Delete</button>
+  </div></td></tr>`).join('');
+}
+const _renderStatementFormatsV268Legacy=renderStatementFormats;
+renderStatementFormats=renderStatementFormatsV268;
+document.addEventListener('click',e=>{
+ const edit=e.target.closest?.('[data-edit-format]');
+ const del=e.target.closest?.('[data-delete-format-v268]');
+ if(!edit&&!del)return;
+ e.preventDefault();e.stopPropagation();
+ if(edit){
+  const f=statementFormats.find(x=>x.id===edit.dataset.editFormat);
+  if(f)openStatementFormatBuilderV268(f);
+  return;
+ }
+ const f=statementFormats.find(x=>x.id===del.dataset.deleteFormatV268);
+ if(!f)return;
+ if(confirm(`Delete statement format "${f.name}"? This removes the format definition only; imported transactions are not deleted.`)){
+  statementFormats=statementFormats.filter(x=>x.id!==f.id);
+  saveV194Data();renderStatementFormatsV268();
+ }
+},true);
+openStatementFormatBuilder=openStatementFormatBuilderV268;
+setTimeout(()=>{try{renderStatementFormatsV268();}catch(e){console.warn('V268 statement format render',e)}},0);
