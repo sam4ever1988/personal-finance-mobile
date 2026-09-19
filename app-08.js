@@ -278,6 +278,10 @@ async function init(){
  let localSavedAt='';
  try{const localState=await financeDB.get('finance_state');localSavedAt=localState?.savedAt||'';}catch(_){}
  await financeDB.restore();
+ // V260: transactions[] is a derived runtime array. financeDB.restore() replaces
+ // importedTransactions/manualTransactions, so rebuild it before any lazy page render.
+ // Without this, Transactions can show 0 rows until another action happens to rebuild it.
+ rebuildTransactions();
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
  const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
