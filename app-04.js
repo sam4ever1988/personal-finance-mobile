@@ -945,8 +945,17 @@ function bindReportDrill(){
 }
 
 function reportRows(){
- const outgoingRows=allOutgoingOccurrences().map(x=>({_id:`out-${x.id}`,account:'cash-outgoing',date:x.date,posting:x.date,description:x.description,amount:-Math.abs(x.amount),category:x.category,subcategory:x.subcategory,kind:'expense',currency:'SAR',original:null,manual:true,outgoing:true}));
- const rows=transactionFilters([...normalizedTx(),...outgoingRows],{account:$('reportAccount').value,category:$('reportCategory').value,type:$('reportType').value,from:$('reportFrom').value,to:$('reportTo').value});
+ // Reports are actual financial history. Scheduled future outgoings belong to planning/upcoming views.
+ // Paid bank/card outgoings already generate real manual transactions; cash-source payments are added here
+ // only after the occurrence is explicitly marked paid.
+ const cashPaidOutgoingRows=allOutgoingOccurrences(120).filter(x=>{
+  const p=outgoingPaymentRecord(x.outgoingId,x.month);
+  return p && p.sourceId==='cash-source';
+ }).map(x=>{
+  const p=outgoingPaymentRecord(x.outgoingId,x.month);
+  return {_id:`out-paid-${x.outgoingId}-${x.month}`,account:'cash-outgoing',date:p?.date||x.date,posting:p?.date||x.date,description:x.description,amount:-Math.abs(Number(p?.amount||x.amount||0)),category:x.category,subcategory:x.subcategory,kind:'expense',currency:'SAR',original:null,manual:true,outgoing:true,paid:true};
+ });
+ const rows=transactionFilters([...normalizedTx(),...cashPaidOutgoingRows],{account:$('reportAccount').value,category:$('reportCategory').value,type:$('reportType').value,from:$('reportFrom').value,to:$('reportTo').value});
  const sub=$('reportSubcategory').value;
  let out=sub?rows.filter(t=>(t.subcategory||'Uncategorized')===sub):rows;
  const physical=$('reportPhysicalCard')?.value||'';if(physical)out=out.filter(t=>txMatchesPhysicalCardFilter(t,physical));
