@@ -349,58 +349,61 @@
  <div class="panel"><div style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Imported</th><th>File</th><th>Account / Card</th><th>Transactions</th><th>Actions</th></tr></thead><tbody id="importHistoryBody"></tbody></table></div></div>
 </section>
 
-<section class="view" id="cloudSync">
- <div class="sectionTitle">Cloud Database</div>
- <div class="panel" style="max-width:820px">
-  <div class="splitHead"><div><div class="panelTitle">Supabase Sync • V234 Protected Two-Way Sync</div><div class="meta" id="cloudStatus" style="margin-top:6px">Checking connection…</div></div><span class="pill green">REALTIME CLOUD</span></div>
-  <div id="cloudLoggedOut" style="margin-top:14px">
+<section class="view cloudModern" id="cloudSync">
+ <div class="cloudHero">
+  <div><div class="cloudEyebrow">SETTINGS · DATA & SYNC</div><h1>Cloud Database</h1><p>Protected synchronization, device verification and recovery controls for your Personal Finance data.</p></div>
+  <div class="cloudHeroState"><span class="cloudLiveDot"></span><span>REALTIME CLOUD</span></div>
+ </div>
+ <div class="cloudStatusCard">
+  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V276</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
+  <div id="cloudLoggedOut" class="cloudLogin">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
-   <button class="btn primary" id="cloudSendLink" style="margin-top:12px">Send Secure Login Link</button>
-   <div class="notice" style="margin-top:12px">Your finance data stays on this device until you explicitly complete the first cloud upload. Signing in alone cannot overwrite your MacBook data.</div>
+   <button class="cloudPrimaryBtn" id="cloudSendLink" type="button">Send Secure Login Link</button>
+   <div class="cloudInfo">Signing in does not replace local finance data. A cloud load or first-source publication remains an explicit action.</div>
   </div>
-  <div id="cloudLoggedIn" style="display:none;margin-top:14px">
-   <div class="meta" id="cloudUser"></div>
-   <div class="kpis" style="margin-top:12px">
-    <div class="kpi"><div class="kpiLabel">Initial Sync</div><div class="kpiValue" id="cloudInitialState" style="font-size:17px">Checking…</div></div>
-    <div class="kpi"><div class="kpiLabel">Last Synced</div><div class="kpiValue" id="cloudLastSynced" style="font-size:17px">Never</div></div>
-    <div class="kpi"><div class="kpiLabel">Local Changes</div><div class="kpiValue" id="cloudPendingState" style="font-size:17px">Checking…</div></div>
-    <div class="kpi"><div class="kpiLabel">This Device</div><div class="kpiValue" id="cloudDeviceState" style="font-size:17px">Protected</div></div>
+  <div id="cloudLoggedIn" style="display:none">
+   <div class="cloudUserLine" id="cloudUser"></div>
+   <div class="cloudMetrics">
+    <div class="cloudMetric"><span>Cloud Setup</span><b id="cloudInitialState">Checking…</b><small>Initial source / verification state</small></div>
+    <div class="cloudMetric"><span>Last Successful Sync</span><b id="cloudLastSynced">Never</b><small>Most recent verified synchronization</small></div>
+    <div class="cloudMetric"><span>Local Changes</span><b id="cloudPendingState">Checking…</b><small>Changes waiting to publish</small></div>
+    <div class="cloudMetric"><span>Device Protection</span><b id="cloudDeviceState">Protected</b><small>Local-first verification status</small></div>
    </div>
-   <div class="notice" id="cloudLocalSummary" style="margin-top:12px">Preparing local data summary…</div>
-<div id="cloudReconciliation" class="notice" style="margin-top:10px"><b>Local vs Cloud:</b> Checking…</div>
-<div class="panel" id="recoveryCenter" style="margin-top:12px">
- <div class="splitHead">
-  <div>
-   <div class="panelTitle">Recovery Center</div>
-   <div class="meta">Protects local finance data before cloud replacement. Use this if categories, Extra Income History, card payment history or corrected card state disappeared after sync.</div>
-  </div>
-  <span class="badge active" id="recoverySnapshotCount">0 local backups</span>
- </div>
- <div class="buttonRow" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-  <button class="btn" id="recoveryCreateBtn" type="button">Create Local Backup</button>
-  <button class="btn" id="recoveryExportBtn" type="button">Export Local Backup</button>
-  <button class="btn" id="recoveryImportBtn" type="button">Import / Merge Backup</button>
-  <button class="btn" id="recoveryRestoreBtn" type="button">Restore Previous Local Snapshot</button>
-  <button class="btn danger" id="purgeCloudBtn" type="button">1. Hard Purge Cloud</button>
-  <button class="btn" id="verifyCloudEmptyBtn" type="button">2. Verify Cloud Empty</button>
-  <button class="btn" id="cloudAuditBtn" type="button">Inspect Cloud Records (Read Only)</button>
-  <button class="btn" id="cloudAuditExportBtn" type="button" style="display:none">Export Cloud Audit JSON</button>
-  <button class="btn" id="restoreBackupLocalBtn" type="button">3. Restore Backup to This Device</button>
-  <button class="btn primary" id="publishRestoredBackupBtn" type="button">4. Publish Restored Backup to Cloud</button>
-  <input id="recoveryImportFile" type="file" accept=".json,application/json" style="display:none">
-  <input id="restoreBackupLocalFile" type="file" accept=".json,application/json" style="display:none">
- </div>
- <div id="cloudAuditPanel" style="display:none;margin-top:12px;max-height:520px;overflow:auto;border:1px solid #dbe3ee;border-radius:12px;background:#fff;padding:12px"></div>
- <div class="notice" id="recoveryStatus" style="margin-top:10px">No recovery action performed yet.</div>
-</div>
-
-   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-    <button class="btn primary" id="cloudInitialUpload">Use This Device as First Cloud Source</button>
-    <button class="btn" id="cloudUpload">Sync Now</button>
-    <button class="btn" id="cloudDownload">Load Latest Cloud Data</button>
-    <button class="btn" id="cloudSignOut">Sign Out</button>
+   <div class="cloudSection">
+    <div class="cloudSectionHead"><div><h3>Data Reconciliation</h3><p>Compare this device with the canonical cloud finance records.</p></div></div>
+    <div class="cloudNotice" id="cloudLocalSummary">Preparing local data summary…</div>
+    <div id="cloudReconciliation" class="cloudNotice"><b>Local vs Cloud:</b> Checking…</div>
    </div>
-   <div class="notice" id="cloudResult" style="margin-top:12px">V234 Protected Two-Way Sync • Load Latest Cloud Data checks the canonical finance records directly. A new device must complete one verified load before protected background updates begin.</div>
+   <div class="cloudSection" id="recoveryCenter">
+    <div class="cloudSectionHead"><div><h3>Recovery Center</h3><p>Create or restore local backups before any cloud replacement. Recovery operations are intentionally separated from normal synchronization.</p></div><span class="cloudBadge" id="recoverySnapshotCount">0 local backups</span></div>
+    <div class="cloudRecoveryGrid">
+     <button class="cloudActionBtn" id="recoveryCreateBtn" type="button"><b>Create Local Backup</b><small>Save a protected snapshot on this device</small></button>
+     <button class="cloudActionBtn" id="recoveryExportBtn" type="button"><b>Export Local Backup</b><small>Download a recovery JSON file</small></button>
+     <button class="cloudActionBtn" id="recoveryImportBtn" type="button"><b>Import / Merge Backup</b><small>Merge a previous recovery file</small></button>
+     <button class="cloudActionBtn" id="recoveryRestoreBtn" type="button"><b>Restore Previous Snapshot</b><small>Restore the latest local recovery point</small></button>
+    </div>
+    <div class="cloudDangerZone">
+     <div class="cloudDangerTitle">Advanced Recovery Workflow</div><div class="cloudDangerText">Use only when intentionally rebuilding the cloud database from a known backup.</div>
+     <div class="cloudStepGrid">
+      <button class="cloudStep danger" id="purgeCloudBtn" type="button"><span>1</span><b>Hard Purge Cloud</b></button>
+      <button class="cloudStep" id="verifyCloudEmptyBtn" type="button"><span>2</span><b>Verify Cloud Empty</b></button>
+      <button class="cloudStep" id="restoreBackupLocalBtn" type="button"><span>3</span><b>Restore Backup to Device</b></button>
+      <button class="cloudStep primary" id="publishRestoredBackupBtn" type="button"><span>4</span><b>Publish Restored Backup</b></button>
+     </div>
+     <div class="cloudAuditActions"><button class="cloudTextBtn" id="cloudAuditBtn" type="button">Inspect Cloud Records · Read Only</button><button class="cloudTextBtn" id="cloudAuditExportBtn" type="button" style="display:none">Export Cloud Audit JSON</button></div>
+    </div>
+    <input id="recoveryImportFile" type="file" accept=".json,application/json" hidden>
+    <input id="restoreBackupLocalFile" type="file" accept=".json,application/json" hidden>
+    <div id="cloudAuditPanel" class="cloudAuditPanel" style="display:none"></div>
+    <div class="cloudNotice" id="recoveryStatus">No recovery action performed yet.</div>
+   </div>
+   <div class="cloudSyncActions">
+    <button class="cloudPrimaryBtn" id="cloudInitialUpload" type="button">Use This Device as First Cloud Source</button>
+    <button class="cloudPrimaryBtn" id="cloudUpload" type="button">Sync Now</button>
+    <button class="cloudActionSimple" id="cloudDownload" type="button">Load Latest Cloud Data</button>
+    <button class="cloudActionSimple" id="cloudSignOut" type="button">Sign Out</button>
+   </div>
+   <div class="cloudNotice" id="cloudResult">Protected Record Sync · Load Latest Cloud Data reads the canonical finance records without publishing this device first. A new or unverified device must complete one verified cloud load before protected background publishing begins.</div>
   </div>
  </div>
 </section>
@@ -438,10 +441,10 @@
   <div class="splitHead"><div>
    <div class="panelTitle">Application Status</div>
    <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V275 CURRENT BUILD</span></div>
+  </div><span class="pill green">V276 CURRENT BUILD</span></div>
   <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V275</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">19 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V275-20260919-FIRST-LOAD-ACTIONS</div></div>
+   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V276</div></div>
+   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">19 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V276-20260919-CLOUD-DATABASE</div></div>
    <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
    <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checking…</div></div>
   </div>
