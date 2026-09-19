@@ -38,18 +38,4 @@ window.rentalOpenBooking=function(date){
  rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rIso(new Date(rDate(date||rIso(new Date())).getTime()+86400000))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Total Rent (SAR)</label><input name="total" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),total:Number(fd.get("total")),paid:fd.get("paid")==="1",note:fd.get("note")})});
 }
 window.rentalOpenExpense=function(){rentalModal("Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+rIso(new Date())+'"></div><div class="field"><label>Category</label><select name="category"><option>Cleaning</option><option>Laundry</option><option>Utilities</option><option>Internet</option><option>Maintenance</option><option>Supplies</option><option>Platform Fee</option><option>Furniture</option><option>Other</option></select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="field"><label>Note</label><input name="note"></div>',fd=>rentalExpenses.push({id:Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")}))}
-/* Rental controls are bound by delegation because this file executes before
-   the page loader has necessarily exposed every lazy-rendered control. */
-if(!window.__rentalDelegated){
- window.__rentalDelegated=true;
- document.addEventListener("click",function(e){
-  var el=e.target.closest("#rentalPrev,#rentalNext,#rentalToday,#rentalBookingBtn,#rentalExpenseBtn");
-  if(!el)return;
-  e.preventDefault();
-  if(el.id==="rentalPrev"){rentalView.setMonth(rentalView.getMonth()-1);renderRental();return}
-  if(el.id==="rentalNext"){rentalView.setMonth(rentalView.getMonth()+1);renderRental();return}
-  if(el.id==="rentalToday"){rentalView=new Date();rentalView.setDate(1);renderRental();return}
-  if(el.id==="rentalBookingBtn"){rentalOpenBooking(rIso(new Date()));return}
-  if(el.id==="rentalExpenseBtn"){rentalOpenExpense();return}
- });
-}
+/* Rental controls use direct inline handlers from index.html. */
