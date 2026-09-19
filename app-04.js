@@ -232,6 +232,7 @@ function openBulkUpdateSelected(){
   subcategory:'',
   accountId:'',
   physicalCardEnding:'',
+  type:'',
   month:'',
   description:''
  };
@@ -249,6 +250,7 @@ function openBulkUpdateSelected(){
  const physical=$('bulkUpdatePhysicalCard');
  physical.innerHTML='<option value="">— Keep Existing —</option>'+allPhysicalCardOptions().map(o=>`<option value="${o.ending}">${escapeHtml(o.label)}</option>`).join('');
 
+ if($('bulkUpdateType'))$('bulkUpdateType').value='';
  $('bulkUpdateMonth').value='';
  $('bulkUpdateDescription').value='';
  openModal('txBulkUpdateModal');
@@ -278,6 +280,7 @@ function captureBulkUpdateDraft(){
   subcategory:$('bulkUpdateSubcategory')?.value||'',
   accountId:$('bulkUpdateAccount')?.value||'',
   physicalCardEnding:$('bulkUpdatePhysicalCard')?.value||'',
+  type:$('bulkUpdateType')?.value||'',
   month:$('bulkUpdateMonth')?.value||'',
   description:$('bulkUpdateDescription')?.value||''
  };
@@ -289,6 +292,7 @@ function restoreBulkUpdateDraft(){
  const cat=$('bulkUpdateCategory');
  const sub=$('bulkUpdateSubcategory');
  const acct=$('bulkUpdateAccount');
+ const type=$('bulkUpdateType');
  const month=$('bulkUpdateMonth');
  const desc=$('bulkUpdateDescription');
 
@@ -303,6 +307,7 @@ function restoreBulkUpdateDraft(){
  if(acct && [...acct.options].some(o=>o.value===bulkUpdateDraftState.accountId)){acct.value=bulkUpdateDraftState.accountId;}
  const physical=$('bulkUpdatePhysicalCard');
  if(physical && [...physical.options].some(o=>o.value===bulkUpdateDraftState.physicalCardEnding)){physical.value=bulkUpdateDraftState.physicalCardEnding;}
+ if(type)type.value=bulkUpdateDraftState.type||'';
  if(month)month.value=bulkUpdateDraftState.month||'';
  if(desc)desc.value=bulkUpdateDraftState.description||'';
 }
@@ -324,10 +329,11 @@ function applyBulkUpdateSelected(){
  const subcategory=bulkUpdateDraftState?.subcategory||'';
  const accountId=bulkUpdateDraftState?.accountId||'';
  const physicalCardEnding=bulkUpdateDraftState?.physicalCardEnding||'';
+ const type=bulkUpdateDraftState?.type||'';
  const month=bulkUpdateDraftState?.month||'';
  const description=(bulkUpdateDraftState?.description||'').trim();
 
- if(!category && !subcategory && !accountId && !physicalCardEnding && !month && !description){
+ if(!category && !subcategory && !accountId && !physicalCardEnding && !type && !month && !description){
   alert('Choose at least one field to update.');
   return;
  }
@@ -349,6 +355,12 @@ function applyBulkUpdateSelected(){
    txOverrides[id].account=accountId;
   }else{affectedAccounts.add(current.account);}
   if(physicalCardEnding)txOverrides[id].physicalCardEnding=physicalCardEnding;
+  if(type){
+   txOverrides[id].kind=type==='spend'?'expense':type;
+   const abs=Math.abs(Number(current.amount||0));
+   if(type==='income')txOverrides[id].amount=abs;
+   else if(['spend','fee','obligation','transfer'].includes(type))txOverrides[id].amount=-abs;
+  }
   if(month){
    txOverrides[id].statementMonth=month;
    txOverrides[id].paymentMonth=month;
