@@ -1,3 +1,15 @@
+function installmentLastPaymentDate(p,c){
+ if(p.completedConfirmed&&p.completedAt)return p.completedAt;
+ const ref=installmentReferenceMonth(p);
+ if(!ref)return '—';
+ const parts=String(ref).slice(0,7).split('-').map(Number);
+ if(parts.length<2||!parts[0]||!parts[1])return '—';
+ const total=Math.max(1,Number(p.months||0));
+ const paid=Math.max(0,Number(c?.paid||0));
+ const targetIndex=Math.max(0,total-1);
+ const d=new Date(parts[0],parts[1]-1+targetIndex,1);
+ return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
 function renderInstallments(){
  ensureRequiredInstallmentSeeds();
  const filter=$('installmentBankFilter');
@@ -25,8 +37,8 @@ function renderInstallments(){
 
  $('installBody').innerHTML=active.map(p=>{
   const c=planCalc(p),a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button class="btn small primary" data-early-settle="${p.id}">Complete Early</button><button type="button" class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
- }).join('')||'<tr><td colspan="11">No active installment plans for this bank.</td></tr>';
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}${p.linkedTransactionId?' • linked purchase':''}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${money(c.monthly)}</td><td>${c.paid} of ${p.months}</td><td>${c.remainingCount}</td><td class="amber"><b>${money(c.remaining)}</b></td><td>${installmentLastPaymentDate(p,c)}</td><td><span class="badge active">Active</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-plan="${p.id}">Edit</button><button class="btn small primary" data-early-settle="${p.id}">Complete Early</button><button type="button" class="btn small danger" data-delete-plan="${p.id}">Delete</button></div></td></tr>`;
+ }).join('')||'<tr><td colspan="12">No active installment plans for this bank.</td></tr>';
 
  $('installReviewBody').innerHTML=review.map(p=>{
   const c=planCalc(p),a=account(p.cardId);
@@ -35,8 +47,8 @@ function renderInstallments(){
 
  $('completedInstallBody').innerHTML=completed.map(p=>{
   const a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${p.completedAt||'Confirmed'}</td><td><span class="badge completed">Completed</span></td><td><button class="btn small danger" type="button" data-delete-completed-plan="${p.id}">Delete</button></td></tr>`;
- }).join('')||'<tr><td colspan="8">No confirmed completed installment plans yet.</td></tr>';
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${installmentLastPaymentDate(p,planCalc(p))}</td><td>${p.completedAt||'Confirmed'}</td><td><span class="badge completed">Completed</span></td><td><button class="btn small danger" type="button" data-delete-completed-plan="${p.id}">Delete</button></td></tr>`;
+ }).join('')||'<tr><td colspan="9">No confirmed completed installment plans yet.</td></tr>';
 
  document.querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.plan)));
  document.querySelectorAll('[data-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.deletePlan)));
