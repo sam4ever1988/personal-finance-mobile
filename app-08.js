@@ -228,7 +228,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:'V279',
+  version:'V281',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -279,6 +279,11 @@ function openUnifiedAction(cfg){
 }
 function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice" style="margin-bottom:7px"><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending)+'</b> • '+money(adjustedBankBalance(b))+'</div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>'}
 function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'This account will be available across transactions, imports, payment sources, reports and dashboards.',save:'Add Bank',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Account Name',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'balance',label:'Live Bank Balance (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),bal=Number(v.balance);if(e.length!==4||!Number.isFinite(bal)||bal<0)return goldActionError('Enter exactly 4 digits and a valid bank balance.');const b={id:'custom-bank-'+e+'-'+Date.now(),bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,type:'bank',custom:true,balance:bal,balanceLabel:'Live Balance',extra:{}};customBanks.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));syncCustomAccountsIntoAccounts();setTrackedBankBalance(b.id,bal);saveLocal();scheduleRecordPush('custom-bank-add');refreshAccountDependentUI();return true}})}
+function bindCustomAccountButtons(){
+ const bank=$('addCustomBank'),card=$('addCustomCreditCard');
+ if(bank){bank.type='button';bank.onclick=e=>{e.preventDefault();addCustomBank();};bank.dataset.accountActionBound='1';}
+ if(card){card.type='button';card.onclick=e=>{e.preventDefault();addCustomCreditCard();};card.dataset.accountActionBound='1';}
+}
 function goldActionError(message){$('unifiedActionSub').textContent=message;$('unifiedActionSub').style.color='var(--red)';return false;}
 function goldActionSources(label='Monthly Planned Income'){return [{value:'cash-source',label},...accounts.filter(x=>x.type==='bank').map(x=>({value:x.id,label:accountName(x.id)}))];}
 addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Use a unique asset name. Reusing an existing name updates that asset instead of counting it twice.',save:'Save Gold',fields:[{name:'name',label:'Asset Name',placeholder:'Gold Bar 1',required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},{name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');const existing=goldAssets.find(a=>normalizedGoldAssetName(a.name)===normalizedGoldAssetName(name));if(existing){existing.name=name;existing.goldType=v.goldType;existing.purity=v.purity;existing.weight=w;existing.purchasePrice=p;existing.purchaseDate=v.purchaseDate;existing.updatedAt=new Date().toISOString();}else{const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});}saveV194Data();renderGoldAssets();renderDashboard();return true}})}
@@ -399,22 +404,8 @@ if($('manualGoldPrice'))$('manualGoldPrice').onclick=e=>{e.preventDefault();manu
 $('addStatementFormat')?.addEventListener('click',addStatementFormat);
 $('exportStatementFormats')?.addEventListener('click',exportStatementFormats);
 $('statementFormatFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)importStatementFormatsFile(f);e.target.value='';});
-if($('addCustomCreditCard'))$('addCustomCreditCard').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomCreditCard();};
-if($('addCustomBank'))$('addCustomBank').onclick=e=>{e.preventDefault();e.stopPropagation();addCustomBank();};
+bindCustomAccountButtons();
 
-// V279: delegated fallback survives page rerenders and late DOM replacement.
-// Direct handlers remain for normal use; this only fires when a rendered control
-// has lost its direct binding.
-if(!window.__v279AccountActionDelegation){
- window.__v279AccountActionDelegation=true;
- document.addEventListener('click',e=>{
-  const bank=e.target.closest?.('#addCustomBank');
-  const card=e.target.closest?.('#addCustomCreditCard');
-  if(!bank&&!card)return;
-  e.preventDefault();e.stopPropagation();
-  if(bank)addCustomBank(); else addCustomCreditCard();
- },true);
-}
 renderCustomCreditCards();
 
 $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPaymentPlanner();});fillCategorySelect($('reportCategory'));
