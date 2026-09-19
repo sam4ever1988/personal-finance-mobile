@@ -19,7 +19,6 @@
  <button type="button" class="navBtn" data-page="accounts" onclick="mobileNavigate(event,'accounts')"><span class="ic">▤</span>Cash & Credit</button>
  <button type="button" class="navBtn" data-page="financialposition" onclick="mobileNavigate(event,'financialposition')"><span class="ic">▥</span>Financial Position</button>
  <button type="button" class="navBtn" data-page="strategy" onclick="mobileNavigate(event,'strategy')"><span class="ic">⌁</span>Financial Strategy</button>
- <button type="button" class="navBtn" data-page="dashboard" onclick="mobileNavigate(event,'dashboard')"><span class="ic">▦</span>Compact View</button>
  <div class="unifiedSep"></div><div class="unifiedSideTitle">Modules</div>
  <button type="button" class="navBtn" data-page="transactions" onclick="mobileNavigate(event,'transactions')"><span class="ic">☷</span>Transactions</button>
  <button type="button" class="navBtn" data-page="installments" onclick="mobileNavigate(event,'installments')"><span class="ic">▤</span>Installments</button>
@@ -721,9 +720,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* V256 split-loader: compile the original application as ONE classic script.
-   The earlier V253 split executed top-level startup statements before function
-   declarations in later files existed, which could abort navigation/rendering. */
+/* V259 loader: application parts are compiled as one classic script so
+   cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
   const files=[1,2,3,4,5,6,7,8].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=259');
   try{
