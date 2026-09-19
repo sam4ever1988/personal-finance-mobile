@@ -1,24 +1,39 @@
 
 /* V283 single-source application shell */
+function navIcon(name){
+ var paths={
+  dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  transactions:'<path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/><path d="M18 7l-3 3"/><path d="M6 17l3-3"/>',
+  outgoings:'<path d="M5 19L19 5"/><path d="M10 5h9v9"/>',
+  installments:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><circle cx="12" cy="15" r="2"/><path d="M12 13v2l1 1"/>',
+  import:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v7M9 15l3 3 3-3"/>',
+  investments:'<path d="M3 20h18"/><path d="M5 16l5-5 4 3 6-8"/><path d="M15 6h5v5"/>',
+  assets:'<path d="M12 3l8 6-8 12L4 9z"/><path d="M4 9h16M9 9l3 12 3-12"/>',
+  rental:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/><circle cx="17" cy="14" r="1"/>',
+  reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H21v4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  cash:'<rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 12h6"/><circle cx="16" cy="13" r="1"/><path d="M5 6V4h13v2"/>',
+  position:'<path d="M12 3v18M5 7h14"/><path d="M5 7l-3 6h6zM19 7l-3 6h6z"/><path d="M7 21h10"/>',
+  strategy:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/><path d="M15 9l6-6M17 3h4v4"/>'
+ };
+ return '<svg class="navSvg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+paths[name]+'</svg>';
+}
+function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
 function ensureCanonicalShell(){
- var app=document.querySelector('body>.app'), main=app?.querySelector(':scope>.main'); if(!app||!main)return;
- var oldSide=app.querySelector(':scope>.sidebar'); if(oldSide)oldSide.remove();
- var oldTop=main.querySelector(':scope>.topbar'); if(oldTop)oldTop.remove();
- var content=main.querySelector(':scope>.content'); if(!content)return;
- var oldModule=content.querySelector(':scope>.modernModuleTop'); if(oldModule)oldModule.remove();
+ var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
+ var oldSide=app.querySelector(':scope>.sidebar');if(oldSide)oldSide.remove();var oldTop=main.querySelector(':scope>.topbar');if(oldTop)oldTop.remove();
+ var content=main.querySelector(':scope>.content');if(!content)return;var oldModule=content.querySelector(':scope>.modernModuleTop');if(oldModule)oldModule.remove();
  if(document.getElementById('canonicalAppTop'))return;
  var top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';
- top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button><button data-page-jump="more">••• More</button></nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';
- app.insertBefore(top,main);
+ top.innerHTML='<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'+shellButton('executive','dashboard','Dashboard')+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More')+'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalAvatar">HA</div>';app.insertBefore(top,main);
  var side=document.createElement('aside');side.id='canonicalAppSide';side.className='canonicalAppSide';
- side.innerHTML='<div class="canonicalSideTitle">Dashboard Views</div><button data-page-jump="executive">▧ <span>Executive Overview</span></button><button data-page-jump="accounts">▤ <span>Cash & Credit</span></button><button data-page-jump="financialposition">▥ <span>Financial Position</span></button><button data-page-jump="strategy">⌁ <span>Financial Strategy</span></button><div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div><button data-page-jump="transactions">☷ <span>Transactions</span></button><button data-page-jump="outgoings">↗ <span>Cash & Other Outgoings</span></button><button data-page-jump="installments">▤ <span>Installments</span></button><button data-page-jump="importstatements">▧ <span>Import Statements</span></button><button data-page-jump="investments">◈ <span>Investments</span></button><button data-page-jump="assets">◇ <span>Personal Assets</span></button><button data-page-jump="rental">⌂ <span>Airbnb / Rental</span></button><button data-page-jump="reports">▥ <span>Reports</span></button><button data-page-jump="financeSettings">⚙ <span>Settings</span></button><button data-page-jump="more">••• <span>More</span></button>';
- app.insertBefore(side,main);
+ side.innerHTML='<div class="canonicalSideTitle">Dashboard Views</div>'+shellButton('executive','dashboard','Executive Overview')+shellButton('accounts','cash','Cash & Credit')+shellButton('financialposition','position','Financial Position')+shellButton('strategy','strategy','Financial Strategy')+'<div class="canonicalSep"></div><div class="canonicalSideTitle">Modules</div>'+shellButton('transactions','transactions','Transactions')+shellButton('outgoings','outgoings','Cash & Other Outgoings')+shellButton('installments','installments','Installments')+shellButton('importstatements','import','Import Statements')+shellButton('investments','investments','Investments')+shellButton('assets','assets','Personal Assets')+shellButton('rental','rental','Airbnb / Rental')+shellButton('reports','reports','Reports')+shellButton('financeSettings','settings','Settings')+shellButton('more','more','More');app.insertBefore(side,main);
  document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.onclick=()=>nav(b.dataset.pageJump));
 }
 function syncCanonicalShell(page){
- ensureCanonicalShell();
- var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
- document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page||(b.dataset.pageJump==='executive'&&page==='executive')));
+ ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date)date.textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+ document.querySelectorAll('#canonicalAppTop [data-page-jump],#canonicalAppSide [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
 }
 
 function rebuildTransactions(){
