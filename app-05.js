@@ -44,7 +44,8 @@ function renderInstallments(){
  document.querySelectorAll('[data-confirm-completed]').forEach(b=>b.addEventListener('click',()=>confirmInstallmentCompleted(b.dataset.confirmCompleted)));
  document.querySelectorAll('[data-keep-active]').forEach(b=>b.addEventListener('click',()=>keepInstallmentActive(b.dataset.keepActive)));
  document.querySelectorAll('[data-delete-completed-plan]').forEach(b=>b.onclick=()=>deleteCompletedInstallmentRecord(b.dataset.deleteCompletedPlan));
- renderAccounts();renderDashboard();
+ // V263: rendering the Installments page must not synchronously rebuild hidden
+ // Accounts + legacy Dashboard pages. Those pages render fresh when navigated to.
 }
 
 function renderCategories(){
@@ -1489,4 +1490,3 @@ function parseMeemOfficialStatementMeta(text,fileName=''){
   plans
  };
 }
-
