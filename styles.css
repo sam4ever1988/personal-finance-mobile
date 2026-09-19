@@ -1417,3 +1417,78 @@ body{font-size:var(--pf-base)!important;line-height:1.5!important}
 #cloudSync .notice.danger,#cloudSync .cloudNotice.danger{border-color:#804755!important;background:#352531!important;color:#ffadb7!important}
 @media(max-width:900px){#cloudSync .cloudHero,#cloudSync .cloudStatusTop,#cloudSync .cloudSectionHead{flex-direction:column}#cloudSync .cloudMetrics,#cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){#cloudSync .cloudMetrics,#cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{grid-template-columns:1fr}}
+/* V282 FINAL SPECIFICITY RESET
+   Old page themes use body.<mode> selectors with !important, so generic V281 rules
+   could not win the cascade. These selectors intentionally match/exceed them. */
+html body{font-size:16px!important;line-height:1.5!important}
+html body .sidebar.unifiedSide .navBtn,
+html body .execSideBtn,
+html body .strategySide button,
+html body .cashSide button,
+html body.txMode .txExecSide button{font-size:15px!important;min-height:46px!important;line-height:1.35!important}
+html body .sidebar.unifiedSide .unifiedSideTitle,
+html body .execSideTitle,
+html body .strategySideTitle,
+html body .cashSideTitle,
+html body.txMode .txExecSideTitle{font-size:12.5px!important}
+html body .sidebar.unifiedSide .brand small,
+html body .sidebar.unifiedSide .sideTiny{font-size:11.5px!important;line-height:1.4!important}
+html body.modernMode .pageTitle,
+html body .pageTitle{font-size:30px!important}
+html body.modernMode .sectionTitle,
+html body .sectionTitle{font-size:22px!important}
+html body.modernMode .panelTitle,
+html body .panelTitle{font-size:18px!important}
+html body.modernMode .kpiLabel,
+html body .kpiLabel{font-size:13px!important}
+html body.modernMode .kpiSub,
+html body .kpiSub{font-size:13px!important}
+html body.modernMode .modernHero p,
+html body .modernHero p{font-size:14px!important;line-height:1.5!important}
+html body.modernMode .modernMetric small,
+html body .modernMetric small{font-size:13px!important}
+html body.modernMode .modernMetric em,
+html body .modernMetric em{font-size:12.5px!important}
+html body.modernMode table,
+html body.txMode #transactions table{font-size:14px!important}
+html body.modernMode table th,
+html body.txMode #transactions th{font-size:12.5px!important}
+html body.txMode .txExecBrand small,
+html body.txMode .txExecQuote,
+html body.txMode .txRuleBar,
+html body.txMode .txTableFoot{font-size:12.5px!important}
+html body.txMode .txExecNav button,
+html body.txMode .txDarkControl,
+html body.txMode .txDarkBtn,
+html body.txMode .txDeleteBtn{font-size:14px!important}
+html body #strategy .strategyKpis .workMetric span,
+html body #strategy .strategyAction b,
+html body #strategy .coachRow b{font-size:13.5px!important}
+html body #strategy .strategyKpis .workMetric small,
+html body #strategy .strategyAction small,
+html body #strategy .coachRow small{font-size:12.5px!important}
+
+/* Cloud is intentionally larger than the rest because this page is text/control dense. */
+html body #cloudSync.cloudModern{font-size:17px!important;padding:34px 42px 60px!important}
+html body #cloudSync .cloudHero h1{font-size:36px!important}
+html body #cloudSync .cloudHero p{font-size:16px!important}
+html body #cloudSync .cloudStatusTop h2{font-size:23px!important}
+html body #cloudSync .cloudVersion,
+html body #cloudSync .cloudConnection,
+html body #cloudSync .cloudUserLine{font-size:15px!important}
+html body #cloudSync .cloudMetric span,
+html body #cloudSync .cloudMetric small{font-size:14px!important}
+html body #cloudSync .cloudMetric b{font-size:21px!important}
+html body #cloudSync .cloudSectionHead h3{font-size:21px!important}
+html body #cloudSync .cloudSectionHead p,
+html body #cloudSync .cloudInfo,
+html body #cloudSync .cloudNotice,
+html body #cloudSync .notice{font-size:15px!important}
+html body #cloudSync .cloudActionBtn b{font-size:16px!important}
+html body #cloudSync .cloudActionBtn small{font-size:14px!important}
+html body #cloudSync .cloudDangerTitle{font-size:16px!important}
+html body #cloudSync .cloudDangerText,
+html body #cloudSync .cloudStep b{font-size:14px!important}
+html body #cloudSync .cloudTextBtn,
+html body #cloudSync .cloudPrimaryBtn,
+html body #cloudSync .cloudActionSimple{font-size:15px!important}
