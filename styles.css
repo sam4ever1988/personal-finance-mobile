@@ -1446,3 +1446,20 @@ body.modernMode .modernMetric em{font-size:12px!important}
  body.modernMode .pageTitle{font-size:28px!important}
  .cloudMetric b{font-size:16px!important}
 }
+/* V279 Readability pass — desktop comfort without browser zoom */
+@media(min-width:821px){
+ :root{--pf-body-font:16px;--pf-small-font:13.5px;--pf-meta-font:14px;--pf-control-font:15px;--pf-table-font:14px}
+ body.modernMode .pageSub,body.modernMode .modernHero p{font-size:14.5px!important}
+ body.modernMode .unifiedSide .navBtn,.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{font-size:14.5px!important;min-height:46px!important}
+ body.modernMode .meta,body.modernMode .hint,body.modernMode small{font-size:13.5px!important}
+ body.modernMode table th{font-size:12.5px!important}
+ .execKpiText small{font-size:12.5px!important}.execKpiText>b{font-size:20px!important}.execKpiText em{font-size:11.5px!important}
+ .execTitle{font-size:18px!important}.execPanelSub{font-size:12.5px!important}.execRow{font-size:13.5px!important}
+ .execCreditPanel .execCreditName b,.execCreditPanel .execRow>div:last-child b,.execUpcomingPanel .execRow>div:first-child,.execUpcomingPanel .execRow>div:last-child b,.execZakatPanel #execZakat .execRow{font-size:12.5px!important}
+ .execPositionPanel .execPosCard small{font-size:12px!important}.execPositionPanel .execPosCard b{font-size:16px!important}
+ .cloudVersion,.cloudConnection,.cloudUserLine{font-size:13.5px!important}
+ .cloudMetric span,.cloudMetric small{font-size:13px!important}.cloudMetric b{font-size:19px!important}
+ .cloudSectionHead p,.cloudInfo,.cloudNotice{font-size:13.5px!important}
+ .cloudActionBtn b{font-size:15px!important}.cloudActionBtn small{font-size:12.5px!important}
+ .cloudStep b{font-size:13px!important}.cloudDangerText{font-size:12.5px!important}
+}
