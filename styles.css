@@ -1893,3 +1893,13 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
 .canonicalTopNav button.active .navSvg,.canonicalAppSide button.active .navSvg{color:#42d9ff}
 .canonicalAppSide button .navSvg{width:17px;height:17px;min-width:17px}
 .canonicalMark .navSvg{width:29px;height:29px;color:#2fe0b4;stroke-width:1.6}
+
+/* V283 top-navigation-only desktop shell */
+@media(min-width:901px){
+ #canonicalAppSide{display:none!important}
+ body>.app>.main{margin-left:0!important;width:100%!important}
+ #canonicalAppTop{display:flex!important}
+ .canonicalBrand{width:200px!important;min-width:200px!important}
+ .canonicalTopNav{display:flex!important;min-width:0!important}
+ .canonicalTopNav button{display:flex!important}
+}
