@@ -932,7 +932,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
@@ -948,7 +948,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
   categories:'Categories',
   incomeplan:'Income & Payment Plan',
   outgoings:'Outgoings',
-  importstatements:'Import Statements',assets:'Personal Assets',
+  importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',
   financeSettings:'Finance Settings',
   more:'More',
   accountDetail:'Account Details'
@@ -961,6 +961,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  else if(page==='executive')renderExecutiveDashboard();
  else if(page==='strategy')renderFinancialStrategy();
  else if(page==='assets')renderGoldAssets();
+ else if(page==='investments')renderInvestments();
  if(page==='financialposition')renderFinancialPosition();
  if(page==='reports')renderReports();
  else if(page==='installments')renderInstallments();
@@ -1008,13 +1009,13 @@ function nav(page){
  document.body.classList.toggle('accountMode',page==='accounts');
  document.body.classList.toggle('assetsModernMode',page==='assets');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
- const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
  $('pageTitle').textContent=titles[page]||'Personal Finance';
  $('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
@@ -1032,6 +1033,7 @@ function nav(page){
  if(page==='outgoings')renderOutgoings();
  if(page==='importstatements')renderImportPage();
  if(page==='assets')renderGoldAssets();
+ else if(page==='investments')renderInvestments();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
  if(page==='accounts')renderAccounts();
  // V263: Transactions must render on every intentional navigation.
