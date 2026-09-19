@@ -282,7 +282,11 @@ function planCalc(p){
  const basePaid=Math.min(Math.max(Number(p.paidInstallments||0),0),p.months);
  const autoElapsed=elapsedMonths(installmentReferenceMonth(p));
  const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
- const scheduledPaid=Math.min(p.months,Math.max(basePaid,basePaid+autoElapsed,releasedStatementPaid));
+ // V272: calendar passage alone does NOT mean an installment was paid.
+ // Only explicitly recorded paid installments or a released statement cycle that
+ // is fully settled may advance the plan. This prevents one-month purchases from
+ // being shown as paid/completed merely because their scheduled month has passed.
+ const scheduledPaid=Math.min(p.months,Math.max(basePaid,releasedStatementPaid));
  const scheduledRemainingCount=Math.max(p.months-scheduledPaid,0);
  let scheduledRemaining=schedule.slice(scheduledPaid).reduce((sum,v)=>sum+v,0);
  if(p.manualRemaining!==undefined&&p.manualRemaining!==null&&autoElapsed===0)scheduledRemaining=Number(p.manualRemaining);
