@@ -1921,3 +1921,36 @@ body.modernMode #rental{background:#001f2c;color:#f3f8fc;min-height:calc(100vh -
  .canonicalTopNav .navSvg{width:17px!important;height:17px!important;min-width:17px!important}
  .canonicalDate{font-size:10px!important;padding:0 8px!important}
 }
+
+/* V283 FINAL shell authority — high-specificity reset of every legacy sidebar offset */
+@media(min-width:901px){
+ html body.modernMode>.app,
+ html body.execMode>.app,
+ html body.accountMode>.app,
+ html body.strategyMode>.app,
+ html body.txMode>.app{width:100%!important;max-width:none!important;padding-top:62px!important}
+ html body.modernMode>.app>.main,
+ html body.execMode>.app>.main,
+ html body.accountMode>.app>.main,
+ html body.strategyMode>.app>.main,
+ html body.txMode>.app>.main{margin-left:0!important;width:100%!important;max-width:none!important;min-width:0!important}
+ html body.modernMode>.app>.main>.content,
+ html body.execMode>.app>.main>.content,
+ html body.accountMode>.app>.main>.content,
+ html body.strategyMode>.app>.main>.content,
+ html body.txMode>.app>.main>.content{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;box-sizing:border-box!important}
+ html body>.app>.main>.content>.view,
+ html body>.app>.main>.content>.view.active{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important}
+ html body #rental,html body #reports,html body #investments,html body #assets,html body #installments,
+ html body #outgoings,html body #importstatements,html body #financeSettings,html body #more,
+ html body #financialposition{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important}
+ #canonicalAppSide,.sidebar,.unifiedSide{display:none!important}
+ #canonicalAppTop{left:0!important;right:0!important;width:100vw!important;max-width:100vw!important}
+ .canonicalBrand{width:176px!important;min-width:176px!important;padding:0 12px!important}
+ .canonicalBrand b{font-size:18px!important}.canonicalBrand small{font-size:8px!important}
+ .canonicalTopNav{overflow:hidden!important}
+ .canonicalTopNav button{font-size:9.5px!important;padding:0 3px!important;gap:3px!important;line-height:1.12!important}
+ .canonicalTopNav .navSvg{width:15px!important;height:15px!important;min-width:15px!important}
+ .canonicalDate{font-size:9px!important;padding:0 5px!important}
+ .canonicalAvatar{width:34px!important;height:34px!important;margin-right:6px!important;font-size:10px!important}
+}
