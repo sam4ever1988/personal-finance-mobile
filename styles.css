@@ -1382,3 +1382,67 @@ body.modernMode #categories{color:#edf7ff}
  #cloudSync .cloudSection{padding:16px}
  #cloudSync .cloudRecoveryGrid,#cloudSync .cloudStepGrid{gap:10px}
 }
+/* V278 Global readability + page consistency */
+:root{--pf-body-font:15px;--pf-small-font:12.5px;--pf-meta-font:13px;--pf-control-font:14px;--pf-table-font:13.5px}
+body{font-size:var(--pf-body-font)!important;line-height:1.45}
+body.modernMode .content{font-size:var(--pf-body-font)!important}
+body.modernMode .meta,body.modernMode .hint,body.modernMode small{font-size:var(--pf-small-font)!important;line-height:1.45!important}
+body.modernMode .pageSub,body.modernMode .modernHero p{font-size:13.5px!important;line-height:1.45!important}
+body.modernMode .sectionTitle{font-size:22px!important}
+body.modernMode .panelTitle{font-size:18px!important}
+body.modernMode .pageTitle{font-size:30px!important}
+body.modernMode .btn,body.modernMode button,body.modernMode input,body.modernMode select,body.modernMode textarea{font-size:var(--pf-control-font)!important}
+body.modernMode .btn,body.modernMode button{line-height:1.25}
+body.modernMode input,body.modernMode select,body.modernMode textarea{min-height:42px}
+body.modernMode table{font-size:var(--pf-table-font)!important;line-height:1.4!important}
+body.modernMode table th{font-size:12px!important;letter-spacing:.015em}
+body.modernMode table th,body.modernMode table td{padding-top:13px!important;padding-bottom:13px!important}
+body.modernMode .kpiLabel{font-size:12.5px!important}
+body.modernMode .kpiValue{font-size:24px!important}
+body.modernMode .kpiSub{font-size:12px!important}
+body.modernMode .modernMetric small{font-size:12.5px!important}
+body.modernMode .modernMetric b{font-size:23px!important}
+body.modernMode .modernMetric em{font-size:12px!important}
+.unifiedSide .navBtn,.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{font-size:14px!important}
+.unifiedSideTitle,.execSideTitle,.strategySideTitle,.cashSideTitle,.txExecSideTitle{font-size:12px!important}
+.unifiedSide .brand small{font-size:11px!important}
+
+/* Full-screen custom dashboard shells */
+.execBody,#strategy .strategyBody,.cashBody,body.txMode .txExecBody{font-size:14px!important}
+.execSideBtn,.strategySide button,.cashSide button,.txExecSide button{min-height:46px!important}
+.strategyPageHero p,.cashBrand small,.strategyBrand small{font-size:12px!important}
+#strategy .strategyKpis .workMetric span{font-size:12.5px!important}
+#strategy .strategyKpis .workMetric small{font-size:11.5px!important}
+.strategyAction b,.coachRow b{font-size:14px!important}
+.strategyAction small,.coachRow small{font-size:12px!important}
+#strategy .strategyTable{font-size:13px!important}
+
+/* Categories */
+.catEyebrow{font-size:12px!important}.catModernHero p{font-size:14px!important}
+.catStat span{font-size:12.5px!important}.catStat small{font-size:12px!important}
+.catModernHead p{font-size:12.5px!important}.catModernHead h2{font-size:18px!important}
+
+/* Cloud Database readability and consistent page width */
+#cloudSync.cloudModern{width:100%!important;max-width:none!important;box-sizing:border-box!important}
+#cloudSync .cloudStatusCard{width:100%!important;max-width:none!important}
+.cloudEyebrow{font-size:12px!important}.cloudHero p{font-size:14px!important}.cloudHeroState{font-size:12px!important}
+.cloudStatusTop h2{font-size:20px!important}.cloudVersion{font-size:12.5px!important}.cloudConnection{font-size:13px!important}
+.cloudShield,.cloudBadge{font-size:11.5px!important}.cloudUserLine{font-size:12.5px!important}
+.cloudMetric span,.cloudMetric small{font-size:12px!important}.cloudMetric b{font-size:18px!important}
+.cloudSectionHead h3{font-size:18px!important}.cloudSectionHead p{font-size:12.5px!important;line-height:1.45!important;max-width:900px}
+.cloudInfo,.cloudNotice{font-size:12.5px!important;line-height:1.5!important}
+.cloudActionBtn{min-height:66px}.cloudActionBtn b{font-size:14px!important}.cloudActionBtn small{font-size:11.5px!important}
+.cloudDangerTitle{font-size:13.5px!important}.cloudDangerText{font-size:11.5px!important}
+.cloudStep{min-height:44px}.cloudStep b{font-size:12px!important}.cloudStep span{font-size:11px!important}
+.cloudPrimaryBtn,.cloudActionSimple,.cloudTextBtn{font-size:14px!important}
+
+/* Modal/action readability */
+.modalBack .modal{font-size:14px!important}.modalBack .modal .meta{font-size:12.5px!important}
+.modalBack .modal .field label{font-size:13px!important}.modalBack .modal input,.modalBack .modal select,.modalBack .modal textarea{font-size:14px!important;min-height:42px}
+
+/* Keep dense layouts usable at smaller laptop widths */
+@media(max-width:1200px){
+ :root{--pf-body-font:14px;--pf-small-font:12px;--pf-meta-font:12.5px;--pf-control-font:13.5px;--pf-table-font:13px}
+ body.modernMode .pageTitle{font-size:28px!important}
+ .cloudMetric b{font-size:16px!important}
+}
