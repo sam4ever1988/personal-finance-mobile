@@ -1662,3 +1662,44 @@ body.modernMode .modernModuleTop{margin-left:-18px!important}
 #invModal.show{display:flex!important}
 @media(max-width:1100px){.invKpis{grid-template-columns:repeat(3,1fr)}.invTablePanel{overflow-x:auto}.invTable{min-width:1050px}}
 @media(max-width:760px){.invHero{flex-direction:column}.invKpis{grid-template-columns:1fr 1fr}.invGrid{grid-template-columns:1fr}.invToolbar{flex-wrap:wrap}.invToolbar input{min-width:100%;width:100%}}
+
+/* Investments V283 visual correction — match Executive / Transactions / Personal Assets */
+body.investmentsMode{background:#001f2c!important;color:#f3f8fc}
+body.investmentsMode>.app>.main>.content{background:#001f2c!important}
+body.investmentsMode #investments{background:#001f2c!important;color:#f3f8fc;min-height:calc(100vh - 80px)}
+body.investmentsMode #investments .invHero h1{color:#f3f8fc;font-size:28px}
+body.investmentsMode #investments .meta{color:#9fb9ca}
+body.investmentsMode #investments .invEyebrow{color:#28caff}
+body.investmentsMode #investments .invStatus{background:#082f43;border:1px solid #12617d;color:#b9d0dd;box-shadow:none}
+body.investmentsMode #investments .invKpi{
+ background:linear-gradient(135deg,#08344d,#082238)!important;
+ border:1px solid #176381!important;border-radius:9px!important;color:#fff!important;
+ box-shadow:inset 0 0 22px rgba(0,0,0,.15)!important;min-height:92px;padding:15px 16px
+}
+body.investmentsMode #investments .invKpi:nth-child(1){border-color:#0fa87a!important;background:linear-gradient(120deg,#063d2d,#082b31)!important}
+body.investmentsMode #investments .invKpi:nth-child(2){border-color:#149cd4!important}
+body.investmentsMode #investments .invKpi:nth-child(3){border-color:#d34758!important;background:linear-gradient(120deg,#3a2029,#162738)!important}
+body.investmentsMode #investments .invKpi:nth-child(4){border-color:#7650d5!important;background:linear-gradient(120deg,#242052,#172647)!important}
+body.investmentsMode #investments .invKpi:nth-child(5){border-color:#b79218!important;background:linear-gradient(120deg,#3b3516,#172d38)!important}
+body.investmentsMode #investments .invKpi span{color:#b9ceda;font-size:12px}
+body.investmentsMode #investments .invKpi b{color:#fff!important;font-size:21px}
+body.investmentsMode #investments .invKpi .invGood{color:#24dca8!important}
+body.investmentsMode #investments .invKpi .invBad{color:#ff6474!important}
+body.investmentsMode #investments .panel{background:linear-gradient(145deg,#082d43,#061f32)!important;border:1px solid #155273!important;color:#f3f8fc!important;box-shadow:none!important}
+body.investmentsMode #investments .invToolbar input,
+body.investmentsMode #investments .invToolbar select,
+body.investmentsMode #investments .invEdit{background:#06283c!important;border:1px solid #1d607e!important;color:#eaf5ff!important}
+body.investmentsMode #investments .invTable th{background:#0d526e!important;color:#dcecf6!important;border-color:#176581!important}
+body.investmentsMode #investments .invTable td{background:#082f43!important;color:#eaf4fa!important;border-color:#124b63!important}
+body.investmentsMode #investments .invTicker{color:#fff}
+body.investmentsMode #investments .invTable small{color:#8faabc}
+body.investmentsMode #investments .invMarket.sa{background:#073f36;color:#38e0a4}
+body.investmentsMode #investments .invMarket.us{background:#073c63;color:#62c8ff}
+body.investmentsMode #investments .invGood{color:#38e0a4!important}
+body.investmentsMode #investments .invBad{color:#ff6f7d!important}
+body.investmentsMode #investments .invBar{background:#173a50}
+body.investmentsMode #investments .invBar i{background:#24d39b}
+body.investmentsMode #investments .invTradeLine{border-color:#17445d}
+body.investmentsMode #investments .panelTitle{color:#f3f8fc;font-size:17px;font-weight:900}
+body.investmentsMode #investments .btn{background:#0b3b51;color:#f3f8fc;border:1px solid #176581}
+body.investmentsMode #investments .btn.primary{background:#10a889;border-color:#10a889;color:#fff}
