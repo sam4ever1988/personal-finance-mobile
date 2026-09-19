@@ -1463,3 +1463,43 @@ body.modernMode .modernMetric em{font-size:12px!important}
  .cloudActionBtn b{font-size:15px!important}.cloudActionBtn small{font-size:12.5px!important}
  .cloudStep b{font-size:13px!important}.cloudDangerText{font-size:12.5px!important}
 }
+/* V280 Cloud Database isolated typography/layout.
+   This intentionally overrides legacy global small/meta/button rules. */
+@media(min-width:821px){
+ #cloudSync.cloudModern{
+   font-size:16px!important;
+   line-height:1.5!important;
+   padding:30px 38px 56px!important;
+ }
+ #cloudSync .cloudHero h1{font-size:34px!important;line-height:1.15!important}
+ #cloudSync .cloudEyebrow{font-size:13px!important}
+ #cloudSync .cloudHero p{font-size:15px!important;line-height:1.5!important}
+ #cloudSync .cloudHeroState{font-size:13px!important;padding:10px 15px!important}
+ #cloudSync .cloudStatusCard{padding:22px!important;border-radius:15px!important}
+ #cloudSync .cloudStatusTop h2{font-size:22px!important}
+ #cloudSync .cloudVersion{font-size:14px!important;line-height:1.5!important}
+ #cloudSync .cloudConnection{font-size:14.5px!important;line-height:1.5!important}
+ #cloudSync .cloudShield,#cloudSync .cloudBadge{font-size:12.5px!important}
+ #cloudSync .cloudUserLine{font-size:14px!important}
+ #cloudSync .cloudMetrics{gap:12px!important;margin-top:16px!important}
+ #cloudSync .cloudMetric{padding:15px!important;min-height:92px!important}
+ #cloudSync .cloudMetric span,#cloudSync .cloudMetric small{font-size:13px!important;line-height:1.45!important}
+ #cloudSync .cloudMetric b{font-size:20px!important;line-height:1.25!important}
+ #cloudSync .cloudSection{padding:18px!important;margin-top:14px!important}
+ #cloudSync .cloudSectionHead h3{font-size:20px!important}
+ #cloudSync .cloudSectionHead p{font-size:14px!important;line-height:1.5!important}
+ #cloudSync .cloudInfo,#cloudSync .cloudNotice,#cloudSync .notice{font-size:14px!important;line-height:1.55!important;padding:12px 14px!important}
+ #cloudSync .cloudRecoveryGrid{gap:11px!important}
+ #cloudSync .cloudActionBtn{padding:14px!important;min-height:78px!important}
+ #cloudSync .cloudActionBtn b{font-size:15.5px!important;line-height:1.35!important}
+ #cloudSync .cloudActionBtn small{font-size:13px!important;line-height:1.45!important;margin-top:5px!important}
+ #cloudSync .cloudDangerZone{padding:15px!important}
+ #cloudSync .cloudDangerTitle{font-size:15px!important}
+ #cloudSync .cloudDangerText{font-size:13px!important;line-height:1.5!important}
+ #cloudSync .cloudStep{padding:12px!important;min-height:50px!important}
+ #cloudSync .cloudStep b{font-size:13.5px!important}
+ #cloudSync .cloudStep span{font-size:12px!important;min-width:24px!important;height:24px!important}
+ #cloudSync .cloudTextBtn{font-size:14px!important}
+ #cloudSync .cloudPrimaryBtn,#cloudSync .cloudActionSimple{font-size:15px!important;padding:11px 15px!important}
+ #cloudSync .cloudSyncActions{gap:9px!important;margin-top:14px!important}
+}
