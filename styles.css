@@ -1095,7 +1095,7 @@ body.modernMode .pageTitle{font-size:28px!important}
 body.modernMode .content{max-width:none!important}
 
 
-body{font-family:Arial,sans-serif;padding:24px;color:#10233d}h2{margin:0 0 6px}.meta{color:#66758a;margin-bottom:18px}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #dce3eb;text-align:left;font-size:13px}th{background:#f5f7fa}.num{text-align:right;font-weight:700}
+/* V257: removed accidental global light-theme reset that overrode the executive shell. */
 /* V254 — Account Details aligned with the Executive dark visual system */
 body.modernMode #accountDetail{color:#eaf4ff}
 body.modernMode #accountDetail #detailBack{
@@ -1151,3 +1151,22 @@ body.modernMode #accountDetailContent .installTable th,
 body.modernMode #accountDetailContent .txTable th{font-size:11px!important}
 body.modernMode #accountDetailContent .amount,
 body.modernMode #accountDetailContent .big{font-size:22px!important}
+/* V257 — enforce one dark visual system on every remaining module/detail page */
+body.modernMode{background:#021521!important;color:#eaf5ff!important;padding:0!important}
+body.modernMode>.app>.main{background:radial-gradient(circle at 50% 0,#07324c 0,#031b2b 42%,#021521 100%)!important;min-height:100vh}
+body.modernMode .topbar{background:#021827!important;border-bottom:1px solid #155273!important;color:#eaf5ff!important}
+body.modernMode .content{background:transparent!important;color:#eaf5ff!important}
+body.modernMode .view{background:transparent!important;color:#eaf5ff!important}
+body.modernMode .pageHead,body.modernMode .pageHeader{background:transparent!important;color:#eaf5ff!important;border-color:#155273!important}
+body.modernMode #pageTitle,body.modernMode #pageSub{color:#eaf5ff!important}
+body.modernMode .panel,body.modernMode .accountCard,body.modernMode .loanCard,body.modernMode .installmentCard,body.modernMode .card{
+ background:linear-gradient(145deg,#082f45,#062438)!important;border:1px solid #17607d!important;color:#edf7ff!important;box-shadow:none!important
+}
+body.modernMode .kpi,body.modernMode .miniMetric,body.modernMode [class*="Metric"]{
+ background:#0a3348!important;border-color:#175a75!important;color:#edf7ff!important
+}
+body.modernMode table{background:#07283a!important;color:#eaf5ff!important}
+body.modernMode table th{background:#0c4c68!important;color:#cfe5f2!important}
+body.modernMode table td{background:transparent!important;color:#eaf5ff!important}
+body.modernMode .btn:not(.primary):not(.danger){background:#082b40!important;border-color:#176181!important;color:#eaf5ff!important}
+body.modernMode .meta,body.modernMode small,body.modernMode .hint{color:#9fb8c9!important}
