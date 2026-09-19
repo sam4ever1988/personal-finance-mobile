@@ -383,7 +383,7 @@ async function init(){
  ensurePartialPaymentFields();
  financeDB.save();
  fillAccountSelect($('txAccount'));fillAccountSelect($('reportAccount'));fillAccountSelect($('importAccount'));fillCategorySelect($('txCategory'));
- const pm=plannerDefaultMonth();$('paymentMonth').value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows($('paymentMonth').value);$('paymentMonth').addEventListener('change',renderPaymentPlanner);
+ const pm=plannerDefaultMonth(), paymentMonthEl=$('paymentMonth');if(paymentMonthEl){paymentMonthEl.value=/^\d{4}-\d{2}$/.test(pm)?pm:'2026-09';ensureMonthlyPlannerRows(paymentMonthEl.value);paymentMonthEl.addEventListener('change',renderPaymentPlanner);}
 
 // V194 bindings
 // V265: assign gold controls directly after all legacy/modern function overrides are loaded.
