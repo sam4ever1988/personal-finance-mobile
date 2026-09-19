@@ -52,3 +52,32 @@ window.rentalOpenExpense=function(){rentalModal("Add Rental Expense",'<div class
 
 /* V283 initialize the single-source top shell after the combined bundle is ready */
 setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'executive'):'executive');}catch(e){console.error('Canonical shell init',e)}},0);
+
+/* V283 account + preferences */
+(function(){
+ const PROFILE_KEY='pf_profile_v283',PREF_KEY='pf_preferences_v283';
+ const getProfile=()=>{try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch(e){return {}}};
+ const getPrefs=()=>{try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}};
+ function effectiveTheme(t){return t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):(t||'dark')}
+ window.applyFinancePreferences=function(){
+  const p=getPrefs(),theme=p.theme||'dark';document.documentElement.dataset.financeTheme=effectiveTheme(theme);document.documentElement.dataset.themePreference=theme;
+  document.body.classList.toggle('compactFinanceNav',!!p.compactNav);
+  const st=document.getElementById('prefThemeStatus');if(st)st.textContent=theme[0].toUpperCase()+theme.slice(1);
+  const ck=document.getElementById('prefCompactNav');if(ck)ck.checked=!!p.compactNav;
+  document.querySelectorAll('[data-theme-choice]').forEach(b=>b.classList.toggle('selected',b.dataset.themeChoice===theme));
+ };
+ window.renderAccountProfile=function(){
+  const p=getProfile(),name=p.name||'Hussam Ahmad',email=p.email||'',initials=(p.initials||'HA').toUpperCase().slice(0,3);
+  ['accountAvatarPreview'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=initials});
+  const n=document.getElementById('accountNamePreview');if(n)n.textContent=name;
+  const em=document.getElementById('accountEmailPreview');if(em)em.textContent=email||'Local profile • Login not connected yet';
+  const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei)ei.value=email;const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
+  document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b').forEach(e=>e.textContent=initials);
+  const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
+ };
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const p=getPrefs();p.theme=b.dataset.themeChoice;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
+ document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
+ document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=document.getElementById('accountEmail').value.trim(),initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'HA').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
+ if(matchMedia)matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if((getPrefs().theme||'dark')==='system')applyFinancePreferences()});
+ applyFinancePreferences();setTimeout(renderAccountProfile,0);
+})();
