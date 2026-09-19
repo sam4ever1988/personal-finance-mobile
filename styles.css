@@ -1723,3 +1723,57 @@ body.modernMode .unifiedSide .navBtn.active{
 }
 body.modernMode .unifiedSide .unifiedSep{height:1px!important;background:#17475e!important;margin:12px 8px!important}
 body.modernMode .unifiedSide .sideFoot{margin-top:auto!important;color:#8fa9bc!important}
+
+/* V283 sidebar geometry lock — match Financial Strategy reference exactly */
+body.modernMode>.app>.sidebar.unifiedSide{
+ width:205px!important;
+ padding:18px 10px!important;
+ overflow-y:auto!important;
+ overflow-x:hidden!important;
+ scrollbar-width:none!important;
+}
+body.modernMode>.app>.sidebar.unifiedSide::-webkit-scrollbar{display:none!important}
+body.modernMode>.app>.main{margin-left:205px!important}
+body.modernMode .unifiedSide .brand{display:none!important}
+body.modernMode .unifiedSide .unifiedSideTitle{
+ font-size:12px!important;
+ color:#9bb4c7!important;
+ padding:8px 12px!important;
+ margin:0!important;
+ line-height:1.25!important;
+}
+body.modernMode .unifiedSide .navBtn{
+ display:flex!important;
+ align-items:center!important;
+ gap:10px!important;
+ width:100%!important;
+ min-height:42px!important;
+ padding:10px 12px!important;
+ margin:2px 0!important;
+ border-radius:9px!important;
+ font-size:14px!important;
+ line-height:1.25!important;
+ font-weight:500!important;
+ white-space:normal!important;
+ word-break:normal!important;
+}
+body.modernMode .unifiedSide .navBtn .ic{
+ flex:0 0 28px!important;
+ width:28px!important;
+ font-size:15px!important;
+ line-height:1!important;
+}
+body.modernMode .unifiedSide .navBtn.active{
+ background:#073c63!important;
+ border-left:3px solid #28caff!important;
+ padding-left:9px!important;
+ font-weight:800!important;
+}
+body.modernMode .unifiedSide .unifiedSep{
+ margin:12px 8px!important;
+ background:#17475e!important;
+}
+body.modernMode .unifiedSide .sideFoot{display:none!important}
+@media(max-width:900px){
+ body.modernMode>.app>.main{margin-left:0!important}
+}
