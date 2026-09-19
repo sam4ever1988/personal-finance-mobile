@@ -2115,3 +2115,12 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
     margin:0!important;
   }
 }
+
+
+/* V283 Rental expense row actions */
+.rentalExpenseRight{display:flex;align-items:center;gap:12px;margin-left:auto}
+.rentalExpenseActions{display:flex;gap:6px;opacity:.82}
+.rentalExpenseActions .btn{padding:5px 8px!important;font-size:10px!important;border-radius:6px!important}
+.rentalExpenseActions .btn.danger{color:#ff7a86!important;border-color:#8f3d4a!important;background:#3b202a!important}
+.rentalExpenseActions .btn.danger:hover{background:#572833!important}
+.rentalExpenseLine:hover .rentalExpenseActions{opacity:1}
