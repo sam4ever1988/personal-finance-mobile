@@ -20,7 +20,7 @@ var INV_SEED=[
 var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||JSON.parse(JSON.stringify(INV_SEED));
 var invTrades=JSON.parse(localStorage.getItem("pf_investments_trades")||"[]");
 var invLastPriceUpdate=localStorage.getItem("pf_investments_price_time")||"";
-function invSave(){localStorage.setItem("pf_investments_holdings",JSON.stringify(invHoldings));localStorage.setItem("pf_investments_trades",JSON.stringify(invTrades));}
+function invSave(){localStorage.setItem("pf_investments_holdings",JSON.stringify(invHoldings));localStorage.setItem("pf_investments_trades",JSON.stringify(invTrades));if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave();}
 function invFactor(h){return h.market==="US"?INV_USD_SAR:1}
 function invMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function invTotals(){var value=0,cost=0;invHoldings.forEach(h=>{var f=invFactor(h);value+=h.qty*h.price*f;cost+=h.qty*h.avg*f});return{value,cost,pl:value-cost,pct:cost?(value-cost)/cost*100:0}}
