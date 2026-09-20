@@ -45,7 +45,20 @@ function ensureCanonicalShell(){
  top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
   var m=b.closest('[data-nav-menu]');
   b.onmouseenter=()=>{top.querySelectorAll('[data-nav-menu]').forEach(x=>{if(x!==m)x.classList.remove('open')});m.classList.add('open');b.setAttribute('aria-expanded','true')};
-  b.onclick=(e)=>{e.preventDefault();e.stopPropagation();var target=b.dataset.mainPage;if(target)nav(target)};
+  b.onclick=(e)=>{
+   e.preventDefault();e.stopPropagation();
+   if(window.matchMedia('(max-width:900px)').matches){
+    var willOpen=!m.classList.contains('open');
+    top.querySelectorAll('[data-nav-menu]').forEach(x=>{
+     x.classList.remove('open');
+     var trigger=x.querySelector('.canonicalMenuTrigger');if(trigger)trigger.setAttribute('aria-expanded','false');
+    });
+    m.classList.toggle('open',willOpen);
+    b.setAttribute('aria-expanded',willOpen?'true':'false');
+    return;
+   }
+   var target=b.dataset.mainPage;if(target)nav(target);
+  };
  });
  top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
  var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
@@ -54,7 +67,7 @@ function ensureCanonicalShell(){
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
 }
 function syncCanonicalShell(page){
- ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.86</small>';}
+ ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.87</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
