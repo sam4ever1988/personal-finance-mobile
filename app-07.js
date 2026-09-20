@@ -223,7 +223,13 @@ async function recordPullAll(reason='manual-full-pull'){
 }
 
 async function recordPushAll(reason='edit'){
- if(recordSyncApplying||!recordSyncReady||!cloudClient)return false;
+ if(recordSyncApplying)return false;
+ if(!recordSyncReady||!cloudClient){
+  setCloudMeta({pending:true});
+  clearTimeout(recordSyncPushTimer);
+  recordSyncPushTimer=setTimeout(()=>recordPushAll(reason+'-readiness'),1500);
+  return false;
+ }
  // If an edit arrives while a push is already running, queue one guaranteed retry.
  // Previously the scheduled call could return here and leave Local Changes stuck Pending.
  if(recordSyncPushBusy){
@@ -234,7 +240,13 @@ async function recordPushAll(reason='edit'){
  recordSyncPushBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session)return false;
+  if(!session){
+   setCloudMeta({pending:true});
+   cloudSetStatus('Publish waiting for cloud sign-in');
+   clearTimeout(recordSyncPushTimer);
+   recordSyncPushTimer=setTimeout(()=>recordPushAll(reason+'-auth'),2000);
+   return false;
+  }
 
   const current=buildRecordSyncRowsFromState();
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
@@ -375,10 +387,14 @@ function syncCashFlowLedgerImmediate(){
 
 
 function scheduleRecordPush(reason='edit'){
- if(window.__financeStateInitialized!==true || recordSyncApplying)return;
+ if(recordSyncApplying)return;
  setCloudMeta({pending:true});
  clearTimeout(recordSyncPushTimer);
- recordSyncPushTimer=setTimeout(()=>recordPushAll(reason),250);
+ const delay=window.__financeStateInitialized===true?250:900;
+ recordSyncPushTimer=setTimeout(()=>{
+  if(window.__financeStateInitialized!==true){scheduleRecordPush(reason+'-startup');return;}
+  recordPushAll(reason);
+ },delay);
 }
 
 
@@ -445,6 +461,7 @@ async function startRealtimeRecordSync(){
  }
 
  schedulePeriodicCloudAutoSync();
+ if(recordSyncReady&&getCloudMeta().pending)setTimeout(()=>recordPushAll('resume-pending'),120);
  cloudSetStatus(`${verifiedCloudLoad?'Protected two-way sync':'Upload sync'} ready • ${new Date().toLocaleTimeString()}`);
  return true;
 }
