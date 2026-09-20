@@ -29,7 +29,7 @@ function canonicalTopHTML(){
  +shellButton('assets','assets','Personal Assets')
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
- +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
+ +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
  +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){
@@ -97,9 +97,9 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.92</small>';}
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.93</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
- var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
+ var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
 }
 
@@ -1039,7 +1039,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  document.body.classList.toggle('assetsModernMode',page==='assets');
  document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','bankconnections','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
@@ -1078,6 +1078,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  else if(page==='outgoings')renderOutgoings();
  else if(page==='importstatements')renderImportPage();
  else if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
+ if(page==='bankconnections'&&typeof renderBankConnections==='function')renderBankConnections();
  else if(page==='accounts')renderAccounts();
  else if(page==='accountDetail' && state.accountDetailId){
   currentAccountDetailId=state.accountDetailId;
@@ -1125,7 +1126,7 @@ function nav(page){
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
- const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',more:'More',accountDetail:'Account Details'};
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details'};
  if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
  if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
