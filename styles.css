@@ -2124,3 +2124,7 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
 .rentalExpenseActions .btn.danger{color:#ff7a86!important;border-color:#8f3d4a!important;background:#3b202a!important}
 .rentalExpenseActions .btn.danger:hover{background:#572833!important}
 .rentalExpenseLine:hover .rentalExpenseActions{opacity:1}
+
+/* V284 top-row version label */
+.canonicalDate{flex-direction:column!important;justify-content:center!important;gap:1px!important;line-height:1.05!important}
+.canonicalDate .canonicalVersion{display:block;font-size:9px;font-weight:800;letter-spacing:.08em;color:#35d5ff;line-height:1.1}
