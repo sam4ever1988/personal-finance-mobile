@@ -487,6 +487,19 @@ function setFinanceAccessGate(session){
  gate.classList.toggle('financeGateHidden',ready);
  gate.setAttribute('aria-hidden',ready?'true':'false');
  document.body.classList.toggle('financeAccessLocked',!ready);
+ const main=document.querySelector('body>.app>.main');
+ if(main){main.toggleAttribute('inert',!ready);main.setAttribute('aria-hidden',ready?'false':'true');}
+ const avatar=document.querySelector('#canonicalAppTop .canonicalAvatar');
+ const profile=document.querySelector('#canonicalAppTop [data-profile-menu]');
+ if(avatar){
+  avatar.disabled=!ready;
+  avatar.setAttribute('aria-disabled',ready?'false':'true');
+  avatar.title=ready?'Open profile menu':'Profile is available after sign in';
+ }
+ if(profile&&!ready){
+  profile.classList.remove('open');
+  avatar?.setAttribute('aria-expanded','false');
+ }
  const out=$('financeGateSignedOut'),inside=$('financeGateSignedIn');
  if(out)out.style.display=signedIn?'none':'block';
  if(inside)inside.style.display=signedIn?'block':'none';
