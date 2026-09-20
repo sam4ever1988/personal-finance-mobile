@@ -1361,6 +1361,14 @@ function syncArrayForSection(section){
   case 'outgoings': return outgoings;
   case 'installments': return installments;
   case 'card_payment_plan': return cardPaymentPlan;
+  case 'investments_holdings': return (typeof invHoldings!=='undefined'?invHoldings:[]);
+  case 'investments_trades': return (typeof invTrades!=='undefined'?invTrades:[]);
+  case 'rental_bookings': return (typeof rentalBookings!=='undefined'?rentalBookings:[]);
+  case 'rental_expenses': return (typeof rentalExpenses!=='undefined'?rentalExpenses:[]);
+  case 'rental_blocks': return (typeof rentalBlocks!=='undefined'?rentalBlocks:[]);
+  case 'personal_assets_gold': return (typeof goldAssets!=='undefined'?goldAssets:[]);
+  case 'personal_assets_zakat': return (typeof goldZakatHistory!=='undefined'?goldZakatHistory:[]);
+  case 'personal_assets_sales': return (typeof goldSaleHistory!=='undefined'?goldSaleHistory:[]);
   default:return null;
  }
 }
@@ -1373,6 +1381,14 @@ function setSyncArrayForSection(section,value){
   case 'outgoings': outgoings=value;break;
   case 'installments': installments=value;break;
   case 'card_payment_plan': cardPaymentPlan=value;break;
+  case 'investments_holdings': invHoldings=value;localStorage.setItem('pf_investments_holdings',JSON.stringify(value));break;
+  case 'investments_trades': invTrades=value;localStorage.setItem('pf_investments_trades',JSON.stringify(value));break;
+  case 'rental_bookings': rentalBookings=value;localStorage.setItem('pf_rental_bookings',JSON.stringify(value));break;
+  case 'rental_expenses': rentalExpenses=value;localStorage.setItem('pf_rental_expenses',JSON.stringify(value));break;
+  case 'rental_blocks': rentalBlocks=value;localStorage.setItem('pf_rental_blocks',JSON.stringify(value));break;
+  case 'personal_assets_gold': goldAssets=value;localStorage.setItem('pf_gold_assets',JSON.stringify(value));break;
+  case 'personal_assets_zakat': goldZakatHistory=value;localStorage.setItem('pf_gold_zakat_history',JSON.stringify(value));break;
+  case 'personal_assets_sales': goldSaleHistory=value;localStorage.setItem('pf_gold_sale_history',JSON.stringify(value));break;
  }
 }
 function mergeOneRecordIntoSection(row){
@@ -1382,7 +1398,7 @@ function mergeOneRecordIntoSection(row){
  const singletonSections=new Set([
   'finance_settings','categories','merchant_rules','tx_overrides','income_plan',
   'duplicate_decisions','statement_rule','transaction_actions','bank_balance_overrides',
-  'reset_card_ids','card_reset_history','deleted_installment_ids'
+  'reset_card_ids','card_reset_history','deleted_installment_ids','personal_assets_market'
  ]);
 
  if(singletonSections.has(section)){
@@ -1410,6 +1426,7 @@ function mergeOneRecordIntoSection(row){
    case 'reset_card_ids': resetCardIds=new Set(Array.isArray(data)?data:[]);break;
    case 'card_reset_history': cardResetHistory=Array.isArray(data)?data:[];break;
    case 'deleted_installment_ids': deletedInstallmentIds=new Set(Array.isArray(data)?data:[]);break;
+   case 'personal_assets_market': goldMarket=data||goldMarket;localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));break;
   }
   return true;
  }
@@ -1483,7 +1500,10 @@ function sectionAffectsPage(section,page){
   outgoings:new Set(['outgoings','cash_flow_ledger']),
   categories:new Set(['categories','merchant_rules']),
   importstatements:new Set(['import_history','manual_transactions','imported_transactions']),
-  financeSettings:new Set(['finance_settings'])
+  financeSettings:new Set(['finance_settings']),
+  investments:new Set(['investments_holdings','investments_trades']),
+  rental:new Set(['rental_bookings','rental_expenses','rental_blocks']),
+  personalassets:new Set(['personal_assets_gold','personal_assets_zakat','personal_assets_sales','personal_assets_market'])
  };
  return map[page]?.has(section)??false;
 }
@@ -1501,6 +1521,9 @@ function renderCurrentPageForSections(sections){
  else if(page==='importstatements')renderImportPage();
  else if(page==='accounts')renderAccounts();
  else if(page==='dashboard')renderDashboard();
+ else if(page==='investments'&&typeof renderInvestments==='function')renderInvestments();
+ else if(page==='rental'&&typeof renderRental==='function')renderRental();
+ else if(page==='personalassets'&&typeof renderPersonalAssets==='function')renderPersonalAssets();
  else if(page==='financeSettings'){
   if(!financeSettingsEditing)renderFinanceSettings();
   else return false;
@@ -1560,6 +1583,7 @@ function buildRecordSyncRowsFromState(){
  add('deleted_installment_ids',RECORD_SYNC_SINGLETON,[...deletedInstallmentIds]);
  add('custom_banks',RECORD_SYNC_SINGLETON,Array.isArray(customBanks)?customBanks:[]);
  add('custom_credit_cards',RECORD_SYNC_SINGLETON,Array.isArray(customCreditCards)?customCreditCards:[]);
+ add('personal_assets_market',RECORD_SYNC_SINGLETON,(typeof goldMarket!=='undefined'?goldMarket:{}));
 
  // Record sections.
  (manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
@@ -1569,6 +1593,14 @@ function buildRecordSyncRowsFromState(){
  (outgoings||[]).forEach((x,i)=>add('outgoings',syncStableId('outgoings',x,i),x));
  (installments||[]).forEach((x,i)=>add('installments',syncStableId('installments',x,i),x));
  (cardPaymentPlan||[]).forEach((x,i)=>add('card_payment_plan',syncStableId('card_payment_plan',x,i),x));
+ (typeof invHoldings!=='undefined'?invHoldings:[]).forEach((x,i)=>add('investments_holdings',syncStableId('investments_holdings',x,i),x));
+ (typeof invTrades!=='undefined'?invTrades:[]).forEach((x,i)=>add('investments_trades',syncStableId('investments_trades',x,i),x));
+ (typeof rentalBookings!=='undefined'?rentalBookings:[]).forEach((x,i)=>add('rental_bookings',syncStableId('rental_bookings',x,i),x));
+ (typeof rentalExpenses!=='undefined'?rentalExpenses:[]).forEach((x,i)=>add('rental_expenses',syncStableId('rental_expenses',x,i),x));
+ (typeof rentalBlocks!=='undefined'?rentalBlocks:[]).forEach((x,i)=>add('rental_blocks',syncStableId('rental_blocks',x,i),x));
+ (typeof goldAssets!=='undefined'?goldAssets:[]).forEach((x,i)=>add('personal_assets_gold',syncStableId('personal_assets_gold',x,i),x));
+ (typeof goldZakatHistory!=='undefined'?goldZakatHistory:[]).forEach((x,i)=>add('personal_assets_zakat',syncStableId('personal_assets_zakat',x,i),x));
+ (typeof goldSaleHistory!=='undefined'?goldSaleHistory:[]).forEach((x,i)=>add('personal_assets_sales',syncStableId('personal_assets_sales',x,i),x));
 
  return rows;
 }
