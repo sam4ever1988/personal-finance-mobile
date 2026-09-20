@@ -565,8 +565,6 @@ async function renderCloudReconciliation(){
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session){el.innerHTML='<b>Local vs Cloud:</b> Sign in to compare.';return;}
  try{
-  // V225: the row-level store is canonical. The legacy app_state snapshot stopped
-  // being updated in V145 and must not be used to judge current synchronization.
   const cloudRows=await recordFetchAll();
   const active=cloudRows.filter(r=>!r.deleted_at);
   if(!active.length){el.className='notice danger';el.innerHTML='<b>Local vs Cloud:</b> No active cloud records found.';return;}
@@ -576,14 +574,37 @@ async function renderCloudReconciliation(){
   const cloudMap=new Map(active.map(r=>[key(r),r]));
   const missing=[...localMap.keys()].filter(k=>!cloudMap.has(k));
   const unexpected=[...cloudMap.keys()].filter(k=>!localMap.has(k));
-  const different=[...localMap.keys()].filter(k=>cloudMap.has(k)&&JSON.stringify(localMap.get(k).data)!==JSON.stringify(cloudMap.get(k).data));
+  const stable=v=>{
+   if(Array.isArray(v))return v.map(stable);
+   if(v&&typeof v==='object'){
+    const o={}; Object.keys(v).sort().forEach(k=>{o[k]=stable(v[k])}); return o;
+   }
+   return v;
+  };
+  const same=(a,b)=>JSON.stringify(stable(a))===JSON.stringify(stable(b));
+  const fieldDiffs=(a,b,path='')=>{
+   const out=[],aa=(a&&typeof a==='object')?a:{},bb=(b&&typeof b==='object')?b:{};
+   [...new Set([...Object.keys(aa),...Object.keys(bb)])].sort().forEach(k=>{
+    const p=path?path+'.'+k:k, av=aa[k], bv=bb[k];
+    if(same(av,bv))return;
+    if(av&&bv&&!Array.isArray(av)&&!Array.isArray(bv)&&typeof av==='object'&&typeof bv==='object')out.push(...fieldDiffs(av,bv,p));
+    else out.push({field:p,local:av,cloud:bv});
+   }); return out;
+  };
+  const different=[...localMap.keys()].filter(k=>cloudMap.has(k)&&!same(localMap.get(k).data,cloudMap.get(k).data));
+  const detail=different.map(k=>({key:k,section:localMap.get(k).section,recordId:localMap.get(k).record_id,diffs:fieldDiffs(localMap.get(k).data,cloudMap.get(k).data)}));
   const local=localSyncSummary();
   if(!missing.length&&!unexpected.length&&!different.length){
    el.className='notice success';
-   el.innerHTML=`<b>Local vs Cloud: EXACT MATCH</b> • ${active.length} canonical records • ${local.transactions} active transactions • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} cash-flow rows.<div class="meta" style="margin-top:5px">Every local record key and value matches the live cloud database.</div>`;
+   el.innerHTML=`<b>Local vs Cloud: EXACT MATCH</b> • ${active.length} canonical records • ${local.transactions} active transactions • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} active cash-flow rows.<div class="meta" style="margin-top:5px">Every local record key and value matches the live cloud database.</div>`;
   }else{
+   const esc=v=>String(v==null?'':(typeof v==='object'?JSON.stringify(v):v)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+   const rows=detail.flatMap(x=>x.diffs.map(d=>`<tr><td>${esc(x.section)}</td><td>${esc(x.recordId)}</td><td>${esc(d.field)}</td><td><code>${esc(d.local)}</code></td><td><code>${esc(d.cloud)}</code></td></tr>`)).slice(0,500).join('');
+   const missingRows=missing.slice(0,50).map(k=>`<li>Missing in cloud: <code>${esc(k)}</code></li>`).join('');
+   const unexpectedRows=unexpected.slice(0,50).map(k=>`<li>Unexpected in cloud: <code>${esc(k)}</code></li>`).join('');
    el.className='notice danger';
-   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} local record(s) missing in cloud • ${unexpected.length} unexpected cloud record(s) • ${different.length} record value difference(s).</div><div class="meta" style="margin-top:5px">Use Sync Now to publish this device, or Load Latest Cloud Data to adopt the cloud copy.</div>`;
+   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><ul style="margin:0 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>MacBook / Local</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
+   const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
   }
  }catch(e){
   el.className='notice danger';
