@@ -981,7 +981,10 @@ async function publishRestoredBackupToCloud(){
    transactions:Number(local.transportRows||local.transactions||0),
    installments:Number(local.installments||0),
    paymentRows:Number(local.paymentRows||0),
-   cashFlowRows:Number(local.cashFlowRows||0)
+   // cash_flow_ledger intentionally transports reversed audit/history rows too.
+   // Active finance calculations use local.cashFlowRows, while exact key verification
+   // above guarantees that the full ledger (active + reversed) matches the restored device.
+   cashFlowRows:Number((cashFlowLedger||[]).length)
   };
   for(const k of ['transactions','installments','paymentRows','cashFlowRows']){
    if(Number(actual[k]||0)!==expectedCounts[k])throw new Error(`Protected cloud read-back failed for ${k}: expected transport ${expectedCounts[k]}, cloud ${actual[k]||0}.`);
