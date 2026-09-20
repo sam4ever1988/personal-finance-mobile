@@ -2269,3 +2269,102 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
   .execKpiText b{font-size:16px!important}
   .canonicalTopNav>.canonicalMenu,.canonicalTopNav>button{flex-basis:76px!important;width:76px!important;min-width:76px!important;max-width:76px!important}
 }
+
+
+/* V286 — mobile header/nav stacking and safe-corner correction */
+@media (max-width: 900px){
+  html body{padding-bottom:0!important}
+  html body>.app{
+    padding-top:0!important;
+    padding-bottom:calc(88px + env(safe-area-inset-bottom))!important;
+  }
+
+  /* Header participates in layout, so dashboard cards can never cover it. */
+  html body #canonicalAppTop{
+    position:sticky!important;
+    top:0!important;left:auto!important;right:auto!important;
+    z-index:2147483000!important;
+    width:100%!important;max-width:100%!important;
+    height:60px!important;min-height:60px!important;
+    display:flex!important;flex-wrap:nowrap!important;align-items:center!important;
+    padding:0 12px!important;margin:0!important;
+    background:#001b2a!important;border-bottom:1px solid #155273!important;
+    box-shadow:0 7px 20px rgba(0,0,0,.28)!important;
+    isolation:isolate!important;
+  }
+  html body #canonicalAppTop .canonicalBrand{
+    display:flex!important;position:relative!important;inset:auto!important;
+    flex:1 1 auto!important;width:auto!important;min-width:0!important;max-width:none!important;
+    height:60px!important;padding:0!important;margin:0!important;overflow:hidden!important;
+  }
+  html body #canonicalAppTop .canonicalBrand b{
+    display:block!important;max-width:calc(100vw - 100px)!important;
+    overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;
+  }
+  html body #canonicalAppTop .canonicalProfile{
+    display:block!important;position:relative!important;inset:auto!important;
+    flex:0 0 42px!important;width:42px!important;height:42px!important;
+    margin:0 0 0 auto!important;z-index:2!important;
+  }
+  html body #canonicalAppTop .canonicalAvatar{
+    position:relative!important;inset:auto!important;
+    width:42px!important;height:42px!important;margin:0!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    background:#06283a!important;border:1px solid #28caff!important;
+  }
+
+  /* Bottom navigation always sits above charts, legends, tables and browser content. */
+  html body #canonicalAppTop .canonicalTopNav{
+    position:fixed!important;
+    z-index:2147483640!important;
+    left:0!important;right:0!important;
+    top:auto!important;
+    bottom:0!important;
+    width:100vw!important;max-width:100vw!important;
+    height:calc(76px + env(safe-area-inset-bottom))!important;
+    min-height:calc(76px + env(safe-area-inset-bottom))!important;
+    padding:0 4px env(safe-area-inset-bottom)!important;
+    margin:0!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    background:#001b2a!important;
+    border-top:2px solid #16bde9!important;
+    box-shadow:0 -12px 30px rgba(0,0,0,.48)!important;
+    opacity:1!important;isolation:isolate!important;
+  }
+  html body #canonicalAppTop .canonicalTopNav:before{
+    content:"";position:absolute;inset:0;z-index:-1;background:#001b2a;
+  }
+  html body #canonicalAppTop .canonicalTopNav>.canonicalMenu,
+  html body #canonicalAppTop .canonicalTopNav>button{
+    height:74px!important;min-height:74px!important;
+  }
+  html body #canonicalAppTop .canonicalMenuTrigger,
+  html body #canonicalAppTop .canonicalTopNav>button{
+    height:74px!important;min-height:74px!important;
+    color:#cfe3ee!important;background:#001b2a!important;
+  }
+  html body #canonicalAppTop .canonicalMenu.active>.canonicalMenuTrigger,
+  html body #canonicalAppTop .canonicalMenu.open>.canonicalMenuTrigger,
+  html body #canonicalAppTop .canonicalTopNav>button.active{
+    background:#073c63!important;color:#fff!important;
+  }
+
+  /* Reserve clear space under every page; floating dashboard elements stop above nav. */
+  html body>.app>.main>.content,
+  html body>.app>.main>.content>.view.active{
+    padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;
+  }
+  html body .execShell,html body .execMain,html body .cashMain,
+  html body .txExecMain,html body .strategyMain{
+    padding-bottom:calc(96px + env(safe-area-inset-bottom))!important;
+  }
+  html body .execLegend,html body .execFlowLegend,
+  html body .txTableFoot,html body .reportSelection{
+    z-index:1!important;
+  }
+
+  html body #canonicalAppTop .canonicalDropdown{
+    z-index:2147483641!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+  }
+}
