@@ -2368,3 +2368,40 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
     bottom:calc(82px + env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* V287 — mobile grouped navigation bottom sheets */
+@media (max-width:900px){
+  html body #canonicalAppTop .canonicalMenu.open>.canonicalDropdown{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:5px!important;
+    left:10px!important;right:10px!important;
+    bottom:calc(84px + env(safe-area-inset-bottom))!important;
+    top:auto!important;
+    max-height:min(60vh,430px)!important;
+    padding:10px!important;
+    overflow-y:auto!important;
+    background:#052b3b!important;
+    border:1px solid #1a6b88!important;
+    border-radius:15px!important;
+    box-shadow:0 -18px 48px rgba(0,0,0,.62)!important;
+  }
+  html body #canonicalAppTop .canonicalDropdown>button{
+    display:flex!important;flex-direction:row!important;
+    width:100%!important;min-width:100%!important;max-width:none!important;
+    min-height:52px!important;height:auto!important;
+    justify-content:flex-start!important;align-items:center!important;
+    gap:11px!important;padding:12px 14px!important;
+    background:#073449!important;border:1px solid #155a76!important;
+    border-radius:10px!important;color:#eaf7ff!important;
+    font-size:15px!important;text-align:left!important;
+  }
+  html body #canonicalAppTop .canonicalDropdown>button.active{
+    background:#0b4e73!important;border-color:#28caff!important;
+    box-shadow:inset 3px 0 #28caff!important;
+  }
+  html body #canonicalAppTop .canonicalDropdown .navSvg{
+    width:22px!important;height:22px!important;min-width:22px!important;
+  }
+}
