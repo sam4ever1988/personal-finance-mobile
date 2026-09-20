@@ -223,7 +223,14 @@ async function recordPullAll(reason='manual-full-pull'){
 }
 
 async function recordPushAll(reason='edit'){
- if(recordSyncPushBusy||recordSyncApplying||!recordSyncReady||!cloudClient)return false;
+ if(recordSyncApplying||!recordSyncReady||!cloudClient)return false;
+ // If an edit arrives while a push is already running, queue one guaranteed retry.
+ // Previously the scheduled call could return here and leave Local Changes stuck Pending.
+ if(recordSyncPushBusy){
+  clearTimeout(recordSyncPushTimer);
+  recordSyncPushTimer=setTimeout(()=>recordPushAll(reason+'-queued'),400);
+  return false;
+ }
  recordSyncPushBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
