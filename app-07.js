@@ -973,8 +973,18 @@ async function publishRestoredBackupToCloud(){
    paymentRows:active.filter(r=>r.section==='card_payment_plan').length,
    cashFlowRows:active.filter(r=>r.section==='cash_flow_ledger').length
   };
+  // V284: transaction record rows include deleted/audit transactions so cloud transport
+  // count must be compared with local transportRows, not the active transaction count.
+  // Exact key verification above plus the transaction_actions singleton preserves and
+  // verifies the deleted/audit state without treating those history rows as active.
+  const expectedCounts={
+   transactions:Number(local.transportRows||local.transactions||0),
+   installments:Number(local.installments||0),
+   paymentRows:Number(local.paymentRows||0),
+   cashFlowRows:Number(local.cashFlowRows||0)
+  };
   for(const k of ['transactions','installments','paymentRows','cashFlowRows']){
-   if(Number(actual[k]||0)!==Number(local[k]||0))throw new Error(`Protected cloud read-back failed for ${k}: local ${local[k]||0}, cloud ${actual[k]||0}.`);
+   if(Number(actual[k]||0)!==expectedCounts[k])throw new Error(`Protected cloud read-back failed for ${k}: expected transport ${expectedCounts[k]}, cloud ${actual[k]||0}.`);
   }
  }
  const legacy=await cloudInspectState();
