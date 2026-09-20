@@ -87,7 +87,7 @@ function ensureCanonicalShell(){
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',(e)=>{if(e.target.closest('#canonicalMobileNavSheet,.canonicalMenuTrigger'))return;closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'))});window.addEventListener('resize',()=>closeCanonicalMobileSheet(document.getElementById('canonicalAppTop')));}
 }
 function syncCanonicalShell(page){
- ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.88</small>';}
+ ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.89</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -107,7 +107,7 @@ rebuildTransactions();
 const accounts=BASE.accounts;
 let customCreditCards=JSON.parse(localStorage.getItem('pf_custom_credit_cards')||'[]');
 if(!Array.isArray(customCreditCards))customCreditCards=[];
-customCreditCards.forEach(c=>{if(c?.id&&!accounts.some(a=>a.id===c.id))accounts.push(c)});
+customCreditCards.forEach(c=>{if(!c?.id)return;const i=accounts.findIndex(a=>a.id===c.id);if(i>=0)accounts[i]=c;else accounts.push(c)});
 normalizeCardPaymentPlan();
 removeUnbackedOfficialStatementRows();
 if(resetCardIds.has('meem-7102')){
