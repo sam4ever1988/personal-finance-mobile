@@ -435,6 +435,13 @@ async function startRealtimeRecordSync(){
   return false;
  }
 
+ if(!financeProtectedAccountCatalogReady()){
+  recordSyncReady=false;
+  cloudSetStatus('Protected • load the account catalogue from cloud before synchronization');
+  setFinanceAccessGate(session);
+  return false;
+ }
+
  // V187: NEVER download/apply cloud records automatically on startup or page refresh.
  // Local screen state remains untouched until the user explicitly presses Load Latest Cloud Data.
  // This prevents a stale/partial cloud dataset from clearing newly entered transactions.
@@ -467,6 +474,57 @@ async function startRealtimeRecordSync(){
 }
 // ===================================================================
 
+function financeProtectedAccountCatalogReady(){
+ return typeof customBanks!=='undefined'&&Array.isArray(customBanks)&&customBanks.length>0&&
+        typeof customCreditCards!=='undefined'&&Array.isArray(customCreditCards)&&customCreditCards.length>0;
+}
+function financeDeviceCloudVerified(){
+ return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'&&financeProtectedAccountCatalogReady();
+}
+function setFinanceAccessGate(session){
+ const gate=$('financeAccessGate');if(!gate)return;
+ const signedIn=!!session,ready=signedIn&&financeDeviceCloudVerified();
+ gate.classList.toggle('financeGateHidden',ready);
+ gate.setAttribute('aria-hidden',ready?'true':'false');
+ document.body.classList.toggle('financeAccessLocked',!ready);
+ const out=$('financeGateSignedOut'),inside=$('financeGateSignedIn');
+ if(out)out.style.display=signedIn?'none':'block';
+ if(inside)inside.style.display=signedIn?'block':'none';
+ const user=$('financeGateUser');if(user&&signedIn)user.textContent=session.user?.email||'Authenticated owner';
+}
+function bindFinanceAccessGate(){
+ const send=$('financeGateSendLink'),load=$('financeGateLoadCloud'),wipe=$('financeGateWipeDevice'),email=$('financeGateEmail'),status=$('financeGateStatus');
+ if(send&&!send.dataset.bound){send.dataset.bound='1';send.onclick=async()=>{
+  const address=String(email?.value||'').trim();if(!address){if(status)status.textContent='Enter your email first.';return;}
+  send.disabled=true;if(status)status.textContent='Sending secure login link…';
+  try{
+   if(!cloudClient)throw new Error('Cloud connection is unavailable.');
+   const {error}=await cloudClient.auth.signInWithOtp({email:address,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+   if(error)throw error;
+   if(status)status.textContent='Secure login link sent. Check your email.';
+  }catch(e){if(status)status.textContent='Login error: '+e.message;}
+  finally{send.disabled=false;}
+ };}
+ if(load&&!load.dataset.bound){load.dataset.bound='1';load.onclick=async()=>{
+  load.disabled=true;if(status)status.textContent='Loading your protected account catalogue and finance records…';
+  try{
+   await cloudDownloadAll();
+   const {data:{session}}=await cloudClient.auth.getSession();
+   if(financeDeviceCloudVerified()){if(status)status.textContent='Protected cloud data loaded and verified.';setFinanceAccessGate(session);}
+   else if(status)status.textContent='Cloud load did not complete. Your local data was not published.';
+  }catch(e){if(status)status.textContent='Cloud load failed: '+e.message;}
+  finally{load.disabled=false;}
+ };}
+ if(wipe&&!wipe.dataset.bound){wipe.dataset.bound='1';wipe.onclick=async()=>{
+  if(!confirm('Wipe finance data stored only on this device? Protected cloud data will not be deleted.'))return;
+  wipe.disabled=true;if(status)status.textContent='Wiping this device only…';
+  Object.keys(localStorage).filter(k=>k.startsWith('pf_')).forEach(k=>localStorage.removeItem(k));
+  try{await new Promise(resolve=>{const req=indexedDB.deleteDatabase('PersonalFinanceDB');req.onsuccess=req.onerror=req.onblocked=()=>resolve();});}catch(_){}
+  location.reload();
+ };}
+}
+bindFinanceAccessGate();
+
 async function cloudRefreshAuth(){
  if(!cloudClient){
   if($('cloudLoggedOut'))$('cloudLoggedOut').style.display='block';
@@ -475,6 +533,7 @@ async function cloudRefreshAuth(){
   return null;
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
+ setFinanceAccessGate(session);
  $('cloudLoggedOut').style.display=on?'none':'block';
  $('cloudLoggedIn').style.display=on?'block':'none';
  if(on){
