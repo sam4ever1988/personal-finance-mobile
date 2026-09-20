@@ -492,6 +492,23 @@ function setFinanceAccessGate(session){
  if(inside)inside.style.display=signedIn?'block':'none';
  const user=$('financeGateUser');if(user&&signedIn)user.textContent=session.user?.email||'Authenticated owner';
 }
+async function financeSignOutCurrentDevice(){
+ const status=$('financeGateStatus');
+ try{
+  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
+  if(recordSyncChannel){try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){} recordSyncChannel=null;}
+  recordSyncReady=false;
+  const {error}=await cloudClient.auth.signOut({scope:'local'});
+  if(error)throw error;
+  await cloudRefreshAuth();
+  updateCloudSyncPanel(false);
+  if(typeof nav==='function')nav('executive');
+  if(status)status.textContent='Signed out on this device. Navigation remains available; finance data and actions are hidden.';
+ }catch(e){
+  if(status)status.textContent='Sign out error: '+e.message;
+  cloudSetStatus('Sign out error: '+e.message);
+ }
+}
 function bindFinanceAccessGate(){
  const send=$('financeGateSendLink'),load=$('financeGateLoadCloud'),wipe=$('financeGateWipeDevice'),email=$('financeGateEmail'),status=$('financeGateStatus');
  if(send&&!send.dataset.bound){send.dataset.bound='1';send.onclick=async()=>{
@@ -1612,7 +1629,7 @@ if(cloudClient){
  if($('cloudInitialUpload'))$('cloudInitialUpload').addEventListener('click',cloudInitialUpload);
  $('cloudUpload').addEventListener('click',cloudUploadAll);
  $('cloudDownload').addEventListener('click',cloudDownloadAll);
- $('cloudSignOut').addEventListener('click',async()=>{await cloudClient.auth.signOut();await cloudRefreshAuth();updateCloudSyncPanel(false);});
+ $('cloudSignOut').addEventListener('click',financeSignOutCurrentDevice);
  cloudClient.auth.onAuthStateChange(()=>setTimeout(async()=>{await refreshCloudSafetyState();},0));
 }else{
  $('cloudSendLink').addEventListener('click',()=>cloudSetStatus('Cloud sync is unavailable right now. The dashboard is running normally in local mode.'));
