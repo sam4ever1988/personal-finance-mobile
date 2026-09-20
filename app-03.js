@@ -32,8 +32,37 @@ function canonicalTopHTML(){
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
  +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
+function closeCanonicalMobileSheet(top){
+ var sheet=document.getElementById('canonicalMobileNavSheet');if(sheet)sheet.remove();
+ (top||document).querySelectorAll('[data-nav-menu]').forEach(m=>{
+  m.classList.remove('open','mobile-sheet-open');
+  var trigger=m.querySelector('.canonicalMenuTrigger');if(trigger)trigger.setAttribute('aria-expanded','false');
+ });
+}
+function openCanonicalMobileSheet(top,m,b){
+ var key=b.dataset.mainPage||'menu',existing=document.getElementById('canonicalMobileNavSheet');
+ if(existing&&existing.dataset.owner===key){closeCanonicalMobileSheet(top);return;}
+ closeCanonicalMobileSheet(top);
+ m.classList.add('mobile-sheet-open');b.setAttribute('aria-expanded','true');
+ var source=m.querySelector('.canonicalDropdown'),label=b.querySelector('span:not(.navChevron)')?.textContent||'Menu';
+ var sheet=document.createElement('section');
+ sheet.id='canonicalMobileNavSheet';sheet.className='canonicalMobileNavSheet';sheet.dataset.owner=key;
+ sheet.setAttribute('role','dialog');sheet.setAttribute('aria-modal','false');sheet.setAttribute('aria-label',label+' navigation');
+ sheet.innerHTML='<div class="canonicalMobileSheetHead"><b>'+label+'</b><button type="button" aria-label="Close menu">×</button></div><div class="canonicalMobileSheetList"></div>';
+ var list=sheet.querySelector('.canonicalMobileSheetList');
+ source.querySelectorAll('[data-page-jump]').forEach(item=>{
+  var copy=item.cloneNode(true);
+  copy.onclick=(e)=>{e.preventDefault();e.stopPropagation();var page=copy.dataset.pageJump;closeCanonicalMobileSheet(top);if(page)nav(page);};
+  list.appendChild(copy);
+ });
+ sheet.querySelector('.canonicalMobileSheetHead button').onclick=(e)=>{e.preventDefault();e.stopPropagation();closeCanonicalMobileSheet(top);};
+ sheet.onclick=e=>e.stopPropagation();
+ document.body.appendChild(sheet);
+ requestAnimationFrame(()=>sheet.classList.add('visible'));
+}
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
+ closeCanonicalMobileSheet();
  app.querySelectorAll('.sidebar,.unifiedSide,#canonicalAppSide').forEach(x=>x.remove());
  main.querySelectorAll('.topbar').forEach(x=>x.remove());
  var content=main.querySelector(':scope>.content');if(!content)return;
@@ -41,33 +70,24 @@ function ensureCanonicalShell(){
  var top=document.getElementById('canonicalAppTop');
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
  top.innerHTML=canonicalTopHTML();
- top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
+ top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();closeCanonicalMobileSheet(top);top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
  top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
   var m=b.closest('[data-nav-menu]');
-  b.onmouseenter=()=>{top.querySelectorAll('[data-nav-menu]').forEach(x=>{if(x!==m)x.classList.remove('open')});m.classList.add('open');b.setAttribute('aria-expanded','true')};
+  b.onmouseenter=()=>{if(window.matchMedia('(max-width:900px)').matches)return;top.querySelectorAll('[data-nav-menu]').forEach(x=>{if(x!==m)x.classList.remove('open')});m.classList.add('open');b.setAttribute('aria-expanded','true')};
   b.onclick=(e)=>{
    e.preventDefault();e.stopPropagation();
-   if(window.matchMedia('(max-width:900px)').matches){
-    var willOpen=!m.classList.contains('open');
-    top.querySelectorAll('[data-nav-menu]').forEach(x=>{
-     x.classList.remove('open');
-     var trigger=x.querySelector('.canonicalMenuTrigger');if(trigger)trigger.setAttribute('aria-expanded','false');
-    });
-    m.classList.toggle('open',willOpen);
-    b.setAttribute('aria-expanded',willOpen?'true':'false');
-    return;
-   }
+   if(window.matchMedia('(max-width:900px)').matches){openCanonicalMobileSheet(top,m,b);return;}
    var target=b.dataset.mainPage;if(target)nav(target);
   };
  });
- top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
+ top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{if(window.matchMedia('(max-width:900px)').matches)return;m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
  var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
- if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
+ if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();closeCanonicalMobileSheet(top);var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
  top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='preferences')nav('preferences');else if(a==='account')nav('accountprofile');else if(a==='signout'){profile.classList.remove('open');alert('Sign out will connect to the login system when authentication is added.')}});
- if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));window.addEventListener('resize',()=>document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open')));}
+ if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',(e)=>{if(e.target.closest('#canonicalMobileNavSheet,.canonicalMenuTrigger'))return;closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'))});window.addEventListener('resize',()=>closeCanonicalMobileSheet(document.getElementById('canonicalAppTop')));}
 }
 function syncCanonicalShell(page){
- ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.87</small>';}
+ ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.88</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
