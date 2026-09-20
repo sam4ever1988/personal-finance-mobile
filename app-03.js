@@ -1560,6 +1560,7 @@ function saveV194Data(){
  localStorage.setItem('pf_gold_sale_history',JSON.stringify(goldSaleHistory));
  localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));
  localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));
+ if(typeof scheduleCloudAutoSave==='function')scheduleCloudAutoSave();
 }
 function remainingMonthlyCashFlow(){return remainingIncomeAvailable();}
 function renderDashboardRemainingBalances(){
