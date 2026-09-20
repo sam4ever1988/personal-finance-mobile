@@ -87,7 +87,17 @@ function ensureCanonicalShell(){
  if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',(e)=>{if(e.target.closest('#canonicalMobileNavSheet,.canonicalMenuTrigger'))return;closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'))});window.addEventListener('resize',()=>closeCanonicalMobileSheet(document.getElementById('canonicalAppTop')));}
 }
 function syncCanonicalShell(page){
- ensureCanonicalShell();var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.91</small>';}
+ ensureCanonicalShell();
+ var locked=document.body.classList.contains('financeAccessLocked');
+ var shellAvatar=document.querySelector('#canonicalAppTop .canonicalAvatar');
+ var shellProfile=document.querySelector('#canonicalAppTop [data-profile-menu]');
+ if(shellAvatar){
+  shellAvatar.disabled=locked;
+  shellAvatar.setAttribute('aria-disabled',locked?'true':'false');
+  shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
+ }
+ if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.92</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
