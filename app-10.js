@@ -3,7 +3,7 @@ var rentalBookings=JSON.parse(localStorage.getItem("pf_rental_bookings")||"[]");
 var rentalExpenses=JSON.parse(localStorage.getItem("pf_rental_expenses")||"[]");
 var rentalBlocks=JSON.parse(localStorage.getItem("pf_rental_blocks")||"[]");
 window.rentalView=new Date();rentalView.setDate(1);
-function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks))}
+function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks));if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave()}
 function rDate(s){return new Date(s+"T12:00:00")}
 window.rIso=function(d){return d.toISOString().slice(0,10)}
 function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
