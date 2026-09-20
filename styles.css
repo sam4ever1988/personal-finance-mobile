@@ -2495,3 +2495,22 @@ body.financeAccessLocked{overflow:hidden!important}
  .financeAccessCard{padding:22px 18px;border-radius:18px}
  .financeAccessCard h1{font-size:28px}
 }
+
+
+/* V290 — signed-out empty state keeps navigation available while blocking finance content */
+body.financeAccessLocked{overflow:auto!important}
+.financeAccessGate{
+ top:62px!important;right:0!important;bottom:0!important;left:0!important;
+ z-index:110!important;
+ background:radial-gradient(circle at 50% 0,#07344d 0,#021a2a 46%,#00131f 100%)!important;
+ pointer-events:auto!important;
+}
+@media(max-width:900px){
+ .financeAccessGate{
+  top:60px!important;
+  bottom:calc(76px + env(safe-area-inset-bottom))!important;
+  z-index:2147482000!important;
+  padding:18px 16px!important;
+ }
+ .financeAccessCard{width:min(460px,100%)!important;padding:22px!important}
+}
