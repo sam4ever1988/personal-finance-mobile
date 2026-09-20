@@ -2128,3 +2128,144 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
 /* V284 top-row version label */
 .canonicalDate{flex-direction:column!important;justify-content:center!important;gap:1px!important;line-height:1.05!important}
 .canonicalDate .canonicalVersion{display:block;font-size:9px;font-weight:800;letter-spacing:.08em;color:#35d5ff;line-height:1.1}
+
+
+/* V285 — true mobile application layout */
+@media (max-width: 900px){
+  html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+  body{padding-bottom:74px!important;background:#021521!important}
+  body>.app{width:100%!important;max-width:100%!important;padding-top:58px!important;padding-bottom:74px!important}
+  body>.app>.main,body>.app>.main>.content,
+  body>.app>.main>.content>.view,body>.app>.main>.content>.view.active{
+    width:100%!important;max-width:100%!important;min-width:0!important;
+    margin:0!important;box-sizing:border-box!important
+  }
+
+  /* One compact mobile header. */
+  #canonicalAppTop{
+    position:fixed!important;top:0!important;left:0!important;right:0!important;
+    width:100%!important;max-width:100%!important;height:58px!important;min-height:58px!important;
+    display:flex!important;align-items:center!important;flex-wrap:nowrap!important;
+    padding:0 12px!important;box-sizing:border-box!important;background:#001b2a!important;
+    border-bottom:1px solid #155273!important;overflow:visible!important
+  }
+  .canonicalBrand{
+    height:58px!important;width:auto!important;min-width:0!important;flex:1 1 auto!important;
+    padding:0!important;border:0!important;gap:9px!important
+  }
+  .canonicalBrand b{font-size:18px!important;line-height:1.1!important;white-space:nowrap!important}
+  .canonicalBrand small{display:none!important}
+  .canonicalMark .navSvg{width:26px!important;height:26px!important}
+  .canonicalDate{display:none!important}
+  .canonicalProfile{flex:0 0 auto!important}
+  .canonicalAvatar{width:40px!important;height:40px!important;margin:0!important;font-size:13px!important}
+  .canonicalProfileMenu{position:fixed!important;top:54px!important;right:8px!important;left:auto!important;width:min(260px,calc(100vw - 16px))!important}
+
+  /* Touch navigation stays visible at the bottom and scrolls horizontally. */
+  .canonicalTopNav{
+    position:fixed!important;z-index:10050!important;left:0!important;right:0!important;bottom:0!important;
+    top:auto!important;width:100%!important;height:70px!important;min-height:70px!important;
+    display:flex!important;align-items:stretch!important;order:initial!important;
+    overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain;
+    scrollbar-width:none!important;background:#001b2a!important;border-top:1px solid #155273!important;
+    padding:0 max(4px,env(safe-area-inset-left)) env(safe-area-inset-bottom) max(4px,env(safe-area-inset-right))!important;
+    box-sizing:border-box!important
+  }
+  .canonicalTopNav::-webkit-scrollbar{display:none!important}
+  .canonicalTopNav>.canonicalMenu,.canonicalTopNav>button{
+    flex:0 0 82px!important;width:82px!important;min-width:82px!important;max-width:82px!important;
+    height:68px!important;display:flex!important;align-items:stretch!important
+  }
+  .canonicalMenuTrigger,.canonicalTopNav>button{
+    width:100%!important;height:68px!important;min-height:68px!important;padding:7px 5px 6px!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+    gap:4px!important;border-radius:0!important;font-size:11px!important;line-height:1.12!important;
+    white-space:normal!important;text-align:center!important
+  }
+  .canonicalTopNav .navSvg{width:21px!important;height:21px!important;min-width:21px!important}
+  .canonicalTopNav>button span,.canonicalMenuTrigger>span:not(.navChevron){white-space:normal!important}
+  .navChevron{display:none!important}
+  .canonicalMenu.open>.canonicalMenuTrigger,.canonicalMenu.active>.canonicalMenuTrigger,
+  .canonicalTopNav>button.active{background:#073c63!important;color:#fff!important;box-shadow:inset 0 3px #28caff!important}
+  .canonicalDropdown{
+    position:fixed!important;left:8px!important;right:8px!important;top:auto!important;bottom:76px!important;
+    min-width:0!important;max-height:55vh!important;overflow-y:auto!important;border-radius:12px!important;
+    box-shadow:0 -18px 44px rgba(0,0,0,.48)!important
+  }
+  .canonicalDropdown>button{
+    min-width:100%!important;max-width:none!important;width:100%!important;height:auto!important;min-height:48px!important;
+    flex-direction:row!important;justify-content:flex-start!important;text-align:left!important;font-size:14px!important
+  }
+
+  /* Retire duplicated desktop shells inside modules. */
+  .execTop,.execSide,.cashTop,.cashSide,.txExecTop,.txExecSide,.strategyTop,.strategySide,
+  .modernModuleTop,.sidebar,.unifiedSide,#canonicalAppSide{display:none!important}
+  .execBody,.cashBody,.txExecBody,.strategyBody{display:block!important;grid-template-columns:1fr!important;min-height:0!important}
+  .execMain,.cashMain,.txExecMain,.strategyMain{width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:14px!important;overflow:visible!important;box-sizing:border-box!important}
+
+  /* Executive dashboard fits the phone instead of cropping. */
+  body.execMode #executive{width:100%!important;max-width:100%!important;min-width:0!important;padding:0!important}
+  .execShell{width:100%!important;max-width:100%!important;min-width:0!important}
+  .execHero{height:auto!important;min-height:0!important;display:block!important;margin:2px 0 14px!important}
+  .execHero h2{font-size:28px!important;line-height:1.08!important;margin:0 0 7px!important;letter-spacing:-.02em!important}
+  .execHero .meta{font-size:14px!important;line-height:1.45!important}
+  .execHeroRight{display:none!important}
+  .execKpis{
+    width:100%!important;height:auto!important;display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin:0 0 12px!important
+  }
+  .execKpi{
+    width:auto!important;height:auto!important;min-height:118px!important;min-width:0!important;
+    padding:13px 10px!important;display:flex!important;align-items:flex-start!important;gap:9px!important;
+    overflow:hidden!important;box-sizing:border-box!important
+  }
+  .execKpiIcon{flex:0 0 40px!important;width:40px!important;height:40px!important;font-size:20px!important}
+  .execKpiText{min-width:0!important;max-width:100%!important}
+  .execKpiText small{font-size:12px!important;line-height:1.3!important;white-space:normal!important}
+  .execKpiText b{font-size:17px!important;line-height:1.2!important;white-space:normal!important;overflow-wrap:anywhere!important}
+  .execKpiText em{font-size:11px!important;line-height:1.3!important;white-space:normal!important}
+  .execGrid,.execBottom,.execCol.narrow{width:100%!important;display:grid!important;grid-template-columns:1fr!important;gap:12px!important}
+  .execPanel{width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
+  .execFlow{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;padding-bottom:12px!important}
+  .execFlow:after,.execFlowLegend{display:none!important}
+  .execChartFlex{grid-template-columns:1fr!important}
+  .execPositionCards{grid-template-columns:1fr!important}
+
+  /* Other modules use mobile stacks and safe horizontal table scrolling. */
+  #rental,#reports,#investments,#assets,#installments,#outgoings,#importstatements,
+  #financeSettings,#more,#accounts,#transactions,#incomeplan,#financialposition,#strategy{
+    width:100%!important;max-width:100%!important;margin:0!important;padding:14px!important;box-sizing:border-box!important
+  }
+  .kpis,.cashKpis,.workKpis,.strategyKpis,.reportKpisExecutive,.rentalKpis,.invKpis{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important
+  }
+  .grid2,.grid31,.cashGridTop,.cashGridBottom,.strategyGrid,.strategyGridWide,
+  .reportAnalyticsGrid,.reportAnalyticsSecond,.rentalLayout,.rentalBottom,.invGrid{
+    grid-template-columns:1fr!important
+  }
+  .invHero,.reportHero,.cashHero,.workHero,.strategyPageHero{flex-direction:column!important;align-items:flex-start!important}
+  .invActions,.cashHeroActions,.workHeroActions{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important}
+  .invToolbar,.filters,.reportFilters{display:grid!important;grid-template-columns:1fr!important}
+  .invToolbar input,.invToolbar select,.filters .control,.reportFilters .control{width:100%!important;min-width:0!important}
+  .tableWrap,.txTableScroll,.cashTableWrap,.catTableWrap,.panel[style*="overflow-x"]{
+    width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch
+  }
+  table{max-width:none}
+  .modalBack{padding:10px!important;align-items:flex-end!important}
+  .modal{width:100%!important;max-width:100%!important;max-height:88vh!important;border-radius:16px 16px 0 0!important}
+  .formGrid{grid-template-columns:1fr!important}
+  .field.full{grid-column:auto!important}
+}
+
+@media (max-width: 430px){
+  .execMain,.cashMain,.txExecMain,.strategyMain,
+  #rental,#reports,#investments,#assets,#installments,#outgoings,#importstatements,
+  #financeSettings,#more,#accounts,#transactions,#incomeplan,#financialposition,#strategy{padding:11px!important}
+  .execKpis,.kpis,.cashKpis,.workKpis,.strategyKpis,.reportKpisExecutive,.rentalKpis,.invKpis{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important
+  }
+  .execKpi{min-height:124px!important;flex-direction:column!important}
+  .execKpiIcon{width:38px!important;height:38px!important;flex-basis:38px!important}
+  .execKpiText b{font-size:16px!important}
+  .canonicalTopNav>.canonicalMenu,.canonicalTopNav>button{flex-basis:76px!important;width:76px!important;min-width:76px!important;max-width:76px!important}
+}
