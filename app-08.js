@@ -290,6 +290,77 @@ addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Use 
 editGoldAsset=function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;openUnifiedAction({title:'Edit Gold Asset',subtitle:`${a.name} • ${a.id}`,save:'Save Changes',fields:[{name:'name',label:'Asset Name',value:a.name,required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:a.goldType||'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:a.purity||'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Original Weight (grams)',type:'number',step:'0.001',min:'0.001',value:a.weight,required:true,full:false},{name:'purchasePrice',label:'Purchase Price (SAR)',type:'number',step:'0.01',min:'0',value:a.purchasePrice,required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:a.purchaseDate,required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice),sameName=goldAssets.find(x=>x.id!==id&&normalizedGoldAssetName(x.name)===normalizedGoldAssetName(name));if(sameName)return goldActionError(`Asset name already belongs to ${sameName.id}. Use a unique name.`);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');Object.assign(a,{name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,updatedAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true}})};
 sellGoldAsset=function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);openUnifiedAction({title:'Sell Gold Asset',subtitle:`${a.name} • Available ${avail.toFixed(3)} g`,save:'Record Sale',fields:[{name:'weight',label:'Weight to Sell (grams)',type:'number',step:'0.001',min:'0.001',max:avail,value:avail.toFixed(3),required:true,full:false},{name:'proceeds',label:'Sale Proceeds (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'date',label:'Sale Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false},{name:'sourceId',label:'Receive Proceeds To',type:'select',value:'cash-source',options:goldActionSources('Monthly Cash Flow'),full:false}],submit:v=>{const w=Number(v.weight),proceeds=Number(v.proceeds);if(!(w>0)||w>avail+.0001||!(proceeds>=0)||!v.date)return goldActionError('Check the sale weight, proceeds and date.');const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Cash Flow'}:{id:v.sourceId,name:accountName(v.sourceId)};const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date:v.date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:proceeds-allocatedCost});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date:v.date,month:v.date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();return true}})};
 payGoldZakat=function(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);openUnifiedAction({title:'Pay Gold Zakat',subtitle:`${a.name} • Zakat due ${money(amount)}`,save:'Record Zakat Payment',fields:[{name:'sourceId',label:'Pay From',type:'select',value:'cash-source',options:goldActionSources(),full:false},{name:'date',label:'Payment Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{if(!v.sourceId||!v.date)return goldActionError('Select the payment source and date.');const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Planned Income'}:{id:v.sourceId,name:accountName(v.sourceId)},h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:v.date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date:v.date,month:v.date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();return true}})};
+
+function goldZakatLedgerRow(z){
+ return (cashFlowLedger||[]).find(r=>(z.ledgerId&&r.id===z.ledgerId)||(!z.ledgerId&&r.type==='zakat-payment'&&r.targetId===z.assetId&&r.date===z.paidDate&&Math.abs(Number(r.amount||0)-Number(z.amount||0))<0.01&&r.status!=='reversed'))||null;
+}
+function adjustZakatBankBalance(sourceId,delta){
+ if(!sourceId||sourceId==='cash-source')return;
+ const bank=account(sourceId);
+ if(bank?.type==='bank')setTrackedBankBalance(bank.id,adjustedBankBalance(bank)+Number(delta||0));
+}
+function refreshAfterGoldZakatChange(){
+ localStorage.setItem('pf_gold_zakat_history',JSON.stringify(goldZakatHistory));
+ localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
+ saveV194Data();saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();
+}
+payGoldZakat=function(id){
+ const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;
+ const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);
+ openUnifiedAction({title:'Pay Gold Zakat',subtitle:`${a.name} • Zakat due ${money(amount)}`,save:'Record Zakat Payment',
+  fields:[{name:'sourceId',label:'Pay From',type:'select',value:'cash-source',options:goldActionSources(),full:false},{name:'date',label:'Payment Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],
+  submit:v=>{
+   if(!v.sourceId||!v.date)return goldActionError('Select the payment source and date.');
+   const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Planned Income'}:{id:v.sourceId,name:accountName(v.sourceId)};
+   const h=hijriParts(new Date(due+'T12:00:00')),stamp=Date.now(),zakatId='ZAK-'+stamp,ledgerId='cfl-zakat-'+stamp;
+   goldZakatHistory.push({id:zakatId,assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:v.date,sourceId:src.id,sourceName:src.name,ledgerId});
+   cashFlowLedger.push({id:ledgerId,type:'zakat-payment',date:v.date,month:v.date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active',referenceId:zakatId});
+   adjustZakatBankBalance(src.id,-amount);
+   refreshAfterGoldZakatChange();
+   return true;
+  }
+ });
+};
+function editGoldZakatPayment(id){
+ const z=goldZakatHistory.find(x=>x.id===id);if(!z)return;
+ openUnifiedAction({title:'Edit Zakat Payment',subtitle:`${z.assetName} • ${z.id}`,save:'Save Changes',
+  fields:[
+   {name:'amount',label:'Zakat Paid (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(z.amount||0).toFixed(2),required:true,full:false},
+   {name:'date',label:'Paid Date',type:'date',value:z.paidDate,required:true,full:false},
+   {name:'sourceId',label:'Paid From',type:'select',value:z.sourceId||'cash-source',options:goldActionSources(),full:false}
+  ],
+  submit:v=>{
+   const amount=Number(v.amount);if(!(amount>0)||!v.date||!v.sourceId)return goldActionError('Enter a valid amount, payment date and source.');
+   const ledger=goldZakatLedgerRow(z);
+   adjustZakatBankBalance(z.sourceId,Number(z.amount||0));
+   const src=v.sourceId==='cash-source'?{id:'cash-source',name:'Monthly Planned Income'}:{id:v.sourceId,name:accountName(v.sourceId)};
+   adjustZakatBankBalance(src.id,-amount);
+   Object.assign(z,{amount,paidDate:v.date,sourceId:src.id,sourceName:src.name,updatedAt:new Date().toISOString()});
+   if(ledger){
+    Object.assign(ledger,{date:v.date,month:v.date.slice(0,7),amount,sourceId:src.id,status:'active',updatedAt:new Date().toISOString()});
+    z.ledgerId=ledger.id;
+   }else{
+    const ledgerId='cfl-zakat-'+Date.now();
+    cashFlowLedger.push({id:ledgerId,type:'zakat-payment',date:v.date,month:v.date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${z.assetName}`,sourceId:src.id,targetId:z.assetId,status:'active',referenceId:z.id});
+    z.ledgerId=ledgerId;
+   }
+   refreshAfterGoldZakatChange();
+   return true;
+  }
+ });
+}
+function deleteGoldZakatPayment(id){
+ const i=goldZakatHistory.findIndex(x=>x.id===id);if(i<0)return;
+ const z=goldZakatHistory[i];
+ if(!confirm(`Undo this Zakat payment?\n\n${z.assetName} • ${money(z.amount)} • ${z.paidDate}\n\nThis restores any bank deduction, reverses the cash-flow entry, and removes the payment from Zakat history.`))return;
+ adjustZakatBankBalance(z.sourceId,Number(z.amount||0));
+ const ledger=goldZakatLedgerRow(z);
+ if(ledger)Object.assign(ledger,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Zakat payment undone'});
+ goldZakatHistory.splice(i,1);
+ refreshAfterGoldZakatChange();
+ if(typeof recordImmediateDelete==='function')recordImmediateDelete('personal_assets_zakat',z.id,'zakat-payment-undo');
+}
+
 manualGoldMarketPrice=function(){openUnifiedAction({title:'Manual Gold Market Price',subtitle:'Set the current 24K gold price per gram in SAR.',save:'Update Price',fields:[{name:'price',label:'24K Price / Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true,full:false}],submit:v=>{const price=Number(v.price);if(!(price>0))return goldActionError('Enter a valid gold price greater than zero.');goldMarket={price24k:price,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();renderDashboard();return true}})};
 addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtitle:'The new card will use the same statement-cycle, payment-plan, installment, transaction, import and available-credit logic as existing cards.',save:'Add Credit Card',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',placeholder:'Visa Signature',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false},{name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(e.length!==4||!Number.isFinite(limit)||limit<0)return goldActionError('Enter exactly 4 digits and a valid credit limit.');const id='custom-card-'+e+'-'+Date.now(),cc={id,bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,type:'card',extra:{'Credit Limit':limit,'Physical Cards':[e]},custom:true};customCreditCards.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));syncCustomAccountsIntoAccounts();saveV194Data();saveLocal();financeSettingsDirty=true;scheduleRecordPush('custom-credit-card-add');refreshAccountDependentUI();return true}})}
 
