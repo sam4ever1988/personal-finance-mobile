@@ -427,13 +427,14 @@ async function startRealtimeRecordSync(){
   legacyPlannerCleanupPending=false;
  }
 
- // V174 stability mode:
- // Do NOT subscribe to realtime database events.
- // Realtime events were still capable of rebuilding the active screen while the user
- // was selecting/checking/reviewing rows. Local edits still publish immediately.
- if(recordSyncChannel){
-  try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){}
-  recordSyncChannel=null;
+ // V284 protected two-way mode: local edits publish immediately. Remote changes are
+ // received through guarded realtime deltas, while the existing 30-second verifier
+ // remains as a fallback. The delta handler never replaces the full local database.
+ if(recordSyncChannel){try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){} recordSyncChannel=null;}
+ if(recordSyncReady){
+  recordSyncChannel=cloudClient.channel('finance-sync-records-v284')
+   .on('postgres_changes',{event:'*',schema:'public',table:RECORD_SYNC_TABLE},handleRealtimeRecordPayload)
+   .subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')cloudSetStatus('Realtime reconnect pending • protected polling remains active');});
  }
 
  schedulePeriodicCloudAutoSync();
@@ -615,8 +616,8 @@ function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
- if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Realtime Sync Up to Date • Verify Below';
- if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Local-First • Manual Download':'Protected';
+ if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Protected Auto Sync • Up to Date';
+ if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Verified Device • Auto Two-Way':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
