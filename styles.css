@@ -2514,3 +2514,52 @@ body.financeAccessLocked{overflow:auto!important}
  }
  .financeAccessCard{width:min(460px,100%)!important;padding:22px!important}
 }
+
+
+/* V291 — safe picture-style page previews while signed out */
+body.financeAccessLocked .main{
+ filter:blur(5px) saturate(.72)!important;
+ opacity:.72!important;
+ pointer-events:none!important;
+ user-select:none!important;
+}
+body.financeAccessLocked #canonicalAppTop .canonicalAvatar{
+ opacity:.34!important;
+ filter:grayscale(1)!important;
+ cursor:not-allowed!important;
+ pointer-events:none!important;
+}
+body.financeAccessLocked #canonicalAppTop .canonicalProfileMenu{display:none!important}
+.financeAccessGate{
+ align-items:flex-start!important;
+ justify-content:flex-end!important;
+ padding:18px!important;
+ background:rgba(0,19,31,.28)!important;
+ backdrop-filter:blur(1.5px)!important;
+ -webkit-backdrop-filter:blur(1.5px)!important;
+}
+.financeAccessCard{
+ width:min(390px,100%)!important;
+ padding:20px!important;
+ border-radius:18px!important;
+ background:linear-gradient(145deg,rgba(7,51,74,.97),rgba(5,37,56,.98))!important;
+ box-shadow:0 20px 55px rgba(0,0,0,.48)!important;
+}
+.financePreviewBadge{
+ display:inline-flex;align-items:center;min-height:28px;margin:0 0 12px;padding:5px 10px;
+ border:1px solid #1a7897;border-radius:999px;background:#073f55;color:#7ee6ff;
+ font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
+}
+@media(max-width:900px){
+ .financeAccessGate{align-items:flex-start!important;justify-content:center!important;padding:10px!important}
+ .financeAccessCard{width:min(420px,100%)!important;padding:16px!important;border-radius:15px!important}
+ .financeAccessMark{display:none!important}
+ .financeAccessCard h1{font-size:24px!important;margin-bottom:5px!important}
+ .financeAccessCard p{font-size:13px!important;line-height:1.4!important;margin-bottom:10px!important}
+ .financeAccessCard input{min-height:44px!important}
+ .financeGatePrimary{min-height:44px!important;margin-top:8px!important}
+ .financeGateStatus{margin-top:9px!important;padding:8px 10px!important;font-size:11px!important}
+ .financeGateWipe{margin-top:8px!important}
+ .financeAccessCard>small{display:none!important}
+ .financePreviewBadge{margin-bottom:8px!important}
+}
