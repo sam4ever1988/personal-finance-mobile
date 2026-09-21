@@ -163,21 +163,52 @@ window.renderBankConnections=function(){
  if(rows)rows.innerHTML=transactions.length?transactions.map(t=>
   '<tr><td>'+new Date(t.date).toLocaleDateString('en-GB')+'</td><td><b>'+t.description+'</b><small>'+t.bankName+'</small></td><td class="'+(t.amount<0?'bankSandboxDebit':'bankSandboxCredit')+'">'+bankSandboxMoneyV293(t.amount)+'</td><td>'+bankSandboxMoneyV293(t.runningBalance)+'</td></tr>'
  ).join(''):'<tr><td colspan="4" class="bankSandboxEmptyCell">No sandbox transactions yet.</td></tr>';
+ bindBankSandboxControlsV294();
 };
 function bankSandboxConnectV293(){
  const id=document.getElementById('bankSandboxBank')?.value,bank=BANK_SANDBOX_BANKS_V293.find(x=>x.id===id);if(!bank)return;
  const state=bankSandboxReadV293();
  if(state.links.some(x=>x.bankId===id)){const s=document.getElementById('bankSandboxStatus');if(s)s.textContent=bank.name+' is already connected in the sandbox.';return}
  state.links.push(bankSandboxFixtureV293(bank));bankSandboxWriteV293(state);renderBankConnections();
+ const status=document.getElementById('bankSandboxStatus');
+ if(status)status.textContent=bank.name+' connected successfully in the sandbox. Mock data never changes dashboard totals.';
 }
 function bankSandboxSyncV293(){
  const state=bankSandboxReadV293();const now=new Date().toISOString();
+ const status=document.getElementById('bankSandboxStatus');
+ if(!state.links.length){if(status)status.textContent='Connect a sandbox bank before syncing.';return}
  state.links.forEach(x=>x.syncedAt=now);bankSandboxWriteV293(state);renderBankConnections();
+ if(status)status.textContent='Sandbox data synced successfully at '+new Date(now).toLocaleTimeString()+'.';
 }
-document.addEventListener('click',e=>{
- const connect=e.target.closest('#bankSandboxConnect'),sync=e.target.closest('#bankSandboxSync'),remove=e.target.closest('[data-bank-sandbox-disconnect]');
- if(connect){bankSandboxConnectV293();return}
- if(sync){bankSandboxSyncV293();return}
- if(remove){const state=bankSandboxReadV293();state.links=state.links.filter(x=>x.id!==remove.dataset.bankSandboxDisconnect);bankSandboxWriteV293(state);renderBankConnections()}
-});
-setTimeout(()=>{try{renderBankConnections()}catch(e){console.error('Bank sandbox init',e)}},0);
+function bankSandboxActionV294(action){
+ const status=document.getElementById('bankSandboxStatus');
+ try{return action()}catch(e){
+  console.error('Bank sandbox action failed',e);
+  if(status)status.textContent='Sandbox action failed: '+(e?.message||String(e));
+ }
+}
+function bindBankSandboxControlsV294(){
+ const connect=document.getElementById('bankSandboxConnect');
+ const sync=document.getElementById('bankSandboxSync');
+ if(connect&&!connect.dataset.boundV294){
+  connect.dataset.boundV294='1';
+  connect.onclick=e=>{e.preventDefault();e.stopPropagation();bankSandboxActionV294(bankSandboxConnectV293)};
+ }
+ if(sync&&!sync.dataset.boundV294){
+  sync.dataset.boundV294='1';
+  sync.onclick=e=>{e.preventDefault();e.stopPropagation();bankSandboxActionV294(bankSandboxSyncV293)};
+ }
+ document.querySelectorAll('[data-bank-sandbox-disconnect]').forEach(remove=>{
+  if(remove.dataset.boundV294)return;
+  remove.dataset.boundV294='1';
+  remove.onclick=e=>{e.preventDefault();e.stopPropagation();bankSandboxActionV294(()=>{
+   const state=bankSandboxReadV293();
+   const link=state.links.find(x=>x.id===remove.dataset.bankSandboxDisconnect);
+   state.links=state.links.filter(x=>x.id!==remove.dataset.bankSandboxDisconnect);
+   bankSandboxWriteV293(state);renderBankConnections();
+   const status=document.getElementById('bankSandboxStatus');
+   if(status)status.textContent=(link?.bankName||'Sandbox bank')+' disconnected.';
+  })};
+ });
+}
+setTimeout(()=>{try{renderBankConnections();bindBankSandboxControlsV294()}catch(e){console.error('Bank sandbox init',e)}},0);

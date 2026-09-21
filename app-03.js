@@ -97,7 +97,7 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.93</small>';}
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.94</small>';}
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -1147,6 +1147,7 @@ function nav(page){
  else if(page==='investments')renderInvestments();
  else if(page==='rental')renderRental();
  if(page==='financeSettings'){financeSettingsEditing=true;renderFinanceSettings(true);}
+ if(page==='bankconnections'&&typeof renderBankConnections==='function')renderBankConnections();
  if(page==='accounts')renderAccounts();
  // V263: Transactions must render on every intentional navigation.
  // It was missing from nav(), leaving the old/empty table in the DOM until another action rebuilt it.
