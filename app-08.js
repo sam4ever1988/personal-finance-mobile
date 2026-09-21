@@ -364,7 +364,46 @@ function deleteGoldZakatPayment(id){
 manualGoldMarketPrice=function(){openUnifiedAction({title:'Manual Gold Market Price',subtitle:'Set the current 24K gold price per gram in SAR.',save:'Update Price',fields:[{name:'price',label:'24K Price / Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true,full:false}],submit:v=>{const price=Number(v.price);if(!(price>0))return goldActionError('Enter a valid gold price greater than zero.');goldMarket={price24k:price,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();renderDashboard();return true}})};
 addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtitle:'The new card will use the same statement-cycle, payment-plan, installment, transaction, import and available-credit logic as existing cards.',save:'Add Credit Card',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Card Name',placeholder:'Visa Signature',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'limit',label:'Credit Limit (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false},{name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:'25',required:true,full:false},{name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:'15',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);if(e.length!==4||!Number.isFinite(limit)||limit<0)return goldActionError('Enter exactly 4 digits and a valid credit limit.');const id='custom-card-'+e+'-'+Date.now(),cc={id,bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,type:'card',extra:{'Credit Limit':limit,'Physical Cards':[e]},custom:true};customCreditCards.push(cc);financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));syncCustomAccountsIntoAccounts();saveV194Data();saveLocal();financeSettingsDirty=true;scheduleRecordPush('custom-credit-card-add');refreshAccountDependentUI();return true}})}
 
-$('execAddTx')?.addEventListener('click',()=>$('quickAddTransaction')?.click());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>$('quickInstallment')?.click());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
+function editableFinanceCards(){
+ const seen=new Set();
+ return accounts.filter(a=>a?.type==='card'&&!seen.has(a.id)&&seen.add(a.id));
+}
+function editFinanceCreditCard(id){
+ const current=account(id);if(!current||current.type!=='card')return;
+ const cycle=cardCycleSetting(id),oldEnding=String(current.ending||'');
+ openUnifiedAction({
+  title:'Edit Credit Card',subtitle:`${current.bank||'Credit Card'} •${oldEnding}`,save:'Save Card Changes',
+  fields:[
+   {name:'bank',label:'Bank Name',value:current.bank||'',required:true,full:false},
+   {name:'name',label:'Card Name',value:current.name||'',required:true,full:false},
+   {name:'ending',label:'Last 4 Digits',value:oldEnding,required:true,full:false},
+   {name:'limit',label:'Credit Limit (SAR)',type:'number',step:'0.01',min:'0',value:Number(current.extra?.['Credit Limit']||0),required:true,full:false},
+   {name:'statementDay',label:'Statement Closing Day',type:'number',min:'1',max:'31',value:Number(cycle.statementDay||25),required:true,full:false},
+   {name:'dueDay',label:'Payment Due Day',type:'number',min:'1',max:'31',value:Number(cycle.dueDay||15),required:true,full:false}
+  ],
+  submit:v=>{
+   const ending=String(v.ending||'').replace(/\D/g,'').slice(-4),limit=Number(v.limit);
+   if(ending.length!==4||!Number.isFinite(limit)||limit<0)return goldActionError('Enter exactly 4 digits and a valid credit limit.');
+   const existingPhysical=[...(current.extra?.['Physical Cards']||current.physicalCards||[oldEnding])].map(x=>String(x||'')).filter(Boolean);
+   const physical=[...new Set([ending,...existingPhysical.filter(x=>x!==oldEnding)])];
+   const edited={...current,bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending,type:'card',custom:true,extra:{...(current.extra||{}),'Credit Limit':limit,'Physical Cards':physical},physicalCards:physical,updatedAt:new Date().toISOString()};
+   const i=customCreditCards.findIndex(c=>c.id===id);if(i>=0)customCreditCards[i]=edited;else customCreditCards.push(edited);
+   financeSettings.cardCycles[id]={statementDay:Math.max(1,Math.min(31,Number(v.statementDay)||25)),dueDay:Math.max(1,Math.min(31,Number(v.dueDay)||15))};
+   localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));
+   localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+   syncCustomAccountsIntoAccounts();saveV194Data();saveLocal();financeSettingsDirty=true;scheduleRecordPush('credit-card-edit');refreshAccountDependentUI();
+   return true;
+  }
+ });
+}
+renderCustomCreditCards=function(){
+ const el=$('customCreditCardsList');if(!el)return;
+ const cards=editableFinanceCards();
+ el.innerHTML=cards.length?cards.map(c=>`<div class="notice customAccountEditRow"><div><b>${escapeHtml(c.bank)} • ${escapeHtml(c.name)} •${escapeHtml(c.ending)}</b><span> • Limit ${money(Number(c.extra?.['Credit Limit']||0))}</span></div><button type="button" class="btn small" data-edit-credit-card="${escapeHtml(c.id)}">Edit</button></div>`).join(''):'<div class="meta">No credit cards saved yet.</div>';
+ el.querySelectorAll('[data-edit-credit-card]').forEach(btn=>btn.onclick=()=>editFinanceCreditCard(btn.dataset.editCreditCard));
+}
+
+$('execAddTx')?.addEventListener('click',()=>openManualTransaction());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>openInstallment());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
 async function init(){
  // V261: show the Executive shell immediately while local finance state restores.
  // This removes the blank/legacy first-run wait without changing financial data.

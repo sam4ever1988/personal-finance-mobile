@@ -379,7 +379,7 @@ $('manualTxForm').addEventListener('submit',e=>{
   description:$('manualTxDesc').value.trim(),amount:sign*raw,category:$('manualTxCategory').value,
   subcategory:$('manualTxSubcategory').value,kind:type,currency:'SAR',original:null,manual:true,
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
-  smsRaw:form.dataset.smsRaw||''
+  smsRaw:form.dataset.smsRaw||'',trackedBankApplied:selectedManualAccount?.type==='bank'
  };
  manualTransactions.push(tx);transactions.push({...tx});
 
@@ -561,7 +561,11 @@ $('txEditForm').addEventListener('submit',e=>{
   delete val.statementMonth;
   delete val.paymentMonth;
  }
+ // A manual bank transaction already changed the live balance when created.
+ // Replace that old effect with the edited amount before saving the override.
+ adjustTrackedBankForTransaction(original,-1);
  txOverrides[editingTxId]=val;
+ adjustTrackedBankForTransaction({...original,...val},1);
  if($('rememberMerchant').checked&&original){
   // Merchant rules remember categorization only. A statement-month move is
   // transaction-specific and must not silently move every matching merchant.
@@ -947,7 +951,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Open Cycle (${cardMonthLabel(m.activeCycleMonth)})</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Prior Unreleased Cycle(s)</span><b class="amber">${money(m.priorOpenCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b></div>
@@ -1084,7 +1088,7 @@ function openAccount(id,returnPage){
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
  document.querySelectorAll('[data-detail-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.detailDeletePlan)));
  document.querySelectorAll('[data-open-installments-page]').forEach(b=>b.addEventListener('click',()=>{renderInstallments();nav('installments');window.scrollTo({top:0,behavior:'smooth'});}));}
- else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div><div class="sectionTitle">Transactions</div><div class="panel">
+ else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div></div><div class="sectionTitle">Transactions</div><div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
   <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
@@ -1096,6 +1100,7 @@ function openAccount(id,returnPage){
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
+ if($('detailAddTransaction'))$('detailAddTransaction').addEventListener('click',()=>openManualTransaction({account:id,date:new Date().toISOString().slice(0,10)}));
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
 }

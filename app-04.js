@@ -345,6 +345,10 @@ function applyBulkUpdateSelected(){
   const current=rows.find(t=>t._id===id);
   if(!current)return;
 
+  // Remove the old live-balance effect before applying any amount/account
+  // override, then apply the edited effect below.
+  adjustTrackedBankForTransaction(current,-1);
+
   txOverrides[id]=txOverrides[id]||{};
 
   if(category)txOverrides[id].category=category;
@@ -367,6 +371,8 @@ function applyBulkUpdateSelected(){
    txOverrides[id].statementMonthManual=true;
   }
   if(description)txOverrides[id].description=description;
+
+  adjustTrackedBankForTransaction({...current,...txOverrides[id]},1);
  });
 
  saveLocal();
@@ -392,7 +398,11 @@ function bulkDeleteSelected(){
  const rows=normalizedTx(true);
  const affected=new Set(ids.map(id=>rows.find(t=>t._id===id)?.account).filter(Boolean));
  const now=new Date().toISOString();
- ids.forEach(id=>transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now});
+ ids.forEach(id=>{
+  const row=rows.find(t=>t._id===id);
+  adjustTrackedBankForTransaction(row,-1);
+  transactionActions[id]={status:'deleted',reason:'Bulk deleted by user',pairedWith:'',updatedAt:now};
+ });
  selectedTxIds.clear();
  saveLocal();
  syncTransactionActionsImmediate();
@@ -690,8 +700,24 @@ function refreshAfterTransactionChange(accountId=''){
  }
 }
 
+// Manual bank transactions are applied directly to the authoritative tracked
+// balance when they are saved. Any later hide/restore/edit must apply the
+// opposite delta as well; otherwise the transaction table and live balance
+// disagree. Imported statement rows are excluded because importing them does
+// not mutate the tracked balance.
+function adjustTrackedBankForTransaction(t,direction=1){
+ if(!t||!t.manual)return false;
+ const bank=account(t.account),amount=Number(t.amount||0),factor=Number(direction||0);
+ if(bank?.type!=='bank'||!Number.isFinite(amount)||!Number.isFinite(factor)||factor===0)return false;
+ return setTrackedBankBalance(bank.id,adjustedBankBalance(bank)+(amount*factor));
+}
+
 function setTxAction(id,status,reason='',pairedWith=''){
  const t=normalizedTx(true).find(x=>x._id===id);
+ const wasHidden=!!transactionActions[id]?.status;
+ const willHide=!!status;
+ if(!wasHidden&&willHide)adjustTrackedBankForTransaction(t,-1);
+ else if(wasHidden&&!willHide)adjustTrackedBankForTransaction(t,1);
  transactionActions[id]={status,reason,pairedWith,updatedAt:new Date().toISOString()};
  saveLocal();
  syncTransactionActionsImmediate();
@@ -699,6 +725,7 @@ function setTxAction(id,status,reason='',pairedWith=''){
 }
 function restoreTx(id){
  const t=normalizedTx(true).find(x=>x._id===id);
+ if(transactionActions[id]?.status)adjustTrackedBankForTransaction(t,1);
  delete transactionActions[id];
  saveLocal();
  refreshAfterTransactionChange(t?.account||'');
@@ -707,6 +734,7 @@ function deleteTransactionRecord(id){
  const t=normalizedTx(true).find(x=>x._id===id);if(!t)return;
  if(transactionActions[id]?.status==='deleted')return;
  if(!confirm(`Delete "${t.description}" (${money(Math.abs(t.amount))})?\n\nIt will be excluded from calculations but kept in Transaction History so you can restore it later.`))return;
+ adjustTrackedBankForTransaction(t,-1);
  transactionActions[id]={status:'deleted',reason:'Deleted by user',pairedWith:'',updatedAt:new Date().toISOString()};
  selectedTxIds.delete(id);
  saveLocal();
@@ -719,8 +747,12 @@ function resolveDuplicate(aId,bId,keepId){
  const keep=keepId===aId?a:b;
  const remove=removeId===aId?a:b;
  duplicateDecisions[duplicatePairKey(a,b)]='duplicate';
+ if(!transactionActions[removeId]?.status)adjustTrackedBankForTransaction(remove,-1);
  transactionActions[removeId]={status:'excluded-duplicate',reason:`Duplicate of ${keep.description}`,pairedWith:keepId,updatedAt:new Date().toISOString()};
- if(transactionActions[keepId]?.status==='excluded-duplicate')delete transactionActions[keepId];
+ if(transactionActions[keepId]?.status==='excluded-duplicate'){
+  adjustTrackedBankForTransaction(keep,1);
+  delete transactionActions[keepId];
+ }
  saveLocal();refreshAfterTransactionChange(remove.account);
  alert(`Duplicate resolved.\n\nKept: ${keep.description}\nExcluded: ${remove.description}\n\nThe excluded item will no longer count in totals, reports or cash flow, but remains available in history.`);
 }
