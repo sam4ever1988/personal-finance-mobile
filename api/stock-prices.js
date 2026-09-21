@@ -12,7 +12,18 @@ export default async function handler(req,res){
       const j=await r.json();
       const meta=j?.chart?.result?.[0]?.meta||{};
       const price=Number(meta.regularMarketPrice??meta.previousClose);
-      if(Number.isFinite(price)&&price>0)prices[symbol]={price,currency:meta.currency||null,exchange:meta.exchangeName||null,marketState:meta.marketState||null};
+      const previousClose=Number(meta.chartPreviousClose??meta.previousClose);
+      const change=Number.isFinite(previousClose)&&previousClose>0?price-previousClose:null;
+      const changePercent=change==null?null:(change/previousClose)*100;
+      if(Number.isFinite(price)&&price>0)prices[symbol]={
+        price,
+        previousClose:Number.isFinite(previousClose)?previousClose:null,
+        change:Number.isFinite(change)?change:null,
+        changePercent:Number.isFinite(changePercent)?changePercent:null,
+        currency:meta.currency||null,
+        exchange:meta.exchangeName||null,
+        marketState:meta.marketState||null
+      };
     }catch(_){}
   }));
   return res.status(200).json({prices,updatedAt:new Date().toISOString()});

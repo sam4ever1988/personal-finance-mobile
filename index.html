@@ -1,811 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance â€¢ V295 Account-Level Bank Mapping</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-<link rel="stylesheet" href="styles.css?v=295">
-<!-- V295 account-level bank mapping: 2026-09-21 -->
-</head>
-<body class="execMode financeAccessLocked">
-<div id="financeAccessGate" class="financeAccessGate" role="dialog" aria-modal="false" aria-labelledby="financeGateTitle">
- <div class="financeAccessCard">
-  <div class="financeAccessMark" aria-hidden="true">â†—</div>
-  <div class="financePreviewBadge">Preview mode â€¢ navigation only</div>
-  <h1 id="financeGateTitle">My Finance</h1>
-  <p>You are signed out. Use the navigation to preview each page. Details are obscured and all finance actions are disabled until you sign in.</p>
-  <div id="financeGateSignedOut">
-   <label for="financeGateEmail">Email</label>
-   <input type="email" id="financeGateEmail" autocomplete="email" placeholder="your@email.com">
-   <button type="button" id="financeGateSendLink" class="financeGatePrimary">Send Secure Login Link</button>
-  </div>
-  <div id="financeGateSignedIn" style="display:none">
-   <div class="financeGateUser" id="financeGateUser"></div>
-   <p>This device must load the protected cloud copy before the dashboard is unlocked.</p>
-   <button type="button" id="financeGateLoadCloud" class="financeGatePrimary">Load Latest Cloud Data</button>
-  </div>
-  <div id="financeGateStatus" class="financeGateStatus">Protected cloud data remains unchanged.</div>
-  <button type="button" id="financeGateWipeDevice" class="financeGateWipe">Wipe This Device</button>
-  <small>Wipe This Device removes only browser-stored finance data. It never deletes the protected cloud database.</small>
- </div>
-</div>
-<div class="app">
-<header id="canonicalAppTop" class="canonicalAppTop"></header>
-<div class="main">
-<main class="content">
-
-
-<section class="view active" id="executive"><div class="execShell">
-<div class="execTop"><div class="execBrand"><div class="execLogo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="trend">â†—</span></div><div><b>My Finance</b><small>Control Today ãƒ» Plan Tomorrow</small></div></div>
-<div class="execTopNav"><button class="active">â–¦ã€€Dashboard</button><button data-page-jump="transactions">â–±ã€€Transactions</button><button data-page-jump="outgoings">â†—ã€€Outgoings</button><button data-page-jump="installments">â–£ã€€Installments</button><button data-page-jump="importstatements">â–¤ã€€Import Statements</button><button data-page-jump="investments">â—ˆã€€Investments</button><button data-page-jump="assets">â—‡ã€€Personal Assets</button><button data-page-jump="rental">âŒ‚ã€€Airbnb / Rental</button><button data-page-jump="reports">â–¥ã€€Reports</button><button data-page-jump="financeSettings">âš™ã€€Settings</button><button data-page-jump="more">â€¢â€¢â€¢ã€€More</button></div>
-<div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
-<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">â–£ã€€Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">â–¤ã€€Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">â–¥ã€€Financial Position</button><button class="execSideBtn" data-page-jump="strategy">âŒã€€Financial Strategy</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">â–±ã€€Transactions</button><button class="execSideBtn" data-page-jump="outgoings">â†—ã€€Cash & Other Outgoings</button><button class="execSideBtn" data-page-jump="installments">â–£ã€€Installments</button><button class="execSideBtn" data-page-jump="importstatements">â–¤ã€€Import Statements</button><button class="execSideBtn" data-page-jump="assets">â—‡ã€€Personal Assets</button><button class="execSideBtn" data-page-jump="reports">â–¥ã€€Reports</button><button class="execSideBtn" data-page-jump="financeSettings">âš™ã€€Settings</button><button class="execSideBtn" data-page-jump="more">â€¢â€¢â€¢ã€€More</button><div class="execSideQuote">â€œ Financial peace<br>ã€€is a plan away. â€</div><div class="execVer">v2.95</div></aside>
-<main class="execMain">
- <div class="execHero"><div><h2>A. Executive Overview</h2><div class="meta">Complete view of your financial status</div></div><div class="execHeroRight"><span id="execUpdated"></span><span class="execQuote">â A clear view today<br>for a better tomorrow. â</span></div></div>
- <div class="execKpis" id="execKpis"></div>
- <div class="execGrid">
-  <div class="execCol wide">
-   <div class="execPanel"><div class="execTitle">Monthly Cash Flow</div><div id="execCashFlow"></div></div>
-   <div class="execPanel execUpcomingPanel"><div class="execTitle">Upcoming Payments <button class="execViewLink" data-page-jump="incomeplan">View All â€º</button></div><div id="execUpcoming"></div></div>
-  </div>
-  <div class="execCol">
-   <div class="execPanel execCreditPanel"><div class="execTitle">Available / Remaining Credit <button class="execViewLink" data-page-jump="accounts">View All â€º</button></div><div id="execCredit"></div></div>
-   <div class="execPanel execGoldPanel"><div class="execTitle"><span>ğŸŸ¨ Gold & Assets</span><button class="execViewLink" data-page-jump="assets">View Assets â€º</button></div><div id="execGold"></div><div class="execChartBox"><canvas id="execGoldChart"></canvas></div></div>
-  </div>
-  <div class="execCol narrow">
-   <div class="execPanel execUtilPanel"><div class="execTitle">Credit Utilization <span class="execTitleNote">(All Cards)</span></div><div class="execChartBox donutBox"><canvas id="execCreditChart"></canvas></div><div id="execUtil"></div></div>
-   <div class="execPanel execBankPanel"><div class="execTitle">Bank Accounts <button class="execViewLink" data-page-jump="accounts">View All â€º</button></div><div id="execBanks"></div></div>
-   <div class="execPanel execZakatPanel"><div class="execTitle">â™Ÿ Zakat Summary <button class="execViewLink" data-page-jump="assets">View All â€º</button></div><div id="execZakat"></div></div>
-  </div>
- </div>
- <div class="execBottom">
-  <div class="execPanel execPositionPanel"><div class="execTitle">Financial Position <button class="execViewLink" data-page-jump="reports">View Details â€º</button></div><div class="execPanelSub">Your overall assets, liabilities and net position</div><div id="execPosition"></div></div>
-  <div class="execPanel execBreakPanel"><div class="execTitle">Assets Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execAssetsChart"></canvas></div><div class="execAssetsList" id="execAssets"></div></div></div>
-  <div class="execPanel execBreakPanel"><div class="execTitle">Liabilities Breakdown</div><div class="execChartFlex"><div class="execChartBox donutBox"><canvas id="execLiabilitiesChart"></canvas></div><div class="execLiabList" id="execLiabilities"></div></div></div>
-  <div class="execPanel execQuickPanel"><div class="execTitle">Quick Actions</div><div class="execActions"><button class="btn" id="execAddTx">âŠ•ã€€Add Transaction <span>â€º</span></button><button class="btn" id="execAddInst">â–£ã€€Add Installment <span>â€º</span></button><button class="btn" id="execImport">â–§ã€€Import Statement <span>â€º</span></button><button class="btn" id="execAddGold">â™§ã€€Add Gold Asset <span>â€º</span></button></div></div>
- </div>
-</main></div></div></section>
-
-
-<section class="view" id="paymentDetails">
- <div class="splitHead">
-  <div><button class="btn" id="paymentDetailsBack">â† Back</button><div class="sectionTitle" style="margin-top:14px">Card Payments for <span id="paymentDetailsMonthLabel"></span></div><div class="meta">Breakdown of the amount shown in the Card Payment Planner.</div></div>
- </div>
- <div class="paymentSummary" style="margin-top:14px">
-  <div class="miniMetric"><span>Known / Planned Amount</span><b id="paymentDetailsKnown">SAR 0.00</b></div>
-  <div class="miniMetric"><span>Remaining to Pay</span><b id="paymentDetailsRemaining">SAR 0.00</b></div>
-  <div class="miniMetric"><span>Pending Statement Cards</span><b id="paymentDetailsPending">0</b></div>
- </div>
- <div class="panel" style="margin-top:14px;overflow-x:auto">
-  <table class="summaryTable" style="min-width:1050px">
-   <thead><tr><th>Bank / Card</th><th>Payment Amount</th><th>Due Date</th><th>Status</th><th>Source</th><th>Notes</th><th>Action</th></tr></thead>
-   <tbody id="paymentDetailsBody"></tbody>
-  </table>
- </div>
-</section>
-
-<section class="view" id="accounts">
-<div class="cashShell">
- <header class="cashTop"><div class="cashBrand"><span class="cashMark">â–¥</span><div><b>My Finance</b><small>Control Today â€¢ Plan Tomorrow</small></div></div><nav class="cashNav"><button data-page-jump="executive">âŒ‚ Dashboard</button><button data-page-jump="transactions">â˜· Transactions</button><button data-page-jump="outgoings">â†— Outgoings</button><button data-page-jump="installments">â–¤ Installments</button><button data-page-jump="importstatements">â‡© Import Statements</button><button data-page-jump="investments">â—ˆ Investments</button><button data-page-jump="assets">â—‡ Personal Assets</button><button data-page-jump="rental">âŒ‚ Airbnb / Rental</button><button data-page-jump="reports">â–¥ Reports</button><button data-page-jump="financeSettings">âš™ Settings</button></nav><div class="cashDate" id="cashDate"></div><div class="cashAvatar">HA</div></header>
- <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">â–§ã€€Executive Overview</button><button class="active">â–¤ã€€Cash & Credit</button><button data-page-jump="financialposition">â–¥ã€€Financial Position</button><button data-page-jump="strategy">âŒã€€Financial Strategy</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">â˜·ã€€Transactions</button><button data-page-jump="installments">â–¤ã€€Installments</button><button data-page-jump="importstatements">â–§ã€€Import Statements</button><button data-page-jump="investments">â—ˆã€€Investments</button><button data-page-jump="assets">â—‡ã€€Personal Assets</button><button data-page-jump="rental">âŒ‚ã€€Airbnb / Rental</button><button data-page-jump="reports">â–¥ã€€Reports</button><button data-page-jump="financeSettings">âš™ã€€Settings</button><button data-page-jump="more">â€¢â€¢â€¢ã€€More</button><div class="cashQuote">â€œKnow what is available, what is due, and what comes next.â€</div><div class="cashVer">v2.95</div></aside>
- <main class="cashMain">
-  <div class="cashHero"><div><h1>Cash & Credit</h1><p>Control bank liquidity, credit availability, statement obligations and upcoming payments.</p></div><div class="cashHeroActions"><button class="cashBtn" data-page-jump="incomeplan">Open Payment Plan</button><button class="cashBtn primary" data-page-jump="transactions">Review Transactions</button></div></div>
-  <div class="cashKpis" id="cashKpis"></div>
-  <div class="cashGridTop"><section class="cashPanel"><div class="cashPanelHead"><h2>Bank Accounts</h2><span id="cashBankCount"></span></div><div class="cashBankGrid" id="cashBankGrid"></div></section><section class="cashPanel"><div class="cashPanelHead"><h2>Credit Utilization</h2><span>Live position</span></div><div class="cashUtilWrap"><div class="cashDonut" id="cashUtilDonut"><div><b id="cashUtilPct">0%</b><small>utilized</small></div></div><div class="cashUtilLegend" id="cashUtilLegend"></div></div></section></div>
-  <section class="cashPanel"><div class="cashPanelHead"><div><h2>Credit Cards</h2><p>Available credit, current usage, installment reserve and released statement position.</p></div><button class="cashBtn" data-page-jump="incomeplan">Manage Payments</button></div><div class="cashCards" id="cashCards"></div></section>
-  <div class="cashGridBottom"><section class="cashPanel"><div class="cashPanelHead"><div><h2>Credit Payment Control</h2><p>Statement amount, paid amount and remaining obligation for the selected payment month.</p></div><input type="month" id="cashPaymentMonth" class="cashMonth"></div><div class="cashTableWrap"><table class="cashTable"><thead><tr><th>Card</th><th>Statement / Plan</th><th>Paid</th><th>Remaining</th><th>Due Date</th><th>Status</th></tr></thead><tbody id="cashPaymentBody"></tbody></table></div></section><section class="cashPanel"><div class="cashPanelHead"><h2>Upcoming Payments</h2><span id="cashUpcomingCount"></span></div><div id="cashUpcoming"></div></section></div>
-  <section class="cashPanel cashLegacy"><div class="cashPanelHead"><div><h2>Detailed Credit Obligation Register</h2><p>Existing card accounting logic retained for reconciliation and audit.</p></div></div><div class="cashTableWrap"><table class="summaryTable"><thead><tr><th>Card</th><th>Current Usage</th><th>Future Reserved Installments</th><th>Bank Utilized / Reserved</th><th>Credit Limit</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="cardSummaryBody"></tbody></table></div><div id="accountsGrid" style="display:none"></div></section>
- </main></div>
-</div>
-</section>
-
-<section class="view" id="transactions">
-<div class="txExecShell">
- <header class="txExecTop"><div class="txExecBrand"><span class="txExecMark">â–¥</span><div><b>My Finance</b><small>Control Today â€¢ Plan Tomorrow</small></div></div><nav class="txExecNav"><button data-page-jump="executive">âŒ‚ Dashboard</button><button class="active">â˜· Transactions</button><button data-page-jump="installments">â–¤ Installments</button><button data-page-jump="importstatements">â‡© Import Statements</button><button data-page-jump="investments">â—ˆ Investments</button><button data-page-jump="assets">â—‡ Personal Assets</button><button data-page-jump="rental">âŒ‚ Airbnb / Rental</button><button data-page-jump="reports">â–¥ Reports</button><button data-page-jump="financeSettings">âš™ Settings</button></nav><div class="txExecDate" id="txExecDate"></div><div class="txExecAvatar">HA</div></header>
- <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">â–§ã€€Executive Overview</button><button data-page-jump="accounts">â–¤ã€€Cash & Credit</button><button data-page-jump="financialposition">â–¥ã€€Financial Position</button><button data-page-jump="strategy">âŒã€€Financial Strategy</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">â˜·ã€€Transactions</button><button data-page-jump="outgoings">â†—ã€€Cash & Other Outgoings</button><button data-page-jump="installments">â–¤ã€€Installments</button><button data-page-jump="importstatements">â–§ã€€Import Statements</button><button data-page-jump="investments">â—ˆã€€Investments</button><button data-page-jump="assets">â—‡ã€€Personal Assets</button><button data-page-jump="rental">âŒ‚ã€€Airbnb / Rental</button><button data-page-jump="reports">â–¥ã€€Reports</button><button data-page-jump="financeSettings">âš™ã€€Settings</button><button data-page-jump="more">â€¢â€¢â€¢ã€€More</button><div class="txExecQuote">â€œA better financial tomorrow starts with clarity today.â€</div><div class="txExecVer">v2.95</div></aside>
- <main class="txExecMain">
-  <div class="txExecHero"><div><h2>Transactions</h2><p>Review and control your complete cash movement, spending, transfers and items that still need classification.</p></div><div class="txExecHeroActions"><select class="txDarkControl" id="txTopMonth"><option>September 2026</option></select><button class="txDarkBtn" data-page-jump="importstatements">â‡©ã€€Import Statement</button><button class="txAddBtn" id="txHeroAdd">ï¼‹ Add Transaction</button></div></div>
-  <div class="txExecKpis" id="txWorkKpis"></div>
-  <div class="txInsightGrid"><div class="txDarkPanel"><div class="txPanelHead"><b>Spending by Category</b><button data-page-jump="reports">View Details â€º</button></div><div class="txSpendFlex"><canvas id="txSpendChart" width="300" height="220"></canvas><div id="txSpendLegend" class="txSpendLegend"></div></div></div><div class="txDarkPanel"><div class="txPanelHead"><b>Cash Flow Trend</b><button data-page-jump="reports">View All â€º</button></div><canvas id="txFlowChart" width="720" height="220"></canvas></div><div class="txDarkPanel"><div class="txPanelHead"><b>Needs Attention</b><button data-page-jump="reports">View All â€º</button></div><div id="txAttention"></div></div></div>
-  <div class="txFilterPanel"><div class="txFilters txFiltersCore"><label class="txDateField"><span>From Date</span><input type="date" class="txDarkControl" id="txFrom"></label><label class="txDateField"><span>To Date</span><input type="date" class="txDarkControl" id="txTo"></label><input class="txDarkControl txSearchDark" id="txSearch" placeholder="Search transaction, account, category..."><select class="txDarkControl" id="txAccount"></select><select class="txDarkControl" id="txPhysicalCard"><option value="">All Physical Cards</option></select><select class="txDarkControl" id="txCategory"></select><select class="txDarkControl" id="txType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select><select class="txDarkControl" id="txStatementMonth"><option value="">All Statement Months</option></select><button class="txDarkBtn txResetBtn" id="txReset">Reset</button></div>
-   <div class="txRule"><span>âš™ã€€<b>Statement Assignment Rule</b></span><span>Cutoff day: <b id="txCutoffText">24</b>ã€€(Transactions from day 25 onward will belong to next month)</span><div class="txRuleEdit"><input type="number" id="statementCutoffDay" min="1" max="31" value="24"><button id="applyStatementRule">Apply</button></div></div></div>
-  <div id="eligibleOnlyBanner" class="notice" style="display:none;margin:10px 0"><div class="splitHead"><div><b>Installment Review Filter Active</b><div class="meta">Showing eligible credit-card purchases only.</div></div><button class="btn" id="clearEligibleOnly">Show All Transactions</button></div></div>
-  <div class="txTablePanel"><div class="txTableHead"><b>Transactions (<span id="txTableCount">0</span>)</b><div id="txBulkBar"><button class="txDarkBtn" type="button" id="txSelectAllVisible">â˜ Select All</button><button class="txDarkBtn txHiddenClear" type="button" id="txClearSelection">Clear</button><button class="txDarkBtn" type="button" id="txUpdateSelected" disabled>Update Selected</button><button class="txDeleteBtn" type="button" id="txDeleteSelected" disabled>Delete Selected</button><span id="txSelectedCount">0 selected</span></div></div><div class="txTableScroll"><table class="txTable txExecTable"><thead><tr><th><input type="checkbox" id="txMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="txBody"></tbody></table></div><div class="txTableFoot"><span id="txShowingText">Showing transactions</span><span>Use filters above to narrow the register</span></div></div>
-  <button id="addTransaction" style="display:none">Add Transaction</button>
- </main></div>
-</div>
-</section>
-
-<section class="view" id="strategy">
-<div class="strategyShell">
- <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">â–¥</span><div><b>My Finance</b><small>Control Today â€¢ Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">âŒ‚ Dashboard</button><button data-page-jump="transactions">â˜· Transactions</button><button data-page-jump="outgoings">â†— Outgoings</button><button data-page-jump="installments">â–¤ Installments</button><button data-page-jump="importstatements">â‡© Import Statements</button><button data-page-jump="investments">â—ˆ Investments</button><button data-page-jump="assets">â—‡ Personal Assets</button><button data-page-jump="rental">âŒ‚ Airbnb / Rental</button><button data-page-jump="reports">â–¥ Reports</button><button data-page-jump="financeSettings">âš™ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
- <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">â–§ã€€Executive Overview</button><button data-page-jump="accounts">â–¤ã€€Cash & Credit</button><button data-page-jump="financialposition">â–¥ã€€Financial Position</button><button class="active">âŒã€€Financial Strategy</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">â˜·ã€€Transactions</button><button data-page-jump="outgoings">â†—ã€€Cash & Other Outgoings</button><button data-page-jump="installments">â–¤ã€€Installments</button><button data-page-jump="importstatements">â–§ã€€Import Statements</button><button data-page-jump="investments">â—ˆã€€Investments</button><button data-page-jump="assets">â—‡ã€€Personal Assets</button><button data-page-jump="rental">âŒ‚ã€€Airbnb / Rental</button><button data-page-jump="reports">â–¥ã€€Reports</button><button data-page-jump="financeSettings">âš™ã€€Settings</button><button data-page-jump="more">â€¢â€¢â€¢ã€€More</button><div class="strategySideQuote">â€œA better financial tomorrow starts with clarity today.â€</div><div class="strategySideVer">v2.95</div></aside>
- <main class="strategyMain">
-  <div class="strategyPageHero"><div><h2>Financial Strategy</h2><p>Turn your live income, spending, credit and loan data into a clear monthly plan.</p></div><div class="strategyHeroActions"><button class="strategyDarkBtn" type="button" data-page-jump="transactions">Review Spending</button><button class="strategyPrimaryBtn" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
-  <div class="strategyKpis" id="strategyKpis"></div>
-  <div class="strategyGrid"><div class="strategyPanel"><div class="splitHead"><div><div class="panelTitle">This Month's Action Plan</div><div class="meta">Priority sequence based on current commitments and cash position.</div></div><span class="badge active">Live Plan</span></div><div id="strategyActions" class="strategyActions"></div></div><div class="strategyPanel"><div class="panelTitle">Safe-to-Spend</div><div id="safeSpendBox"></div></div></div>
-  <div class="strategyGrid strategyGridWide" style="margin-top:10px"><div class="strategyPanel"><div class="splitHead"><div><div class="panelTitle">Debt Payoff Scenarios</div><div class="meta">Compare different payment intensities while keeping the final decision with you.</div></div></div><div id="debtScenarios" class="scenarioGrid"></div></div><div class="strategyPanel"><div class="panelTitle">Spending Coach</div><div id="spendingCoach"></div></div></div>
-  <div class="strategyPanel" style="margin-top:10px"><div class="splitHead"><div><div class="panelTitle">Debt & Obligation Overview</div><div class="meta">Current card and loan commitments from your saved finance data.</div></div><button class="strategyDarkBtn" type="button" data-page-jump="incomeplan">Manage Payments</button></div><div id="strategyDebtTable" style="overflow-x:auto;margin-top:10px"></div></div>
- </main></div>
-</div>
-</section>
-
-<section class="view" id="financialposition">
- <div class="modernHero"><div><h1>Financial Position</h1><p>Live view of assets, liabilities and net position from your saved finance data.</p></div><button class="btn primary" data-page-jump="reports">Open Reports</button></div>
- <div class="modernKpis" id="fpKpis"></div>
- <div class="modernGrid2"><div class="panel"><div class="panelTitle">Assets Breakdown</div><div id="fpAssets"></div></div><div class="panel"><div class="panelTitle">Liabilities Breakdown</div><div id="fpLiabilities"></div></div></div>
- <div class="panel" style="margin-top:12px"><div class="panelTitle">Net Position Summary</div><div id="fpSummary"></div></div>
-</section>
-
-<section class="view" id="rental">
- <div class="rentalHero"><div><div class="rentalEyebrow">PROPERTY INCOME â€¢ AIRBNB / RENTAL</div><h1>Rental Management</h1><p>Manage availability, bookings, rental income and monthly operating expenses from one calendar.</p></div><div class="rentalHeroActions"><button class="btn" id="rentalExpenseBtn" type="button" onclick="rentalOpenExpense()">âˆ’ Add Expense</button><button class="btn primary" id="rentalBookingBtn" type="button" onclick="rentalOpenBooking(rIso(new Date()))">+ Add Booking</button></div></div>
- <div class="rentalKpis" id="rentalKpis"></div>
- <div class="rentalLayout">
-  <div class="panel rentalCalendarPanel"><div class="rentalCalHead"><button class="btn" id="rentalPrev" type="button" onclick="rentalView.setMonth(rentalView.getMonth()-1);renderRental()">â€¹</button><div><div class="panelTitle" id="rentalMonthTitle"></div><div class="meta">Click a day to create a booking. Existing reservations span their booked nights.</div></div><button class="btn" id="rentalToday" type="button" onclick="rentalView=new Date();rentalView.setDate(1);renderRental()">Today</button><button class="btn" id="rentalNext" type="button" onclick="rentalView.setMonth(rentalView.getMonth()+1);renderRental()">â€º</button></div><div class="rentalWeek"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="rentalCalendar" id="rentalCalendar"></div><div class="rentalLegend"><span><i class="available"></i>Available</span><span><i class="booked"></i>Booked</span><span><i class="blocked"></i>Blocked</span><span><i class="maintenance"></i>Maintenance</span></div></div>
-  <div class="rentalRight"><div class="panel"><div class="splitHead"><div><div class="panelTitle">This Month</div><div class="meta">Income vs operating cost</div></div></div><div id="rentalMonthFinance"></div></div><div class="panel"><div class="panelTitle">Upcoming Bookings</div><div id="rentalUpcoming"></div></div></div>
- </div>
- <div class="rentalBottom"><div class="panel"><div class="splitHead"><div><div class="panelTitle">Bookings</div><div class="meta">Reservation and payment register</div></div></div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Stay</th><th>Booking</th><th>Nights</th><th>Daily Rate</th><th>Payment</th><th>Status</th><th></th></tr></thead><tbody id="rentalBookingBody"></tbody></table></div></div><div class="panel"><div class="panelTitle">Monthly Expenses</div><div id="rentalExpenses"></div></div></div>
-</section>
-
-<section class="view" id="reports">
- <div class="reportHero"><div><div class="reportEyebrow">FINANCIAL ANALYTICS</div><h1>Reports</h1><p>Understand where your money goes, how spending changes over time, and which categories drive the result.</p></div></div>
- <div class="reportFilters">
-   <label><span>From Date</span><input type="date" class="control" id="reportFrom"></label>
-   <label><span>To Date</span><input type="date" class="control" id="reportTo"></label>
-   <label><span>Account</span><select class="control" id="reportAccount"></select></label>
-   <label><span>Card</span><select class="control" id="reportPhysicalCard"><option value="">All Physical Cards</option></select></label>
-   <label><span>Category</span><select class="control" id="reportCategory"></select></label>
-   <label><span>Subcategory</span><select class="control" id="reportSubcategory"><option value="">All Subcategories</option></select></label>
-   <label><span>Type</span><select class="control" id="reportType"><option value="">All Types</option><option value="spend">Spending</option><option value="transfer">Transfers / Card Payments</option><option value="income">Income</option><option value="fee">Fees</option><option value="obligation">Obligations</option></select></label>
-   <button class="btn reportResetBtn" id="reportReset">Reset</button>
- </div>
- <div class="reportKpisExecutive" id="reportKpis"></div>
- <div class="reportAnalyticsGrid">
-   <div class="reportPanel reportTrendPanel"><div class="reportPanelHead"><div><h2>Monthly Spending Trend</h2><p>Spending movement across the selected period</p></div></div><div class="reportTrendChart" id="reportTrendChart"></div></div>
-   <div class="reportPanel reportMixPanel"><div class="reportPanelHead"><div><h2>Spending Mix</h2><p>Share of spending by category</p></div></div><div class="reportDonutLayout"><div class="reportDonut" id="donut"><div class="reportDonutCenter" id="donutCenter"></div></div><div class="reportLegend" id="donutLegend"></div></div><select id="donutMode" style="display:none"><option value="category" selected>By Category</option></select></div>
- </div>
- <div class="reportAnalyticsGrid reportAnalyticsSecond">
-   <div class="reportPanel"><div class="reportPanelHead"><div><h2 id="barTitle">Top Spending Categories</h2><p>Click a category to filter the report</p></div></div><div class="reportHorizontalBars" id="barChart"></div><select id="barGroup" style="display:none"><option value="category" selected>Category</option></select><select id="barMode" style="display:none"><option value="amount" selected>Amount</option></select></div>
-   <div class="reportPanel"><div class="reportPanelHead"><div><h2>Key Insights</h2><p>Highlights from the current filters</p></div></div><div class="reportInsights" id="reportInsights"></div></div>
- </div>
- <div class="reportPanel reportTablePanel"><div class="reportPanelHead"><div><h2>Top Spending Subcategories</h2><p>Detailed breakdown of the categories behind your spending</p></div></div><div class="reportTableScroll"><table class="summaryTable reportSubTable"><thead><tr><th>Subcategory</th><th>Category</th><th>Transactions</th><th>Amount</th><th>% Spend</th><th>Trend</th></tr></thead><tbody id="topSubcategoriesBody"></tbody></table></div><table style="display:none"><tbody id="topCategoriesBody"></tbody></table></div>
- <div class="reportPanel reportReviewPanel">
-  <div class="splitHead"><div><h2>Review & Correct Categorization</h2><p class="meta">Chart selections filter this transaction register. Select a transaction to correct its category or subcategory.</p><div class="reportSelection" id="reportSelection"></div></div><button class="btn" id="clearReportSelection" style="display:none">Clear Selection</button></div>
-  <div class="reportTableScroll"><table class="txTable"><thead><tr><th style="width:42px">Select</th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody id="reportTxBody"></tbody></table></div>
- </div>
- <div class="reportPanel"><div class="reportPanelHead"><div><h2>Accounts & Cards Summary</h2><p>Current balance, available credit and utilization</p></div></div><div class="reportTableScroll"><table class="summaryTable"><thead><tr><th>Account / Card</th><th>Balance / Due</th><th>Limit</th><th>Installments</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="reportAccountsBody"></tbody></table></div></div>
-</section>
-
-<section class="view" id="incomeplan">
- <div class="splitHead">
-  <div><div class="sectionTitle" style="margin-top:0">Monthly Income & Payment Plan</div><div class="meta">Income first â†’ fixed bank loans â†’ remaining cash available for credit-card payments</div></div>
-  <button class="btn primary" id="saveIncomePlan">Save Plan</button>
- </div>
-
- <div class="sectionTitle">Monthly Income</div>
- <div class="incomeGrid">
-  <div class="incomeCard"><label>My Salary (SAR)</label><input type="number" min="0" step="0.01" id="incomeMySalary" placeholder="Enter monthly salary"></div>
-  <div class="incomeCard"><label>Wife Salary (SAR)</label><input type="number" min="0" step="0.01" id="incomeWifeSalary" placeholder="Enter monthly salary"></div>
-  <div class="incomeCard">
-   <label>Add Extra Income (SAR)</label>
-   <input type="number" min="0" step="0.01" id="incomeExtra" placeholder="Enter new extra income to add">
-   <div class="meta" style="margin-top:8px"><span id="extraIncomeMonthLabel">Current Month</span> Extra Income: <b id="extraIncomeAccumulated">SAR 0.00</b></div>
-   <button class="btn" type="button" id="resetCurrentMonthExtraIncome" style="margin-top:9px">Reset Current Month</button>
-  </div>
-  <div class="incomeCard"><label>Other Income (SAR)</label><input type="number" min="0" step="0.01" id="incomeOther" placeholder="Other monthly income"></div>
- </div>
-
- <div class="panel" style="margin-top:12px">
-  <div class="splitHead">
-   <div>
-    <div class="panelTitle">Saved Monthly Income Plans</div>
-    <div class="meta">Each month is stored separately. Salary, wife salary and other income can be different every month. Extra income is taken from that month's Extra Income History.</div>
-   </div>
-   <span class="pill green" id="currentIncomePlanMonth">Current Month</span>
-  </div>
-  <div style="overflow-x:auto;margin-top:10px">
-   <table class="summaryTable">
-    <thead><tr><th>Month</th><th>My Salary</th><th>Wife Salary</th><th>Extra Income</th><th>Other Income</th><th>Total Income</th><th>Saved</th><th></th></tr></thead>
-    <tbody id="monthlyIncomePlansBody"></tbody>
-   </table>
-  </div>
- </div>
-
- <div class="panel" style="margin-top:12px">
-  <div class="splitHead"><div><div class="panelTitle">Extra Income History</div><div class="meta">Each saved extra-income addition is kept separately by month. The current-month total automatically resets to SAR 0.00 when a new month starts.</div></div><button class="btn" type="button" id="clearExtraIncomeHistory">Clear All History</button></div>
-  <div style="overflow-x:auto;margin-top:10px"><table class="summaryTable"><thead><tr><th>Date</th><th>Amount</th><th>Running Total</th><th></th></tr></thead><tbody id="extraIncomeHistoryBody"></tbody></table></div>
- </div>
-
- <div class="sectionTitle">Monthly Cash Flow</div>
- <div class="flowGrid">
-  <div class="flowBox"><div class="meta">Total Monthly Income</div><div class="big green" id="planTotalIncome">SAR 0.00</div></div>
-  <div class="flowArrow">â†’</div>
-  <div class="flowBox"><div class="meta">Bank Loans</div><div class="big red" id="planLoans">SAR 0.00</div></div>
-  <div class="flowArrow">â†’</div>
-  <div class="flowBox"><div class="meta">Cash / Other Outgoings</div><div class="big red" id="planOutgoings">SAR 0.00</div></div>
-  <div class="flowArrow">â†’</div>
-  <div class="flowBox"><div class="meta">Paid From Monthly Planned Income</div><div class="big red" id="planCardPayments">SAR 0.00</div></div>
-  <div class="flowArrow">â†’</div>
-  <div class="flowBox"><div class="meta">Remaining for Credit Card Payments</div><div class="big" id="planAfterLoans">SAR 0.00</div></div>
- </div>
- <div class="notice" style="margin-top:10px">
-  <b>Monthly planning formula:</b> Total Income âˆ’ Fixed Bank Loans âˆ’ Cash / Other Outgoings âˆ’ Card Payments Already Recorded = Remaining Available for Credit Card Payments.
- </div>
- <div class="panel" style="margin-top:12px">
-  <div class="splitHead"><div><div class="panelTitle">Card Payments Deducted From This Month</div><div class="meta">Only payments explicitly assigned to Monthly Planned Income are shown here. Delete reverses the same payment everywhere: Monthly Cash Flow, card payment history, amount remaining, available credit, dashboard and cloud state. Payments funded by another credit card do not reduce this balance.</div></div><div class="pill green" id="incomePaymentCount">0 payments</div></div>
-  <div style="overflow-x:auto;margin-top:10px"><table class="summaryTable"><thead><tr><th>Date</th><th>Card</th><th>Paid From</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="incomePaymentBreakdownBody"></tbody></table></div>
- </div>
-
- <div class="panel" style="margin-top:12px">
-  <div class="splitHead">
-   <div>
-    <div class="panelTitle">Outgoing Payments This Month</div>
-    <div class="meta">All paid recurring/one-time outgoings are shown here. Only payments made from Monthly Planned Income reduce this month's income balance. Card-funded outgoings are recorded as transactions on the selected card.</div>
-   </div>
-   <div class="pill green" id="incomeOutgoingPaymentCount">0 payments</div>
-  </div>
-  <div style="overflow-x:auto;margin-top:10px">
-   <table class="summaryTable">
-    <thead><tr><th>Date</th><th>Outgoing</th><th>Paid From</th><th>Income Impact</th><th>Amount</th></tr></thead>
-    <tbody id="incomeOutgoingPaymentBody"></tbody>
-   </table>
-  </div>
- </div>
-
-
- <div class="panel" style="margin-top:12px">
-  <div class="splitHead">
-   <div>
-    <div class="panelTitle">Monthly Cash Flow Usage Ledger</div>
-    <div class="meta">Permanent audit trail showing where Monthly Planned Income and other payment sources were used. It is stored separately from card statement/payment-plan rows.</div>
-   </div>
-   <div class="pill blue" id="cashFlowLedgerCount">0 entries</div>
-  </div>
-  <div style="overflow-x:auto;margin-top:10px">
-   <table class="summaryTable">
-    <thead><tr><th>Date</th><th>Type</th><th>Used For</th><th>Paid From</th><th>Monthly Income Impact</th><th>Amount</th><th>Action</th></tr></thead>
-    <tbody id="cashFlowLedgerBody"></tbody>
-   </table>
-  </div>
- </div>
-
- <div class="sectionTitle">Bank Loans</div><div class="loanGrid" id="incomeLoanGrid"></div>
-<div class="sectionTitle">Credit Card Payment Calendar</div>
- <div class="panel" id="creditCardCalendar"></div>
-
- <div class="sectionTitle">Plan the Remaining Income</div>
- <div class="panel">
-  <div class="notice" style="margin-bottom:12px">The amount below is what remains after monthly bank loans and cash/other outgoings. Payments recorded from Remaining Income / Cash & Other Expenses are deducted permanently from this balance. Current obligation below excludes future reserved installment amounts; installment reserves are tracked separately.</div>
-  <div id="creditCardAllocations"></div>
-  <div class="allocationRow"><div><b>Remaining Income / Cash & Other Expenses</b><div class="meta">Available after loans, outgoings and card payments funded from this balance</div></div><div></div><b id="unallocatedAmount" class="green">SAR 0.00</b></div>
-  <div id="allocationWarning" class="notice" style="display:none;margin-top:12px"></div>
- </div>
-</section>
-
-
-<section class="view" id="outgoings">
- <div class="splitHead">
-  <div><div class="sectionTitle" style="margin-top:0">Cash & Other Outgoings</div><div class="meta">Schooling, cleaning, phone, maintenance, family support and other expenses paid outside imported bank/card statements.</div></div>
-  <button class="btn primary" id="addOutgoing">+ Add Outgoing</button>
- </div>
- <div class="kpiGrid" id="outgoingKpis"></div>
- <div class="sectionTitle">Recurring & One-Time Outgoings</div>
- <div class="outgoingGrid" id="outgoingGrid"></div>
- <div class="sectionTitle">Monthly Schedule</div>
- <div class="panel"><table class="txTable"><thead><tr><th>Month</th><th>Description</th><th>Category</th><th>Subcategory</th><th>Amount</th><th>Schedule</th></tr></thead><tbody id="outgoingScheduleBody"></tbody></table></div>
-</section>
-
-<section class="view" id="installments">
- <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Installment Plans</div><div class="meta">Al Rajhi & SAB credit-card plans</div></div><button class="btn primary" id="addInstallment">+ Add Installment Plan</button></div>
- <div class="filters" style="margin-top:12px"><select class="control small" id="installmentBankFilter"><option value="">All Banks</option><option value="Al Rajhi Bank">Al Rajhi Bank</option><option value="SAB">SAB</option></select></div>
- <div class="kpis" id="installKpis" style="margin-top:15px"></div>
- <div class="panel" style="margin-top:14px"><table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Category</th><th>Original Amount</th><th>Plan</th><th>Monthly</th><th>Paid</th><th>Remaining Months</th><th>Remaining Amount</th><th>Last Payment Date</th><th>Status</th><th></th></tr></thead><tbody id="installBody"></tbody></table></div>
- <div class="sectionTitle">Installment Completion Review</div>
- <div class="panel">
-  <div class="meta" style="margin-bottom:10px">When the calendar indicates an installment should be finished, it appears here first. Confirm it only after you verify the statement/payment. Until confirmed, it remains active in calculations.</div>
-  <table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Original Amount</th><th>Monthly</th><th>Amount Under Review</th><th>Plan</th><th>Scheduled Status</th><th>Action</th></tr></thead><tbody id="installReviewBody"></tbody></table>
- </div>
- <div class="sectionTitle">Completed Installments</div>
- <div class="panel"><div class="meta" style="margin-bottom:10px">Only plans you confirmed as completed are stored here. They are excluded from all current/future calculations. Delete permanently removes the completed record from all devices.</div><table class="installTable"><thead><tr><th>Card</th><th>Description</th><th>Category</th><th>Original Amount</th><th>Plan</th><th>Last Payment Date</th><th>Completed</th><th>Status</th><th>Action</th></tr></thead><tbody id="completedInstallBody"></tbody></table></div>
-</section>
-
-<section class="view" id="categories">
- <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Categories & Subcategories</div><div class="meta">Editable dropdown values used in transactions and installment plans</div></div><button class="btn primary" id="addCategory">+ Add Category</button></div>
- <div class="catManager" style="margin-top:15px">
-   <div class="panel catList" id="categoryList"></div>
-   <div class="panel"><div class="splitHead"><div class="panelTitle" id="selectedCatTitle">Subcategories</div><button class="btn" id="addSubcategory">+ Add Subcategory</button></div><div class="subList" id="subcategoryList"></div></div>
- </div>
- <div class="sectionTitle">Remembered Merchant Rules</div>
- <div class="panel"><table class="summaryTable"><thead><tr><th>Merchant / Description</th><th>Category</th><th>Subcategory</th><th></th></tr></thead><tbody id="merchantRulesBody"></tbody></table></div>
-</section>
-
-
-<section class="view" id="importstatements">
- <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Import Bank / Credit Card Statement</div><div class="meta">Import PDF, Excel or CSV statements. Files are processed in your browser and saved to the local finance database only after you confirm the preview.</div></div></div>
- <div class="grid2" style="margin-top:15px">
-  <div class="panel">
-   <div class="panelTitle">1. Select Statement</div>
-   <div class="formGrid">
-    <div class="field"><label>Account / Card</label><select id="importAccount"></select><div class="hint" id="importAccountHint">The app will automatically detect the bank/card from the statement when possible. You can still change it manually.</div></div>
-    <div class="field"><label>Statement Month</label><input id="importStatementMonth" type="month"><div class="hint">Optional. Leave blank to use the statement cutoff rule.</div></div>
-    <div class="field full"><div class="importDrop" id="importDrop"><div style="font-size:28px">ğŸ“„</div><div style="font-weight:900;margin-top:6px">Choose or drop a statement file</div><div class="meta" style="margin:6px 0 12px">PDF, XLSX, XLS or CSV</div><label class="btn primary" for="statementFile">Choose Statement</label><input id="statementFile" type="file" accept=".pdf,.xlsx,.xls,.csv" hidden></div><div id="importStatus" class="importStatus info" style="display:none"></div></div>
-   </div>
-  </div>
-  <div class="panel"><div class="panelTitle">How Import Works</div><div class="meta" style="line-height:1.7">â€¢ Imported rows are treated as <b>statement transactions</b>, not manual transactions.<br>â€¢ Before import, rows are compared with existing transactions on the same card. Matching date/amount/description rows are <b>skipped automatically</b> so reports do not double-count.<br>â€¢ A manual transaction can be reviewed against a matching imported statement transaction.<br>â€¢ Card payments/top-ups are treated as transfers and excluded from spending.<br>â€¢ You review the preview before importing.</div></div>
- </div>
- <div class="sectionTitle">2. Preview</div>
- <div class="panel"><div class="splitHead"><div><div class="panelTitle" style="margin-bottom:4px">Transactions Found</div><div class="meta" id="importPreviewMeta">Choose a statement to begin.</div></div><div style="display:flex;gap:8px"><button class="btn" id="clearImportPreview" disabled>Clear</button><button class="btn primary" id="confirmStatementImport" disabled>Import Transactions</button></div></div><div class="importPreview"><table class="txTable"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="importPreviewBody"><tr><td colspan="5">No statement loaded.</td></tr></tbody></table></div></div>
- <div class="sectionTitle">Supported Statement Formats</div>
- <div class="panel">
-  <div class="splitHead"><div><div class="panelTitle">Statement Format Library</div><div class="meta">Built-in formats plus formats you add/import. Export a format definition to reuse it on another machine.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="addStatementFormat" type="button">+ Add Format</button><button class="btn" id="downloadStatementFormatTemplate" type="button">Excel Mapping Template</button><label class="btn" for="statementFormatFile">Import Format</label><input id="statementFormatFile" type="file" accept=".json,application/json" hidden><button class="btn" id="exportStatementFormats" type="button">Export Formats</button></div></div>
-  <div style="overflow-x:auto;margin-top:12px"><table class="summaryTable"><thead><tr><th>Name</th><th>Account/Card</th><th>File Type</th><th>Mapping</th><th>Status</th><th>Action</th></tr></thead><tbody id="statementFormatsBody"></tbody></table></div>
- </div>
- <div class="sectionTitle">Import History</div>
- <div class="panel"><div style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Imported</th><th>File</th><th>Account / Card</th><th>Transactions</th><th>Actions</th></tr></thead><tbody id="importHistoryBody"></tbody></table></div></div>
-</section>
-
-<section class="view cloudModern" id="cloudSync">
- <div class="cloudHero">
-  <div><div class="cloudEyebrow">SETTINGS Â· DATA & SYNC</div><h1>Cloud Database</h1><p>Protected synchronization, device verification and recovery controls for your Personal Finance data.</p></div>
-  <div class="cloudHeroState"><span class="cloudLiveDot"></span><span>REALTIME CLOUD</span></div>
- </div>
- <div class="cloudStatusCard">
-  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V289</b> Â· Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connectionâ€¦</div></div><span class="cloudShield">PROTECTED</span></div>
-  <div id="cloudLoggedOut" class="cloudLogin">
-   <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
-   <button class="cloudPrimaryBtn" id="cloudSendLink" type="button">Send Secure Login Link</button>
-   <div class="cloudInfo">Signing in does not replace local finance data. A cloud load or first-source publication remains an explicit action.</div>
-  </div>
-  <div id="cloudLoggedIn" style="display:none">
-   <div class="cloudUserLine" id="cloudUser"></div>
-   <div class="cloudMetrics">
-    <div class="cloudMetric"><span>Cloud Setup</span><b id="cloudInitialState">Checkingâ€¦</b><small>Initial source / verification state</small></div>
-    <div class="cloudMetric"><span>Last Successful Sync</span><b id="cloudLastSynced">Never</b><small>Most recent verified synchronization</small></div>
-    <div class="cloudMetric"><span>Local Changes</span><b id="cloudPendingState">Checkingâ€¦</b><small>Changes waiting to publish</small></div>
-    <div class="cloudMetric"><span>Device Protection</span><b id="cloudDeviceState">Protected</b><small>Local-first verification status</small></div>
-   </div>
-   <div class="cloudSection">
-    <div class="cloudSectionHead"><div><h3>Data Reconciliation</h3><p>Compare this device with the canonical cloud finance records.</p></div></div>
-    <div class="cloudNotice" id="cloudLocalSummary">Preparing local data summaryâ€¦</div>
-    <div id="cloudReconciliation" class="cloudNotice"><b>Local vs Cloud:</b> Checkingâ€¦</div>
-   </div>
-   <div class="cloudSection" id="recoveryCenter">
-    <div class="cloudSectionHead"><div><h3>Recovery Center</h3><p>Create or restore local backups before any cloud replacement. Recovery operations are intentionally separated from normal synchronization.</p></div><span class="cloudBadge" id="recoverySnapshotCount">0 local backups</span></div>
-    <div class="cloudRecoveryGrid">
-     <button class="cloudActionBtn" id="recoveryCreateBtn" type="button"><b>Create Local Backup</b><small>Save a protected snapshot on this device</small></button>
-     <button class="cloudActionBtn" id="recoveryExportBtn" type="button"><b>Export Local Backup</b><small>Download a recovery JSON file</small></button>
-     <button class="cloudActionBtn" id="recoveryImportBtn" type="button"><b>Import / Merge Backup</b><small>Merge a previous recovery file</small></button>
-     <button class="cloudActionBtn" id="recoveryRestoreBtn" type="button"><b>Restore Previous Snapshot</b><small>Restore the latest local recovery point</small></button>
-    </div>
-    <div class="cloudDangerZone">
-     <div class="cloudDangerTitle">Advanced Recovery Workflow</div><div class="cloudDangerText">Use only when intentionally rebuilding the cloud database from a known backup.</div>
-     <div class="cloudStepGrid">
-      <button class="cloudStep danger" id="purgeCloudBtn" type="button"><span>1</span><b>Hard Purge Cloud</b></button>
-      <button class="cloudStep" id="verifyCloudEmptyBtn" type="button"><span>2</span><b>Verify Cloud Empty</b></button>
-      <button class="cloudStep" id="restoreBackupLocalBtn" type="button"><span>3</span><b>Restore Backup to Device</b></button>
-      <button class="cloudStep primary" id="publishRestoredBackupBtn" type="button"><span>4</span><b>Publish Restored Backup</b></button>
-     </div>
-     <div class="cloudAuditActions"><button class="cloudTextBtn" id="cloudAuditBtn" type="button">Inspect Cloud Records Â· Read Only</button><button class="cloudTextBtn" id="cloudAuditExportBtn" type="button" style="display:none">Export Cloud Audit JSON</button></div>
-    </div>
-    <input id="recoveryImportFile" type="file" accept=".json,application/json" hidden>
-    <input id="restoreBackupLocalFile" type="file" accept=".json,application/json" hidden>
-    <div id="cloudAuditPanel" class="cloudAuditPanel" style="display:none"></div>
-    <div class="cloudNotice" id="recoveryStatus">No recovery action performed yet.</div>
-   </div>
-   <div class="cloudSyncActions">
-    <button class="cloudPrimaryBtn" id="cloudInitialUpload" type="button">Use This Device as First Cloud Source</button>
-    <button class="cloudPrimaryBtn" id="cloudUpload" type="button">Sync Now</button>
-    <button class="cloudActionSimple" id="cloudDownload" type="button">Load Latest Cloud Data</button>
-    <button class="cloudActionSimple" id="cloudSignOut" type="button">Sign Out</button>
-   </div>
-   <div class="cloudNotice" id="cloudResult">Protected Record Sync Â· Load Latest Cloud Data reads the canonical finance records without publishing this device first. A new or unverified device must complete one verified cloud load before protected background publishing begins.</div>
-  </div>
- </div>
-</section>
-
-<section class="view" id="financeSettings">
- <div class="splitHead">
-  <div><div class="sectionTitle" style="margin-top:0">Finance Settings</div><div class="meta">This page pauses finance-settings cloud replacement while you are editing, so fields do not refresh while you type.</div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="nav('more')">â† Back</button><button class="btn primary" type="button" id="saveFinanceSettingsBtn">Save Settings</button></div>
- </div>
- <div class="panel" style="margin-top:14px" id="financeSettingsPanel">
-  <div class="sectionTitle" style="margin-top:0">Bank Loans</div>
-  <div class="meta" style="margin-bottom:10px">Add, edit, close or delete loans. Draft changes stay on this page until you leave or press Save Settings.</div>
-  <div id="loanSettingsRows"></div>
-  <button class="btn" type="button" id="addLoanSetting" style="margin-top:10px">+ Add Loan</button>
-  <div class="sectionTitle" style="margin-top:20px">Saved Loans</div>
-  <div class="meta" style="margin-bottom:10px">Saved loans roll forward once per month. When the balance month moves forward, Remaining Months decreases and the monthly payment is deducted from Remaining Amount.</div>
-  <div id="savedLoanSummary"></div>
-  <div class="sectionTitle" style="margin-top:22px">Bank Accounts</div>
-  <div class="meta" style="margin-bottom:10px">Add a bank account using the same structured form style as Add Transaction.</div>
-  <button class="btn" type="button" id="addCustomBank">+ Add Bank Account</button>
-  <div id="customBanksList" style="margin-top:10px"></div>
-  <div class="sectionTitle" style="margin-top:22px">Credit Cards</div>
-  <div class="meta" style="margin-bottom:10px">Add a future credit card manually. New cards use the same transaction, planner, installment and available-credit logic.</div>
-  <button class="btn" type="button" id="addCustomCreditCard">+ Add Credit Card</button>
-  <div id="customCreditCardsList" style="margin-top:10px"></div>
-  <div class="sectionTitle" style="margin-top:22px">Credit Card Statement / Due Dates</div>
-  <div class="meta" style="margin-bottom:10px">Set statement cutoff day and payment due day for each card.</div>
-  <div class="meta" id="cardCycleSettingsStatus" style="margin-bottom:8px"></div>
-  <div id="cardCycleSettingsRows" class="grid2"></div>
- </div>
-</section>
-
-<section class="view" id="more">
- <div class="panel" style="margin-bottom:12px">
-  <div class="splitHead"><div>
-   <div class="panelTitle">Application Status</div>
-   <div class="meta">Confirm the live build and cloud connection here.</div>
-  </div><span class="pill green">V289 CURRENT BUILD</span></div>
-  <div class="kpis" style="margin-top:12px">
-   <div class="kpi"><div class="kpiLabel">App Version</div><div class="kpiValue" style="font-size:18px">V289</div></div>
-   <div class="kpi"><div class="kpiLabel">Build Date</div><div class="kpiValue" style="font-size:18px">20 Sep 2026</div></div><div class="kpi"><div class="kpiLabel">Build Fingerprint</div><div class="kpiValue" style="font-size:18px">V289-20260920-PROTECTED-ACCOUNT-CATALOG</div></div>
-   <div class="kpi"><div class="kpiLabel">Storage</div><div class="kpiValue" style="font-size:18px">Supabase Realtime + Local Cache</div></div>
-   <div class="kpi"><div class="kpiLabel">Cloud Status</div><div class="kpiValue" id="v74CloudStatus" style="font-size:18px">Checkingâ€¦</div></div>
-  </div>
-  <button class="btn" style="margin-top:12px" onclick="nav('cloudSync')">Open Cloud Login / Sync</button>
- </div>
- <div class="panel" style="margin-bottom:12px">
-  <div class="panelTitle">Import Bank / Card Statement</div>
-  <div class="meta" style="margin-top:6px">Upload Al Rajhi or SAB statements in PDF, Excel or CSV format.</div>
-  <button class="btn primary" style="margin-top:12px" data-page-jump="importstatements">Import Statement</button>
- </div>
-
- <div class="panel" style="margin-bottom:12px">
-  <div class="splitHead"><div><div class="panelTitle">Excluded / Deleted Transaction History</div><div class="meta">Confirmed duplicates and deleted transactions stay in the database for audit. They are excluded from calculations and can be restored.</div></div><button class="btn" id="showTxHistory">View History</button></div>
-  <div id="txHistoryBox" style="display:none;margin-top:12px"></div>
- </div>
-
- <div class="panel" style="margin-bottom:12px">
-  <div class="splitHead"><div><div class="panelTitle">Local Finance Database</div><div class="meta">Supabase is the master database. Local storage is only a fast cache/recovery copy. Changes synchronize between signed-in devices in realtime.</div></div><div class="dbStatus" id="dbStatus"><span class="dbDot"></span>Database active</div></div>
- </div>
-
- <div class="panel" style="margin-bottom:12px">
-  <div class="splitHead"><div><div class="panelTitle">Finance Settings</div><div class="meta">Bank loans, remaining balances, card statement/due-date rules, and transaction classification.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="nav('categories')">Categories & Rules</button><button class="btn primary" type="button" onclick="nav('financeSettings')">Open Finance Settings</button></div></div>
- </div>
-
- <div class="panel" style="margin-bottom:12px">
-  <div class="panelTitle">Cash & Recurring Outgoings</div>
-  <div class="meta" style="margin-top:6px">Schooling, cleaning, phone, maintenance and other scheduled expenses.</div>
-  <button class="btn primary" style="margin-top:12px" data-page-jump="outgoings">Manage Outgoings</button>
- </div>
-
- <div class="grid2">
-   <div class="panel"><div class="panelTitle">Monthly Income & Payment Plan</div><div style="font-weight:900">Plan salary â†’ loans â†’ credit cards</div><div class="meta" style="margin-top:8px">Enter both salaries and other income, deduct active bank loans, then allocate the remaining amount to your credit cards.</div><button class="btn primary" style="margin-top:13px" data-page-jump="incomeplan">Open Income Plan</button></div>
-   <div class="panel"><div class="panelTitle">Manual Corrections</div><div style="font-weight:900">Add missing transactions</div><div class="meta" style="margin-top:8px">Use this when the imported statement is missing an item or when you need to record a transaction manually.</div><button class="btn primary" style="margin-top:13px" id="moreAddTransaction">+ Add Transaction</button></div>
-   <div class="panel"><div class="panelTitle">Storage</div><div style="font-weight:900">Local + Cloud configuration</div><div class="meta" style="margin-top:8px">Changes are saved locally immediately and automatically synchronized to Supabase whenever you are signed in.</div><button type="button" class="btn danger" style="margin-top:13px" id="resetLocal">Reset Prototype Changes</button></div>
- </div>
-</section>
-
-<section class="view" id="investments">
- <div class="invHero"><div><div class="invEyebrow">WEALTH â€¢ INVESTMENTS</div><h1>Stock Portfolio</h1><div class="meta">Live Saudi & U.S. market values using your original portfolio. Quantities and average costs remain editable.</div></div><div class="invActions"><button class="btn" id="invRefresh">â†» Refresh Live Prices</button><button class="btn primary" id="invAddHolding">+ Add Holding</button></div></div>
- <div class="invStatus" id="invStatus">Loading your saved portfolioâ€¦</div><div class="invKpis" id="invKpis"></div>
- <div class="panel invToolbar"><input id="invSearch" placeholder="Search ticker or company"><select id="invMarket"><option value="ALL">All Markets</option><option value="SA">Saudi Arabia</option><option value="US">United States</option></select><select id="invSort"><option value="value">Market Value</option><option value="pl">Gain / Loss</option><option value="pct">Return %</option><option value="ticker">Ticker</option></select></div>
- <div class="panel invTablePanel"><div class="tableWrap"><table class="invTable"><thead><tr><th>Holding</th><th>Market</th><th>Shares</th><th>Avg Cost</th><th>Live Price</th><th>Market Value</th><th>Gain / Loss</th><th>Return</th><th>Weight</th><th>Actions</th></tr></thead><tbody id="invBody"></tbody></table></div></div>
- <div class="invGrid"><div class="panel"><div class="panelTitle">Portfolio Allocation</div><div id="invAllocation"></div></div><div class="panel"><div class="panelTitle">Recent Stock Activity</div><div id="invTrades" class="meta">No stock activity recorded yet.</div></div></div>
-</section>
-
-<section class="view" id="assets">
- <div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Personal Assets â€¢ Gold</div><div class="meta">Each asset name has one permanent Asset ID. Entering the same name again updates that asset instead of duplicating its weight and value.</div></div><button class="btn primary" id="addGoldAsset" type="button">+ Add Gold</button></div>
- <div class="kpis" id="goldKpis" style="margin-top:14px"></div>
- <div class="panel" style="margin-top:14px"><div class="splitHead"><div><div class="panelTitle">Saudi Gold Market Price</div><div class="meta" id="goldPriceMeta">Live spot reference with manual override available.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="refreshGoldPrice" type="button">Refresh Price</button><button class="btn" id="manualGoldPrice" type="button">Manual Price</button></div></div><div id="goldPriceGrid" class="kpis" style="margin-top:12px"></div></div>
- <div class="sectionTitle">Active Gold Assets</div>
- <div class="panel" style="overflow-x:auto"><table class="summaryTable" style="min-width:1100px"><thead><tr><th>Asset</th><th>Type / Purity</th><th>Weight</th><th>Bought</th><th>Purchase Price</th><th>Current Value</th><th>Gain/Loss</th><th>Next Hijri Zakat</th><th>Zakat</th><th>Action</th></tr></thead><tbody id="goldAssetsBody"></tbody></table></div>
- <div class="sectionTitle">Zakat Payment History</div>
- <div class="panel" style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Asset</th><th>Hijri Cycle</th><th>Weight</th><th>Value Used</th><th>Zakat Paid</th><th>Paid Date</th><th>Paid From</th><th>Action</th></tr></thead><tbody id="goldZakatHistoryBody"></tbody></table></div>
- <div class="sectionTitle">Gold Sale History</div>
- <div class="panel" style="overflow-x:auto"><table class="summaryTable"><thead><tr><th>Asset</th><th>Date</th><th>Weight Sold</th><th>Sale Proceeds</th><th>Received To</th><th>Realized Gain/Loss</th></tr></thead><tbody id="goldSaleHistoryBody"></tbody></table></div>
-</section>
-
-<section class="view" id="accountDetail">
- <button class="btn" id="detailBack">â† Back</button>
- <div id="accountDetailContent" style="margin-top:14px"></div>
-</section>
-
-<section class="view" id="accountprofile">
- <div class="prefsPage"><div class="prefsEyebrow">PROFILE</div><h1>Account</h1><p class="prefsLead">Manage the identity that will be used by My Finance and the future login system.</p>
- <div class="prefsGrid"><div class="panel prefsCard"><div class="profileLarge"><div class="profileLargeAvatar" id="accountAvatarPreview">HA</div><div><h2 id="accountNamePreview">Hussam Ahmad</h2><div class="meta" id="accountEmailPreview">Local profile â€¢ Login not connected yet</div></div></div></div>
- <div class="panel prefsCard"><div class="panelTitle">Profile Details</div><form id="accountProfileForm" class="prefsForm"><label>Display Name<input id="accountDisplayName" autocomplete="name"></label><label>Email<input id="accountEmail" type="email" autocomplete="email" placeholder="name@example.com"></label><label>Initials<input id="accountInitials" maxlength="3" placeholder="HA"></label><button class="btn primary" type="submit">Save Profile</button></form></div>
- <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">This area is ready for authentication. Password, sessions and secure sign-out will be connected when the login screen is implemented.</p><div class="prefsStatus"><span>Authentication</span><b>Not connected</b></div></div></div></div>
-</section>
-<section class="view" id="preferences">
- <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Control how My Finance looks on this device. Changes apply immediately and are saved locally.</p>
- <div class="prefsGrid"><div class="panel prefsCard prefsWide"><div class="panelTitle">Appearance</div><div class="themeChoices" id="themeChoices">
- <button type="button" data-theme-choice="dark"><span class="themePreview themeDark"></span><b>Dark</b><small>Current finance dashboard style</small></button>
- <button type="button" data-theme-choice="light"><span class="themePreview themeLight"></span><b>Light</b><small>Bright workspace</small></button>
- <button type="button" data-theme-choice="system"><span class="themePreview themeSystem"></span><b>System</b><small>Follow your Mac/browser appearance</small></button>
- </div></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label></div>
- <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Dark</b></div><div class="prefsStatus"><span>Storage</span><b>On this device</b></div></div></div></div>
-</section>
-
-
-<section class="view" id="bankconnections">
- <div class="bankSandboxShell">
-  <div class="bankSandboxHero">
-   <div><div class="bankSandboxEyebrow">OPEN BANKING â€¢ ACCOUNT-LEVEL MAPPING</div><h1>Bank Connections</h1><p>Identify every current account and credit card separately before transactions enter My Finance.</p></div>
-   <div class="bankSandboxBadge">V295 â€¢ SAFE STAGING</div>
-  </div>
-  <div class="bankProviderPanel">
-   <div><b>Real bank connection</b><span id="bankProviderStatus">Neotek provider access is not configured yet. Real data requires approved credentials and bank-hosted consent.</span></div>
-   <div class="bankProviderActions"><button type="button" class="btn" id="bankProviderCheck">Check Provider Setup</button><button type="button" class="btn primary" id="bankProviderStart">Start Real Bank Connection</button><a class="btn" href="https://neotek.sa/contact" target="_blank" rel="noopener noreferrer">Request Provider Access</a></div>
-  </div>
-  <div class="bankSandboxNotice"><b>Safe test mode</b><span>This module follows the Neotek-style account, balance and transaction structure. It does not contact a bank, publish data to Supabase or change dashboard calculations.</span></div>
-  <div class="bankSandboxConnectBar">
-   <label for="bankSandboxBank">Saudi bank</label>
-   <select id="bankSandboxBank"></select>
-   <button type="button" class="btn primary" id="bankSandboxConnect">Connect Sandbox Bank</button>
-   <button type="button" class="btn" id="bankSandboxSync">Sync Sandbox Data</button>
-  </div>
-  <div id="bankSandboxStatus" class="bankSandboxStatus">No sandbox bank connected yet.</div>
-  <div id="bankSandboxMetrics" class="bankSandboxMetrics"></div>
-  <div class="bankSandboxSectionHead"><div><h2>Connected accounts</h2><p>Available amounts returned by the sandbox adapter.</p></div></div>
-  <div id="bankSandboxAccounts" class="bankSandboxConnections"></div>
-  <div class="bankSandboxPanel">
-   <div class="bankSandboxSectionHead"><div><h2>Bank transaction feed</h2><p>Normalized transactions remain isolated from your real finance register.</p></div></div>
-   <div class="bankSandboxTableWrap"><table class="bankSandboxTable"><thead><tr><th>Date</th><th>Source account</th><th>Description</th><th>Amount</th><th>Running balance</th></tr></thead><tbody id="bankSandboxTransactions"></tbody></table></div>
-  </div>
-  <div class="bankSandboxProductionNote"><b>Production hand-off</b><span>After Neotek approval, the server-side adapter will replace this fixture, store credentials only in protected environment variables and use bank-hosted consent redirects.</span></div>
- </div>
-</section>
-
-</main>
-</div>
-</div>
-
-<div class="modalBack" id="balanceOfferModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Balance Installment Offer</div><button class="closeBtn" id="closeBalanceOffer">âœ•</button></div>
- <form id="balanceOfferForm" class="formGrid">
-  <input type="hidden" id="balanceOfferCardId">
-  <div class="field full"><label>Card</label><input id="balanceOfferCardName" readonly></div>
-  <div class="field"><label>Offer Amount (SAR)</label><input id="balanceOfferAmount" type="number" min="0.01" step="0.01" required></div>
-  <div class="field"><label>Months</label><input id="balanceOfferMonths" type="number" min="1" max="60" value="12" required></div>
-  <div class="field"><label>Start Month</label><input id="balanceOfferStartMonth" type="month" required></div>
-  <div class="field"><label>Monthly Fee / Profit (Optional)</label><input id="balanceOfferFee" type="number" min="0" step="0.01" value="0"></div>
-  <div class="field full"><label>Offer Scope</label><select id="balanceOfferScope">
-   <option value="current">Current non-installment balance only</option>
-   <option value="full">Full utilized balance and replace existing installment plans</option>
-  </select><div class="hint">Use Full only when the bank confirms the old installment plans are replaced.</div></div>
-  <div class="field full"><label>Description</label><input id="balanceOfferDescription" value="Card Balance Installment Offer"></div>
-  <div class="field full"><div class="notice" id="balanceOfferPreview"></div></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="cancelBalanceOffer">Cancel</button><button class="btn primary" type="submit">Create Offer Plan</button></div>
- </form>
-</div></div>
-
-<div class="modalBack" id="installModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Add Installment Plan</div><button class="closeBtn" data-close="installModal">âœ•</button></div>
- <form id="installForm" class="formGrid">
-  <div class="field"><label>Credit Card</label><select id="instCard" required></select></div>
-  <div class="field"><label>Description</label><input id="instDesc" required placeholder="Furniture, appliance, gadget..."></div>
-  <div class="field"><label>Category</label><select id="instCategory" required></select></div>
-  <div class="field"><label>Subcategory</label><select id="instSubcategory" required></select></div>
-  <div class="field"><label>Original / Full Amount (SAR)</label><input id="instAmount" type="number" min="0.01" step="0.01" required></div>
-  <div class="field"><label>Remaining Amount (SAR)</label><input id="instRemainingAmount" type="number" min="0" step="0.01" required><div class="hint">This principal stays fixed when you change the remaining months.</div></div>
-  <div class="field"><label>Remaining Months</label><input id="instMonths" type="number" min="1" max="60" value="3" required></div>
-  <div class="field"><label>Start / Reference Month</label><input id="instStart" type="month" value="2026-08" required></div>
-  <div class="field"><label>Installments Already Paid</label><input id="instPaid" type="number" min="0" value="0" required><div class="hint">For history. Remaining Amount is the authoritative outstanding principal.</div></div>
-  <div class="field full"><div class="notice" id="instPreview">Enter amount and months to calculate the monthly installment and remaining amount.</div></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="installModal">Cancel</button><button class="btn primary" type="submit">Save Plan</button></div>
- </form>
-</div></div>
-
-
-
-<div class="modalBack" id="outgoingModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle" id="outgoingModalTitle">Add Outgoing</div><button class="closeBtn" data-close="outgoingModal">âœ•</button></div>
- <form id="outgoingForm" class="formGrid">
-  <input type="hidden" id="outgoingEditId">
-  <div class="field full"><label>Description</label><input id="outgoingDesc" required placeholder="School fees, cleaning, phone, maintenance..."></div>
-  <div class="field"><label>Amount (SAR)</label><input id="outgoingAmount" type="number" min="0.01" step="0.01" required></div>
-  <div class="field"><label>Payment Method</label><select id="outgoingMethod"><option>Cash</option><option>Bank Transfer</option><option>Other</option></select></div>
-  <div class="field"><label>Category</label><select id="outgoingCategory" required></select></div>
-  <div class="field"><label>Subcategory</label><select id="outgoingSubcategory" required></select></div>
-  <div class="field"><label>Start Month</label><input id="outgoingStart" type="month" required></div>
-  <div class="field"><label>Repeat For</label><select id="outgoingMonths"></select><div class="hint">1 month = one-time. Choose 2, 3, 4, 5 or any value up to 60 months.</div></div>
-  <div class="field"><label>Recurring Option</label><label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:800"><input type="checkbox" id="outgoingForever"> Forever â€” repeat every month</label><div class="hint">When enabled, this outgoing continues monthly until you edit or delete it.</div></div>
-  <div class="field full"><label>Notes</label><input id="outgoingNotes" placeholder="Optional"></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="outgoingModal">Cancel</button><button class="btn primary" type="submit">Save Outgoing</button></div>
- </form>
-</div></div>
-
-<div class="modalBack" id="outgoingPaymentModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Pay Scheduled Outgoing</div><button class="closeBtn" data-close="outgoingPaymentModal">âœ•</button></div>
- <form id="outgoingPaymentForm" class="formGrid">
-  <input type="hidden" id="outgoingPaymentOutgoingId">
-  <input type="hidden" id="outgoingPaymentMonth">
-  <div class="field full"><label>Outgoing</label><input id="outgoingPaymentLabel" readonly></div>
-  <div class="field"><label>Scheduled Month</label><input id="outgoingPaymentMonthLabel" readonly></div>
-  <div class="field"><label>Payment Amount (SAR)</label><input id="outgoingPaymentAmount" type="number" min="0.01" step="0.01" required></div>
-  <div class="field"><label>Paid From</label><select id="outgoingPaymentSource" required></select></div>
-  <div class="field"><label>Payment Date</label><input id="outgoingPaymentDate" type="date" required></div>
-  <div class="field full"><div class="notice" id="outgoingPaymentPreview">Choose where this outgoing was paid from.</div></div>
-  <div class="field full"><div class="hint"><b>Monthly Planned Income:</b> the outgoing stays deducted from that month's planned cash. <b>Bank/Card:</b> the actual bank/card balance is reduced/increased, and the outgoing is no longer deducted from Monthly Planned Income for that month.</div></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
-   <button type="button" class="btn" data-close="outgoingPaymentModal">Cancel</button>
-   <button class="btn primary" type="submit">Save Payment</button>
-  </div>
- </form>
-</div></div>
-
-
-<div class="modalBack" id="importPreviewEditModal"><div class="modal">
- <div class="modalHead">
-  <div>
-   <div class="modalTitle">Edit Statement Transaction</div>
-   <div class="meta" style="margin-top:4px">Correct the transaction before it is imported.</div>
-  </div>
-  <button class="closeBtn" data-close="importPreviewEditModal">âœ•</button>
- </div>
- <form id="importPreviewEditForm" class="formGrid">
-  <input type="hidden" id="importPreviewEditIndex">
-
-  <div class="field">
-   <label>Account / Card</label>
-   <select id="importPreviewEditAccount" required></select>
-  </div>
-
-  <div class="field">
-   <label>Date</label>
-   <input type="date" id="importPreviewEditDate" required>
-  </div>
-
-  <div class="field full">
-   <label>Description</label>
-   <input id="importPreviewEditDescription" required placeholder="Merchant, bill, payment...">
-  </div>
-
-  <div class="field">
-   <label>Transaction Type</label>
-   <select id="importPreviewEditType">
-    <option value="expense">Expense / Purchase</option>
-    <option value="transfer">Card Payment / Transfer</option>
-    <option value="income">Income / Credit</option>
-    <option value="fee">Fee</option>
-    <option value="obligation">Loan / Obligation</option>
-   </select>
-  </div>
-
-  <div class="field">
-   <label>Amount (SAR)</label>
-   <input type="number" id="importPreviewEditAmount" min="0.01" step="0.01" required>
-   <div class="hint">Enter the amount as a positive value. Transaction Type determines debit/credit direction.</div>
-  </div>
-
-  <div class="field">
-   <label>Category</label>
-   <select id="importPreviewEditCategory" required></select>
-  </div>
-
-  <div class="field">
-   <label>Subcategory</label>
-   <select id="importPreviewEditSubcategory" required></select>
-  </div>
-
-  <div class="field full">
-   <div class="notice" id="importPreviewEditCycle">
-    Payment/statement cycle will be recalculated from the transaction date and selected card.
-   </div>
-  </div>
-
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
-   <button type="button" class="btn" data-close="importPreviewEditModal">Cancel</button>
-   <button class="btn primary" type="submit">Save Changes</button>
-  </div>
- </form>
-</div></div>
-
-<div class="modalBack" id="manualTxModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Add Transaction</div><button class="closeBtn" data-close="manualTxModal">âœ•</button></div>
- <form id="manualTxForm" class="formGrid">
-  <div class="field full" style="padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--soft)">
-   <label>Paste Bank SMS</label>
-   <textarea id="bankSmsPaste" rows="3" placeholder="Paste the complete bank transaction SMS hereâ€¦"></textarea>
-   <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn" type="button" id="parseBankSms">Read SMS</button>
-    <button class="btn" type="button" id="clearBankSms">Clear</button>
-    <span class="meta" id="bankSmsStatus">Detect bank/card, amount, date and merchant; review before saving.</span></div>
-  </div>
-  <div class="field"><label>Account / Card</label><select id="manualTxAccount" required></select></div>
-  <div class="field"><label>Physical Card</label><select id="manualTxPhysicalCard"></select><div class="hint">Primary or supplementary card under the selected account.</div></div>
-  <div class="field"><label>Date</label><input type="date" id="manualTxDate" required></div>
-  <div class="field full"><label>Description</label><input id="manualTxDesc" required placeholder="Merchant, bill, payment..."></div>
-  <div class="field"><label>Transaction Type</label><select id="manualTxType"><option value="expense">Expense / Purchase</option><option value="transfer">Card Payment / Transfer</option><option value="income">Income / Credit</option><option value="fee">Fee</option><option value="obligation">Loan / Obligation</option></select></div>
-  <div class="field"><label>Amount (SAR)</label><input type="number" id="manualTxAmount" min="0.01" step="0.01" required><div class="hint">Enter a positive amount. The app applies debit/credit direction from Transaction Type.</div></div>
-  <div class="field"><label>Category</label><select id="manualTxCategory"></select></div>
-  <div class="field"><label>Subcategory</label><select id="manualTxSubcategory"></select></div>
-  <div class="field full"><label><input id="manualTxInstallment" type="checkbox"> Create an installment plan from this transaction after saving</label><div class="hint" id="manualInstallHint">Available for Al Rajhi and SAB credit-card purchases above SAR 1,000.</div></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="manualTxModal">Cancel</button><button class="btn primary" type="submit">Save Transaction</button></div>
- </form>
-</div></div>
-
-
-<div class="modalBack" id="txBulkUpdateModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Update Selected Transactions</div><button class="closeBtn" type="button" id="closeBulkUpdateTop">âœ•</button></div>
- <form id="txBulkUpdateForm" class="formGrid">
-  <div class="field full"><div class="notice"><b id="txBulkUpdateCount">0 transactions selected</b><div class="meta" style="margin-top:4px">Leave any field unchanged if you do not want to modify it.</div></div></div>
-  <div class="field"><label>Category</label><select id="bulkUpdateCategory"><option value="">â€” Keep Existing â€”</option></select></div>
-  <div class="field"><label>Subcategory</label><select id="bulkUpdateSubcategory"><option value="">â€” Keep Existing â€”</option></select></div>
-  <div class="field"><label>Account</label><select id="bulkUpdateAccount"><option value="">â€” Keep Existing â€”</option></select></div>
-  <div class="field"><label>Physical Card</label><select id="bulkUpdatePhysicalCard"><option value="">â€” Keep Existing â€”</option></select><div class="hint">Primary or supplementary card, e.g. Supplementary â€¢9345.</div></div>
-  <div class="field"><label>Transaction Type</label><select id="bulkUpdateType"><option value="">â€” Keep Existing â€”</option><option value="spend">Spending</option><option value="transfer">Transfer / Card Payment</option><option value="income">Income</option><option value="fee">Fee</option><option value="obligation">Obligation</option></select></div>
-  <div class="field"><label>Statement / Payment Month</label><input type="month" id="bulkUpdateMonth"><div class="hint">Leave blank to keep each transaction's existing month.</div></div>
-  <div class="field full"><label>Description / Title</label><input id="bulkUpdateDescription" placeholder="Leave blank to keep each transaction's current description"></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px">
-   <button type="button" class="btn" id="closeBulkUpdateCancel">Cancel</button>
-   <button type="submit" class="btn primary">Update Selected</button>
-  </div>
- </form>
-</div></div>
-
-<div class="modalBack" id="txEditModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Edit Transaction</div><button class="closeBtn" data-close="txEditModal">âœ•</button></div>
- <form id="txEditForm" class="formGrid">
-  <div class="field full"><label>Transaction</label><div class="panel" id="txEditInfo"></div></div>
-  <div class="field full"><label>Description / Merchant</label><input id="editDescription" placeholder="Transaction description"></div>
-  <div class="field"><label>Transaction Date</label><input type="date" id="editDate"></div>
-  <div class="field"><label>Amount (SAR)</label><input type="number" step="0.01" id="editAmount"><div class="hint">Keep expenses negative and credits/refunds positive.</div></div>
-  <div class="field"><label>Statement Month</label><input type="month" id="editStatementMonth"><div class="hint">Choose the statement/payment month this transaction belongs to. Selecting a month is automatically treated as the manual override and drives the dashboard, Current Cycle Transactions, Available Credit and Payment Planner. Clear the month to return to the automatic card cycle.</div></div>
-  <div class="field"><label>Statement Assignment</label><label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800"><input type="checkbox" id="editStatementManual"> Manual override (automatic when a month is selected)</label><div class="hint">If checked, the bulk cutoff rule will not overwrite this transaction.</div></div>
-  <div class="field"><label>Physical Card</label><select id="editPhysicalCard"></select><div class="hint">Tracks which physical card created the transaction under the same credit-card account.</div></div>
-  <div class="field"><label>Category</label><select id="editCategory"></select></div>
-  <div class="field"><label>Subcategory</label><select id="editSubcategory"></select></div>
-  <div class="field full"><label><input id="rememberMerchant" type="checkbox"> Remember this Category/Subcategory for all matching merchant descriptions</label></div>
-   <div class="field full" id="installmentEligibilityBox" style="display:none"><div class="notice"><b>Installment eligible:</b> This is an Al Rajhi/SAB credit-card purchase above SAR 1,000.</div><button type="button" class="btn primary" id="convertToInstallment" style="margin-top:9px">Convert to Installment Plan</button></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="txEditModal">Cancel</button><button class="btn primary" type="submit">Save</button></div>
- </form>
-</div></div>
-
-<div class="modalBack" id="paymentSourceModal"><div class="modal">
- <div class="modalHead"><div class="modalTitle">Record Card Payment</div><button class="closeBtn" id="closePaymentSource">âœ•</button></div>
- <form id="paymentSourceForm" class="formGrid">
-  <input type="hidden" id="paymentPlanId">
-  <div class="field full"><label>Credit Card</label><input id="paymentTargetCard" readonly></div>
-  <div class="field"><label>Payment Amount (SAR)</label><input id="paymentAmountInput" type="number" min="0.01" step="0.01" required></div>
-  <div class="field"><label>Paid From</label><select id="paymentSourceSelect" required></select></div>
-  <div class="field full"><label>Payment Date</label><input id="paymentDateInput" type="date" required></div>
-  <div class="field full"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input id="paymentUseMonthlyIncome" type="checkbox" style="width:18px;height:18px"> Also deduct this payment from Monthly Planned Income</label><div class="meta" style="margin-top:5px">Leave this unticked when the payment is funded by another credit card or another source. Tick it only when you want this payment to consume the month's planned income. If â€œMonthly Planned Incomeâ€ itself is selected as Paid From, this option is applied automatically.</div></div>
-  <div class="field full"><div class="notice" id="paymentSourcePreview">Choose the actual account or card used to make this payment. Monthly Planned Income is tracked separately.</div></div>
-  <div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="cancelPaymentSource">Cancel</button><button class="btn primary" type="submit">Save Payment</button></div>
- </form>
-</div></div>
-
-<div class="modalBack" id="simpleModal"><div class="modal" style="max-width:480px">
- <div class="modalHead"><div class="modalTitle" id="simpleTitle">Add</div><button class="closeBtn" data-close="simpleModal">âœ•</button></div>
- <form id="simpleForm"><div class="field"><label id="simpleLabel">Name</label><input id="simpleInput" required></div><div class="field" id="simpleParentField" style="display:none;margin-top:10px"><label>Assign to Category</label><select id="simpleParentCategory"></select></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:15px"><button type="button" class="btn" data-close="simpleModal">Cancel</button><button class="btn primary" type="submit">Add</button></div></form>
-</div></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* V259 loader: application parts are compiled as one classic script so
-   cross-file declarations remain available while modules are rendered lazily. */
-(async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=295');
-  try{
-    const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
-    const bad=responses.findIndex(r=>!r.ok);
-    if(bad>=0)throw new Error('Failed to load '+files[bad]+' ('+responses[bad].status+')');
-    const parts=await Promise.all(responses.map(r=>r.text()));
-    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v293.js'],{type:'text/javascript'});
-    const url=URL.createObjectURL(blob);
-    const s=document.createElement('script');
-    s.src=url;
-    s.onload=()=>URL.revokeObjectURL(url);
-    s.onerror=()=>{URL.revokeObjectURL(url);throw new Error('Application bundle failed to execute');};
-    document.body.appendChild(s);
-  }catch(err){
-    console.error('V256 application loader failed',err);
-    const box=document.createElement('div');
-    box.style.cssText='position:fixed;left:16px;right:16px;bottom:16px;z-index:99999;padding:14px;background:#5b1320;color:white;border-radius:10px;font:600 14px system-ui';
-    box.textContent='Application failed to load. Please refresh once. '+err.message;
-    document.body.appendChild(box);
-  }
-})();
-</script>
-<div class="modalBack" id="unifiedActionModal"><div class="modal">
- <div class="modalHead"><div><div class="modalTitle" id="unifiedActionTitle">Add</div><div class="meta" id="unifiedActionSub"></div></div><button class="closeBtn" type="button" data-close="unifiedActionModal">âœ•</button></div>
- <form id="unifiedActionForm" class="formGrid"><div id="unifiedActionFields" class="formGrid" style="grid-column:1/-1"></div><div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="unifiedActionModal">Cancel</button><button class="btn primary" type="submit" id="unifiedActionSave">Save</button></div></form>
-</div></div>
-</body>
-</html>
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛßzõ:-jZ.¶›­–)Ş³SÂDô5E•R‡FÖÃà£Æ‡FÖÂÆæsÒ&Vâ#à£Æ†VCà£ÆÖWF6†'6WCÒ%UDbÓ‚#à£ÆÖWFæÖSÒ'f–Ww÷'B"6öçFVçCÒ'v–GFƒÖFWf–6R×v–GF‚Æ–æ—F–Â×66ÆSÓÇf–Ww÷'BÖf—CÖ6÷fW"#à£ÆÖWFæÖSÒ'F†VÖRÖ6öÆ÷""6öçFVçCÒ"336#F#à£ÇF—FÆSåW'6öæÂf–ææ6R(
+"c#“b7Fö6²6WGFÆVÖVçBv÷&¶fÆ÷sÂ÷F—FÆSà£Ç67&—B7&3Ò&‡GG3¢òö6Fæ§2æ6Æ÷VFfÆ&Ræ6öÒö¦‚öÆ–'2÷†Ç7‚óã‚ãR÷†Ç7‚ægVÆÂæÖ–âæ§2#ãÂ÷67&—Cà£Ç67&—B7&3Ò&‡GG3¢òö6Fæ§2æ6Æ÷VFfÆ&Ræ6öÒö¦‚öÆ–'2÷Fbæ§2ó2ããsB÷FbæÖ–âæ§2#ãÂ÷67&—Cà £ÆÆ–æ²&VÃÒ'7G–ÆW6†VWB"‡&VcÒ'7G–ÆW2æ773÷cÓ#“b#à£ÂÒÒc#“b7Fö6²6WGFÆVÖVçBv÷&¶fÆ÷s¢##bÓ’Ó#ÒÓà£Âö†VCà£Æ&öG’6Æ73Ò&W†V4ÖöFRf–ææ6T66W74Æö6¶VB#à£ÆF—b–CÒ&f–ææ6T66W74vFR"6Æ73Ò&f–ææ6T66W74vFR"&öÆSÒ&F–Æör"&–ÖÖöFÃÒ&fÇ6R"&–ÖÆ&VÆÆVF'“Ò&f–ææ6TvFUF—FÆR#à¢ÆF—b6Æ73Ò&f–ææ6T66W746&B#à¢ÆF—b6Æ73Ò&f–ææ6T66W74Ö&²"&–Ö†–FFVãÒ'G'VR#î(isÂöF—cà¢ÆF—b6Æ73Ò&f–ææ6U&Wf–Wt&FvR#å&Wf–WrÖöFR(
+"æf–vF–öâöæÇ“ÂöF—cà¢Æƒ–CÒ&f–ææ6TvFUF—FÆR#ä×’f–ææ6SÂöƒà¢Çå–÷R&R6–væVB÷WBâW6RF†Ræf–vF–öâFò&Wf–WrV6‚vRâFWF–Ç2&Rö'67W&VBæBÆÂf–ææ6R7F–öç2&RF—6&ÆVBVçF–Â–÷R6–vâ–âãÂ÷à¢ÆF—b–CÒ&f–ææ6TvFU6–væVD÷WB#à¢ÆÆ&VÂf÷#Ò&f–ææ6TvFTVÖ–Â#äVÖ–ÃÂöÆ&VÃà¢Æ–çWBG—SÒ&VÖ–Â"–CÒ&f–ææ6TvFTVÖ–Â"WFö6ö×ÆWFSÒ&VÖ–Â"Æ6V†öÆFW#Ò'–÷W$VÖ–Âæ6öÒ#à¢Æ'WGFöâG—SÒ&'WGFöâ"–CÒ&f–ææ6TvFU6VæDÆ–æ²"6Æ73Ò&f–ææ6TvFU&–Ö'’#å6VæB6V7W&RÆöv–âÆ–æ³Âö'WGFöãà¢ÂöF—cà¢ÆF—b–CÒ&f–ææ6TvFU6–væVD–â"7G–ÆSÒ&F—7Æ“¦æöæR#à¢ÆF—b6Æ73Ò&f–ææ6TvFUW6W""–CÒ&f–ææ6TvFUW6W"#ãÂöF—cà¢ÇåF†—2FWf–6R×W7BÆöBF†R&÷FV7FVB6Æ÷VB6÷’&Vf÷&RF†RF6†&ö&B—2VæÆö6¶VBãÂ÷à¢Æ'WGFöâG—SÒ&'WGFöâ"–CÒ&f–ææ6TvFTÆöD6Æ÷VB"6Æ73Ò&f–ææ6TvFU&–Ö'’#äÆöBÆFW7B6Æ÷VBFFÂö'WGFöãà¢ÂöF—cà¢ÆF—b–CÒ&f–ææ6TvFU7FGW2"6Æ73Ò&f–ææ6TvFU7FGW2#å&÷FV7FVB6Æ÷VBFF&VÖ–ç2Væ6†ævVBãÂöF—cà¢Æ'WGFöâG—SÒ&'WGFöâ"–CÒ&f–ææ6TvFUv—TFWf–6R"6Æ73Ò&f–ææ6TvFUv—R#åv—RF†—2FWf–6SÂö'WGFöãà¢Ç6ÖÆÃåv—RF†—2FWf–6R&VÖ÷fW2öæÇ’'&÷w6W"×7F÷&VBf–ææ6RFFâ—BæWfW"FVÆWFW2F†R&÷FV7FVB6Æ÷VBFF&6RãÂ÷6ÖÆÃà¢ÂöF—cà£ÂöF—cà£ÆF—b6Æ73Ò&#à£Æ†VFW"–CÒ&6æöæ–6ÄF÷"6Æ73Ò&6æöæ–6ÄF÷#ãÂö†VFW#à£ÆF—b6Æ73Ò&Ö–â#à£ÆÖ–â6Æ73Ò&6öçFVçB#à  £Ç6V7F–öâ6Æ73Ò'f–Wr7F—fR"–CÒ&W†V7WF—fR#ãÆF—b6Æ73Ò&W†V56†VÆÂ#à£ÆF—b6Æ73Ò&W†V5F÷#ãÆF—b6Æ73Ò&W†V4'&æB#ãÆF—b6Æ73Ò&W†V4Æövò#ãÇ7â6Æ73Ò&&"##ãÂ÷7ããÇ7â6Æ73Ò&&"#"#ãÂ÷7ããÇ7â6Æ73Ò&&"#2#ãÂ÷7ããÇ7â6Æ73Ò'G&VæB#î(isÂ÷7ããÂöF—cãÆF—cãÆ#ä×’f–ææ6SÂö#ãÇ6ÖÆÃä6öçG&öÂFöF’8;²ÆâFöÖ÷'&÷sÂ÷6ÖÆÃãÂöF—cãÂöF—cà£ÆF—b6Æ73Ò&W†V5F÷æb#ãÆ'WGFöâ6Æ73Ò&7F—fR#î)jn8F6†&ö&CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'G&ç67F–öç2#î)k8G&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&÷WFvö–æw2#î(i~8÷WFvö–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)j>8–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î)jN8–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x8–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)x~8W'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È.8—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)j^8&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©86WGF–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&Ö÷&R#î(
+.(
+.(
+.8Ö÷&SÂö'WGFöããÂöF—cà£ÆF—b6Æ73Ò&W†V5F÷FFR"–CÒ&W†V5F÷FFR#ãÂöF—cãÆF—b6Æ73Ò&W†V4fF"#ä„ÂöF—cãÂöF—cà£ÆF—b6Æ73Ò&W†V4&öG’#ãÆ6–FR6Æ73Ò&W†V56–FR#ãÆF—b6Æ73Ò&W†V56–FUF—FÆR#äF6†&ö&Bf–Ww3ÂöF—cãÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ7F—fR#î)j>8W†V7WF—fR÷fW'f–WsÂö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&66÷VçG2#î)jN866‚b7&VF—CÂö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&f–ææ6–Ç÷6—F–öâ#î)j^8f–ææ6–Â÷6—F–öãÂö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò'7G&FVw’#î(È8f–ææ6–Â7G&FVw“Âö'WGFöããÆF—b6Æ73Ò&W†V56–FU6W#ãÂöF—cãÆF—b6Æ73Ò&W†V56–FUF—FÆR#äÖöGVÆW3ÂöF—cãÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò'G&ç67F–öç2#î)k8G&ç67F–öç3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&÷WFvö–æw2#î(i~866‚b÷F†W"÷WFvö–æw3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)j>8–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î)jN8–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&76WG2#î)x~8W'6öæÂ76WG3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò'&W÷'G2#î)j^8&W÷'G3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©86WGF–æw3Âö'WGFöããÆ'WGFöâ6Æ73Ò&W†V56–FT'Fâ"FF×vRÖ§V×Ò&Ö÷&R#î(
+.(
+.(
+.8Ö÷&SÂö'WGFöããÆF—b6Æ73Ò&W†V56–FUV÷FR#î(	Âf–ææ6–ÂV6SÆ'#î8—2Æâv’â(	ÓÂöF—cãÆF—b6Æ73Ò&W†V5fW"#çc"ã“cÂöF—cãÂö6–FSà£ÆÖ–â6Æ73Ò&W†V4Ö–â#à¢ÆF—b6Æ73Ò&W†V4†W&ò#ãÆF—cãÆƒ#äâW†V7WF—fR÷fW'f–WsÂöƒ#ãÆF—b6Æ73Ò&ÖWF#ä6ö×ÆWFRf–Wröb–÷W"f–ææ6–Â7FGW3ÂöF—cãÂöF—cãÆF—b6Æ73Ò&W†V4†W&õ&–v‡B#ãÇ7â–CÒ&W†V5WFFVB#ãÂ÷7ããÇ7â6Æ73Ò&W†V5V÷FR#î)ÙÒ6ÆV"f–WrFöF“Æ'#æf÷"&WGFW"FöÖ÷'&÷râ)ÙãÂ÷7ããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V4·—2"–CÒ&W†V4·—2#ãÂöF—cà¢ÆF—b6Æ73Ò&W†V4w&–B#à¢ÆF—b6Æ73Ò&W†V46öÂv–FR#à¢ÆF—b6Æ73Ò&W†V5æVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#äÖöçF†Ç’66‚fÆ÷sÂöF—cãÆF—b–CÒ&W†V466„fÆ÷r#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V5W6öÖ–æuæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#åW6öÖ–ær–ÖVçG2Æ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò&–æ6öÖWÆâ#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆF—b–CÒ&W†V5W6öÖ–ær#ãÂöF—cãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò&W†V46öÂ#à¢ÆF—b6Æ73Ò&W†V5æVÂW†V47&VF—EæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#äf–Æ&ÆRò&VÖ–æ–ær7&VF—BÆ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò&66÷VçG2#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆF—b–CÒ&W†V47&VF—B#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V4vöÆEæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#ãÇ7ãï	ùú‚vöÆBb76WG3Â÷7ããÆ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò&76WG2#åf–Wr76WG2(£Âö'WGFöããÂöF—cãÆF—b–CÒ&W†V4vöÆB#ãÂöF—cãÆF—b6Æ73Ò&W†V46†'D&÷‚#ãÆ6çf2–CÒ&W†V4vöÆD6†'B#ãÂö6çf3ãÂöF—cãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò&W†V46öÂæ'&÷r#à¢ÆF—b6Æ73Ò&W†V5æVÂW†V5WF–ÅæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#ä7&VF—BWF–Æ—¦F–öâÇ7â6Æ73Ò&W†V5F—FÆTæ÷FR#â„ÆÂ6&G2“Â÷7ããÂöF—cãÆF—b6Æ73Ò&W†V46†'D&÷‚FöçWD&÷‚#ãÆ6çf2–CÒ&W†V47&VF—D6†'B#ãÂö6çf3ãÂöF—cãÆF—b–CÒ&W†V5WF–Â#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V4&æµæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#ä&æ²66÷VçG2Æ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò&66÷VçG2#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆF—b–CÒ&W†V4&æ·2#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V5¦¶EæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#î)™ò¦¶B7VÖÖ'’Æ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò&76WG2#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆF—b–CÒ&W†V5¦¶B#ãÂöF—cãÂöF—cà¢ÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò&W†V4&÷GFöÒ#à¢ÆF—b6Æ73Ò&W†V5æVÂW†V5÷6—F–öåæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#äf–ææ6–Â÷6—F–öâÆ'WGFöâ6Æ73Ò&W†V5f–WtÆ–æ²"FF×vRÖ§V×Ò'&W÷'G2#åf–WrFWF–Ç2(£Âö'WGFöããÂöF—cãÆF—b6Æ73Ò&W†V5æVÅ7V"#å–÷W"÷fW&ÆÂ76WG2ÂÆ–&–Æ—F–W2æBæWB÷6—F–öãÂöF—cãÆF—b–CÒ&W†V5÷6—F–öâ#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V4'&VµæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#ä76WG2'&V¶F÷vãÂöF—cãÆF—b6Æ73Ò&W†V46†'DfÆW‚#ãÆF—b6Æ73Ò&W†V46†'D&÷‚FöçWD&÷‚#ãÆ6çf2–CÒ&W†V476WG46†'B#ãÂö6çf3ãÂöF—cãÆF—b6Æ73Ò&W†V476WG4Æ—7B"–CÒ&W†V476WG2#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V4'&VµæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#äÆ–&–Æ—F–W2'&V¶F÷vãÂöF—cãÆF—b6Æ73Ò&W†V46†'DfÆW‚#ãÆF—b6Æ73Ò&W†V46†'D&÷‚FöçWD&÷‚#ãÆ6çf2–CÒ&W†V4Æ–&–Æ—F–W46†'B#ãÂö6çf3ãÂöF—cãÆF—b6Æ73Ò&W†V4Æ–$Æ—7B"–CÒ&W†V4Æ–&–Æ—F–W2#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&W†V5æVÂW†V5V–6µæVÂ#ãÆF—b6Æ73Ò&W†V5F—FÆR#åV–6²7F–öç3ÂöF—cãÆF—b6Æ73Ò&W†V47F–öç2#ãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ&W†V4FEG‚#î(©^8FBG&ç67F–öâÇ7ãî(£Â÷7ããÂö'WGFöããÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ&W†V4FD–ç7B#î)j>8FB–ç7FÆÆÖVçBÇ7ãî(£Â÷7ããÂö'WGFöããÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ&W†V4–×÷'B#î)j~8–×÷'B7FFVÖVçBÇ7ãî(£Â÷7ããÂö'WGFöããÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ&W†V4FDvöÆB#î)š~8FBvöÆB76WBÇ7ãî(£Â÷7ããÂö'WGFöããÂöF—cãÂöF—cà¢ÂöF—cà£ÂöÖ–ããÂöF—cãÂöF—cãÂ÷6V7F–öãà  £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ'–ÖVçDFWF–Ç2#à¢ÆF—b6Æ73Ò'7Æ—D†VB#à¢ÆF—cãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ'–ÖVçDFWF–Ç4&6²#î(i&6³Âö'WGFöããÆF—b6Æ73Ò'6V7F–öåF—FÆR"7G–ÆSÒ&Ö&v–â×F÷£G‚#ä6&B–ÖVçG2f÷"Ç7â–CÒ'–ÖVçDFWF–Ç4ÖöçF„Æ&VÂ#ãÂ÷7ããÂöF—cãÆF—b6Æ73Ò&ÖWF#ä'&V¶F÷vâöbF†RÖ÷VçB6†÷vâ–âF†R6&B–ÖVçBÆææW"ãÂöF—cãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò'–ÖVçE7VÖÖ'’"7G–ÆSÒ&Ö&v–â×F÷£G‚#à¢ÆF—b6Æ73Ò&Ö–æ”ÖWG&–2#ãÇ7ãä¶æ÷vâòÆææVBÖ÷VçCÂ÷7ããÆ"–CÒ'–ÖVçDFWF–Ç4¶æ÷vâ#å4"ãÂö#ãÂöF—cà¢ÆF—b6Æ73Ò&Ö–æ”ÖWG&–2#ãÇ7ãå&VÖ–æ–ærFò“Â÷7ããÆ"–CÒ'–ÖVçDFWF–Ç5&VÖ–æ–ær#å4"ãÂö#ãÂöF—cà¢ÆF—b6Æ73Ò&Ö–æ”ÖWG&–2#ãÇ7ãåVæF–ær7FFVÖVçB6&G3Â÷7ããÆ"–CÒ'–ÖVçDFWF–Ç5VæF–ær#ãÂö#ãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò'æVÂ"7G–ÆSÒ&Ö&v–â×F÷£Gƒ¶÷fW&fÆ÷r×ƒ¦WFò#à¢ÇF&ÆR6Æ73Ò'7VÖÖ'•F&ÆR"7G–ÆSÒ&Ö–â×v–GFƒ£S‚#à¢ÇF†VCãÇG#ãÇFƒä&æ²ò6&CÂ÷FƒãÇFƒå–ÖVçBÖ÷VçCÂ÷FƒãÇFƒäGVRFFSÂ÷FƒãÇFƒå7FGW3Â÷FƒãÇFƒå6÷W&6SÂ÷FƒãÇFƒäæ÷FW3Â÷FƒãÇFƒä7F–öãÂ÷FƒãÂ÷G#ãÂ÷F†VCà¢ÇF&öG’–CÒ'–ÖVçDFWF–Ç4&öG’#ãÂ÷F&öG“à¢Â÷F&ÆSà¢ÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ&66÷VçG2#à£ÆF—b6Æ73Ò&66…6†VÆÂ#à¢Æ†VFW"6Æ73Ò&66…F÷#ãÆF—b6Æ73Ò&66„'&æB#ãÇ7â6Æ73Ò&66„Ö&²#î)jSÂ÷7ããÆF—cãÆ#ä×’f–ææ6SÂö#ãÇ6ÖÆÃä6öçG&öÂFöF’(
+"ÆâFöÖ÷'&÷sÂ÷6ÖÆÃãÂöF—cãÂöF—cãÆæb6Æ73Ò&66„æb#ãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î(È"F6†&ö&CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'G&ç67F–öç2#î)‹rG&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&÷WFvö–æw2#î(ir÷WFvö–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jB–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î(z’–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x‚–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)xrW'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È"—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)jR&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©’6WGF–æw3Âö'WGFöããÂöæcãÆF—b6Æ73Ò&66„FFR"–CÒ&66„FFR#ãÂöF—cãÆF—b6Æ73Ò&66„fF"#ä„ÂöF—cãÂö†VFW#à¢ÆF—b6Æ73Ò&66„&öG’#ãÆ6–FR6Æ73Ò&66…6–FR#ãÆF—b6Æ73Ò&66…6–FUF—FÆR#äF6†&ö&Bf–Ww3ÂöF—cãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î)j~8W†V7WF—fR÷fW'f–WsÂö'WGFöããÆ'WGFöâ6Æ73Ò&7F—fR#î)jN866‚b7&VF—CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6–Ç÷6—F–öâ#î)j^8f–ææ6–Â÷6—F–öãÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'7G&FVw’#î(È8f–ææ6–Â7G&FVw“Âö'WGFöããÆF—b6Æ73Ò&66…6W#ãÂöF—cãÆF—b6Æ73Ò&66…6–FUF—FÆR#äÖöGVÆW3ÂöF—cãÆ'WGFöâFF×vRÖ§V×Ò'G&ç67F–öç2#î)‹~8G&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jN8–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î)j~8–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x8–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)x~8W'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È.8—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)j^8&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©86WGF–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&Ö÷&R#î(
+.(
+.(
+.8Ö÷&SÂö'WGFöããÆF—b6Æ73Ò&66…V÷FR#î(	Ä¶æ÷rv†B—2f–Æ&ÆRÂv†B—2GVRÂæBv†B6öÖW2æW‡Bî(	ÓÂöF—cãÆF—b6Æ73Ò&66…fW"#çc"ã“cÂöF—cãÂö6–FSà¢ÆÖ–â6Æ73Ò&66„Ö–â#à¢ÆF—b6Æ73Ò&66„†W&ò#ãÆF—cãÆƒä66‚b7&VF—CÂöƒãÇä6öçG&öÂ&æ²Æ—V–F—G’Â7&VF—Bf–Æ&–Æ—G’Â7FFVÖVçBö&Æ–vF–öç2æBW6öÖ–ær–ÖVçG2ãÂ÷ãÂöF—cãÆF—b6Æ73Ò&66„†W&ô7F–öç2#ãÆ'WGFöâ6Æ73Ò&66„'Fâ"FF×vRÖ§V×Ò&–æ6öÖWÆâ#ä÷Vâ–ÖVçBÆãÂö'WGFöããÆ'WGFöâ6Æ73Ò&66„'Fâ&–Ö'’"FF×vRÖ§V×Ò'G&ç67F–öç2#å&Wf–WrG&ç67F–öç3Âö'WGFöããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&66„·—2"–CÒ&66„·—2#ãÂöF—cà¢ÆF—b6Æ73Ò&66„w&–EF÷#ãÇ6V7F–öâ6Æ73Ò&66…æVÂ#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆƒ#ä&æ²66÷VçG3Âöƒ#ãÇ7â–CÒ&66„&æ´6÷VçB#ãÂ÷7ããÂöF—cãÆF—b6Æ73Ò&66„&æ´w&–B"–CÒ&66„&æ´w&–B#ãÂöF—cãÂ÷6V7F–öããÇ6V7F–öâ6Æ73Ò&66…æVÂ#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆƒ#ä7&VF—BWF–Æ—¦F–öãÂöƒ#ãÇ7ãäÆ—fR÷6—F–öãÂ÷7ããÂöF—cãÆF—b6Æ73Ò&66…WF–Åw&#ãÆF—b6Æ73Ò&66„FöçWB"–CÒ&66…WF–ÄFöçWB#ãÆF—cãÆ"–CÒ&66…WF–Å7B#ãSÂö#ãÇ6ÖÆÃçWF–Æ—¦VCÂ÷6ÖÆÃãÂöF—cãÂöF—cãÆF—b6Æ73Ò&66…WF–ÄÆVvVæB"–CÒ&66…WF–ÄÆVvVæB#ãÂöF—cãÂöF—cãÂ÷6V7F–öããÂöF—cà¢Ç6V7F–öâ6Æ73Ò&66…æVÂ#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆF—cãÆƒ#ä7&VF—B6&G3Âöƒ#ãÇäf–Æ&ÆR7&VF—BÂ7W'&VçBW6vRÂ–ç7FÆÆÖVçB&W6W'fRæB&VÆV6VB7FFVÖVçB÷6—F–öâãÂ÷ãÂöF—cãÆ'WGFöâ6Æ73Ò&66„'Fâ"FF×vRÖ§V×Ò&–æ6öÖWÆâ#äÖævR–ÖVçG3Âö'WGFöããÂöF—cãÆF—b6Æ73Ò&66„6&G2"–CÒ&66„6&G2#ãÂöF—cãÂ÷6V7F–öãà¢ÆF—b6Æ73Ò&66„w&–D&÷GFöÒ#ãÇ6V7F–öâ6Æ73Ò&66…æVÂ#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆF—cãÆƒ#ä7&VF—B–ÖVçB6öçG&öÃÂöƒ#ãÇå7FFVÖVçBÖ÷VçBÂ–BÖ÷VçBæB&VÖ–æ–ærö&Æ–vF–öâf÷"F†R6VÆV7FVB–ÖVçBÖöçF‚ãÂ÷ãÂöF—cãÆ–çWBG—SÒ&ÖöçF‚"–CÒ&66…–ÖVçDÖöçF‚"6Æ73Ò&66„ÖöçF‚#ãÂöF—cãÆF—b6Æ73Ò&66…F&ÆUw&#ãÇF&ÆR6Æ73Ò&66…F&ÆR#ãÇF†VCãÇG#ãÇFƒä6&CÂ÷FƒãÇFƒå7FFVÖVçBòÆãÂ÷FƒãÇFƒå–CÂ÷FƒãÇFƒå&VÖ–æ–æsÂ÷FƒãÇFƒäGVRFFSÂ÷FƒãÇFƒå7FGW3Â÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’–CÒ&66…–ÖVçD&öG’#ãÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cãÂ÷6V7F–öããÇ6V7F–öâ6Æ73Ò&66…æVÂ#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆƒ#åW6öÖ–ær–ÖVçG3Âöƒ#ãÇ7â–CÒ&66…W6öÖ–æt6÷VçB#ãÂ÷7ããÂöF—cãÆF—b–CÒ&66…W6öÖ–ær#ãÂöF—cãÂ÷6V7F–öããÂöF—cà¢Ç6V7F–öâ6Æ73Ò&66…æVÂ66„ÆVv7’#ãÆF—b6Æ73Ò&66…æVÄ†VB#ãÆF—cãÆƒ#äFWF–ÆVB7&VF—Bö&Æ–vF–öâ&Vv—7FW#Âöƒ#ãÇäW†—7F–ær6&B66÷VçF–ærÆöv–2&WF–æVBf÷"&V6öæ6–Æ–F–öâæBVF—BãÂ÷ãÂöF—cãÂöF—cãÆF—b6Æ73Ò&66…F&ÆUw&#ãÇF&ÆR6Æ73Ò'7VÖÖ'•F&ÆR#ãÇF†VCãÇG#ãÇFƒä6&CÂ÷FƒãÇFƒä7W'&VçBW6vSÂ÷FƒãÇFƒägWGW&R&W6W'fVB–ç7FÆÆÖVçG3Â÷FƒãÇFƒä&æ²WF–Æ—¦VBò&W6W'fVCÂ÷FƒãÇFƒä7&VF—BÆ–Ö—CÂ÷FƒãÇFƒäf–Æ&ÆRò&VÖ–æ–æsÂ÷FƒãÇFƒåWF–Æ—¦F–öãÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’–CÒ&6&E7VÖÖ'”&öG’#ãÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cãÆF—b–CÒ&66÷VçG4w&–B"7G–ÆSÒ&F—7Æ“¦æöæR#ãÂöF—cãÂ÷6V7F–öãà¢ÂöÖ–ããÂöF—cà£ÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ'G&ç67F–öç2#à£ÆF—b6Æ73Ò'G„W†V56†VÆÂ#à¢Æ†VFW"6Æ73Ò'G„W†V5F÷#ãÆF—b6Æ73Ò'G„W†V4'&æB#ãÇ7â6Æ73Ò'G„W†V4Ö&²#î)jSÂ÷7ããÆF—cãÆ#ä×’f–ææ6SÂö#ãÇ6ÖÆÃä6öçG&öÂFöF’(
+"ÆâFöÖ÷'&÷sÂ÷6ÖÆÃãÂöF—cãÂöF—cãÆæb6Æ73Ò'G„W†V4æb#ãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î(È"F6†&ö&CÂö'WGFöããÆ'WGFöâ6Æ73Ò&7F—fR#î)‹rG&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jB–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î(z’–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x‚–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)xrW'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È"—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)jR&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©’6WGF–æw3Âö'WGFöããÂöæcãÆF—b6Æ73Ò'G„W†V4FFR"–CÒ'G„W†V4FFR#ãÂöF—cãÆF—b6Æ73Ò'G„W†V4fF"#ä„ÂöF—cãÂö†VFW#à¢ÆF—b6Æ73Ò'G„W†V4&öG’#ãÆ6–FR6Æ73Ò'G„W†V56–FR#ãÆF—b6Æ73Ò'G„W†V56–FUF—FÆR#äF6†&ö&Bf–Ww3ÂöF—cãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î)j~8W†V7WF—fR÷fW'f–WsÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&66÷VçG2#î)jN866‚b7&VF—CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6–Ç÷6—F–öâ#î)j^8f–ææ6–Â÷6—F–öãÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'7G&FVw’#î(È8f–ææ6–Â7G&FVw“Âö'WGFöããÆF—b6Æ73Ò'G„W†V56W#ãÂöF—cãÆF—b6Æ73Ò'G„W†V56–FUF—FÆR#äÖöGVÆW3ÂöF—cãÆ'WGFöâ6Æ73Ò&7F—fR#î)‹~8G&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&÷WFvö–æw2#î(i~866‚b÷F†W"÷WFvö–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jN8–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î)j~8–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x8–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)x~8W'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È.8—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)j^8&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©86WGF–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&Ö÷&R#î(
+.(
+.(
+.8Ö÷&SÂö'WGFöããÆF—b6Æ73Ò'G„W†V5V÷FR#î(	Ä&WGFW"f–ææ6–ÂFöÖ÷'&÷r7F'G2v—F‚6Æ&—G’FöF’î(	ÓÂöF—cãÆF—b6Æ73Ò'G„W†V5fW"#çc"ã“cÂöF—cãÂö6–FSà¢ÆÖ–â6Æ73Ò'G„W†V4Ö–â#à¢ÆF—b6Æ73Ò'G„W†V4†W&ò#ãÆF—cãÆƒ#åG&ç67F–öç3Âöƒ#ãÇå&Wf–WræB6öçG&öÂ–÷W"6ö×ÆWFR66‚Ö÷fVÖVçBÂ7VæF–ærÂG&ç6fW'2æB—FV×2F†B7F–ÆÂæVVB6Æ76–f–6F–öâãÂ÷ãÂöF—cãÆF—b6Æ73Ò'G„W†V4†W&ô7F–öç2#ãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G…F÷ÖöçF‚#ãÆ÷F–öãå6WFVÖ&W"##cÂö÷F–öããÂ÷6VÆV7CãÆ'WGFöâ6Æ73Ò'G„F&´'Fâ"FF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î(z8–×÷'B7FFVÖVçCÂö'WGFöããÆ'WGFöâ6Æ73Ò'G„FD'Fâ"–CÒ'G„†W&ôFB#îûÈ²FBG&ç67F–öãÂö'WGFöããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'G„W†V4·—2"–CÒ'G…v÷&´·—2#ãÂöF—cà¢ÆF—b6Æ73Ò'G„–ç6–v‡Dw&–B#ãÆF—b6Æ73Ò'G„F&µæVÂ#ãÆF—b6Æ73Ò'G…æVÄ†VB#ãÆ#å7VæF–ær'’6FVv÷'“Âö#ãÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#åf–WrFWF–Ç2(£Âö'WGFöããÂöF—cãÆF—b6Æ73Ò'G…7VæDfÆW‚#ãÆ6çf2–CÒ'G…7VæD6†'B"v–GFƒÒ#3"†V–v‡CÒ####ãÂö6çf3ãÆF—b–CÒ'G…7VæDÆVvVæB"6Æ73Ò'G…7VæDÆVvVæB#ãÂöF—cãÂöF—cãÂöF—cãÆF—b6Æ73Ò'G„F&µæVÂ#ãÆF—b6Æ73Ò'G…æVÄ†VB#ãÆ#ä66‚fÆ÷rG&VæCÂö#ãÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆ6çf2–CÒ'G„fÆ÷t6†'B"v–GFƒÒ#s#"†V–v‡CÒ####ãÂö6çf3ãÂöF—cãÆF—b6Æ73Ò'G„F&µæVÂ#ãÆF—b6Æ73Ò'G…æVÄ†VB#ãÆ#äæVVG2GFVçF–öãÂö#ãÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#åf–WrÆÂ(£Âö'WGFöããÂöF—cãÆF—b–CÒ'G„GFVçF–öâ#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'G„f–ÇFW%æVÂ#ãÆF—b6Æ73Ò'G„f–ÇFW'2G„f–ÇFW'46÷&R#ãÆÆ&VÂ6Æ73Ò'G„FFTf–VÆB#ãÇ7ãäg&öÒFFSÂ÷7ããÆ–çWBG—SÒ&FFR"6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G„g&öÒ#ãÂöÆ&VÃãÆÆ&VÂ6Æ73Ò'G„FFTf–VÆB#ãÇ7ãåFòFFSÂ÷7ããÆ–çWBG—SÒ&FFR"6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G…Fò#ãÂöÆ&VÃãÆ–çWB6Æ73Ò'G„F&´6öçG&öÂG…6V&6„F&²"–CÒ'G…6V&6‚"Æ6V†öÆFW#Ò%6V&6‚G&ç67F–öâÂ66÷VçBÂ6FVv÷'’âââ#ãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G„66÷VçB#ãÂ÷6VÆV7CãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G…‡—6–6Ä6&B#ãÆ÷F–öâfÇVSÒ"#äÆÂ‡—6–6Â6&G3Âö÷F–öããÂ÷6VÆV7CãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G„6FVv÷'’#ãÂ÷6VÆV7CãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G…G—R#ãÆ÷F–öâfÇVSÒ"#äÆÂG—W3Âö÷F–öããÆ÷F–öâfÇVSÒ'7VæB#å7VæF–æsÂö÷F–öããÆ÷F–öâfÇVSÒ'G&ç6fW"#åG&ç6fW'2ò6&B–ÖVçG3Âö÷F–öããÆ÷F–öâfÇVSÒ&–æ6öÖR#ä–æ6öÖSÂö÷F–öããÆ÷F–öâfÇVSÒ&fVR#äfVW3Âö÷F–öããÆ÷F–öâfÇVSÒ&ö&Æ–vF–öâ#äö&Æ–vF–öç3Âö÷F–öããÂ÷6VÆV7CãÇ6VÆV7B6Æ73Ò'G„F&´6öçG&öÂ"–CÒ'G…7FFVÖVçDÖöçF‚#ãÆ÷F–öâfÇVSÒ"#äÆÂ7FFVÖVçBÖöçF‡3Âö÷F–öããÂ÷6VÆV7CãÆ'WGFöâ6Æ73Ò'G„F&´'FâG…&W6WD'Fâ"–CÒ'G…&W6WB#å&W6WCÂö'WGFöããÂöF—cà¢ÆF—b6Æ73Ò'G…'VÆR#ãÇ7ãî)©8Æ#å7FFVÖVçB76–væÖVçB'VÆSÂö#ãÂ÷7ããÇ7ãä7WFöfbF“¢Æ"–CÒ'G„7WFöfeFW‡B#ã#CÂö#î8…G&ç67F–öç2g&öÒF’#Röçv&Bv–ÆÂ&VÆöærFòæW‡BÖöçF‚“Â÷7ããÆF—b6Æ73Ò'G…'VÆTVF—B#ãÆ–çWBG—SÒ&çVÖ&W""–CÒ'7FFVÖVçD7WFöfdF’"Ö–ãÒ#"ÖƒÒ#3"fÇVSÒ##B#ãÆ'WGFöâ–CÒ&Ç•7FFVÖVçE'VÆR#äÇ“Âö'WGFöããÂöF—cãÂöF—cãÂöF—cà¢ÆF—b–CÒ&VÆ–v–&ÆTöæÇ”&ææW""6Æ73Ò&æ÷F–6R"7G–ÆSÒ&F—7Æ“¦æöæS¶Ö&v–ã£‚#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆ#ä–ç7FÆÆÖVçB&Wf–Wrf–ÇFW"7F—fSÂö#ãÆF—b6Æ73Ò&ÖWF#å6†÷v–ærVÆ–v–&ÆR7&VF—BÖ6&BW&6†6W2öæÇ’ãÂöF—cãÂöF—cãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ&6ÆV$VÆ–v–&ÆTöæÇ’#å6†÷rÆÂG&ç67F–öç3Âö'WGFöããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'G…F&ÆUæVÂ#ãÆF—b6Æ73Ò'G…F&ÆT†VB#ãÆ#åG&ç67F–öç2ƒÇ7â–CÒ'G…F&ÆT6÷VçB#ãÂ÷7ãâ“Âö#ãÆF—b–CÒ'G„'VÆ´&"#ãÆ'WGFöâ6Æ73Ò'G„F&´'Fâ"G—SÒ&'WGFöâ"–CÒ'G…6VÆV7DÆÅf—6–&ÆR#î)‰6VÆV7BÆÃÂö'WGFöããÆ'WGFöâ6Æ73Ò'G„F&´'FâG„†–FFVä6ÆV""G—SÒ&'WGFöâ"–CÒ'G„6ÆV%6VÆV7F–öâ#ä6ÆV#Âö'WGFöããÆ'WGFöâ6Æ73Ò'G„F&´'Fâ"G—SÒ&'WGFöâ"–CÒ'G…WFFU6VÆV7FVB"F—6&ÆVCåWFFR6VÆV7FVCÂö'WGFöããÆ'WGFöâ6Æ73Ò'G„FVÆWFT'Fâ"G—SÒ&'WGFöâ"–CÒ'G„FVÆWFU6VÆV7FVB"F—6&ÆVCäFVÆWFR6VÆV7FVCÂö'WGFöããÇ7â–CÒ'G…6VÆV7FVD6÷VçB#ã6VÆV7FVCÂ÷7ããÂöF—cãÂöF—cãÆF—b6Æ73Ò'G…F&ÆU67&öÆÂ#ãÇF&ÆR6Æ73Ò'G…F&ÆRG„W†V5F&ÆR#ãÇF†VCãÇG#ãÇFƒãÆ–çWBG—SÒ&6†V6¶&÷‚"–CÒ'G„Ö7FW$6†V6²"F—FÆSÒ%6VÆV7BÆÂf—6–&ÆR#ãÂ÷FƒãÇFƒäFFSÂ÷FƒãÇFƒä–×÷'FVBFFSÂ÷FƒãÇFƒåG&ç67F–öãÂ÷FƒãÇFƒä6FVv÷'“Â÷FƒãÇFƒå7V&6FVv÷'“Â÷FƒãÇFƒä66÷VçCÂ÷FƒãÇFƒäÖ÷VçCÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’–CÒ'G„&öG’#ãÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cãÆF—b6Æ73Ò'G…F&ÆTfö÷B#ãÇ7â–CÒ'G…6†÷v–æuFW‡B#å6†÷v–ærG&ç67F–öç3Â÷7ããÇ7ãåW6Rf–ÇFW'2&÷fRFòæ'&÷rF†R&Vv—7FW#Â÷7ããÂöF—cãÂöF—cà¢Æ'WGFöâ–CÒ&FEG&ç67F–öâ"7G–ÆSÒ&F—7Æ“¦æöæR#äFBG&ç67F–öãÂö'WGFöãà¢ÂöÖ–ããÂöF—cà£ÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ'7G&FVw’#à£ÆF—b6Æ73Ò'7G&FVw•6†VÆÂ#à¢Æ†VFW"6Æ73Ò'7G&FVw•F÷#ãÆF—b6Æ73Ò'7G&FVw”'&æB#ãÇ7â6Æ73Ò'7G&FVw”'&æDÖ&²#î)jSÂ÷7ããÆF—cãÆ#ä×’f–ææ6SÂö#ãÇ6ÖÆÃä6öçG&öÂFöF’(
+"ÆâFöÖ÷'&÷sÂ÷6ÖÆÃãÂöF—cãÂöF—cãÆæb6Æ73Ò'7G&FVw•F÷æb#ãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î(È"F6†&ö&CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'G&ç67F–öç2#î)‹rG&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&÷WFvö–æw2#î(ir÷WFvö–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jB–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î(z’–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x‚–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)xrW'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È"—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)jR&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©’6WGF–æw3Âö'WGFöããÂöæcãÆF—b6Æ73Ò'7G&FVw•F÷FFR"–CÒ'7G&FVw•F÷FFR#ãÂöF—cãÆF—b6Æ73Ò'7G&FVw”fF"#ä„ÂöF—cãÂö†VFW#à¢ÆF—b6Æ73Ò'7G&FVw”&öG’#ãÆ6–FR6Æ73Ò'7G&FVw•6–FR#ãÆF—b6Æ73Ò'7G&FVw•6–FUF—FÆR#äF6†&ö&Bf–Ww3ÂöF—cãÆ'WGFöâFF×vRÖ§V×Ò&W†V7WF—fR#î)j~8W†V7WF—fR÷fW'f–WsÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&66÷VçG2#î)jN866‚b7&VF—CÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6–Ç÷6—F–öâ#î)j^8f–ææ6–Â÷6—F–öãÂö'WGFöããÆ'WGFöâ6Æ73Ò&7F—fR#î(È8f–ææ6–Â7G&FVw“Âö'WGFöããÆF—b6Æ73Ò'7G&FVw•6–FU6W#ãÂöF—cãÆF—b6Æ73Ò'7G&FVw•6–FUF—FÆR#äÖöGVÆW3ÂöF—cãÆ'WGFöâFF×vRÖ§V×Ò'G&ç67F–öç2#î)‹~8G&ç67F–öç3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&÷WFvö–æw2#î(i~866‚b÷F†W"÷WFvö–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–ç7FÆÆÖVçG2#î)jN8–ç7FÆÆÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–×÷'G7FFVÖVçG2#î)j~8–×÷'B7FFVÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&–çfW7FÖVçG2#î)x8–çfW7FÖVçG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&76WG2#î)x~8W'6öæÂ76WG3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&VçFÂ#î(È.8—&&æ"ò&VçFÃÂö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò'&W÷'G2#î)j^8&W÷'G3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&f–ææ6U6WGF–æw2#î)©86WGF–æw3Âö'WGFöããÆ'WGFöâFF×vRÖ§V×Ò&Ö÷&R#î(
+.(
+.(
+.8Ö÷&SÂö'WGFöããÆF—b6Æ73Ò'7G&FVw•6–FUV÷FR#î(	Ä&WGFW"f–ææ6–ÂFöÖ÷'&÷r7F'G2v—F‚6Æ&—G’FöF’î(	ÓÂöF—cãÆF—b6Æ73Ò'7G&FVw•6–FUfW"#çc"ã“cÂöF—cãÂö6–FSà¢ÆÖ–â6Æ73Ò'7G&FVw”Ö–â#à¢ÆF—b6Æ73Ò'7G&FVw•vT†W&ò#ãÆF—cãÆƒ#äf–ææ6–Â7G&FVw“Âöƒ#ãÇåGW&â–÷W"Æ—fR–æ6öÖRÂ7VæF–ærÂ7&VF—BæBÆöâFF–çFò6ÆV"ÖöçF†Ç’ÆâãÂ÷ãÂöF—cãÆF—b6Æ73Ò'7G&FVw”†W&ô7F–öç2#ãÆ'WGFöâ6Æ73Ò'7G&FVw”F&´'Fâ"G—SÒ&'WGFöâ"FF×vRÖ§V×Ò'G&ç67F–öç2#å&Wf–Wr7VæF–æsÂö'WGFöããÆ'WGFöâ6Æ73Ò'7G&FVw•&–Ö'”'Fâ"G—SÒ&'WGFöâ"FF×vRÖ§V×Ò&–æ6öÖWÆâ#ä÷Vâ–ÖVçBÆãÂö'WGFöããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'7G&FVw”·—2"–CÒ'7G&FVw”·—2#ãÂöF—cà¢ÆF—b6Æ73Ò'7G&FVw”w&–B#ãÆF—b6Æ73Ò'7G&FVw•æVÂ#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR#åF†—2ÖöçF‚w27F–öâÆãÂöF—cãÆF—b6Æ73Ò&ÖWF#å&–÷&—G’6WVVæ6R&6VBöâ7W'&VçB6öÖÖ—FÖVçG2æB66‚÷6—F–öâãÂöF—cãÂöF—cãÇ7â6Æ73Ò&&FvR7F—fR#äÆ—fRÆãÂ÷7ããÂöF—cãÆF—b–CÒ'7G&FVw”7F–öç2"6Æ73Ò'7G&FVw”7F–öç2#ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'7G&FVw•æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#å6fR×FòÕ7VæCÂöF—cãÆF—b–CÒ'6fU7VæD&÷‚#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'7G&FVw”w&–B7G&FVw”w&–Ev–FR"7G–ÆSÒ&Ö&v–â×F÷£‚#ãÆF—b6Æ73Ò'7G&FVw•æVÂ#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR#äFV'B–öfb66Væ&–÷3ÂöF—cãÆF—b6Æ73Ò&ÖWF#ä6ö×&RF–ffW&VçB–ÖVçB–çFVç6—F–W2v†–ÆR¶VW–ærF†Rf–æÂFV6—6–öâv—F‚–÷RãÂöF—cãÂöF—cãÂöF—cãÆF—b–CÒ&FV'E66Væ&–÷2"6Æ73Ò'66Væ&–ôw&–B#ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'7G&FVw•æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#å7VæF–ær6ö6ƒÂöF—cãÆF—b–CÒ'7VæF–æt6ö6‚#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'7G&FVw•æVÂ"7G–ÆSÒ&Ö&v–â×F÷£‚#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR#äFV'Bbö&Æ–vF–öâ÷fW'f–WsÂöF—cãÆF—b6Æ73Ò&ÖWF#ä7W'&VçB6&BæBÆöâ6öÖÖ—FÖVçG2g&öÒ–÷W"6fVBf–ææ6RFFãÂöF—cãÂöF—cãÆ'WGFöâ6Æ73Ò'7G&FVw”F&´'Fâ"G—SÒ&'WGFöâ"FF×vRÖ§V×Ò&–æ6öÖWÆâ#äÖævR–ÖVçG3Âö'WGFöããÂöF—cãÆF—b–CÒ'7G&FVw”FV'EF&ÆR"7G–ÆSÒ&÷fW&fÆ÷r×ƒ¦WFó¶Ö&v–â×F÷£‚#ãÂöF—cãÂöF—cà¢ÂöÖ–ããÂöF—cà£ÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ&f–ææ6–Ç÷6—F–öâ#à¢ÆF—b6Æ73Ò&ÖöFW&ä†W&ò#ãÆF—cãÆƒäf–ææ6–Â÷6—F–öãÂöƒãÇäÆ—fRf–Wröb76WG2ÂÆ–&–Æ—F–W2æBæWB÷6—F–öâg&öÒ–÷W"6fVBf–ææ6RFFãÂ÷ãÂöF—cãÆ'WGFöâ6Æ73Ò&'Fâ&–Ö'’"FF×vRÖ§V×Ò'&W÷'G2#ä÷Vâ&W÷'G3Âö'WGFöããÂöF—cà¢ÆF—b6Æ73Ò&ÖöFW&ä·—2"–CÒ&g·—2#ãÂöF—cà¢ÆF—b6Æ73Ò&ÖöFW&äw&–C"#ãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#ä76WG2'&V¶F÷vãÂöF—cãÆF—b–CÒ&g76WG2#ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#äÆ–&–Æ—F–W2'&V¶F÷vãÂöF—cãÆF—b–CÒ&gÆ–&–Æ—F–W2#ãÂöF—cãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'æVÂ"7G–ÆSÒ&Ö&v–â×F÷£'‚#ãÆF—b6Æ73Ò'æVÅF—FÆR#äæWB÷6—F–öâ7VÖÖ'“ÂöF—cãÆF—b–CÒ&g7VÖÖ'’#ãÂöF—cãÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ'&VçFÂ#à¢ÆF—b6Æ73Ò'&VçFÄ†W&ò#ãÆF—cãÆF—b6Æ73Ò'&VçFÄW–V'&÷r#å$õU%E’”ä4ôÔR(
+"•$$ä"ò$TåDÃÂöF—cãÆƒå&VçFÂÖævVÖVçCÂöƒãÇäÖævRf–Æ&–Æ—G’Â&öö¶–æw2Â&VçFÂ–æ6öÖRæBÖöçF†Ç’÷W&F–ærW‡Vç6W2g&öÒöæR6ÆVæF"ãÂ÷ãÂöF—cãÆF—b6Æ73Ò'&VçFÄ†W&ô7F–öç2#ãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ'&VçFÄW‡Vç6T'Fâ"G—SÒ&'WGFöâ"öæ6Æ–6³Ò'&VçFÄ÷VäW‡Vç6R‚’#î(‰"FBW‡Vç6SÂö'WGFöããÆ'WGFöâ6Æ73Ò&'Fâ&–Ö'’"–CÒ'&VçFÄ&öö¶–æt'Fâ"G—SÒ&'WGFöâ"öæ6Æ–6³Ò'&VçFÄ÷Vä&öö¶–ær‡$—6ò†æWrFFR‚’’’#â²FB&öö¶–æsÂö'WGFöããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'&VçFÄ·—2"–CÒ'&VçFÄ·—2#ãÂöF—cà¢ÆF—b6Æ73Ò'&VçFÄÆ–÷WB#à¢ÆF—b6Æ73Ò'æVÂ&VçFÄ6ÆVæF%æVÂ#ãÆF—b6Æ73Ò'&VçFÄ6Ä†VB#ãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ'&VçFÅ&Wb"G—SÒ&'WGFöâ"öæ6Æ–6³Ò'&VçFÅf–Wrç6WDÖöçF‚‡&VçFÅf–WrævWDÖöçF‚‚’Ó“·&VæFW%&VçFÂ‚’#î(“Âö'WGFöããÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR"–CÒ'&VçFÄÖöçF…F—FÆR#ãÂöF—cãÆF—b6Æ73Ò&ÖWF#ä6Æ–6²F’Fò7&VFR&öö¶–ærâW†—7F–ær&W6W'fF–öç27âF†V—"&öö¶VBæ–v‡G2ãÂöF—cãÂöF—cãÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ'&VçFÅFöF’"G—SÒ&'WGFöâ"öæ6Æ–6³Ò'&VçFÅf–WsÖæWrFFR‚“·&VçFÅf–Wrç6WDFFRƒ“·&VæFW%&VçFÂ‚’#åFöF“Âö'WGFöããÆ'WGFöâ6Æ73Ò&'Fâ"–CÒ'&VçFÄæW‡B"G—SÒ&'WGFöâ"öæ6Æ–6³Ò'&VçFÅf–Wrç6WDÖöçF‚‡&VçFÅf–WrævWDÖöçF‚‚’³“·&VæFW%&VçFÂ‚’#î(£Âö'WGFöããÂöF—cãÆF—b6Æ73Ò'&VçFÅvVV²#ãÇ7ãå7VãÂ÷7ããÇ7ãäÖöãÂ÷7ããÇ7ãåGVSÂ÷7ããÇ7ãåvVCÂ÷7ããÇ7ãåF‡SÂ÷7ããÇ7ãäg&“Â÷7ããÇ7ãå6CÂ÷7ããÂöF—cãÆF—b6Æ73Ò'&VçFÄ6ÆVæF""–CÒ'&VçFÄ6ÆVæF"#ãÂöF—cãÆF—b6Æ73Ò'&VçFÄÆVvVæB#ãÇ7ããÆ’6Æ73Ò&f–Æ&ÆR#ãÂö“äf–Æ&ÆSÂ÷7ããÇ7ããÆ’6Æ73Ò&&öö¶VB#ãÂö“ä&öö¶VCÂ÷7ããÇ7ããÆ’6Æ73Ò&&Æö6¶VB#ãÂö“ä&Æö6¶VCÂ÷7ããÇ7ããÆ’6Æ73Ò&Ö–çFVææ6R#ãÂö“äÖ–çFVææ6SÂ÷7ããÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'&VçFÅ&–v‡B#ãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR#åF†—2ÖöçFƒÂöF—cãÆF—b6Æ73Ò&ÖWF#ä–æ6öÖRg2÷W&F–ær6÷7CÂöF—cãÂöF—cãÂöF—cãÆF—b–CÒ'&VçFÄÖöçF„f–ææ6R#ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#åW6öÖ–ær&öö¶–æw3ÂöF—cãÆF—b–CÒ'&VçFÅW6öÖ–ær#ãÂöF—cãÂöF—cãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò'&VçFÄ&÷GFöÒ#ãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'7Æ—D†VB#ãÆF—cãÆF—b6Æ73Ò'æVÅF—FÆR#ä&öö¶–æw3ÂöF—cãÆF—b6Æ73Ò&ÖWF#å&W6W'fF–öâæB–ÖVçB&Vv—7FW#ÂöF—cãÂöF—cãÂöF—cãÆF—b6Æ73Ò'F&ÆUw&#ãÇF&ÆR6Æ73Ò'&VçFÅF&ÆR#ãÇF†VCãÇG#ãÇFƒå7F“Â÷FƒãÇFƒä&öö¶–æsÂ÷FƒãÇFƒäæ–v‡G3Â÷FƒãÇFƒäF–Ç’&FSÂ÷FƒãÇFƒå–ÖVçCÂ÷FƒãÇFƒå7FGW3Â÷FƒãÇFƒãÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’–CÒ'&VçFÄ&öö¶–æt&öG’#ãÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cãÂöF—cãÆF—b6Æ73Ò'æVÂ#ãÆF—b6Æ73Ò'æVÅF—FÆR#äÖöçF†Ç’W‡Vç6W3ÂöF—cãÆF—b–CÒ'&VçFÄW‡Vç6W2#ãÂöF—cãÂöF—cãÂöF—cà£Â÷6V7F–öãà £Ç6V7F–öâ6Æ73Ò'f–Wr"–CÒ'&W÷'G2#à¢ÆF—b6Æ73Ò'&W÷'D†W&ò#ãÆF—cãÆF—b6Æ73Ò'&W÷'DW–V'&÷r#äd”ää4”ÂäÅ•D”53ÂöF—cãÆƒå&W÷'G3ÂöƒãÇåVæFW'7FæBv†W&R–÷W"ÖöæW’vöW2Â†÷r7VæF–ær6†ævW2÷fW"F–ÖRÂæBv†–6‚6FVv÷&–W2G&—fRF†R&W7VÇBãÂ÷ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'&W÷'Df–ÇFW'2#à¢ÆÆ&VÃãÇ7ãäg&öÒFFSÂ÷7ããÆ–çWBG—SÒ&FFR"6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'Dg&öÒ#ãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãåFòFFSÂ÷7ããÆ–çWBG—SÒ&FFR"6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'EFò#ãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãä66÷VçCÂ÷7ããÇ6VÆV7B6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'D66÷VçB#ãÂ÷6VÆV7CãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãä6&CÂ÷7ããÇ6VÆV7B6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'E‡—6–6Ä6&B#ãÆ÷F–öâfÇVSÒ"#äÆÂ‡—6–6Â6&G3Âö÷F–öããÂ÷6VÆV7CãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãä6FVv÷'“Â÷7ããÇ6VÆV7B6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'D6FVv÷'’#ãÂ÷6VÆV7CãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãå7V&6FVv÷'“Â÷7ããÇ6VÆV7B6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'E7V&6FVv÷'’#ãÆ÷F–öâfÇVSÒ"#äÆÂ7V&6FVv÷&–W3Âö÷F–öããÂ÷6VÆV7CãÂöÆ&VÃà¢ÆÆ&VÃãÇ7ãåG—SÂ÷7ããÇ6VÆV7B6Æ73Ò&6öçG&öÂ"–CÒ'&W÷'EG—R#ãÆ÷F–öâfÇVSÒ"#äÆÂG—W3Âö÷F–öããÆ÷F–öâfÇVSÒ'7VæB#å7VæF–æsÂö÷F–öããÆ÷F–öâfÇVSÒ'G&ç6fW"#åG&ç6fW'2ò6&B–ÖVçG3Âö÷F–öããÆ÷F–öâfÇVSÒ&–æ6öÖR#ä–æ6öÖSÂö÷F–öããÆ÷F–öâfÇVSÒ&fVR#äfVW3Âö÷F–öããÆ÷F–öâfÇVSÒ&ö&Æ–vF–öâ#äö&Æ–vF–öç3Âö÷F–öããÂ÷6VÆV7CãÂöÆ&VÃà¢Æ'WGFöâ6Æ73Ò&'Fâ&W÷'E&W6WD'Fâ"–CÒ'&W÷'E&W6WB#å&W6WCÂö'WGFöãà¢ÂöF—cà¢ÆF—b6Æ73Ò'&W÷'D·—4W†V7WF—fR"–CÒ'&W÷'D·—2#ãÂöF—cà¢ÆF—b6Æ73Ò'&W÷'DæÇ—F–74w&–B#à¢ÆF—b6Æ73Ò'&W÷'EæVÂ&W÷'EG&VæEæVÂ#ãÆF—b6Æ73Ò'&W÷'EæVÄ†VB#ãÆF—cãÆƒ#äÖöçF†Ç’7VæF–ærG&VæCÂöƒ#ãÇå7VæF–ærÖ÷fVÖVçB7&÷72F†R6VÆV7FVBW&–öCÂ÷ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'&W÷'EG&VæD6†'B"–CÒ'&W÷'EG&VæD6†'B#ãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'&W÷'EæVÂ&W÷'DÖ—…æVÂ#ãÆF—b6Æ73Ò'&W÷'EæVÄ†VB#ãÆF—cãÆƒ#å7VæF–ærÖ—ƒÂöƒ#ãÇå6†&Röb7VæF–ær'’6FVv÷'“Â÷ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'&W÷'DFöçWDÆ–÷WB#ãÆF—b6Æ73Ò'&W÷'DFöçWB"–CÒ&FöçWB#ãÆF—b6Æ73Ò'&W÷'DFöçWD6VçFW""–CÒ&FöçWD6VçFW"#ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'&W÷'DÆVvVæB"–CÒ&FöçWDÆVvVæB#ãÂöF—cãÂöF—cãÇ6VÆV7B–CÒ&FöçWDÖöFR"7G–ÆSÒ&F—7Æ“¦æöæR#ãÆ÷F–öâfÇVSÒ&6FVv÷'’"6VÆV7FVCä'’6FVv÷'“Âö÷F–öããÂ÷6VÆV7CãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò'&W÷'DæÇ—F–74w&–B&W÷'DæÇ—F–756V6öæB#à¢ÆF—b6Æ73Ò'&W÷'EæVÂ#ãÆF—b6Æ73Ò'&W÷'EæVÄ†VB#ãÆF—cãÆƒ"–CÒ&&%F—FÆR#åF÷7VæF–ær6FVv÷&–W3Âöƒ#ãÇä6Æ–6²6FVv÷'’Fòf–ÇFW"F†R&W÷'CÂ÷ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'&W÷'D†÷&—¦öçFÄ&'2"–CÒ&&$6†'B#ãÂöF—cãÇ6VÆV7B–CÒ&&$w&÷W"7G–ÆSÒ&F—7Æ“¦æöæR#ãÆ÷F–öâfÇVSÒ&6FVv÷'’"6VÆV7FVCä6FVv÷'“Âö÷F–öããÂ÷6VÆV7CãÇ6VÆV7B–CÒ&&$ÖöFR"7G–ÆSÒ&F—7Æ“¦æöæR#ãÆ÷F–öâfÇVSÒ&Ö÷VçB"6VÆV7FVCäÖ÷VçCÂö÷F–öããÂ÷6VÆV7CãÂöF—cà¢ÆF—b6Æ73Ò'&W÷'EæVÂ#ãÆF—b6Æ73Ò'&W÷'EæVÄ†VB#ãÆF—cãÆƒ#ä¶W’–ç6–v‡G3Âöƒ#ãÇä†–v†Æ–v‡G2g&öÒF†R7W'&VçBf–ÇFW'3Â÷ãÂöF—cãÂöF—cãÆF—b6Æ73Ò'&W÷'D–ç6–v‡G2"–CÒ'&W÷'D–ç6–v‡G2#ãÂöF—cãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ73Ò'&W÷'EæVÂ&W÷'EF&ÆUæVÂ#ãÆF—b6Æ73Ò'&W÷'EæVÄ†VB#ãÆF—cãÆƒ#åF÷7VæF–ær7V&6FVv÷&–W3Âöƒ#ãÇäFWF–ÆVB'&V¶F÷vâöbF†R6FVv÷/}ëÛh‘éì¶»§q«^u¸Ù…±Õ”ô‰Ù…±Õ”ˆù5…É­•ĞY…±Õ”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰‘…äˆù…¥±ä¡…¹”€”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰Á°ˆù…¥¸€¼1½ÍÌğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰ÁĞˆùI•ÑÕÉ¸€”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰Ñ¥­•ÈˆùQ¥­•Èğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°¥¹ÙQ…‰±•A…¹•°ˆøñ‘¥Ø±…ÍÌô‰Ñ…‰±•]É…ÀˆøñÑ…‰±”±…ÍÌô‰¥¹ÙQ…‰±”ˆøñÑ¡•…øñÑÈøñÑ ù!½±‘¥¹œğ½Ñ øñÑ ù5…É­•Ğğ½Ñ øñÑ ùM¡…É•Ìğ½Ñ øñÑ ùÙœ½ÍĞğ½Ñ øñÑ ù1¥Ù”AÉ¥”ğ½Ñ øñÑ ù…¥±ä¡…¹”ğ½Ñ øñÑ ù5…É­•ĞY…±Õ”ğ½Ñ øñÑ ù…¥¸€¼1½ÍÌğ½Ñ øñÑ ùI•ÑÕÉ¸ğ½Ñ øñÑ ù]•¥¡Ğğ½Ñ øñÑ ùÑ¥½¹Ìğ½Ñ øğ½ÑÈøğ½Ñ¡•…øñÑ‰½‘ä¥ô‰¥¹Ù	½‘äˆøğ½Ñ‰½‘äøğ½Ñ…‰±”øğ½‘¥Øøğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰¥¹ÙÉ¥ˆøñ‘¥Ø±…ÍÌô‰Á…¹•°ˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùA½ÉÑ™½±¥¼±±½…Ñ¥½¸ğ½‘¥Øøñ‘¥Ø¥ô‰¥¹Ù±±½…Ñ¥½¸ˆøğ½‘¥Øøğ½‘¥Øøñ‘¥Ø±…ÍÌô‰Á…¹•°ˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùI••¹ĞMÑ½¬Ñ¥Ù¥Ñäğ½‘¥Øøñ‘¥Ø¥ô‰¥¹ÙQÉ…‘•Ìˆ±…ÍÌô‰µ•Ñ„ˆù9¼ÍÑ½¬…Ñ¥Ù¥ÑäÉ•½É‘•å•Ğ¸ğ½‘¥Øøğ½‘¥Øøğ½‘¥Øø(ğ½Í•Ñ¥½¸ø((ñÍ•Ñ¥½¸±…ÍÌô‰Ù¥•Üˆ¥ô‰…ÍÍ•ÑÌˆø(€ñ‘¥Ø±…ÍÌô‰ÍÁ±¥Ñ!•…ˆøñ‘¥Øøñ‘¥Ø±…ÍÌô‰Í•Ñ¥½¹Q¥Ñ±”ˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÀˆùA•ÉÍ½¹…°ÍÍ•ÑÌƒŠˆ½±ğ½‘¥Øøñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆù… …ÍÍ•Ğ¹…µ”¡…Ì½¹”Á•Éµ…¹•¹ĞÍÍ•Ğ%¸¹Ñ•É¥¹œÑ¡”Í…µ”¹…µ”……¥¸ÕÁ‘…Ñ•ÌÑ¡…Ğ…ÍÍ•Ğ¥¹ÍÑ•…½˜‘ÕÁ±¥…Ñ¥¹œ¥ÑÌİ•¥¡Ğ…¹Ù…±Õ”¸ğ½‘¥Øøğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…Éäˆ¥ô‰…‘‘½±‘ÍÍ•ĞˆÑåÁ”ô‰‰ÕÑÑ½¸ˆø¬‘½±ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰­Á¥Ìˆ¥ô‰½±‘-Á¥ÌˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÄÑÁàˆøğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÄÑÁàˆøñ‘¥Ø±…ÍÌô‰ÍÁ±¥Ñ!•…ˆøñ‘¥Øøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùM…Õ‘¤½±5…É­•ĞAÉ¥”ğ½‘¥Øøñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆ¥ô‰½±‘AÉ¥•5•Ñ„ˆù1¥Ù”ÍÁ½ĞÉ•™•É•¹”İ¥Ñ µ…¹Õ…°½Ù•ÉÉ¥‘”…Ù…¥±…‰±”¸ğ½‘¥Øøğ½‘¥Øøñ‘¥ØÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí…ÀèİÁàí™±•àµİÉ…ÀéİÉ…Àˆøñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆ¥ô‰É•™É•Í¡½±‘AÉ¥”ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆùI•™É•Í AÉ¥”ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆ¥ô‰µ…¹Õ…±½±‘AÉ¥”ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆù5…¹Õ…°AÉ¥”ğ½‰ÕÑÑ½¸øğ½‘¥Øøğ½‘¥Øøñ‘¥Ø¥ô‰½±‘AÉ¥•É¥ˆ±…ÍÌô‰­Á¥ÌˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÄÉÁàˆøğ½‘¥Øøğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Í•Ñ¥½¹Q¥Ñ±”ˆùÑ¥Ù”½±ÍÍ•ÑÌğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ˆÍÑå±”ô‰½Ù•É™±½Üµàé…ÕÑ¼ˆøñÑ…‰±”±…ÍÌô‰ÍÕµµ…ÉåQ…‰±”ˆÍÑå±”ô‰µ¥¸µİ¥‘Ñ èÄÄÀÁÁàˆøñÑ¡•…øñÑÈøñÑ ùÍÍ•Ğğ½Ñ øñÑ ùQåÁ”€¼AÕÉ¥Ñäğ½Ñ øñÑ ù]•¥¡Ğğ½Ñ øñÑ ù	½Õ¡Ğğ½Ñ øñÑ ùAÕÉ¡…Í”AÉ¥”ğ½Ñ øñÑ ùÕÉÉ•¹ĞY…±Õ”ğ½Ñ øñÑ ù…¥¸½1½ÍÌğ½Ñ øñÑ ù9•áĞ!¥©É¤i…­…Ğğ½Ñ øñÑ ùi…­…Ğğ½Ñ øñÑ ùÑ¥½¸ğ½Ñ øğ½ÑÈøğ½Ñ¡•…øñÑ‰½‘ä¥ô‰½±‘ÍÍ•ÑÍ	½‘äˆøğ½Ñ‰½‘äøğ½Ñ…‰±”øğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Í•Ñ¥½¹Q¥Ñ±”ˆùi…­…ĞA…åµ•¹Ğ!¥ÍÑ½Éäğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ˆÍÑå±”ô‰½Ù•É™±½Üµàé…ÕÑ¼ˆøñÑ…‰±”±…ÍÌô‰ÍÕµµ…ÉåQ…‰±”ˆøñÑ¡•…øñÑÈøñÑ ùÍÍ•Ğğ½Ñ øñÑ ù!¥©É¤å±”ğ½Ñ øñÑ ù]•¥¡Ğğ½Ñ øñÑ ùY…±Õ”UÍ•ğ½Ñ øñÑ ùi…­…ĞA…¥ğ½Ñ øñÑ ùA…¥…Ñ”ğ½Ñ øñÑ ùA…¥É½´ğ½Ñ øñÑ ùÑ¥½¸ğ½Ñ øğ½ÑÈøğ½Ñ¡•…øñÑ‰½‘ä¥ô‰½±‘i…­…Ñ!¥ÍÑ½Éå	½‘äˆøğ½Ñ‰½‘äøğ½Ñ…‰±”øğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Í•Ñ¥½¹Q¥Ñ±”ˆù½±M…±”!¥ÍÑ½Éäğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ˆÍÑå±”ô‰½Ù•É™±½Üµàé…ÕÑ¼ˆøñÑ…‰±”±…ÍÌô‰ÍÕµµ…ÉåQ…‰±”ˆøñÑ¡•…øñÑÈøñÑ ùÍÍ•Ğğ½Ñ øñÑ ù…Ñ”ğ½Ñ øñÑ ù]•¥¡ĞM½±ğ½Ñ øñÑ ùM…±”AÉ½••‘Ìğ½Ñ øñÑ ùI••¥Ù•Q¼ğ½Ñ øñÑ ùI•…±¥é•…¥¸½1½ÍÌğ½Ñ øğ½ÑÈøğ½Ñ¡•…øñÑ‰½‘ä¥ô‰½±‘M…±•!¥ÍÑ½Éå	½‘äˆøğ½Ñ‰½‘äøğ½Ñ…‰±”øğ½‘¥Øø(ğ½Í•Ñ¥½¸ø((ñÍ•Ñ¥½¸±…ÍÌô‰Ù¥•Üˆ¥ô‰…½Õ¹Ñ•Ñ…¥°ˆø(€ñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆ¥ô‰‘•Ñ…¥±	…¬ˆûŠ@	…¬ğ½‰ÕÑÑ½¸ø(€ñ‘¥Ø¥ô‰…½Õ¹Ñ•Ñ…¥±½¹Ñ•¹ĞˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÄÑÁàˆøğ½‘¥Øø(ğ½Í•Ñ¥½¸ø((ñÍ•Ñ¥½¸±…ÍÌô‰Ù¥•Üˆ¥ô‰…½Õ¹ÑÁÉ½™¥±”ˆø(€ñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍA…”ˆøñ‘¥Ø±…ÍÌô‰ÁÉ•™Íå•‰É½ÜˆùAI=%1ğ½‘¥Øøñ Äù½Õ¹Ğğ½ ÄøñÀ±…ÍÌô‰ÁÉ•™Í1•…ˆù5…¹…”Ñ¡”¥‘•¹Ñ¥ÑäÑ¡…Ğİ¥±°‰”ÕÍ•‰ä5ä¥¹…¹”…¹Ñ¡”™ÕÑÕÉ”±½¥¸ÍåÍÑ•´¸ğ½Àø(€ñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍÉ¥ˆøñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…Éˆøñ‘¥Ø±…ÍÌô‰ÁÉ½™¥±•1…É”ˆøñ‘¥Ø±…ÍÌô‰ÁÉ½™¥±•1…É•Ù…Ñ…Èˆ¥ô‰…½Õ¹ÑÙ…Ñ…ÉAÉ•Ù¥•Üˆù!ğ½‘¥Øøñ‘¥Øøñ È¥ô‰…½Õ¹Ñ9…µ•AÉ•Ù¥•Üˆù!ÕÍÍ…´¡µ…ğ½ Èøñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆ¥ô‰…½Õ¹Ñµ…¥±AÉ•Ù¥•Üˆù1½…°ÁÉ½™¥±”ƒŠˆ1½¥¸¹½Ğ½¹¹•Ñ•å•Ğğ½‘¥Øøğ½‘¥Øøğ½‘¥Øøğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…Éˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùAÉ½™¥±”•Ñ…¥±Ìğ½‘¥Øøñ™½É´¥ô‰…½Õ¹ÑAÉ½™¥±•½É´ˆ±…ÍÌô‰ÁÉ•™Í½É´ˆøñ±…‰•°ù¥ÍÁ±…ä9…µ”ñ¥¹ÁÕĞ¥ô‰…½Õ¹Ñ¥ÍÁ±…å9…µ”ˆ…ÕÑ½½µÁ±•Ñ”ô‰¹…µ”ˆøğ½±…‰•°øñ±…‰•°ùµ…¥°ñ¥¹ÁÕĞ¥ô‰…½Õ¹Ñµ…¥°ˆÑåÁ”ô‰•µ…¥°ˆ…ÕÑ½½µÁ±•Ñ”ô‰•µ…¥°ˆÁ±…•¡½±‘•Èô‰¹…µ••á…µÁ±”¹½´ˆøğ½±…‰•°øñ±…‰•°ù%¹¥Ñ¥…±Ìñ¥¹ÁÕĞ¥ô‰…½Õ¹Ñ%¹¥Ñ¥…±Ìˆµ…á±•¹Ñ ôˆÌˆÁ±…•¡½±‘•Èô‰!ˆøğ½±…‰•°øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”AÉ½™¥±”ğ½‰ÕÑÑ½¸øğ½™½É´øğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…Éˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆù1½¥¸€˜M•ÕÉ¥Ñäğ½‘¥ØøñÀ±…ÍÌô‰µ•Ñ„ˆùQ¡¥Ì…É•„¥ÌÉ•…‘ä™½È…ÕÑ¡•¹Ñ¥…Ñ¥½¸¸A…ÍÍİ½É°Í•ÍÍ¥½¹Ì…¹Í•ÕÉ”Í¥¸µ½ÕĞİ¥±°‰”½¹¹•Ñ•İ¡•¸Ñ¡”±½¥¸ÍÉ••¸¥Ì¥µÁ±•µ•¹Ñ•¸ğ½Àøñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍMÑ…ÑÕÌˆøñÍÁ…¸ùÕÑ¡•¹Ñ¥…Ñ¥½¸ğ½ÍÁ…¸øñˆù9½Ğ½¹¹•Ñ•ğ½ˆøğ½‘¥Øøğ½‘¥Øøğ½‘¥Øøğ½‘¥Øø(ğ½Í•Ñ¥½¸ø(ñÍ•Ñ¥½¸±…ÍÌô‰Ù¥•Üˆ¥ô‰ÁÉ•™•É•¹•Ìˆø(€ñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍA…”ˆøñ‘¥Ø±…ÍÌô‰ÁÉ•™Íå•‰É½ÜˆùAIM=91%iQ%=8ğ½‘¥Øøñ ÄùAÉ•™•É•¹•Ìğ½ ÄøñÀ±…ÍÌô‰ÁÉ•™Í1•…ˆù½¹ÑÉ½°¡½Ü5ä¥¹…¹”±½½­Ì½¸Ñ¡¥Ì‘•Ù¥”¸¡…¹•Ì…ÁÁ±ä¥µµ•‘¥…Ñ•±ä…¹…É”Í…Ù•±½…±±ä¸ğ½Àø(€ñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍÉ¥ˆøñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…ÉÁÉ•™Í]¥‘”ˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùÁÁ•…É…¹”ğ½‘¥Øøñ‘¥Ø±…ÍÌô‰Ñ¡•µ•¡½¥•Ìˆ¥ô‰Ñ¡•µ•¡½¥•Ìˆø(€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ‘…Ñ„µÑ¡•µ”µ¡½¥”ô‰‘…É¬ˆøñÍÁ…¸±…ÍÌô‰Ñ¡•µ•AÉ•Ù¥•ÜÑ¡•µ•…É¬ˆøğ½ÍÁ…¸øñˆù…É¬ğ½ˆøñÍµ…±°ùÕÉÉ•¹Ğ™¥¹…¹”‘…Í¡‰½…ÉÍÑå±”ğ½Íµ…±°øğ½‰ÕÑÑ½¸ø(€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ‘…Ñ„µÑ¡•µ”µ¡½¥”ô‰±¥¡ĞˆøñÍÁ…¸±…ÍÌô‰Ñ¡•µ•AÉ•Ù¥•ÜÑ¡•µ•1¥¡Ğˆøğ½ÍÁ…¸øñˆù1¥¡Ğğ½ˆøñÍµ…±°ù	É¥¡Ğİ½É­ÍÁ…”ğ½Íµ…±°øğ½‰ÕÑÑ½¸ø(€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ‘…Ñ„µÑ¡•µ”µ¡½¥”ô‰ÍåÍÑ•´ˆøñÍÁ…¸±…ÍÌô‰Ñ¡•µ•AÉ•Ù¥•ÜÑ¡•µ•MåÍÑ•´ˆøğ½ÍÁ…¸øñˆùMåÍÑ•´ğ½ˆøñÍµ…±°ù½±±½Üå½ÕÈ5…Œ½‰É½İÍ•È…ÁÁ•…É…¹”ğ½Íµ…±°øğ½‰ÕÑÑ½¸ø(€ğ½‘¥Øøğ½‘¥Øøñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…Éˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆù%¹Ñ•É™…”ğ½‘¥Øøñ±…‰•°±…ÍÌô‰ÁÉ•™ÍQ½±”ˆøñÍÁ…¸øñˆù½µÁ…Ğ¹…Ù¥…Ñ¥½¸ğ½ˆøñÍµ…±°ùUÍ”Ñ¥¡Ñ•ÈÍÁ…¥¹œİ¡•¸ÍÉ••¸İ¥‘Ñ ¥Ì±¥µ¥Ñ•¸ğ½Íµ…±°øğ½ÍÁ…¸øñ¥¹ÁÕĞ¥ô‰ÁÉ•™½µÁ…Ñ9…ØˆÑåÁ”ô‰¡•­‰½àˆøğ½±…‰•°øğ½‘¥Øø(€ñ‘¥Ø±…ÍÌô‰Á…¹•°ÁÉ•™Í…Éˆøñ‘¥Ø±…ÍÌô‰Á…¹•±Q¥Ñ±”ˆùM…Ù•AÉ•™•É•¹”ğ½‘¥Øøñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍMÑ…ÑÕÌˆøñÍÁ…¸ùQ¡•µ”ğ½ÍÁ…¸øñˆ¥ô‰ÁÉ•™Q¡•µ•MÑ…ÑÕÌˆù…É¬ğ½ˆøğ½‘¥Øøñ‘¥Ø±…ÍÌô‰ÁÉ•™ÍMÑ…ÑÕÌˆøñÍÁ…¸ùMÑ½É…”ğ½ÍÁ…¸øñˆù=¸Ñ¡¥Ì‘•Ù¥”ğ½ˆøğ½‘¥Øøğ½‘¥Øøğ½‘¥Øøğ½‘¥Øø(ğ½Í•Ñ¥½¸ø(((ñÍ•Ñ¥½¸±…ÍÌô‰Ù¥•Üˆ¥ô‰‰…¹­½¹¹•Ñ¥½¹Ìˆø(€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áM¡•±°ˆø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½á!•É¼ˆø(€€€ñ‘¥Øøñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áå•‰É½Üˆù=A8	9-%9ƒŠˆ=U9Pµ1Y05AA%9ğ½‘¥Øøñ Äù	…¹¬½¹¹•Ñ¥½¹Ìğ½ ÄøñÀù%‘•¹Ñ¥™ä•Ù•ÉäÕÉÉ•¹Ğ…½Õ¹Ğ…¹É•‘¥Ğ…ÉÍ•Á…É…Ñ•±ä‰•™½É”ÑÉ…¹Í…Ñ¥½¹Ì•¹Ñ•È5ä¥¹…¹”¸ğ½Àøğ½‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½á	…‘”ˆùXÈäÔƒŠˆMMQ%9ğ½‘¥Øø(€€ğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­AÉ½Ù¥‘•ÉA…¹•°ˆø(€€€ñ‘¥ØøñˆùI•…°‰…¹¬½¹¹•Ñ¥½¸ğ½ˆøñÍÁ…¸¥ô‰‰…¹­AÉ½Ù¥‘•ÉMÑ…ÑÕÌˆù9•½Ñ•¬ÁÉ½Ù¥‘•È…•ÍÌ¥Ì¹½Ğ½¹™¥ÕÉ•å•Ğ¸I•…°‘…Ñ„É•ÅÕ¥É•Ì…ÁÁÉ½Ù•É•‘•¹Ñ¥…±Ì…¹‰…¹¬µ¡½ÍÑ•½¹Í•¹Ğ¸ğ½ÍÁ…¸øğ½‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰‰…¹­AÉ½Ù¥‘•ÉÑ¥½¹Ìˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ¥ô‰‰…¹­AÉ½Ù¥‘•É¡•¬ˆù¡•¬AÉ½Ù¥‘•ÈM•ÑÕÀğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ÁÉ¥µ…Éäˆ¥ô‰‰…¹­AÉ½Ù¥‘•ÉMÑ…ÉĞˆùMÑ…ÉĞI•…°	…¹¬½¹¹•Ñ¥½¸ğ½‰ÕÑÑ½¸øñ„±…ÍÌô‰‰Ñ¸ˆ¡É•˜ô‰¡ÑÑÁÌè¼½¹•½Ñ•¬¹Í„½½¹Ñ…ĞˆÑ…É•Ğô‰}‰±…¹¬ˆÉ•°ô‰¹½½Á•¹•È¹½É•™•ÉÉ•ÈˆùI•ÅÕ•ÍĞAÉ½Ù¥‘•È•ÍÌğ½„øğ½‘¥Øø(€€ğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½á9½Ñ¥”ˆøñˆùM…™”Ñ•ÍĞµ½‘”ğ½ˆøñÍÁ…¸ùQ¡¥Ìµ½‘Õ±”™½±±½İÌÑ¡”9•½Ñ•¬µÍÑå±”…½Õ¹Ğ°‰…±…¹”…¹ÑÉ…¹Í…Ñ¥½¸ÍÑÉÕÑÕÉ”¸%Ğ‘½•Ì¹½Ğ½¹Ñ…Ğ„‰…¹¬°ÁÕ‰±¥Í ‘…Ñ„Ñ¼MÕÁ…‰…Í”½È¡…¹”‘…Í¡‰½…É…±Õ±…Ñ¥½¹Ì¸ğ½ÍÁ…¸øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½á½¹¹•Ñ	…Èˆø(€€€ñ±…‰•°™½Èô‰‰…¹­M…¹‘‰½á	…¹¬ˆùM…Õ‘¤‰…¹¬ğ½±…‰•°ø(€€€ñÍ•±•Ğ¥ô‰‰…¹­M…¹‘‰½á	…¹¬ˆøğ½Í•±•Ğø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ÁÉ¥µ…Éäˆ¥ô‰‰…¹­M…¹‘‰½á½¹¹•Ğˆù½¹¹•ĞM…¹‘‰½à	…¹¬ğ½‰ÕÑÑ½¸ø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ¥ô‰‰…¹­M…¹‘‰½áMå¹ŒˆùMå¹ŒM…¹‘‰½à…Ñ„ğ½‰ÕÑÑ½¸ø(€€ğ½‘¥Øø(€€ñ‘¥Ø¥ô‰‰…¹­M…¹‘‰½áMÑ…ÑÕÌˆ±…ÍÌô‰‰…¹­M…¹‘‰½áMÑ…ÑÕÌˆù9¼Í…¹‘‰½à‰…¹¬½¹¹•Ñ•å•Ğ¸ğ½‘¥Øø(€€ñ‘¥Ø¥ô‰‰…¹­M…¹‘‰½á5•ÑÉ¥Ìˆ±…ÍÌô‰‰…¹­M…¹‘‰½á5•ÑÉ¥Ìˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áM•Ñ¥½¹!•…ˆøñ‘¥Øøñ Èù½¹¹•Ñ•…½Õ¹ÑÌğ½ ÈøñÀùÙ…¥±…‰±”…µ½Õ¹ÑÌÉ•ÑÕÉ¹•‰äÑ¡”Í…¹‘‰½à…‘…ÁÑ•È¸ğ½Àøğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø¥ô‰‰…¹­M…¹‘‰½á½Õ¹ÑÌˆ±…ÍÌô‰‰…¹­M…¹‘‰½á½¹¹•Ñ¥½¹Ìˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áA…¹•°ˆø(€€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áM•Ñ¥½¹!•…ˆøñ‘¥Øøñ Èù	…¹¬ÑÉ…¹Í…Ñ¥½¸™••ğ½ ÈøñÀù9½Éµ…±¥é•ÑÉ…¹Í…Ñ¥½¹ÌÉ•µ…¥¸¥Í½±…Ñ•™É½´å½ÕÈÉ•…°™¥¹…¹”É•¥ÍÑ•È¸ğ½Àøğ½‘¥Øøğ½‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áQ…‰±•]É…ÀˆøñÑ…‰±”±…ÍÌô‰‰…¹­M…¹‘‰½áQ…‰±”ˆøñÑ¡•…øñÑÈøñÑ ù…Ñ”ğ½Ñ øñÑ ùM½ÕÉ”…½Õ¹Ğğ½Ñ øñÑ ù•ÍÉ¥ÁÑ¥½¸ğ½Ñ øñÑ ùµ½Õ¹Ğğ½Ñ øñÑ ùIÕ¹¹¥¹œ‰…±…¹”ğ½Ñ øğ½ÑÈøğ½Ñ¡•…øñÑ‰½‘ä¥ô‰‰…¹­M…¹‘‰½áQÉ…¹Í…Ñ¥½¹Ìˆøğ½Ñ‰½‘äøğ½Ñ…‰±”øğ½‘¥Øø(€€ğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰‰…¹­M…¹‘‰½áAÉ½‘ÕÑ¥½¹9½Ñ”ˆøñˆùAÉ½‘ÕÑ¥½¸¡…¹µ½™˜ğ½ˆøñÍÁ…¸ù™Ñ•È9•½Ñ•¬…ÁÁÉ½Ù…°°Ñ¡”Í•ÉÙ•ÈµÍ¥‘”…‘…ÁÑ•Èİ¥±°É•Á±…”Ñ¡¥Ì™¥áÑÕÉ”°ÍÑ½É”É•‘•¹Ñ¥…±Ì½¹±ä¥¸ÁÉ½Ñ•Ñ••¹Ù¥É½¹µ•¹ĞÙ…É¥…‰±•Ì…¹ÕÍ”‰…¹¬µ¡½ÍÑ•½¹Í•¹ĞÉ•‘¥É•ÑÌ¸ğ½ÍÁ…¸øğ½‘¥Øø(€ğ½‘¥Øø(ğ½Í•Ñ¥½¸ø((ğ½µ…¥¸ø(ğ½‘¥Øø(ğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰‰…±…¹•=™™•É5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆù	…±…¹”%¹ÍÑ…±±µ•¹Ğ=™™•Èğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ¥ô‰±½Í•	…±…¹•=™™•ÈˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰‰…±…¹•=™™•É½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰‰…±…¹•=™™•É…É‘%ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù…Éğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•É…É‘9…µ”ˆÉ•…‘½¹±äøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù=™™•Èµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•Éµ½Õ¹ĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù5½¹Ñ¡Ìğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•É5½¹Ñ¡ÌˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÄˆµ…àôˆØÀˆÙ…±Õ”ôˆÄÈˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…ÉĞ5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•ÉMÑ…ÉÑ5½¹Ñ ˆÑåÁ”ô‰µ½¹Ñ ˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù5½¹Ñ¡±ä•”€¼AÉ½™¥Ğ€¡=ÁÑ¥½¹…°¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•É•”ˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀˆÍÑ•ÀôˆÀ¸ÀÄˆÙ…±Õ”ôˆÀˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù=™™•ÈM½Á”ğ½±…‰•°øñÍ•±•Ğ¥ô‰‰…±…¹•=™™•ÉM½Á”ˆø(€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰ÕÉÉ•¹ĞˆùÕÉÉ•¹Ğ¹½¸µ¥¹ÍÑ…±±µ•¹Ğ‰…±…¹”½¹±äğ½½ÁÑ¥½¸ø(€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰™Õ±°ˆùÕ±°ÕÑ¥±¥é•‰…±…¹”…¹É•Á±…”•á¥ÍÑ¥¹œ¥¹ÍÑ…±±µ•¹ĞÁ±…¹Ìğ½½ÁÑ¥½¸ø(€€ğ½Í•±•Ğøñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆùUÍ”Õ±°½¹±äİ¡•¸Ñ¡”‰…¹¬½¹™¥ÉµÌÑ¡”½±¥¹ÍÑ…±±µ•¹ĞÁ±…¹Ì…É”É•Á±…•¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰…±…¹•=™™•É•ÍÉ¥ÁÑ¥½¸ˆÙ…±Õ”ô‰…É	…±…¹”%¹ÍÑ…±±µ•¹Ğ=™™•Èˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆ¥ô‰‰…±…¹•=™™•ÉAÉ•Ù¥•Üˆøğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ¥ô‰…¹•±	…±…¹•=™™•Èˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùÉ•…Ñ”=™™•ÈA±…¸ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰¥¹ÍÑ…±±5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆù‘%¹ÍÑ…±±µ•¹ĞA±…¸ğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰¥¹ÍÑ…±±5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰¥¹ÍÑ…±±½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùÉ•‘¥Ğ…Éğ½±…‰•°øñÍ•±•Ğ¥ô‰¥¹ÍÑ…ÉˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑ•ÍŒˆÉ•ÅÕ¥É•Á±…•¡½±‘•Èô‰ÕÉ¹¥ÑÕÉ”°…ÁÁ±¥…¹”°…‘•Ğ¸¸¸ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰¥¹ÍÑ…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰¥¹ÍÑMÕ‰…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù=É¥¥¹…°€¼Õ±°µ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑµ½Õ¹ĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùI•µ…¥¹¥¹œµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑI•µ…¥¹¥¹µ½Õ¹ĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆùQ¡¥ÌÁÉ¥¹¥Á…°ÍÑ…åÌ™¥á•İ¡•¸å½Ô¡…¹”Ñ¡”É•µ…¥¹¥¹œµ½¹Ñ¡Ì¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùI•µ…¥¹¥¹œ5½¹Ñ¡Ìğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑ5½¹Ñ¡ÌˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÄˆµ…àôˆØÀˆÙ…±Õ”ôˆÌˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…ÉĞ€¼I•™•É•¹”5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑMÑ…ÉĞˆÑåÁ”ô‰µ½¹Ñ ˆÙ…±Õ”ôˆÈÀÈØ´ÀàˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù%¹ÍÑ…±±µ•¹ÑÌ±É•…‘äA…¥ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰¥¹ÍÑA…¥ˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀˆÙ…±Õ”ôˆÀˆÉ•ÅÕ¥É•øñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù½È¡¥ÍÑ½Éä¸I•µ…¥¹¥¹œµ½Õ¹Ğ¥ÌÑ¡”…ÕÑ¡½É¥Ñ…Ñ¥Ù”½ÕÑÍÑ…¹‘¥¹œÁÉ¥¹¥Á…°¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆ¥ô‰¥¹ÍÑAÉ•Ù¥•Üˆù¹Ñ•È…µ½Õ¹Ğ…¹µ½¹Ñ¡ÌÑ¼…±Õ±…Ñ”Ñ¡”µ½¹Ñ¡±ä¥¹ÍÑ…±±µ•¹Ğ…¹É•µ…¥¹¥¹œ…µ½Õ¹Ğ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰¥¹ÍÑ…±±5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”A±…¸ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰½ÕÑ½¥¹5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆ¥ô‰½ÕÑ½¥¹5½‘…±Q¥Ñ±”ˆù‘=ÕÑ½¥¹œğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰½ÕÑ½¥¹5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰½ÕÑ½¥¹½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰½ÕÑ½¥¹‘¥Ñ%ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹•ÍŒˆÉ•ÅÕ¥É•Á±…•¡½±‘•Èô‰M¡½½°™••Ì°±•…¹¥¹œ°Á¡½¹”°µ…¥¹Ñ•¹…¹”¸¸¸ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹µ½Õ¹ĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…åµ•¹Ğ5•Ñ¡½ğ½±…‰•°øñÍ•±•Ğ¥ô‰½ÕÑ½¥¹5•Ñ¡½ˆøñ½ÁÑ¥½¸ù…Í ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸ù	…¹¬QÉ…¹Í™•Èğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸ù=Ñ¡•Èğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰½ÕÑ½¥¹…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰½ÕÑ½¥¹MÕ‰…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…ÉĞ5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹MÑ…ÉĞˆÑåÁ”ô‰µ½¹Ñ ˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùI•Á•…Ğ½Èğ½±…‰•°øñÍ•±•Ğ¥ô‰½ÕÑ½¥¹5½¹Ñ¡Ìˆøğ½Í•±•Ğøñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆøÄµ½¹Ñ €ô½¹”µÑ¥µ”¸¡½½Í”€È°€Ì°€Ğ°€Ô½È…¹äÙ…±Õ”ÕÀÑ¼€ØÀµ½¹Ñ¡Ì¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùI•ÕÉÉ¥¹œ=ÁÑ¥½¸ğ½±…‰•°øñ±…‰•°ÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí…±¥¸µ¥Ñ•µÌé•¹Ñ•Èí…ÀèáÁàíµ…É¥¸µÑ½ÀèáÁàí™½¹Ğµİ•¥¡ĞèàÀÀˆøñ¥¹ÁÕĞÑåÁ”ô‰¡•­‰½àˆ¥ô‰½ÕÑ½¥¹½É•Ù•Èˆø½É•Ù•ÈƒŠPÉ•Á•…Ğ•Ù•Éäµ½¹Ñ ğ½±…‰•°øñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù]¡•¸•¹…‰±•°Ñ¡¥Ì½ÕÑ½¥¹œ½¹Ñ¥¹Õ•Ìµ½¹Ñ¡±äÕ¹Ñ¥°å½Ô•‘¥Ğ½È‘•±•Ñ”¥Ğ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù9½Ñ•Ìğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹9½Ñ•ÌˆÁ±…•¡½±‘•Èô‰=ÁÑ¥½¹…°ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰½ÕÑ½¥¹5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”=ÕÑ½¥¹œğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆùA…äM¡•‘Õ±•=ÕÑ½¥¹œğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰½ÕÑ½¥¹A…åµ•¹Ñ5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ=ÕÑ½¥¹%ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ5½¹Ñ ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù=ÕÑ½¥¹œğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ1…‰•°ˆÉ•…‘½¹±äøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùM¡•‘Õ±•5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ5½¹Ñ¡1…‰•°ˆÉ•…‘½¹±äøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…åµ•¹Ğµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñµ½Õ¹ĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…¥É½´ğ½±…‰•°øñÍ•±•Ğ¥ô‰½ÕÑ½¥¹A…åµ•¹ÑM½ÕÉ”ˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…åµ•¹Ğ…Ñ”ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰½ÕÑ½¥¹A…åµ•¹Ñ…Ñ”ˆÑåÁ”ô‰‘…Ñ”ˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆ¥ô‰½ÕÑ½¥¹A…åµ•¹ÑAÉ•Ù¥•Üˆù¡½½Í”İ¡•É”Ñ¡¥Ì½ÕÑ½¥¹œİ…ÌÁ…¥™É½´¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆøñˆù5½¹Ñ¡±äA±…¹¹•%¹½µ”èğ½ˆøÑ¡”½ÕÑ½¥¹œÍÑ…åÌ‘•‘ÕÑ•™É½´Ñ¡…Ğµ½¹Ñ ÌÁ±…¹¹•…Í ¸€ñˆù	…¹¬½…Éèğ½ˆøÑ¡”…ÑÕ…°‰…¹¬½…É‰…±…¹”¥ÌÉ•‘Õ•½¥¹É•…Í•°…¹Ñ¡”½ÕÑ½¥¹œ¥Ì¹¼±½¹•È‘•‘ÕÑ•™É½´5½¹Ñ¡±äA±…¹¹•%¹½µ”™½ÈÑ¡…Ğµ½¹Ñ ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰½ÕÑ½¥¹A…åµ•¹Ñ5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸ø(€€€ñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”A…åµ•¹Ğğ½‰ÕÑÑ½¸ø(€€ğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø(((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆø(€€ñ‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆù‘¥ĞMÑ…Ñ•µ•¹ĞQÉ…¹Í…Ñ¥½¸ğ½‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÑÁàˆù½ÉÉ•ĞÑ¡”ÑÉ…¹Í…Ñ¥½¸‰•™½É”¥Ğ¥Ì¥µÁ½ÉÑ•¸ğ½‘¥Øø(€€ğ½‘¥Øø(€€ñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸ø(€ğ½‘¥Øø(€ñ™½É´¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ%¹‘•àˆø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ù½Õ¹Ğ€¼…Éğ½±…‰•°ø(€€€ñÍ•±•Ğ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ½Õ¹ĞˆÉ•ÅÕ¥É•øğ½Í•±•Ğø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ù…Ñ”ğ½±…‰•°ø(€€€ñ¥¹ÁÕĞÑåÁ”ô‰‘…Ñ”ˆ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ…Ñ”ˆÉ•ÅÕ¥É•ø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆø(€€€ñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸ğ½±…‰•°ø(€€€ñ¥¹ÁÕĞ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ•ÍÉ¥ÁÑ¥½¸ˆÉ•ÅÕ¥É•Á±…•¡½±‘•Èô‰5•É¡…¹Ğ°‰¥±°°Á…åµ•¹Ğ¸¸¸ˆø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ùQÉ…¹Í…Ñ¥½¸QåÁ”ğ½±…‰•°ø(€€€ñÍ•±•Ğ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥ÑQåÁ”ˆø(€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰•áÁ•¹Í”ˆùáÁ•¹Í”€¼AÕÉ¡…Í”ğ½½ÁÑ¥½¸ø(€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰ÑÉ…¹Í™•Èˆù…ÉA…åµ•¹Ğ€¼QÉ…¹Í™•Èğ½½ÁÑ¥½¸ø(€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰¥¹½µ”ˆù%¹½µ”€¼É•‘¥Ğğ½½ÁÑ¥½¸ø(€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰™•”ˆù•”ğ½½ÁÑ¥½¸ø(€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰½‰±¥…Ñ¥½¸ˆù1½…¸€¼=‰±¥…Ñ¥½¸ğ½½ÁÑ¥½¸ø(€€€ğ½Í•±•Ğø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ùµ½Õ¹Ğ€¡MH¤ğ½±…‰•°ø(€€€ñ¥¹ÁÕĞÑåÁ”ô‰¹Õµ‰•Èˆ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñµ½Õ¹Ğˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•ø(€€€ñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù¹Ñ•ÈÑ¡”…µ½Õ¹Ğ…Ì„Á½Í¥Ñ¥Ù”Ù…±Õ”¸QÉ…¹Í…Ñ¥½¸QåÁ”‘•Ñ•Éµ¥¹•Ì‘•‰¥Ğ½É•‘¥Ğ‘¥É•Ñ¥½¸¸ğ½‘¥Øø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ù…Ñ•½Éäğ½±…‰•°ø(€€€ñÍ•±•Ğ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆø(€€€ñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°ø(€€€ñÍ•±•Ğ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥ÑMÕ‰…Ñ•½ÉäˆÉ•ÅÕ¥É•øğ½Í•±•Ğø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆø(€€€ñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆ¥ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñå±”ˆø(€€€A…åµ•¹Ğ½ÍÑ…Ñ•µ•¹Ğå±”İ¥±°‰”É•…±Õ±…Ñ•™É½´Ñ¡”ÑÉ…¹Í…Ñ¥½¸‘…Ñ”…¹Í•±•Ñ•…É¸(€€€ğ½‘¥Øø(€€ğ½‘¥Øø((€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰¥µÁ½ÉÑAÉ•Ù¥•İ‘¥Ñ5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸ø(€€€ñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”¡…¹•Ìğ½‰ÕÑÑ½¸ø(€€ğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰µ…¹Õ…±Qá5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆù‘QÉ…¹Í…Ñ¥½¸ğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰µ…¹Õ…±Qá5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰µ…¹Õ…±Qá½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰Á…‘‘¥¹œèÄÑÁàí‰½É‘•ÈèÅÁàÍ½±¥Ù…È ´µ±¥¹”¤í‰½É‘•ÈµÉ…‘¥ÕÌèÄÑÁàí‰…­É½Õ¹éÙ…È ´µÍ½™Ğ¤ˆø(€€€ñ±…‰•°ùA…ÍÑ”	…¹¬M5Lğ½±…‰•°ø(€€€ñÑ•áÑ…É•„¥ô‰‰…¹­MµÍA…ÍÑ”ˆÉ½İÌôˆÌˆÁ±…•¡½±‘•Èô‰A…ÍÑ”Ñ¡”½µÁ±•Ñ”‰…¹¬ÑÉ…¹Í…Ñ¥½¸M5L¡•É—Š˜ˆøğ½Ñ•áÑ…É•„ø(€€€ñ‘¥ØÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí…ÀèáÁàí…±¥¸µ¥Ñ•µÌé•¹Ñ•Èíµ…É¥¸µÑ½ÀèáÁàí™±•àµİÉ…ÀéİÉ…Àˆøñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ¥ô‰Á…ÉÍ•	…¹­MµÌˆùI•…M5Lğ½‰ÕÑÑ½¸ø(€€€€ñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ¥ô‰±•…É	…¹­MµÌˆù±•…Èğ½‰ÕÑÑ½¸ø(€€€€ñÍÁ…¸±…ÍÌô‰µ•Ñ„ˆ¥ô‰‰…¹­MµÍMÑ…ÑÕÌˆù•Ñ•Ğ‰…¹¬½…É°…µ½Õ¹Ğ°‘…Ñ”…¹µ•É¡…¹ĞìÉ•Ù¥•Ü‰•™½É”Í…Ù¥¹œ¸ğ½ÍÁ…¸øğ½‘¥Øø(€€ğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù½Õ¹Ğ€¼…Éğ½±…‰•°øñÍ•±•Ğ¥ô‰µ…¹Õ…±Qá½Õ¹ĞˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA¡åÍ¥…°…Éğ½±…‰•°øñÍ•±•Ğ¥ô‰µ…¹Õ…±QáA¡åÍ¥…±…Éˆøğ½Í•±•Ğøñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆùAÉ¥µ…Éä½ÈÍÕÁÁ±•µ•¹Ñ…Éä…ÉÕ¹‘•ÈÑ¡”Í•±•Ñ•…½Õ¹Ğ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ”ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰‘…Ñ”ˆ¥ô‰µ…¹Õ…±Qá…Ñ”ˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰µ…¹Õ…±Qá•ÍŒˆÉ•ÅÕ¥É•Á±…•¡½±‘•Èô‰5•É¡…¹Ğ°‰¥±°°Á…åµ•¹Ğ¸¸¸ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùQÉ…¹Í…Ñ¥½¸QåÁ”ğ½±…‰•°øñÍ•±•Ğ¥ô‰µ…¹Õ…±QáQåÁ”ˆøñ½ÁÑ¥½¸Ù…±Õ”ô‰•áÁ•¹Í”ˆùáÁ•¹Í”€¼AÕÉ¡…Í”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰ÑÉ…¹Í™•Èˆù…ÉA…åµ•¹Ğ€¼QÉ…¹Í™•Èğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰¥¹½µ”ˆù%¹½µ”€¼É•‘¥Ğğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰™•”ˆù•”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰½‰±¥…Ñ¥½¸ˆù1½…¸€¼=‰±¥…Ñ¥½¸ğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰¹Õµ‰•Èˆ¥ô‰µ…¹Õ…±Qáµ½Õ¹Ğˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù¹Ñ•È„Á½Í¥Ñ¥Ù”…µ½Õ¹Ğ¸Q¡”…ÁÀ…ÁÁ±¥•Ì‘•‰¥Ğ½É•‘¥Ğ‘¥É•Ñ¥½¸™É½´QÉ…¹Í…Ñ¥½¸QåÁ”¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰µ…¹Õ…±Qá…Ñ•½Éäˆøğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰µ…¹Õ…±QáMÕ‰…Ñ•½Éäˆøğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°øñ¥¹ÁÕĞ¥ô‰µ…¹Õ…±Qá%¹ÍÑ…±±µ•¹ĞˆÑåÁ”ô‰¡•­‰½àˆøÉ•…Ñ”…¸¥¹ÍÑ…±±µ•¹ĞÁ±…¸™É½´Ñ¡¥ÌÑÉ…¹Í…Ñ¥½¸…™Ñ•ÈÍ…Ù¥¹œğ½±…‰•°øñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆ¥ô‰µ…¹Õ…±%¹ÍÑ…±±!¥¹ĞˆùÙ…¥±…‰±”™½È°I…©¡¤…¹MÉ•‘¥Ğµ…ÉÁÕÉ¡…Í•Ì…‰½Ù”MH€Ä°ÀÀÀ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰µ…¹Õ…±Qá5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”QÉ…¹Í…Ñ¥½¸ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø(((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰Ñá	Õ±­UÁ‘…Ñ•5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆùUÁ‘…Ñ”M•±•Ñ•QÉ…¹Í…Ñ¥½¹Ìğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ¥ô‰±½Í•	Õ±­UÁ‘…Ñ•Q½ÀˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰Ñá	Õ±­UÁ‘…Ñ•½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆøñˆ¥ô‰Ñá	Õ±­UÁ‘…Ñ•½Õ¹ĞˆøÀÑÉ…¹Í…Ñ¥½¹ÌÍ•±•Ñ•ğ½ˆøñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÑÁàˆù1•…Ù”…¹ä™¥•±Õ¹¡…¹•¥˜å½Ô‘¼¹½Ğİ…¹ĞÑ¼µ½‘¥™ä¥Ğ¸ğ½‘¥Øøğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰‰Õ±­UÁ‘…Ñ•…Ñ•½Éäˆøñ½ÁÑ¥½¸Ù…±Õ”ôˆˆûŠP-••Àá¥ÍÑ¥¹œƒŠPğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰‰Õ±­UÁ‘…Ñ•MÕ‰…Ñ•½Éäˆøñ½ÁÑ¥½¸Ù…±Õ”ôˆˆûŠP-••Àá¥ÍÑ¥¹œƒŠPğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù½Õ¹Ğğ½±…‰•°øñÍ•±•Ğ¥ô‰‰Õ±­UÁ‘…Ñ•½Õ¹Ğˆøñ½ÁÑ¥½¸Ù…±Õ”ôˆˆûŠP-••Àá¥ÍÑ¥¹œƒŠPğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA¡åÍ¥…°…Éğ½±…‰•°øñÍ•±•Ğ¥ô‰‰Õ±­UÁ‘…Ñ•A¡åÍ¥…±…Éˆøñ½ÁÑ¥½¸Ù…±Õ”ôˆˆûŠP-••Àá¥ÍÑ¥¹œƒŠPğ½½ÁÑ¥½¸øğ½Í•±•Ğøñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆùAÉ¥µ…Éä½ÈÍÕÁÁ±•µ•¹Ñ…Éä…É°”¹œ¸MÕÁÁ±•µ•¹Ñ…ÉäƒŠˆäÌĞÔ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùQÉ…¹Í…Ñ¥½¸QåÁ”ğ½±…‰•°øñÍ•±•Ğ¥ô‰‰Õ±­UÁ‘…Ñ•QåÁ”ˆøñ½ÁÑ¥½¸Ù…±Õ”ôˆˆûŠP-••Àá¥ÍÑ¥¹œƒŠPğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰ÍÁ•¹ˆùMÁ•¹‘¥¹œğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰ÑÉ…¹Í™•ÈˆùQÉ…¹Í™•È€¼…ÉA…åµ•¹Ğğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰¥¹½µ”ˆù%¹½µ”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰™•”ˆù•”ğ½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰½‰±¥…Ñ¥½¸ˆù=‰±¥…Ñ¥½¸ğ½½ÁÑ¥½¸øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…Ñ•µ•¹Ğ€¼A…åµ•¹Ğ5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰µ½¹Ñ ˆ¥ô‰‰Õ±­UÁ‘…Ñ•5½¹Ñ ˆøñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù1•…Ù”‰±…¹¬Ñ¼­••À•… ÑÉ…¹Í…Ñ¥½¸Ì•á¥ÍÑ¥¹œµ½¹Ñ ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸€¼Q¥Ñ±”ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰‰Õ±­UÁ‘…Ñ••ÍÉ¥ÁÑ¥½¸ˆÁ±…•¡½±‘•Èô‰1•…Ù”‰±…¹¬Ñ¼­••À•… ÑÉ…¹Í…Ñ¥½¸ÌÕÉÉ•¹Ğ‘•ÍÉ¥ÁÑ¥½¸ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ¥ô‰±½Í•	Õ±­UÁ‘…Ñ•…¹•°ˆù…¹•°ğ½‰ÕÑÑ½¸ø(€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰ÍÕ‰µ¥Ğˆ±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆùUÁ‘…Ñ”M•±•Ñ•ğ½‰ÕÑÑ½¸ø(€€ğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰Ñá‘¥Ñ5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆù‘¥ĞQÉ…¹Í…Ñ¥½¸ğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰Ñá‘¥Ñ5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰Ñá‘¥Ñ½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ùQÉ…¹Í…Ñ¥½¸ğ½±…‰•°øñ‘¥Ø±…ÍÌô‰Á…¹•°ˆ¥ô‰Ñá‘¥Ñ%¹™¼ˆøğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ù•ÍÉ¥ÁÑ¥½¸€¼5•É¡…¹Ğğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰•‘¥Ñ•ÍÉ¥ÁÑ¥½¸ˆÁ±…•¡½±‘•Èô‰QÉ…¹Í…Ñ¥½¸‘•ÍÉ¥ÁÑ¥½¸ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùQÉ…¹Í…Ñ¥½¸…Ñ”ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰‘…Ñ”ˆ¥ô‰•‘¥Ñ…Ñ”ˆøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰¹Õµ‰•ÈˆÍÑ•ÀôˆÀ¸ÀÄˆ¥ô‰•‘¥Ñµ½Õ¹Ğˆøñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù-••À•áÁ•¹Í•Ì¹•…Ñ¥Ù”…¹É•‘¥ÑÌ½É•™Õ¹‘ÌÁ½Í¥Ñ¥Ù”¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…Ñ•µ•¹Ğ5½¹Ñ ğ½±…‰•°øñ¥¹ÁÕĞÑåÁ”ô‰µ½¹Ñ ˆ¥ô‰•‘¥ÑMÑ…Ñ•µ•¹Ñ5½¹Ñ ˆøñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù¡½½Í”Ñ¡”ÍÑ…Ñ•µ•¹Ğ½Á…åµ•¹Ğµ½¹Ñ Ñ¡¥ÌÑÉ…¹Í…Ñ¥½¸‰•±½¹ÌÑ¼¸M•±•Ñ¥¹œ„µ½¹Ñ ¥Ì…ÕÑ½µ…Ñ¥…±±äÑÉ•…Ñ•…ÌÑ¡”µ…¹Õ…°½Ù•ÉÉ¥‘”…¹‘É¥Ù•ÌÑ¡”‘…Í¡‰½…É°ÕÉÉ•¹Ğå±”QÉ…¹Í…Ñ¥½¹Ì°Ù…¥±…‰±”É•‘¥Ğ…¹A…åµ•¹ĞA±…¹¹•È¸±•…ÈÑ¡”µ½¹Ñ Ñ¼É•ÑÕÉ¸Ñ¼Ñ¡”…ÕÑ½µ…Ñ¥Œ…Éå±”¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÑ…Ñ•µ•¹ĞÍÍ¥¹µ•¹Ğğ½±…‰•°øñ±…‰•°ÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí…ÀèáÁàí…±¥¸µ¥Ñ•µÌé•¹Ñ•Èíµ…É¥¸µÑ½ÀèáÁàí™½¹Ğµİ•¥¡ĞèàÀÀˆøñ¥¹ÁÕĞÑåÁ”ô‰¡•­‰½àˆ¥ô‰•‘¥ÑMÑ…Ñ•µ•¹Ñ5…¹Õ…°ˆø5…¹Õ…°½Ù•ÉÉ¥‘”€¡…ÕÑ½µ…Ñ¥Œİ¡•¸„µ½¹Ñ ¥ÌÍ•±•Ñ•¤ğ½±…‰•°øñ‘¥Ø±…ÍÌô‰¡¥¹Ğˆù%˜¡•­•°Ñ¡”‰Õ±¬ÕÑ½™˜ÉÕ±”İ¥±°¹½Ğ½Ù•ÉİÉ¥Ñ”Ñ¡¥ÌÑÉ…¹Í…Ñ¥½¸¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA¡åÍ¥…°…Éğ½±…‰•°øñÍ•±•Ğ¥ô‰•‘¥ÑA¡åÍ¥…±…Éˆøğ½Í•±•Ğøñ‘¥Ø±…ÍÌô‰¡¥¹ĞˆùQÉ…­Ìİ¡¥ Á¡åÍ¥…°…ÉÉ•…Ñ•Ñ¡”ÑÉ…¹Í…Ñ¥½¸Õ¹‘•ÈÑ¡”Í…µ”É•‘¥Ğµ…É…½Õ¹Ğ¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ù…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰•‘¥Ñ…Ñ•½Éäˆøğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùMÕ‰…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰•‘¥ÑMÕ‰…Ñ•½Éäˆøğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°øñ¥¹ÁÕĞ¥ô‰É•µ•µ‰•É5•É¡…¹ĞˆÑåÁ”ô‰¡•­‰½àˆøI•µ•µ‰•ÈÑ¡¥Ì…Ñ•½Éä½MÕ‰…Ñ•½Éä™½È…±°µ…Ñ¡¥¹œµ•É¡…¹Ğ‘•ÍÉ¥ÁÑ¥½¹Ìğ½±…‰•°øğ½‘¥Øø(€€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆ¥ô‰¥¹ÍÑ…±±µ•¹Ñ±¥¥‰¥±¥Ñå	½àˆÍÑå±”ô‰‘¥ÍÁ±…äé¹½¹”ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆøñˆù%¹ÍÑ…±±µ•¹Ğ•±¥¥‰±”èğ½ˆøQ¡¥Ì¥Ì…¸°I…©¡¤½MÉ•‘¥Ğµ…ÉÁÕÉ¡…Í”…‰½Ù”MH€Ä°ÀÀÀ¸ğ½‘¥Øøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ÁÉ¥µ…Éäˆ¥ô‰½¹Ù•ÉÑQ½%¹ÍÑ…±±µ•¹ĞˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèåÁàˆù½¹Ù•ÉĞÑ¼%¹ÍÑ…±±µ•¹ĞA±…¸ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰Ñá‘¥Ñ5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”ğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰Á…åµ•¹ÑM½ÕÉ•5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆùI•½É…ÉA…åµ•¹Ğğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ¥ô‰±½Í•A…åµ•¹ÑM½ÕÉ”ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰Á…åµ•¹ÑM½ÕÉ•½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆø(€€ñ¥¹ÁÕĞÑåÁ”ô‰¡¥‘‘•¸ˆ¥ô‰Á…åµ•¹ÑA±…¹%ˆø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ùÉ•‘¥Ğ…Éğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰Á…åµ•¹ÑQ…É•Ñ…ÉˆÉ•…‘½¹±äøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…åµ•¹Ğµ½Õ¹Ğ€¡MH¤ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰Á…åµ•¹Ñµ½Õ¹Ñ%¹ÁÕĞˆÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆÍÑ•ÀôˆÀ¸ÀÄˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°ùA…¥É½´ğ½±…‰•°øñÍ•±•Ğ¥ô‰Á…åµ•¹ÑM½ÕÉ•M•±•ĞˆÉ•ÅÕ¥É•øğ½Í•±•Ğøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ùA…åµ•¹Ğ…Ñ”ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰Á…åµ•¹Ñ…Ñ•%¹ÁÕĞˆÑåÁ”ô‰‘…Ñ”ˆÉ•ÅÕ¥É•øğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ±…‰•°ÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí…±¥¸µ¥Ñ•µÌé•¹Ñ•Èí…ÀèÄÁÁàíÕÉÍ½ÈéÁ½¥¹Ñ•Èˆøñ¥¹ÁÕĞ¥ô‰Á…åµ•¹ÑUÍ•5½¹Ñ¡±å%¹½µ”ˆÑåÁ”ô‰¡•­‰½àˆÍÑå±”ô‰İ¥‘Ñ èÄáÁàí¡•¥¡ĞèÄáÁàˆø±Í¼‘•‘ÕĞÑ¡¥ÌÁ…åµ•¹Ğ™É½´5½¹Ñ¡±äA±…¹¹•%¹½µ”ğ½±…‰•°øñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆÍÑå±”ô‰µ…É¥¸µÑ½ÀèÕÁàˆù1•…Ù”Ñ¡¥ÌÕ¹Ñ¥­•İ¡•¸Ñ¡”Á…åµ•¹Ğ¥Ì™Õ¹‘•‰ä…¹½Ñ¡•ÈÉ•‘¥Ğ…É½È…¹½Ñ¡•ÈÍ½ÕÉ”¸Q¥¬¥Ğ½¹±äİ¡•¸å½Ôİ…¹ĞÑ¡¥ÌÁ…åµ•¹ĞÑ¼½¹ÍÕµ”Ñ¡”µ½¹Ñ ÌÁ±…¹¹•¥¹½µ”¸%˜ƒŠq5½¹Ñ¡±äA±…¹¹•%¹½µ—Št¥ÑÍ•±˜¥ÌÍ•±•Ñ•…ÌA…¥É½´°Ñ¡¥Ì½ÁÑ¥½¸¥Ì…ÁÁ±¥•…ÕÑ½µ…Ñ¥…±±ä¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆøñ‘¥Ø±…ÍÌô‰¹½Ñ¥”ˆ¥ô‰Á…åµ•¹ÑM½ÕÉ•AÉ•Ù¥•Üˆù¡½½Í”Ñ¡”…ÑÕ…°…½Õ¹Ğ½È…ÉÕÍ•Ñ¼µ…­”Ñ¡¥ÌÁ…åµ•¹Ğ¸5½¹Ñ¡±äA±…¹¹•%¹½µ”¥ÌÑÉ…­•Í•Á…É…Ñ•±ä¸ğ½‘¥Øøğ½‘¥Øø(€€ñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ¥ô‰…¹•±A…åµ•¹ÑM½ÕÉ”ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥ĞˆùM…Ù”A…åµ•¹Ğğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰Í¥µÁ±•5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆÍÑå±”ô‰µ…àµİ¥‘Ñ èĞàÁÁàˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆ¥ô‰Í¥µÁ±•Q¥Ñ±”ˆù‘ğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆ‘…Ñ„µ±½Í”ô‰Í¥µÁ±•5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰Í¥µÁ±•½É´ˆøñ‘¥Ø±…ÍÌô‰™¥•±ˆøñ±…‰•°¥ô‰Í¥µÁ±•1…‰•°ˆù9…µ”ğ½±…‰•°øñ¥¹ÁÕĞ¥ô‰Í¥µÁ±•%¹ÁÕĞˆÉ•ÅÕ¥É•øğ½‘¥Øøñ‘¥Ø±…ÍÌô‰™¥•±ˆ¥ô‰Í¥µÁ±•A…É•¹Ñ¥•±ˆÍÑå±”ô‰‘¥ÍÁ±…äé¹½¹”íµ…É¥¸µÑ½ÀèÄÁÁàˆøñ±…‰•°ùÍÍ¥¸Ñ¼…Ñ•½Éäğ½±…‰•°øñÍ•±•Ğ¥ô‰Í¥µÁ±•A…É•¹Ñ…Ñ•½Éäˆøğ½Í•±•Ğøğ½‘¥Øøñ‘¥ØÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàíµ…É¥¸µÑ½ÀèÄÕÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰Í¥µÁ±•5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥Ğˆù‘ğ½‰ÕÑÑ½¸øğ½‘¥Øøğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø((ñÍÉ¥ÁĞÍÉŒô‰¡ÑÑÁÌè¼½‘¸¹©Í‘•±¥ÙÈ¹¹•Ğ½¹Á´½ÍÕÁ…‰…Í”½ÍÕÁ…‰…Í”µ©Í Èˆøğ½ÍÉ¥ÁĞø(ñÍÉ¥ÁĞø(¼¨XÈÔä±½…‘•Èè…ÁÁ±¥…Ñ¥½¸Á…ÉÑÌ…É”½µÁ¥±•…Ì½¹”±…ÍÍ¥ŒÍÉ¥ÁĞÍ¼(€€É½ÍÌµ™¥±”‘•±…É…Ñ¥½¹ÌÉ•µ…¥¸…Ù…¥±…‰±”İ¡¥±”µ½‘Õ±•Ì…É”É•¹‘•É•±…é¥±ä¸€¨¼(¡…Íå¹Œ™Õ¹Ñ¥½¸ ¥ì(€½¹ÍĞ™¥±•ÌõlÄ°È°Ì°Ğ°Ô°Ø°Ü°à°ä°ÄÁt¹µ…À¡¸ôø…ÁÀ´œ­MÑÉ¥¹œ¡¸¤¹Á…‘MÑ…ÉĞ È°œÀœ¤¬œ¹©ÌıØôÈäØœ¤ì(€ÑÉåì(€€€½¹ÍĞÉ•ÍÁ½¹Í•Ìõ…İ…¥ĞAÉ½µ¥Í”¹…±°¡™¥±•Ì¹µ…À¡˜ôù™•Ñ ¡˜±í…¡”è¹¼µÍÑ½É”ô¤¤¤ì(€€€½¹ÍĞ‰…õÉ•ÍÁ½¹Í•Ì¹™¥¹‘%¹‘•à¡Èôø…È¹½¬¤ì(€€€¥˜¡‰…øôÀ¥Ñ¡É½Ü¹•ÜÉÉ½È …¥±•Ñ¼±½…€œ­™¥±•Ím‰…‘t¬œ€ œ­É•ÍÁ½¹Í•Ím‰…‘t¹ÍÑ…ÑÕÌ¬œ¤œ¤ì(€€€½¹ÍĞÁ…ÉÑÌõ…İ…¥ĞAÉ½µ¥Í”¹…±°¡É•ÍÁ½¹Í•Ì¹µ…À¡ÈôùÈ¹Ñ•áĞ ¤¤¤ì(€€€½¹ÍĞ‰±½ˆõ¹•Ü	±½ˆ¡mÁ…ÉÑÌ¹©½¥¸ q¸œ¤¬q¸¼¼ŒÍ½ÕÉ•UI0õÁ•ÉÍ½¹…°µ™¥¹…¹”µØÈäÌ¹©Ìt±íÑåÁ”èÑ•áĞ½©…Ù…ÍÉ¥ÁĞô¤ì(€€€½¹ÍĞÕÉ°õUI0¹É•…Ñ•=‰©•ÑUI0¡‰±½ˆ¤ì(€€€½¹ÍĞÌõ‘½Õµ•¹Ğ¹É•…Ñ•±•µ•¹Ğ ÍÉ¥ÁĞœ¤ì(€€€Ì¹ÍÉŒõÕÉ°ì(€€€Ì¹½¹±½…ô ¤ôùUI0¹É•Ù½­•=‰©•ÑUI0¡ÕÉ°¤ì(€€€Ì¹½¹•ÉÉ½Èô ¤ôùíUI0¹É•Ù½­•=‰©•ÑUI0¡ÕÉ°¤íÑ¡É½Ü¹•ÜÉÉ½È ÁÁ±¥…Ñ¥½¸‰Õ¹‘±”™…¥±•Ñ¼•á•ÕÑ”œ¤íôì(€€€‘½Õµ•¹Ğ¹‰½‘ä¹…ÁÁ•¹‘¡¥±¡Ì¤ì(€õ…Ñ ¡•ÉÈ¥ì(€€€½¹Í½±”¹•ÉÉ½È XÈÔØ…ÁÁ±¥…Ñ¥½¸±½…‘•È™…¥±•œ±•ÉÈ¤ì(€€€½¹ÍĞ‰½àõ‘½Õµ•¹Ğ¹É•…Ñ•±•µ•¹Ğ ‘¥Øœ¤ì(€€€‰½à¹ÍÑå±”¹ÍÍQ•áĞôÁ½Í¥Ñ¥½¸é™¥á•í±•™ĞèÄÙÁàíÉ¥¡ĞèÄÙÁàí‰½ÑÑ½´èÄÙÁàíèµ¥¹‘•àèäääääíÁ…‘‘¥¹œèÄÑÁàí‰…­É½Õ¹èŒÕˆÄÌÈÀí½±½Èéİ¡¥Ñ”í‰½É‘•ÈµÉ…‘¥ÕÌèÄÁÁàí™½¹ĞèØÀÀ€ÄÑÁàÍåÍÑ•´µÕ¤œì(€€€‰½à¹Ñ•áÑ½¹Ñ•¹ĞôÁÁ±¥…Ñ¥½¸™…¥±•Ñ¼±½…¸A±•…Í”É•™É•Í ½¹”¸€œ­•ÉÈ¹µ•ÍÍ…”ì(€€€‘½Õµ•¹Ğ¹‰½‘ä¹…ÁÁ•¹‘¡¥±¡‰½à¤ì(€ô)ô¤ ¤ì(ğ½ÍÉ¥ÁĞø(ñ‘¥Ø±…ÍÌô‰µ½‘…±	…¬ˆ¥ô‰Õ¹¥™¥•‘Ñ¥½¹5½‘…°ˆøñ‘¥Ø±…ÍÌô‰µ½‘…°ˆø(€ñ‘¥Ø±…ÍÌô‰µ½‘…±!•…ˆøñ‘¥Øøñ‘¥Ø±…ÍÌô‰µ½‘…±Q¥Ñ±”ˆ¥ô‰Õ¹¥™¥•‘Ñ¥½¹Q¥Ñ±”ˆù‘ğ½‘¥Øøñ‘¥Ø±…ÍÌô‰µ•Ñ„ˆ¥ô‰Õ¹¥™¥•‘Ñ¥½¹MÕˆˆøğ½‘¥Øøğ½‘¥Øøñ‰ÕÑÑ½¸±…ÍÌô‰±½Í•	Ñ¸ˆÑåÁ”ô‰‰ÕÑÑ½¸ˆ‘…Ñ„µ±½Í”ô‰Õ¹¥™¥•‘Ñ¥½¹5½‘…°ˆûŠrTğ½‰ÕÑÑ½¸øğ½‘¥Øø(€ñ™½É´¥ô‰Õ¹¥™¥•‘Ñ¥½¹½É´ˆ±…ÍÌô‰™½ÉµÉ¥ˆøñ‘¥Ø¥ô‰Õ¹¥™¥•‘Ñ¥½¹¥•±‘Ìˆ±…ÍÌô‰™½ÉµÉ¥ˆÍÑå±”ô‰É¥µ½±Õµ¸èÄ¼´Äˆøğ½‘¥Øøñ‘¥Ø±…ÍÌô‰™¥•±™Õ±°ˆÍÑå±”ô‰‘¥ÍÁ±…äé™±•àí©ÕÍÑ¥™äµ½¹Ñ•¹Ğé™±•àµ•¹í…ÀèáÁàˆøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÌô‰‰Ñ¸ˆ‘…Ñ„µ±½Í”ô‰Õ¹¥™¥•‘Ñ¥½¹5½‘…°ˆù…¹•°ğ½‰ÕÑÑ½¸øñ‰ÕÑÑ½¸±…ÍÌô‰‰Ñ¸ÁÉ¥µ…ÉäˆÑåÁ”ô‰ÍÕ‰µ¥Ğˆ¥ô‰Õ¹¥™¥•‘Ñ¥½¹M…Ù”ˆùM…Ù”ğ½‰ÕÑÑ½¸øğ½‘¥Øøğ½™½É´ø(ğ½‘¥Øøğ½‘¥Øø(ğ½‰½‘äø(ğ½¡Ñµ°ø(
