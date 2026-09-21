@@ -271,7 +271,7 @@ function detectSmsAccount(text){
 function smsLabeledNumber(text,labels){
  const t=smsNormalizeDigits(text).replace(/,/g,'');
  for(const label of labels){
-  const re=new RegExp(`(?:${label})\\s*[:：]?\\s*(?:SAR\\s*)?(-?\\d+(?:\\.\\d{1,2})?)\\s*(?:SAR|ر\\.?س\\.?|ريال)?`,'i');
+  const re=new RegExp(`(?:${label})\\s*[:：]?\\s*(?:(?:SAR|SR)\\s*)?(-?\\d+(?:\\.\\d{1,2})?)\\s*(?:SAR|SR|ر\\.?س\\.?|ريال)?`,'i');
   const m=t.match(re);
   if(m)return Math.abs(Number(m[1]));
  }
@@ -284,8 +284,10 @@ function parseSmsAmount(text){
  const t=smsNormalizeDigits(text).replace(/,/g,'');
  // Fallback only when no explicit transaction-amount label exists.
  for(const p of [
-  /(-?\d+(?:\.\d{1,2})?)\s*(?:SAR|ر\.?س\.?|ريال)/i,
-  /(?:SAR|ر\.?س\.?|ريال)\s*(-?\d+(?:\.\d{1,2})?)/i
+  // Check currency-before-amount first. In Saudi SMS messages the later
+  // remaining balance is commonly written as number-before-currency.
+  /(?:SAR|SR|ر\.?س\.?|ريال)\s*(-?\d+(?:\.\d{1,2})?)/i,
+  /(-?\d+(?:\.\d{1,2})?)\s*(?:SAR|SR|ر\.?س\.?|ريال)/i
  ]){
   const m=t.match(p);if(m)return Math.abs(Number(m[1]));
  }
@@ -316,15 +318,36 @@ function parseSmsDate(text){return parseSmsDateTime(text).date}
 function parseSmsMerchant(text){
  const t=String(text||'').replace(/\u061C/g,'').replace(/\s+/g,' ').trim();
  for(const p of [
+  /(?:لـ|ل)\s*([A-Za-z0-9&._' -]+?)(?=\s+(?:رصيد|الرصيد|مبلغ|المبلغ|في|بتاريخ)|$)/i,
   /(?:لدى|عند)\s*[:：]?\s*([A-Za-z0-9&._' -]+?)(?=\s+(?:مبلغ|المبلغ|رصيد|الرصيد|في|بتاريخ)\s*[:：]?|$)/i,
   /(?:at|merchant)\s*[:\-]?\s*([^،,.;]+?)(?=\s+(?:amount|balance|on|date)\b|$)/i
  ]){
   const m=t.match(p);if(m?.[1])return m[1].trim().slice(0,90);
  }
+ if(/سداد\s+فاتورة/i.test(t))return 'Bill Payment';
  return 'Bank SMS Transaction';
 }
 function smsLooksLikeCredit(text){
  return /refund|reversal|credit|credited|deposit|received|استرداد|إيداع|ايداع|حوالة واردة|تم ايداع|تم إضافة|تم اضافة/i.test(String(text||''));
+}
+function parseSmsPaymentChannel(text){
+ const t=String(text||'');
+ if(/apple\s*pay|[اأإآ]بل\s*باي/i.test(t))return 'Apple Pay';
+ if(/mada\s*pay|مدى\s*باي/i.test(t))return 'Mada Pay';
+ if(/فيزا|visa/i.test(t))return 'Visa';
+ if(/mastercard|ماستر\s*كارد/i.test(t))return 'Mastercard';
+ return '';
+}
+function classifyBankSms(text,merchant){
+ const t=String(text||'');
+ if(/شراء\s*(?:إنترنت|انترنت)|mobily|موبايلي|stc|زين|internet/i.test(t))return {
+  category:'Housing & Utilities',subcategory:'Internet & Phone',
+  description:(merchant&&merchant!=='Bank SMS Transaction'?merchant:'Mobile')+' Internet Purchase',needsReview:false
+ };
+ if(/سداد\s+فاتورة|bill\s*payment/i.test(t))return {
+  category:'Miscellaneous',subcategory:'Unexpected Expenses',description:'Bill Payment',needsReview:true
+ };
+ return {category:'Miscellaneous',subcategory:'Unexpected Expenses',description:merchant||'Bank SMS Transaction',needsReview:true};
 }
 function applyBankSms(){
  const raw=$('bankSmsPaste')?.value.trim();if(!raw)return;
@@ -334,12 +357,18 @@ function applyBankSms(){
  const dt=parseSmsDateTime(raw);
  const merchant=parseSmsMerchant(raw);
  const credit=smsLooksLikeCredit(raw);
+ const channel=parseSmsPaymentChannel(raw);
+ const classification=classifyBankSms(raw,merchant);
 
  if(accountId){$('manualTxAccount').value=accountId;const detectedEnding=accountPhysicalCards(accountId).find(e=>smsNormalizeDigits(raw).includes(e))||'';fillPhysicalCardSelect($('manualTxPhysicalCard'),accountId,false,detectedEnding);}
  $('manualTxDate').value=dt.date;
  if(amount!=null)$('manualTxAmount').value=amount;
- $('manualTxDesc').value=merchant;
+ $('manualTxDesc').value=classification.description;
  $('manualTxType').value=credit?'income':'expense';
+ fillCategorySelect($('manualTxCategory'),false);
+ $('manualTxCategory').value=classification.category;
+ fillSubcategorySelect($('manualTxSubcategory'),classification.category,classification.subcategory);
+ $('manualTxSubcategory').value=classification.subcategory;
 
  // Keep parsed SMS metadata on the form. It is applied only after Save Transaction.
  const f=$('manualTxForm');
@@ -347,22 +376,26 @@ function applyBankSms(){
  f.dataset.smsRemaining=remaining!=null?String(remaining):'';
  f.dataset.smsTime=dt.time||'';
  f.dataset.smsAccountId=accountId||'';
+ f.dataset.smsPaymentChannel=channel;
+ f.dataset.smsNeedsReview=classification.needsReview?'1':'';
 
  const parts=[
   accountId?`<b>${accountName(accountId)}</b>`:'<b>Select the correct account/card</b>',
   amount!=null?`Purchase/transaction: <b>${money(amount)}</b>`:'',
   `Date: <b>${dt.date}${dt.time?' '+dt.time:''}</b>`,
-  merchant?`Merchant: <b>${merchant}</b>`:'',
+  classification.description?`Description: <b>${classification.description}</b>`:'',
+  channel?`Channel: <b>${channel}</b>`:'',
+  `Category: <b>${classification.category} → ${classification.subcategory}</b>`,
   remaining!=null?`Remaining available balance: <b>${money(remaining)}</b>`:''
  ].filter(Boolean);
- $('bankSmsStatus').innerHTML=parts.join(' • ')+'<br><span class="meta">The remaining balance will update the card only when you save the transaction.</span>';
+ $('bankSmsStatus').innerHTML=parts.join(' • ')+'<br><span class="meta">'+(classification.needsReview?'Category review required before saving. ':'')+'The remaining balance will update the card only when you save the transaction.</span>';
 }
 if($('parseBankSms'))$('parseBankSms').addEventListener('click',applyBankSms);
 if($('clearBankSms'))$('clearBankSms').addEventListener('click',()=>{
  const f=$('manualTxForm');
  $('bankSmsPaste').value='';
  $('bankSmsStatus').textContent='Detect bank/card, transaction amount, remaining balance, date and merchant; review before saving.';
- if(f){delete f.dataset.smsRaw;delete f.dataset.smsRemaining;delete f.dataset.smsTime;delete f.dataset.smsAccountId;}
+ if(f){delete f.dataset.smsRaw;delete f.dataset.smsRemaining;delete f.dataset.smsTime;delete f.dataset.smsAccountId;delete f.dataset.smsPaymentChannel;delete f.dataset.smsNeedsReview;}
  $('bankSmsPaste').focus();
 });
 
@@ -379,7 +412,7 @@ $('manualTxForm').addEventListener('submit',e=>{
   description:$('manualTxDesc').value.trim(),amount:sign*raw,category:$('manualTxCategory').value,
   subcategory:$('manualTxSubcategory').value,kind:type,currency:'SAR',original:null,manual:true,
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
-  smsRaw:form.dataset.smsRaw||'',trackedBankApplied:selectedManualAccount?.type==='bank'
+  smsRaw:form.dataset.smsRaw||'',smsPaymentChannel:form.dataset.smsPaymentChannel||'',needsCategoryReview:form.dataset.smsNeedsReview==='1',trackedBankApplied:selectedManualAccount?.type==='bank'
  };
  manualTransactions.push(tx);transactions.push({...tx});
 
@@ -405,7 +438,7 @@ $('manualTxForm').addEventListener('submit',e=>{
   setTrackedBankBalance(selectedManualAccount.id,bankBalanceBeforeManual+Number(tx.amount||0));
  }
  // Clear the SMS form metadata after committing.
- delete form.dataset.smsRaw;delete form.dataset.smsRemaining;delete form.dataset.smsTime;delete form.dataset.smsAccountId;
+ delete form.dataset.smsRaw;delete form.dataset.smsRemaining;delete form.dataset.smsTime;delete form.dataset.smsAccountId;delete form.dataset.smsPaymentChannel;delete form.dataset.smsNeedsReview;
  saveLocal();
  syncManualTransactionImmediate(tx);
  closeModal('manualTxModal');
