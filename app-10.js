@@ -113,25 +113,69 @@ function bankSandboxReadV293(){
 }
 function bankSandboxWriteV293(state){localStorage.setItem(BANK_SANDBOX_KEY_V293,JSON.stringify(state))}
 function bankSandboxMoneyV293(v){return new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR',minimumFractionDigits:2}).format(Number(v||0))}
+function bankSandboxEscapeV295(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function bankSandboxFixtureV293(bank){
  const index=Math.max(0,BANK_SANDBOX_BANKS_V293.findIndex(x=>x.id===bank.id));
- const available=12500+(index*731.25),limit=20000+(index*1000),cardAvailable=limit-(2850+(index*97.5));
+ const available=12500+(index*731.25),savingsAvailable=4800+(index*525.40);
+ const limit=20000+(index*1000),cardAvailable=limit-(2850+(index*97.5));
+ const secondLimit=12000+(index*750),secondCardAvailable=secondLimit-(1425+(index*63.25));
  const now=new Date(),day=86400000;
  const iso=n=>new Date(now.getTime()-(n*day)).toISOString();
  return {
-  id:'sandbox-'+bank.id,bankId:bank.id,bankName:bank.name,status:'Active',source:'Neotek Sandbox Fixture',
+  id:'sandbox-'+bank.id,bankId:bank.id,bankName:bank.name,status:'Active',source:'Neotek Sandbox Fixture',mode:'sandbox',schemaVersion:295,
   connectedAt:now.toISOString(),syncedAt:now.toISOString(),
   accounts:[
-   {id:'ACC-'+bank.id+'-001',name:'Sandbox Current Account',type:'CurrentAccount',ending:String(2100+index).slice(-4),currency:'SAR',balanceType:'KSAOB.InterimAvailable',available},
-   {id:'CARD-'+bank.id+'-001',name:'Optional Credit Card Feed',type:'CreditCard',ending:String(7100+index).slice(-4),currency:'SAR',creditLimit:limit,available:cardAvailable,optional:true}
+   {id:'ACC-'+bank.id+'-001',name:'Primary Current Account',type:'CurrentAccount',ending:String(2100+index).slice(-4),currency:'SAR',balanceType:'KSAOB.InterimAvailable',available},
+   {id:'ACC-'+bank.id+'-002',name:'Secondary Current Account',type:'CurrentAccount',ending:String(4100+index).slice(-4),currency:'SAR',balanceType:'KSAOB.InterimAvailable',available:savingsAvailable},
+   {id:'CARD-'+bank.id+'-001',name:'Visa Credit Card',type:'CreditCard',ending:String(7100+index).slice(-4),currency:'SAR',creditLimit:limit,available:cardAvailable,optional:true},
+   {id:'CARD-'+bank.id+'-002',name:'Mastercard Credit Card',type:'CreditCard',ending:String(9100+index).slice(-4),currency:'SAR',creditLimit:secondLimit,available:secondCardAvailable,optional:true}
   ],
   transactions:[
-   {id:bank.id+'-T1',date:iso(0),description:'SANDBOX • Grocery Purchase',amount:-186.40,runningBalance:available},
-   {id:bank.id+'-T2',date:iso(1),description:'SANDBOX • Salary Credit',amount:8500.00,runningBalance:available+186.40},
-   {id:bank.id+'-T3',date:iso(2),description:'SANDBOX • Utility Payment',amount:-342.75,runningBalance:available-8313.60},
-   {id:bank.id+'-T4',date:iso(4),description:'SANDBOX • Card Purchase',amount:-129.50,runningBalance:cardAvailable}
+   {id:bank.id+'-T1',accountId:'ACC-'+bank.id+'-001',date:iso(0),description:'SANDBOX • Grocery Purchase',amount:-186.40,runningBalance:available},
+   {id:bank.id+'-T2',accountId:'ACC-'+bank.id+'-001',date:iso(1),description:'SANDBOX • Salary Credit',amount:8500.00,runningBalance:available+186.40},
+   {id:bank.id+'-T3',accountId:'ACC-'+bank.id+'-002',date:iso(2),description:'SANDBOX • Utility Payment',amount:-342.75,runningBalance:savingsAvailable},
+   {id:bank.id+'-T4',accountId:'ACC-'+bank.id+'-002',date:iso(3),description:'SANDBOX • Internal Transfer',amount:1200.00,runningBalance:savingsAvailable+342.75},
+   {id:bank.id+'-T5',accountId:'CARD-'+bank.id+'-001',date:iso(1),description:'SANDBOX • Card Purchase',amount:-129.50,runningBalance:cardAvailable},
+   {id:bank.id+'-T6',accountId:'CARD-'+bank.id+'-001',date:iso(4),description:'SANDBOX • Online Subscription',amount:-64.99,runningBalance:cardAvailable+129.50},
+   {id:bank.id+'-T7',accountId:'CARD-'+bank.id+'-002',date:iso(0),description:'SANDBOX • Fuel Purchase',amount:-175.00,runningBalance:secondCardAvailable},
+   {id:bank.id+'-T8',accountId:'CARD-'+bank.id+'-002',date:iso(5),description:'SANDBOX • Restaurant',amount:-238.75,runningBalance:secondCardAvailable+175.00}
   ]
  };
+}
+function bankSandboxUpgradeV295(link){
+ if(link?.schemaVersion===295)return link;
+ const bank=BANK_SANDBOX_BANKS_V293.find(x=>x.id===link?.bankId);if(!bank)return link;
+ const upgraded=bankSandboxFixtureV293(bank);
+ upgraded.connectedAt=link.connectedAt||upgraded.connectedAt;
+ upgraded.syncedAt=link.syncedAt||upgraded.syncedAt;
+ return upgraded;
+}
+function bankProviderFinanceMatchV295(providerAccount,bankName){
+ const financeAccounts=typeof accounts!=='undefined'&&Array.isArray(accounts)?accounts:[];
+ return financeAccounts.find(a=>a.openBankingAccountId===providerAccount.id)||financeAccounts.find(a=>
+  String(a.ending||'')===String(providerAccount.ending||'')&&
+  String(a.bank||'').trim().toLowerCase()===String(bankName||'').trim().toLowerCase()&&
+  ((providerAccount.type==='CreditCard'&&a.type==='card')||(providerAccount.type!=='CreditCard'&&a.type==='bank'))
+ );
+}
+function bankProviderAddToFinanceV295(linkId,providerAccountId){
+ const state=bankSandboxReadV293(),link=state.links.find(x=>x.id===linkId),providerAccount=link?.accounts?.find(x=>x.id===providerAccountId);
+ if(!link||!providerAccount||link.mode!=='real')return;
+ const existing=bankProviderFinanceMatchV295(providerAccount,link.bankName);
+ if(existing){const status=document.getElementById('bankProviderStatus');if(status)status.textContent='Already mapped to '+accountName(existing.id)+'.';return}
+ if(!confirm('Add '+link.bankName+' • '+providerAccount.name+' •'+providerAccount.ending+' to My Finance?'))return;
+ const safeId=String(providerAccount.id).replace(/[^a-z0-9-]/gi,'-').toLowerCase();
+ if(providerAccount.type==='CreditCard'){
+  const id='openbank-card-'+safeId,limit=Number(providerAccount.creditLimit||0),available=Number(providerAccount.available||0);
+  const card={id,bank:link.bankName,name:providerAccount.name,ending:providerAccount.ending,type:'card',custom:true,openBankingAccountId:providerAccount.id,openBankingConnectionId:link.id,extra:{'Credit Limit':limit,'Bank Available':available,'Current Outstanding':Math.max(0,limit-available),'Physical Cards':[providerAccount.ending]}};
+  customCreditCards.push(card);financeSettings.cardCycles[id]=financeSettings.cardCycles[id]||{statementDay:25,dueDay:15};
+  localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
+ }else{
+  const id='openbank-account-'+safeId,balance=Number(providerAccount.available||0);
+  const bank={id,bank:link.bankName,name:providerAccount.name,ending:providerAccount.ending,type:'bank',custom:true,balance,balanceLabel:'Open Banking Available',openBankingAccountId:providerAccount.id,openBankingConnectionId:link.id,extra:{}};
+  customBanks.push(bank);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));setTrackedBankBalance(id,balance);
+ }
+ syncCustomAccountsIntoAccounts();saveV194Data();saveLocal();financeSettingsDirty=true;scheduleRecordPush('open-banking-account-add');refreshAccountDependentUI();renderBankConnections();
 }
 window.renderBankConnections=function(){
  const root=document.getElementById('bankconnections');if(!root)return;
@@ -140,10 +184,12 @@ window.renderBankConnections=function(){
   select.innerHTML=BANK_SANDBOX_BANKS_V293.map(b=>'<option value="'+b.id+'">'+b.name+'</option>').join('');
   select.dataset.ready='1';
  }
- const state=bankSandboxReadV293(),links=state.links;
- const accounts=links.flatMap(x=>x.accounts||[]),transactions=links.flatMap(x=>(x.transactions||[]).map(t=>({...t,bankName:x.bankName})));
- const accountAvailable=accounts.filter(a=>a.type==='CurrentAccount').reduce((s,a)=>s+Number(a.available||0),0);
- const cardAvailable=accounts.filter(a=>a.type==='CreditCard').reduce((s,a)=>s+Number(a.available||0),0);
+ const state=bankSandboxReadV293();
+ const upgradedLinks=state.links.map(bankSandboxUpgradeV295);if(upgradedLinks.some((x,i)=>x!==state.links[i])){state.links=upgradedLinks;bankSandboxWriteV293(state)}
+ const links=state.links,discoveredAccounts=links.flatMap(x=>x.accounts||[]);
+ const transactions=links.flatMap(link=>(link.transactions||[]).map(t=>{const source=(link.accounts||[]).find(a=>a.id===t.accountId);return {...t,bankName:link.bankName,accountName:source?.name||'Unknown account',accountType:source?.type||'Unknown',accountEnding:source?.ending||'—'}}));
+ const accountAvailable=discoveredAccounts.filter(a=>a.type==='CurrentAccount').reduce((s,a)=>s+Number(a.available||0),0);
+ const cardAvailable=discoveredAccounts.filter(a=>a.type==='CreditCard').reduce((s,a)=>s+Number(a.available||0),0);
  const status=document.getElementById('bankSandboxStatus');
  if(status)status.textContent=links.length?links.length+' sandbox bank connection'+(links.length===1?'':'s')+' active. Mock data never changes dashboard totals.':'No sandbox bank connected yet.';
  const metrics=document.getElementById('bankSandboxMetrics');
@@ -155,14 +201,14 @@ window.renderBankConnections=function(){
  if(cards)cards.innerHTML=links.length?links.map(link=>
   '<article class="bankSandboxConnection"><div class="bankSandboxConnectionHead"><div><span class="bankSandboxLiveDot"></span><b>'+link.bankName+'</b><small>'+link.source+' • '+link.status+'</small></div><button type="button" class="btn danger" data-bank-sandbox-disconnect="'+link.id+'">Disconnect</button></div>'+
   '<div class="bankSandboxAccountGrid">'+(link.accounts||[]).map(a=>
-   '<div class="bankSandboxAccount"><span>'+a.name+' •'+a.ending+'</span><b>'+bankSandboxMoneyV293(a.available)+'</b><small>'+(a.type==='CreditCard'?'Available credit'+(a.optional?' • optional API coverage':''):'Available balance • '+a.balanceType)+'</small></div>'
+   {const match=bankProviderFinanceMatchV295(a,link.bankName),typeLabel=a.type==='CreditCard'?'Credit card':'Current account';return '<div class="bankSandboxAccount"><span class="bankSandboxAccountType">'+typeLabel+'</span><span>'+bankSandboxEscapeV295(a.name)+' •'+bankSandboxEscapeV295(a.ending)+'</span><b>'+bankSandboxMoneyV293(a.available)+'</b><small>'+(a.type==='CreditCard'?'Available credit'+(a.optional?' • optional API coverage':''):'Available balance • '+bankSandboxEscapeV295(a.balanceType))+'</small><small class="bankSandboxMapping">'+(link.mode==='real'?(match?'Mapped to '+bankSandboxEscapeV295(accountName(match.id)):'<button type="button" class="btn small primary" data-bank-add-finance="'+bankSandboxEscapeV295(link.id)+'" data-provider-account="'+bankSandboxEscapeV295(a.id)+'">Add to My Finance</button>'):'Sandbox only • account creation stays disabled')+'</small></div>'}
   ).join('')+'</div><small class="bankSandboxSynced">Last sandbox sync: '+new Date(link.syncedAt).toLocaleString()+'</small></article>'
  ).join(''):'<div class="bankSandboxEmpty">Choose a bank and connect the sandbox to preview mapped balances and transactions.</div>';
  const rows=document.getElementById('bankSandboxTransactions');
  transactions.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  if(rows)rows.innerHTML=transactions.length?transactions.map(t=>
-  '<tr><td>'+new Date(t.date).toLocaleDateString('en-GB')+'</td><td><b>'+t.description+'</b><small>'+t.bankName+'</small></td><td class="'+(t.amount<0?'bankSandboxDebit':'bankSandboxCredit')+'">'+bankSandboxMoneyV293(t.amount)+'</td><td>'+bankSandboxMoneyV293(t.runningBalance)+'</td></tr>'
- ).join(''):'<tr><td colspan="4" class="bankSandboxEmptyCell">No sandbox transactions yet.</td></tr>';
+  '<tr><td>'+new Date(t.date).toLocaleDateString('en-GB')+'</td><td><b>'+bankSandboxEscapeV295(t.bankName)+' • '+bankSandboxEscapeV295(t.accountName)+' •'+bankSandboxEscapeV295(t.accountEnding)+'</b><small>'+(t.accountType==='CreditCard'?'Credit card':'Current account')+'</small></td><td><b>'+bankSandboxEscapeV295(t.description)+'</b></td><td class="'+(t.amount<0?'bankSandboxDebit':'bankSandboxCredit')+'">'+bankSandboxMoneyV293(t.amount)+'</td><td>'+bankSandboxMoneyV293(t.runningBalance)+'</td></tr>'
+ ).join(''):'<tr><td colspan="5" class="bankSandboxEmptyCell">No sandbox transactions yet.</td></tr>';
  bindBankSandboxControlsV294();
 };
 function bankSandboxConnectV293(){
@@ -185,6 +231,20 @@ function bankSandboxActionV294(action){
  try{return action()}catch(e){
   console.error('Bank sandbox action failed',e);
   if(status)status.textContent='Sandbox action failed: '+(e?.message||String(e));
+ }
+}
+async function bankProviderCheckV295(startRequested=false){
+ const status=document.getElementById('bankProviderStatus');
+ if(status)status.textContent='Checking protected provider configuration…';
+ try{
+  const response=await fetch('/api/open-banking-status',{method:'GET',headers:{Accept:'application/json'},cache:'no-store'});
+  const result=await response.json();
+  if(status)status.textContent=result.message||'Provider status received.';
+  if(startRequested&&result.consentReady!==true&&status)status.textContent+=' No bank consent redirect was opened because the approved endpoint is not enabled.';
+  return result;
+ }catch(error){
+  if(status)status.textContent='Could not check the provider setup. '+(error?.message||String(error));
+  return null;
  }
 }
 function bindBankSandboxControlsV294(){
@@ -210,5 +270,14 @@ function bindBankSandboxControlsV294(){
    if(status)status.textContent=(link?.bankName||'Sandbox bank')+' disconnected.';
   })};
  });
+ document.querySelectorAll('[data-bank-add-finance]').forEach(add=>{
+  if(add.dataset.boundV295)return;
+  add.dataset.boundV295='1';
+  add.onclick=e=>{e.preventDefault();e.stopPropagation();bankSandboxActionV294(()=>bankProviderAddToFinanceV295(add.dataset.bankAddFinance,add.dataset.providerAccount))};
+ });
+ const providerCheck=document.getElementById('bankProviderCheck');
+ if(providerCheck&&!providerCheck.dataset.boundV295){providerCheck.dataset.boundV295='1';providerCheck.onclick=e=>{e.preventDefault();bankProviderCheckV295(false)}}
+ const providerStart=document.getElementById('bankProviderStart');
+ if(providerStart&&!providerStart.dataset.boundV295){providerStart.dataset.boundV295='1';providerStart.onclick=e=>{e.preventDefault();bankProviderCheckV295(true)}}
 }
 setTimeout(()=>{try{renderBankConnections();bindBankSandboxControlsV294()}catch(e){console.error('Bank sandbox init',e)}},0);
