@@ -482,10 +482,10 @@
 </section>
 
 <section class="view" id="investments">
- <div class="invHero"><div><div class="invEyebrow">WEALTH • INVESTMENTS</div><h1>Stock Portfolio</h1><div class="meta">Live Saudi & U.S. market values using your original portfolio. Quantities and average costs remain editable.</div></div><div class="invActions"><button class="btn" id="invRefresh">↻ Refresh Live Prices</button><button class="btn primary" id="invAddHolding">+ Add Holding</button></div></div>
+ <div class="invHero"><div><div class="invEyebrow">WEALTH • INVESTMENTS</div><h1>Stock Portfolio</h1><div class="meta">Live Saudi & U.S. market values, financial + technical research view, and averaging analysis. Quantities and average costs remain editable.</div></div><div class="invActions"><button class="btn" id="invRefresh">↻ Refresh Live Prices</button><button class="btn primary" id="invAddHolding">+ Add Holding</button></div></div>
  <div class="invStatus" id="invStatus">Loading your saved portfolio…</div><div class="invKpis" id="invKpis"></div>
  <div class="panel invToolbar"><input id="invSearch" placeholder="Search ticker or company"><select id="invMarket"><option value="ALL">All Markets</option><option value="SA">Saudi Arabia</option><option value="US">United States</option></select><select id="invSort"><option value="value">Market Value</option><option value="day">Daily Change %</option><option value="pl">Gain / Loss</option><option value="pct">Return %</option><option value="ticker">Ticker</option></select></div>
- <div class="panel invTablePanel"><div class="tableWrap"><table class="invTable"><thead><tr><th>Holding</th><th>Market</th><th>Shares</th><th>Avg Cost</th><th>Live Price</th><th>Daily Change</th><th>Market Value</th><th>Gain / Loss</th><th>Return</th><th>Weight</th><th>Actions</th></tr></thead><tbody id="invBody"></tbody></table></div></div>
+ <div class="panel invTablePanel"><div class="tableWrap"><table class="invTable"><thead><tr><th>Holding</th><th>Market</th><th>Shares</th><th>Avg Cost</th><th>Live Price</th><th>Daily Change</th><th>Market Value</th><th>Gain / Loss</th><th>Return</th><th>Weight</th><th>Financial</th><th>Technical</th><th>Outlook</th><th>Risk</th><th>Analysis</th><th>Actions</th></tr></thead><tbody id="invBody"></tbody></table></div></div>
  <div class="invGrid"><div class="panel"><div class="panelTitle">Portfolio Allocation</div><div id="invAllocation"></div></div><div class="panel"><div class="panelTitle">Recent Stock Activity</div><div id="invTrades" class="meta">No stock activity recorded yet.</div></div></div>
 </section>
 
@@ -781,7 +781,7 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=299');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=300');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
