@@ -78,7 +78,8 @@ function invRebaseFromCurrent(ticker){
 function invSave(reason='investment-edit'){localStorage.setItem("pf_investments_holdings",JSON.stringify(invHoldings));localStorage.setItem("pf_investments_trades",JSON.stringify(invTrades));if(typeof scheduleRecordPush==='function')scheduleRecordPush(reason);else if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave()}
 function invTotals(){
  var value=0,cost=0,usValue=0,usCost=0,saValue=0,saCost=0;
- invHoldings.forEach(h=>{
+ var holdings=Array.isArray(invHoldings)?invHoldings:[];
+ holdings.forEach(h=>{
   var nativeValue=Number(h.qty||0)*Number(h.price||0),nativeCost=Number(h.qty||0)*Number(h.avg||0),f=invFactor(h);
   value+=nativeValue*f;cost+=nativeCost*f;
   if(h.market==='US'){usValue+=nativeValue;usCost+=nativeCost}else{saValue+=nativeValue;saCost+=nativeCost}
