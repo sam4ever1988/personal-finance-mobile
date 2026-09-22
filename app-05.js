@@ -649,7 +649,6 @@ function cardPositionHero(a,m){
      <div class="cardDetailTitle">${title}</div>
      <div class="cardDetailSub">${a.balanceLabel||'Current card position'}${a.balanceAsOf?' • '+a.balanceAsOf:''}</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-balance-offer="${a.id}">Balance Installment Offer</button><button class="btn primary" data-add-plan="${a.id}">+ Installment Plan</button></div>
    </div>
    <div class="cardDetailSub" style="margin-top:15px">${heroLabel}</div>
    <div class="cardDetailBig">${money(heroValue)}</div>

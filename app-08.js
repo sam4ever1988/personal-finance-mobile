@@ -258,7 +258,7 @@ function syncCustomAccountsIntoAccounts(){
 function refreshAccountDependentUI(){
  syncCustomAccountsIntoAccounts();
  ['txAccount','reportAccount','importAccount'].forEach(id=>{const el=$(id);if(el)fillAccountSelect(el);});
- try{renderCustomBanks();renderCustomCreditCards();renderAccounts();renderDashboard();}catch(e){console.warn('Account UI refresh',e);}
+ try{renderCustomBanks();renderCustomCreditCards();renderCreditCardCalendar();renderAccounts();renderDashboard();}catch(e){console.warn('Account UI refresh',e);}
  if(document.querySelector('#financeSettings.active'))renderFinanceSettings(true);
  if(document.querySelector('#incomeplan.active'))renderIncomePlan();
  if(document.querySelector('#installments.active'))renderInstallments();

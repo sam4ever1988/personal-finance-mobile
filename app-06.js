@@ -807,17 +807,17 @@ function cardNextDueInfo(a){
  const today=new Date();today.setHours(0,0,0,0);
  const future=cardPaymentPlan
    .filter(p=>p.accountId===a.id&&p.due&&!p.paid)
-   .map(p=>({...p,dObj:new Date(p.due+'T00:00:00')}))
+   .map(p=>{const linkedDue=p.month?dueDateForPaymentMonth(a.id,p.month):p.due;return {...p,linkedDue,dObj:new Date(linkedDue+'T00:00:00')}})
    .filter(p=>!Number.isNaN(p.dObj.getTime())&&p.dObj>=today)
    .sort((x,y)=>x.dObj-y.dObj)[0];
  if(future){
   return {
    label:future.dObj.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
    detail:`Current payment plan • ${future.label||future.source||'Card payment'}`,
-   fullDate:future.due
+   fullDate:future.linkedDue
   };
  }
- const cyc=FIXED_PLAN.cardCycles[a.id]||{statementDay:1,dueDay:25};
+ const cyc=cardCycleSetting(a.id);
  return {
   label:nextDueLabel(cyc.dueDay),
   detail:`Statement issued every month on the ${ordinal(cyc.statementDay)} • Payment due every month on the ${ordinal(cyc.dueDay)}`,
@@ -830,10 +830,14 @@ function ordinal(n){
 function renderCreditCardCalendar(){
  const box=$('creditCardCalendar');if(!box)return;
  box.innerHTML=accounts.filter(a=>a.type==='card').map(a=>{
-  const due=cardNextDueInfo(a),cyc=FIXED_PLAN.cardCycles[a.id]||{};
+  const due=cardNextDueInfo(a),cyc=cardCycleSetting(a.id);
   const detail=due.fullDate?`${cyc.statementDay?`Statement usually issued around the ${ordinal(cyc.statementDay)} • `:''}${due.detail}`:due.detail;
-  return `<div class="dueCard"><div style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<div><b>${a.bank} ${a.name} •${a.ending}</b><div class="meta">${detail}</div></div></div><div style="text-align:right"><div class="meta">Next Due</div><div class="dueDate">${due.label}</div></div></div>`;
+  return `<button type="button" class="dueCard dueCardLinked" data-edit-due-card="${escapeHtml(a.id)}" title="Edit this card's statement and due-date settings"><span style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<span><b>${escapeHtml(a.bank)} ${escapeHtml(a.name)} •${escapeHtml(a.ending)}</b><span class="meta">${detail}</span></span></span><span style="text-align:right"><span class="meta">Next Due</span><span class="dueDate">${due.label}</span><span class="dueEditHint">Edit card dates ›</span></span></button>`;
  }).join('');
+ box.querySelectorAll('[data-edit-due-card]').forEach(btn=>btn.onclick=()=>{
+  if(typeof editFinanceCreditCard==='function')editFinanceCreditCard(btn.dataset.editDueCard);
+  else nav('financeSettings');
+ });
 }
 
 function findBestPaymentPlanForCard(cardId){
@@ -1057,6 +1061,7 @@ function renderFinanceSettings(force=false){
     localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));
     financeSettingsDirty=true;
     scheduleRecordPush('finance-settings-card-cycle');
+    renderCreditCardCalendar();
    };
    el.oninput=commit;el.onchange=commit;
   });

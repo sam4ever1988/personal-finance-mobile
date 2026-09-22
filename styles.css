@@ -2599,3 +2599,33 @@ body.financeAccessLocked #canonicalAppTop .canonicalProfileMenu{display:none!imp
 .customAccountEditRow{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:7px}
 .customAccountEditRow>div{min-width:0;overflow-wrap:anywhere}
 @media(max-width:760px){.customAccountEditRow{align-items:flex-start}.customAccountEditRow .btn{flex:0 0 auto}}
+
+/* V299 — linked card dates, readable overview, dual-currency investments */
+.dueCardLinked{
+ width:100%;font:inherit;color:inherit;text-align:left;background:transparent;cursor:pointer;
+ transition:border-color .16s ease,background .16s ease,transform .16s ease;
+}
+.dueCardLinked span{display:block}.dueCardLinked:hover,.dueCardLinked:focus-visible{border-color:#28caff;background:#07384d;transform:translateY(-1px);outline:none}
+.dueCardLinked .dueEditHint{margin-top:4px;color:#39cfff;font-size:11px;font-weight:800}
+body.modernMode #accountDetail #detailBack{
+ display:inline-flex!important;align-items:center!important;gap:7px!important;min-height:42px!important;
+ padding:9px 15px!important;margin:4px 0 2px!important;border-radius:999px!important;
+ background:linear-gradient(135deg,#0a3b52,#072b40)!important;border-color:#2380a2!important;
+ box-shadow:0 8px 22px rgba(0,0,0,.2)!important;font-size:14px!important;line-height:1!important;
+}
+body.modernMode #accountDetail #detailBack:hover{background:linear-gradient(135deg,#0d516c,#08374d)!important;border-color:#31c9ed!important}
+body.execMode .execKpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;height:auto!important;min-height:0!important}
+body.execMode .execKpi{height:auto!important;min-height:104px!important}
+body.execMode .execKpi:nth-child(7){border-color:#17a777!important;background:linear-gradient(135deg,#063d35,#082c3a)!important}
+body.execMode .execKpi:nth-child(8){border-color:#4f6f89!important;background:linear-gradient(135deg,#17384d,#08263a)!important}
+body.execMode .execFlowLegend,body.execMode .execFlowLegend b{font-size:13px!important;line-height:1.35!important}
+body.execMode .execFlowPct{font-size:12.5px!important;font-weight:800!important}
+body.execMode .execUpcomingPanel .execRow>div:first-child{font-size:13.5px!important;line-height:1.4!important}
+body.execMode .execUpcomingPanel .execRow>div:last-child b{font-size:14px!important}
+body.execMode .execZakatPanel #execZakat .execRow{font-size:13.5px!important}
+body.execMode .execZakatPanel #execZakat .execRow b{font-size:14px!important}
+body.execMode .execGoldPanel #execGold{grid-template-columns:repeat(4,1fr)!important}
+body.investmentsMode #investments .invKpi small{display:block;margin-top:6px;color:#96b6c8;font-size:11px;line-height:1.35}
+body.investmentsMode #investments .invTable td>small{display:block;margin-top:4px;color:#9fc0d1;font-size:10.5px;white-space:nowrap}
+@media(max-width:1250px){body.execMode .execKpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:650px){body.execMode .execKpis{grid-template-columns:1fr!important}.dueCardLinked{grid-template-columns:1fr!important}.dueCardLinked>span:last-child{text-align:left!important}}
