@@ -2,24 +2,71 @@
 var INV_USD_SAR=3.75;
 var INV_SEED=[
  {ticker:"7202",company:"Solutions by stc",market:"SA",qty:200,avg:271.95,price:216.90},
- {ticker:"2010",company:"SABIC",market:"SA",qty:125,avg:65.73,price:50.10},
- {ticker:"1180",company:"Saudi National Bank",market:"SA",qty:150,avg:38.93,price:43.40},
- {ticker:"4012",company:"Thob Al Aseel",market:"SA",qty:1200,avg:4.02,price:3.49},
- {ticker:"1010",company:"Riyad Bank",market:"SA",qty:200,avg:20.88,price:20.85},
- {ticker:"4001",company:"Abdullah Al Othaim Markets",market:"SA",qty:700,avg:11.00,price:4.98},
- {ticker:"4164",company:"Nahdi Medical",market:"SA",qty:25,avg:122.39,price:93.90},
- {ticker:"4003",company:"United Electronics (eXtra)",market:"SA",qty:35,avg:99.39,price:66.70},
- {ticker:"2020",company:"SABIC Agri-Nutrients",market:"SA",qty:20,avg:116.73,price:130.50},
- {ticker:"4190",company:"Jarir Marketing",market:"SA",qty:100,avg:13.86,price:17.10},
- {ticker:"4163",company:"Al-Dawaa Medical Services",market:"SA",qty:40,avg:74.71,price:39.00},
- {ticker:"1831",company:"Maharah Human Resources",market:"SA",qty:350,avg:5.39,price:4.65},
- {ticker:"4084",company:"Derayah Financial",market:"SA",qty:100,avg:30.00,price:22.18},
- {ticker:"LCID",company:"Lucid Group",market:"US",qty:15,avg:34.66,price:5.09},
- {ticker:"RIO",company:"Rio Tinto",market:"US",qty:8,avg:69.39,price:104.78}
+ {ticker:"2010",company:"SABIC",market:"SA",qty:130,avg:65.733,price:50.10},
+ {ticker:"1180",company:"Saudi National Bank",market:"SA",qty:124,avg:38.9265,price:43.40},
+ {ticker:"4012",company:"Thob Al Aseel",market:"SA",qty:1850,avg:4.0191,price:3.49},
+ {ticker:"1010",company:"Riyad Bank",market:"SA",qty:300,avg:20.8765,price:20.85},
+ {ticker:"4001",company:"Abdullah Al Othaim Markets",market:"SA",qty:900,avg:11.0046,price:4.98},
+ {ticker:"4164",company:"Nahdi Medical",market:"SA",qty:40,avg:122.3886,price:93.90},
+ {ticker:"4003",company:"United Electronics (eXtra)",market:"SA",qty:50,avg:99.393,price:66.70},
+ {ticker:"2020",company:"SABIC Agri-Nutrients",market:"SA",qty:21,avg:116.7322,price:130.50},
+ {ticker:"4190",company:"Jarir Marketing",market:"SA",qty:120,avg:13.8622,price:17.10},
+ {ticker:"4163",company:"Al-Dawaa Medical Services",market:"SA",qty:37,avg:74.7068,price:39.00},
+ {ticker:"1831",company:"Maharah Human Resources",market:"SA",qty:305,avg:5.39,price:4.65},
+ {ticker:"4084",company:"Derayah Financial",market:"SA",qty:8,avg:30.00,price:22.18},
+ {ticker:"LCID",company:"Lucid Group",market:"US",qty:51,avg:34.66,price:5.09},
+ {ticker:"RIO",company:"Rio Tinto",market:"US",qty:11,avg:69.39,price:104.78}
 ];
 var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||JSON.parse(JSON.stringify(INV_SEED));
 var invTrades=JSON.parse(localStorage.getItem("pf_investments_trades")||"[]");
 var invLastPriceUpdate=localStorage.getItem("pf_investments_price_time")||"";
+
+var INV_ANALYSIS_ASOF="2026-09-22";
+var INV_ANALYSIS={
+ "7202":{financial:"Strong",valuation:"Fair",risk:"Medium",outlook:"Positive",action:"Add carefully",reason:"Strong operating performance, but portfolio concentration is already high."},
+ "2010":{financial:"Weak / cyclical",valuation:"Fair",risk:"Medium-High",outlook:"Cautious",action:"Wait",reason:"Large cyclical exposure; wait for clearer earnings recovery before averaging."},
+ "1180":{financial:"Strong",valuation:"Fair",risk:"Medium",outlook:"Positive",action:"Gradual add",reason:"Healthy banking profitability; use pullbacks rather than chasing price."},
+ "4012":{financial:"Stable",valuation:"Fair",risk:"Medium",outlook:"Neutral",action:"Small only",reason:"Reasonable operating trend, but not strong enough for aggressive averaging."},
+ "1010":{financial:"Strong",valuation:"Fair",risk:"Medium",outlook:"Positive",action:"Gradual add",reason:"Solid bank fundamentals with a balanced risk/reward profile."},
+ "4001":{financial:"Weak",valuation:"Unclear",risk:"High",outlook:"Negative",action:"Avoid averaging",reason:"Recent earnings deterioration makes a lower price alone insufficient reason to add."},
+ "4164":{financial:"Stable",valuation:"Fair",risk:"Medium",outlook:"Neutral",action:"Wait",reason:"Defensive business, but profit momentum and price trend need confirmation."},
+ "4003":{financial:"Stable",valuation:"Fair",risk:"Medium",outlook:"Neutral / Positive",action:"Selective add",reason:"Core retail remains resilient; consumer-finance profitability needs monitoring."},
+ "2020":{financial:"Cyclical",valuation:"Fair",risk:"Medium-High",outlook:"Neutral / Positive",action:"Add on weakness",reason:"Cash generation can be strong, but fertilizer pricing remains cyclical."},
+ "4190":{financial:"Strong",valuation:"Full",risk:"Medium",outlook:"Neutral / Positive",action:"Wait for price",reason:"Quality business, but recent strength reduces the margin of safety for new money."},
+ "4163":{financial:"Mixed",valuation:"Unclear",risk:"High",outlook:"Cautious",action:"Wait",reason:"Do not average solely to lower cost; require clearer earnings and price stabilization."},
+ "1831":{financial:"Improving",valuation:"Attractive / watch",risk:"Medium-High",outlook:"Positive",action:"Potential add",reason:"Fundamentals improved materially while the share price remains weak; monitor execution."},
+ "4084":{financial:"Stable",valuation:"Fair",risk:"Medium-High",outlook:"Neutral",action:"Wait",reason:"Strategic growth potential remains, but earnings and execution need confirmation."},
+ "LCID":{financial:"Weak",valuation:"Speculative",risk:"Very High",outlook:"Negative",action:"Avoid averaging",reason:"High cash-burn and execution risk; treat as speculative rather than a recovery-average position."},
+ "RIO":{financial:"Strong",valuation:"Fair",risk:"Medium",outlook:"Neutral / Positive",action:"Add on weakness",reason:"Strong diversified mining cash flows, offset by commodity and operational risk."}
+};
+function invAnalysis(h){
+ var a=INV_ANALYSIS[h.ticker]||{financial:"Not rated",valuation:"—",risk:"—",outlook:"Neutral",action:"Review",reason:"No saved research view yet."};
+ var day=Number(h.dayChangePct||0),ret=h.avg?((Number(h.price)-Number(h.avg))/Number(h.avg))*100:0;
+ var technical=day>=3?"Bullish day":day<=-3?"Bearish day":ret>=10?"Positive trend":ret<=-20?"Weak trend":"Neutral";
+ return {...a,technical};
+}
+function invBadge(text,kind){
+ var k=kind||String(text).toLowerCase().replace(/[^a-z]+/g,"-");
+ return '<span class="invAnalysisBadge '+k+'">'+invEsc(text)+'</span>';
+}
+function invEnsureAnalysisStyles(){
+ if(document.getElementById("invAnalysisStyles"))return;
+ var s=document.createElement("style");s.id="invAnalysisStyles";s.textContent=
+ '.invAnalysisBadge{display:inline-flex;padding:5px 8px;border-radius:999px;border:1px solid var(--line);font-size:11px;font-weight:800;white-space:nowrap}.invAnalysisBadge.positive,.invAnalysisBadge.strong,.invAnalysisBadge.gradual-add,.invAnalysisBadge.potential-add,.invAnalysisBadge.add-on-weakness{background:rgba(34,197,94,.10);color:#65d98a}.invAnalysisBadge.negative,.invAnalysisBadge.weak,.invAnalysisBadge.avoid-averaging,.invAnalysisBadge.very-high{background:rgba(239,68,68,.10);color:#ff7c8b}.invAnalysisBadge.cautious,.invAnalysisBadge.wait,.invAnalysisBadge.high{background:rgba(245,158,11,.10);color:#f5bd55}.invPlanGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.invPlanMetric{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.invPlanMetric span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.invPlanMetric b{font-size:16px}.invPlanWarning{margin-top:12px;padding:12px;border-radius:12px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25)}@media(max-width:760px){.invPlanGrid{grid-template-columns:1fr}}';
+ document.head.appendChild(s);
+}
+function invOpenPlan(ticker){
+ invEnsureAnalysisStyles();var h=invHoldings.find(x=>x.ticker===ticker);if(!h)return;var a=invAnalysis(h),currency=invCurrency(h),f=invFactor(h),t=invTotals(),currentValue=h.qty*h.price*f,currentWeight=t.value?currentValue/t.value*100:0;
+ var old=document.getElementById("invPlanModal");if(old)old.remove();
+ var d=document.createElement("div");d.className="modalBack show";d.id="invPlanModal";
+ d.innerHTML='<div class="modal" style="max-width:760px"><div class="modalHead"><div><div class="modalTitle">Plan More • '+invEsc(h.ticker)+'</div><div class="meta">'+invEsc(h.company)+' • research view '+INV_ANALYSIS_ASOF+'</div></div><button class="closeBtn" type="button">✕</button></div><div class="formGrid"><div class="field"><label>Buy Price ('+currency+')</label><input id="invPlanPrice" type="number" min="0.0001" step="any" value="'+Number(h.price).toFixed(2)+'"></div><div class="field"><label>Additional Budget ('+currency+')</label><input id="invPlanBudget" type="number" min="0" step="any" placeholder="e.g. 5000"></div><div class="field"><label>Additional Shares</label><input id="invPlanShares" type="number" min="0" step="any" placeholder="Calculated from budget"></div><div class="field"><label>Optional Target Average ('+currency+')</label><input id="invPlanTarget" type="number" min="0" step="any" placeholder="Optional"></div></div><div id="invPlanResult" style="margin-top:14px"></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="invPlanClose">Close</button><button class="btn primary" id="invPlanBuy">Use in Buy</button></div></div>';
+ document.body.appendChild(d);
+ var calc=()=>{var p=Math.max(0,Number(document.getElementById("invPlanPrice").value)||0),budget=Math.max(0,Number(document.getElementById("invPlanBudget").value)||0),shares=Math.max(0,Number(document.getElementById("invPlanShares").value)||0),target=Math.max(0,Number(document.getElementById("invPlanTarget").value)||0);if(budget>0&&!shares)shares=budget/p;if(shares>0&&!budget)budget=shares*p;var nq=Number(h.qty)+shares,navg=nq?((Number(h.qty)*Number(h.avg))+(shares*p))/nq:Number(h.avg),recovery=p>0?(navg/p-1)*100:0,newPortfolio=t.value+(budget*f),newWeight=newPortfolio?((currentValue+budget*f)/newPortfolio*100):0,targetShares=0;if(target>p&&target<Number(h.avg))targetShares=Math.max(0,(Number(h.qty)*(Number(h.avg)-target))/(target-p));var warn=(newWeight>25?'Concentration would be '+newWeight.toFixed(1)+'% of the portfolio. ':'')+(['Avoid averaging','Wait'].includes(a.action)?a.action+': '+a.reason:'');document.getElementById("invPlanResult").innerHTML='<div class="invPlanGrid"><div class="invPlanMetric"><span>Current average</span><b>'+invNativeMoney(h.avg,currency)+'</b></div><div class="invPlanMetric"><span>New average</span><b>'+invNativeMoney(navg,currency)+'</b></div><div class="invPlanMetric"><span>Additional investment</span><b>'+invNativeMoney(budget,currency)+'</b></div><div class="invPlanMetric"><span>New quantity</span><b>'+nq.toFixed(2)+'</b></div><div class="invPlanMetric"><span>Recovery needed from buy price</span><b>'+(recovery>0?recovery.toFixed(1)+'%':'Already above break-even')+'</b></div><div class="invPlanMetric"><span>Portfolio weight after purchase</span><b>'+newWeight.toFixed(1)+'%</b></div>'+(target?'<div class="invPlanMetric"><span>Shares needed for target average</span><b>'+(targetShares?targetShares.toFixed(2):'Target not reachable at this buy price')+'</b></div>':'')+'</div><div class="invPlanWarning"><b>'+invEsc(a.action)+'</b><div class="meta" style="margin-top:5px">'+invEsc(a.reason)+'</div>'+(warn?'<div style="margin-top:7px">'+invEsc(warn)+'</div>':'')+'</div>';return{p,shares,budget}};
+ ["invPlanPrice","invPlanBudget","invPlanShares","invPlanTarget"].forEach(id=>document.getElementById(id).addEventListener("input",calc));calc();
+ d.querySelector(".closeBtn").onclick=document.getElementById("invPlanClose").onclick=()=>d.remove();
+ document.getElementById("invPlanBuy").onclick=()=>{var x=calc();if(!(x.p>0)||!(x.shares>0))return alert("Enter a budget or additional shares first.");d.remove();invOpenTrade(ticker,"BUY");document.getElementById("invQtyInput").value=x.shares.toFixed(6).replace(/0+$/,"").replace(/\.$/,"");document.getElementById("invPriceInput").value=x.p;invUpdateTradePreview()};
+}
+
 
 function invEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function invRound(n){return Math.round((Number(n)||0)*100)/100}
@@ -98,10 +145,11 @@ function renderInvestments(){
   var marketValueHtml=isUS?'<b>'+invNativeMoney(nativeValue,'USD')+'</b><small>≈ '+invMoney(value)+'</small>':'<b>'+invMoney(value)+'</b>';
   var plHtml=isUS?'<b>'+(nativePl>=0?'+':'-')+invNativeMoney(Math.abs(nativePl),'USD')+'</b><small>≈ '+(pl>=0?'+':'-')+invMoney(Math.abs(pl))+'</small>':'<b>'+(pl>=0?'+':'-')+invMoney(Math.abs(pl))+'</b>';
   var dayHtml=hasDay?'<b>'+(day>=0?'+':'-')+invNativeMoney(Math.abs(day),curr)+'</b><small>'+(dayPct>=0?'+':'')+dayPct.toFixed(2)+'% • Position '+(positionDayNative>=0?'+':'-')+invNativeMoney(Math.abs(positionDayNative),curr)+(isUS?' • ≈ '+(positionDaySar>=0?'+':'-')+invMoney(Math.abs(positionDaySar)):'')+'</small>':'<span class="meta">Refresh prices</span>';
-  return '<tr><td><div class="invTicker">'+invEsc(h.ticker)+'</div><div class="meta">'+invEsc(h.company)+'</div></td><td><span class="invMarket '+h.market.toLowerCase()+'">'+(h.market==="SA"?"Saudi":"U.S.")+'</span></td><td><input class="invEdit" data-t="'+invEsc(h.ticker)+'" data-f="qty" type="number" min="0" step="any" value="'+h.qty+'"></td><td><input class="invEdit" data-t="'+invEsc(h.ticker)+'" data-f="avg" type="number" min="0" step="any" value="'+h.avg+'"><small>'+curr+'</small></td><td><b>'+Number(h.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})+'</b><small>'+curr+'</small></td><td class="'+(hasDay?(day>=0?'invGood':'invBad'):'')+'">'+dayHtml+'</td><td>'+marketValueHtml+'</td><td class="'+(pl>=0?"invGood":"invBad")+'">'+plHtml+'</td><td class="'+(pct>=0?"invGood":"invBad")+'"><b>'+(pct>=0?"+":"")+pct.toFixed(2)+'%</b></td><td>'+w.toFixed(1)+'%</td><td><div class="invRowActions"><button class="btn invTradeBtn" data-t="'+invEsc(h.ticker)+'" data-type="BUY">Buy</button><button class="btn invTradeBtn" data-t="'+invEsc(h.ticker)+'" data-type="SELL">Sell</button></div></td></tr>';
+  return '<tr><td><div class="invTicker">'+invEsc(h.ticker)+'</div><div class="meta">'+invEsc(h.company)+'</div></td><td><span class="invMarket '+h.market.toLowerCase()+'">'+(h.market==="SA"?"Saudi":"U.S.")+'</span></td><td><input class="invEdit" data-t="'+invEsc(h.ticker)+'" data-f="qty" type="number" min="0" step="any" value="'+h.qty+'"></td><td><input class="invEdit" data-t="'+invEsc(h.ticker)+'" data-f="avg" type="number" min="0" step="any" value="'+h.avg+'"><small>'+curr+'</small></td><td><b>'+Number(h.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})+'</b><small>'+curr+'</small></td><td class="'+(hasDay?(day>=0?'invGood':'invBad'):'')+'">'+dayHtml+'</td><td>'+marketValueHtml+'</td><td class="'+(pl>=0?"invGood":"invBad")+'">'+plHtml+'</td><td class="'+(pct>=0?"invGood":"invBad")+'"><b>'+(pct>=0?"+":"")+pct.toFixed(2)+'%</b></td><td>'+w.toFixed(1)+'%</td><td>'+invBadge(invAnalysis(h).financial)+'</td><td>'+invBadge(invAnalysis(h).technical)+'</td><td>'+invBadge(invAnalysis(h).outlook)+'</td><td>'+invBadge(invAnalysis(h).risk)+'</td><td><b>'+invEsc(invAnalysis(h).action)+'</b><small>'+invEsc(invAnalysis(h).reason)+'</small></td><td><div class="invRowActions"><button class="btn invPlanBtn" data-t="'+invEsc(h.ticker)+'">Plan More</button><button class="btn invTradeBtn" data-t="'+invEsc(h.ticker)+'" data-type="BUY">Buy</button><button class="btn invTradeBtn" data-t="'+invEsc(h.ticker)+'" data-type="SELL">Sell</button></div></td></tr>';
  }).join("");
  body.querySelectorAll(".invEdit").forEach(el=>el.onchange=()=>{var h=invHoldings.find(x=>x.ticker===el.dataset.t);if(!h)return;h[el.dataset.f]=Math.max(0,Number(el.value)||0);invRebaseFromCurrent(h.ticker);invSave('investment-holding-edit');renderInvestments()});
  body.querySelectorAll(".invTradeBtn").forEach(b=>b.onclick=()=>invOpenTrade(b.dataset.t,b.dataset.type));
+ body.querySelectorAll(".invPlanBtn").forEach(b=>b.onclick=()=>invOpenPlan(b.dataset.t));
  document.getElementById("invAllocation").innerHTML=invHoldings.filter(h=>h.qty>0).sort((a,b)=>b.qty*b.price*invFactor(b)-a.qty*a.price*invFactor(a)).slice(0,8).map(h=>{var v=h.qty*h.price*invFactor(h),p=t.value?v/t.value*100:0;return '<div class="invAlloc"><div><b>'+invEsc(h.ticker)+'</b><span>'+p.toFixed(1)+'%</span></div><div class="invBar"><i style="width:'+Math.max(1,p)+'%"></i></div></div>'}).join("");
  renderInvTrades();
  var st=document.getElementById("invStatus");if(st)st.innerHTML=invLastPriceUpdate?'Live prices last refreshed <b>'+new Date(invLastPriceUpdate).toLocaleString()+'</b>. Daily change compares the live price with the previous market close. U.S. holdings are converted at 3.75 SAR/USD.':'Saved prices are shown. Select <b>Refresh Live Prices</b> to update prices and daily changes.';
@@ -169,6 +217,7 @@ function invSettleTrade(e){
 function invUndoSettlement(x,cloudDelete=false){if(!x||x.settlementStatus!=='settled')return;var bank=account(x.bankAccountId),amount=Number(x.bankAmountSAR||0),txId=x.generatedTransactionId;if(bank?.type==='bank')setTrackedBankBalance(bank.id,adjustedBankBalance(bank)-amount);if(txId){manualTransactions=manualTransactions.filter(t=>t._id!==txId);if(typeof transactionActions!=='undefined')delete transactionActions[txId];if(cloudDelete&&typeof recordImmediateDelete==='function')recordImmediateDelete('manual_transactions',txId,'investment-settlement-reverse')}x.settlementStatus='pending';delete x.bankAccountId;delete x.bankAccountName;delete x.bankAmountSAR;delete x.settledDate;delete x.generatedTransactionId;localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));if(typeof rebuildTransactions==='function')rebuildTransactions()}
 function invOpenAdd(){invEnsureModal();var d=document.getElementById("invModal");document.getElementById("invMode").value="ADD";document.getElementById("invTradeId").value="";document.getElementById("invTickerHidden").value="";document.getElementById("invTickerInput").disabled=false;document.getElementById("invTickerInput").value="";document.getElementById("invCompany").disabled=false;document.getElementById("invCompany").value="";document.getElementById("invMarketInput").disabled=false;document.getElementById("invMarketInput").value="SA";document.getElementById("invQtyInput").value="";document.getElementById("invPriceInput").value="";document.getElementById("invFeeInput").value="0";document.getElementById("invFeeField").style.display='none';document.getElementById("invDateInput").value=new Date().toISOString().slice(0,10);document.getElementById("invModalTitle").textContent="Add Stock Holding";document.getElementById("invModalSub").textContent="Add a Saudi or U.S. stock to your portfolio.";invUpdateTradePreview();d.classList.add("show")}
 
+invEnsureAnalysisStyles();
 invEnsureLedgerV296();
 document.getElementById("invRefresh")?.addEventListener("click",invRefreshPrices);
 document.getElementById("invAddHolding")?.addEventListener("click",invOpenAdd);
