@@ -10,8 +10,9 @@ function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFra
 function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
 function rentalMonthDataFor(viewDate){
  var view=viewDate instanceof Date?viewDate:rentalView,y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1),end=new Date(y,m+1,1),days=new Date(y,m+1,0).getDate(),revenue=0,booked=0;
- rentalBookings.forEach(b=>{var a=rDate(b.checkin),z=rDate(b.checkout),over=Math.max(0,(Math.min(z,end)-Math.max(a,start))/86400000);if(over>0){booked+=over;revenue+=Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*over}});
- var expenses=rentalExpenses.filter(e=>{var d=rDate(e.date);return d>=start&&d<end}).reduce((s,e)=>s+Number(e.amount||0),0);
+ var bookings=Array.isArray(rentalBookings)?rentalBookings:[],expenseRows=Array.isArray(rentalExpenses)?rentalExpenses:[];
+ bookings.forEach(b=>{var a=rDate(b.checkin),z=rDate(b.checkout),over=Math.max(0,(Math.min(z,end)-Math.max(a,start))/86400000);if(over>0){booked+=over;revenue+=Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*over}});
+ var expenses=expenseRows.filter(e=>{var d=rDate(e.date);return d>=start&&d<end}).reduce((s,e)=>s+Number(e.amount||0),0);
  return{revenue,expenses,net:revenue-expenses,booked,days,occupancy:days?booked/days*100:0,adr:booked?revenue/booked:0}
 }
 function rentalMonthData(){return rentalMonthDataFor(rentalView)}
