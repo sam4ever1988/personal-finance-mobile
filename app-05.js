@@ -30,9 +30,9 @@ function renderInstallments(){
 
  $('installKpis').innerHTML=[
   kpiHTML('Active Plans',String(active.length),'Normal active plans'),
-  kpiHTML('Needs Completion Review',String(review.length),'Verify against statement','amber'),
+  kpiHTML('Legacy Completion Review',String(review.length),'Older manually tracked plans','amber'),
   kpiHTML('Remaining Amount',money(remaining),'Active + review plans','amber'),
-  kpiHTML('Monthly Commitment',money(monthly),'Until completion is confirmed','red')
+  kpiHTML('Monthly Commitment',money(monthly),'Future installments only','red')
  ].join('');
 
  $('installBody').innerHTML=active.map(p=>{
@@ -46,9 +46,9 @@ function renderInstallments(){
  }).join('')||'<tr><td colspan="8">No installment plans waiting for completion review.</td></tr>';
 
  $('completedInstallBody').innerHTML=completed.map(p=>{
-  const a=account(p.cardId);
-  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${installmentLastPaymentDate(p,planCalc(p))}</td><td>${p.completedAt||'Confirmed'}</td><td><span class="badge completed">Completed</span></td><td><button class="btn small danger" type="button" data-delete-completed-plan="${p.id}">Delete</button></td></tr>`;
- }).join('')||'<tr><td colspan="9">No confirmed completed installment plans yet.</td></tr>';
+  const a=account(p.cardId),c=planCalc(p),autoBilled=c.completionReason==='fully-billed'&&!p.completedConfirmed;
+  return `<tr><td><b>${a?.bank||''} •${a?.ending||''}</b></td><td>${p.description}<div class="meta">${p.source||'Manual'}</div></td><td>${p.category}<div class="meta">${p.subcategory}</div></td><td>${money(p.fullAmount)}</td><td>${p.months} months</td><td>${installmentLastPaymentDate(p,c)}</td><td>${p.completedAt||(autoBilled?'Statement released':'Confirmed')}</td><td><span class="badge completed">Completed</span>${autoBilled?'<div class="meta">Fully billed; statement payment is tracked separately.</div>':''}</td><td><button class="btn small danger" type="button" data-delete-completed-plan="${p.id}">Delete</button></td></tr>`;
+ }).join('')||'<tr><td colspan="9">No completed installment plans yet.</td></tr>';
 
  document.querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.plan)));
  document.querySelectorAll('[data-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.deletePlan)));
