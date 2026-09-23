@@ -338,6 +338,70 @@ function importPreviewReviewRows(){
  return importPreviewRows.map((row,index)=>({row,index})).filter(x=>importPreviewNeedsReview(x.row));
 }
 
+function importReviewCategoryOptions(selected=''){
+ return '<option value="">Choose Category</option>'+Object.keys(categories).map(category=>
+  `<option value="${escapeHtml(category)}" ${category===selected?'selected':''}>${escapeHtml(category)}</option>`
+ ).join('');
+}
+function importReviewSubcategoryOptions(category,selected=''){
+ return '<option value="">Choose Subcategory</option>'+(categories[category]||[]).map(subcategory=>
+  `<option value="${escapeHtml(subcategory)}" ${subcategory===selected?'selected':''}>${escapeHtml(subcategory)}</option>`
+ ).join('');
+}
+function openImportBulkReview(focusIndex=null){
+ const rows=importPreviewReviewRows();
+ if(!rows.length){alert('All statement transactions are already classified.');return;}
+ $('importBulkReviewMeta').textContent=`${rows.length} transaction(s) need Category/Subcategory review.`;
+ $('importBulkReviewStatus').textContent='Review every row, then save all changes together.';
+ $('importBulkReviewBody').innerHTML=rows.map(({row,index},position)=>{
+  const category=categories[row.category]?row.category:'';
+  const subcategory=(categories[category]||[]).includes(row.subcategory)?row.subcategory:'';
+  return `<tr data-import-review-row="${index}" class="${index===focusIndex?'importBulkFocus':''}">
+   <td><b>${position+1}</b></td>
+   <td>${escapeHtml(row.date||'—')}</td>
+   <td><b>${escapeHtml(row.description||'—')}</b><div class="meta">${escapeHtml(accountName(row.account))}</div></td>
+   <td class="${Number(row.amount||0)<0?'red':'green'}"><b>${signed(Number(row.amount||0))}</b></td>
+   <td><select data-import-review-category="${index}">${importReviewCategoryOptions(category)}</select></td>
+   <td><select data-import-review-subcategory="${index}">${importReviewSubcategoryOptions(category,subcategory)}</select></td>
+  </tr>`;
+ }).join('');
+ $('importBulkReviewBody').querySelectorAll('[data-import-review-category]').forEach(select=>{
+  select.addEventListener('change',()=>{
+   const index=select.dataset.importReviewCategory;
+   const sub=$('importBulkReviewBody').querySelector(`[data-import-review-subcategory="${index}"]`);
+   if(sub)sub.innerHTML=importReviewSubcategoryOptions(select.value,'');
+  });
+ });
+ openModal('importBulkReviewModal');
+ if(focusIndex!==null)requestAnimationFrame(()=>$('importBulkReviewBody').querySelector(`[data-import-review-row="${focusIndex}"]`)?.scrollIntoView({block:'center'}));
+}
+function saveImportBulkReview(){
+ const rows=[...$('importBulkReviewBody').querySelectorAll('[data-import-review-row]')];
+ if(!rows.length)return;
+ const updates=[];
+ for(const tr of rows){
+  const index=Number(tr.dataset.importReviewRow);
+  const category=tr.querySelector('[data-import-review-category]')?.value||'';
+  const subcategory=tr.querySelector('[data-import-review-subcategory]')?.value||'';
+  if(!category||!categories[category]||!subcategory||!categories[category].includes(subcategory)){
+   tr.classList.add('importBulkInvalid');
+   $('importBulkReviewStatus').textContent='Choose a valid Category and Subcategory for every row.';
+   tr.scrollIntoView({block:'center'});
+   return;
+  }
+  tr.classList.remove('importBulkInvalid');
+  updates.push({index,category,subcategory});
+ }
+ updates.forEach(({index,category,subcategory})=>{
+  const row=importPreviewRows[index];
+  if(!row)return;
+  Object.assign(row,{category,subcategory,needsReview:false,categoryReviewed:true,previewEdited:true});
+ });
+ closeModal('importBulkReviewModal');
+ renderImportPreview();
+ importStatus(`${updates.length} transaction(s) reviewed. All classifications are ready for import.`,'success');
+}
+
 function updateImportPreviewEditCycle(){
  const accountId=$('importPreviewEditAccount')?.value||'';
  const date=$('importPreviewEditDate')?.value||'';
@@ -384,6 +448,9 @@ function deleteImportPreviewRow(index){
  renderImportPreview();
 }
 function bindImportPreviewActions(){
+ document.querySelectorAll('[data-review-import-preview]').forEach(b=>
+  b.addEventListener('click',()=>openImportBulkReview(Number(b.dataset.reviewImportPreview)))
+ );
  document.querySelectorAll('[data-edit-import-preview]').forEach(b=>
   b.addEventListener('click',()=>editImportPreviewRow(Number(b.dataset.editImportPreview)))
  );
@@ -476,7 +543,9 @@ function renderImportPreview(){
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
     <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn small ${reviewIndexes.has(index)?'primary':''}" type="button" data-edit-import-preview="${index}">${reviewIndexes.has(index)?'Review':'Edit'}</button>
+      ${reviewIndexes.has(index)
+       ?`<button class="btn small primary" type="button" data-review-import-preview="${index}">Review</button>`
+       :`<button class="btn small" type="button" data-edit-import-preview="${index}">Edit</button>`}
       <button class="btn small danger" type="button" data-delete-import-preview="${index}">Delete</button>
     </div></td>
    </tr>`).join('')
@@ -599,16 +668,14 @@ async function handleStatementFile(file){
 }
 $('statementFile').addEventListener('change',e=>{handleStatementFile(e.target.files?.[0]);e.target.value=''});
 $('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;renderImportPreview();$('importStatus').style.display='none'});
-$('reviewImportTransactions').addEventListener('click',()=>{
- const first=importPreviewReviewRows()[0];
- if(first)editImportPreviewRow(first.index);
-});
+$('reviewImportTransactions').addEventListener('click',()=>openImportBulkReview());
+$('saveImportBulkReview').addEventListener('click',saveImportBulkReview);
 $('confirmStatementImport').addEventListener('click',()=>{
  if(!importPreviewRows.length)return;
  const reviewRows=importPreviewReviewRows();
  if(reviewRows.length){
   alert(`${reviewRows.length} transaction(s) still need Category/Subcategory review before import.`);
-  editImportPreviewRow(reviewRows[0].index);
+  openImportBulkReview(reviewRows[0].index);
   return;
  }
  const activeImported=importedTransactions.filter(t=>!transactionActions[t._id]?.status);

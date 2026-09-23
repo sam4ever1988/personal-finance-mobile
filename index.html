@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V308 Statement Import Review</title>
+<title>Personal Finance • V309 Bulk Statement Review</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-<link rel="stylesheet" href="styles.css?v=308">
-<!-- V308 statement import totals and required category review: 2026-09-23 -->
+<link rel="stylesheet" href="styles.css?v=309">
+<!-- V309 bulk statement transaction review: 2026-09-23 -->
 </head>
 <body class="execMode financeAccessLocked">
 <div id="financeAccessGate" class="financeAccessGate" role="dialog" aria-modal="false" aria-labelledby="financeGateTitle">
@@ -354,7 +354,7 @@
   <div class="cloudHeroState"><span class="cloudLiveDot"></span><span>REALTIME CLOUD</span></div>
  </div>
  <div class="cloudStatusCard">
-  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V308</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
+  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V309</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
   <div id="cloudLoggedOut" class="cloudLogin">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="cloudPrimaryBtn" id="cloudSendLink" type="button">Send Secure Login Link</button>
@@ -631,6 +631,16 @@
 </div></div>
 
 
+<div class="modalBack" id="importBulkReviewModal"><div class="modal importBulkReviewModal">
+ <div class="modalHead">
+  <div><div class="modalTitle">Review Statement Transactions</div><div class="meta" id="importBulkReviewMeta">Classify every unresolved transaction, then save them together.</div></div>
+  <button class="closeBtn" type="button" data-close="importBulkReviewModal">✕</button>
+ </div>
+ <div class="importBulkReviewNotice">All transactions requiring review are listed below. Confirm or change each Category and Subcategory. Nothing is imported until this review is saved.</div>
+ <div class="importBulkReviewTableWrap"><table class="txTable importBulkReviewTable"><thead><tr><th>#</th><th>Date</th><th>Transaction</th><th>Amount</th><th>Category</th><th>Subcategory</th></tr></thead><tbody id="importBulkReviewBody"></tbody></table></div>
+ <div class="importBulkReviewFooter"><span class="meta" id="importBulkReviewStatus"></span><div><button type="button" class="btn" data-close="importBulkReviewModal">Cancel</button><button type="button" class="btn primary" id="saveImportBulkReview">Save All Reviewed Transactions</button></div></div>
+</div></div>
+
 <div class="modalBack" id="importPreviewEditModal"><div class="modal">
  <div class="modalHead">
   <div>
@@ -781,13 +791,13 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=308');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=309');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
     if(bad>=0)throw new Error('Failed to load '+files[bad]+' ('+responses[bad].status+')');
     const parts=await Promise.all(responses.map(r=>r.text()));
-    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v308.js'],{type:'text/javascript'});
+    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v309.js'],{type:'text/javascript'});
     const url=URL.createObjectURL(blob);
     const s=document.createElement('script');
     s.src=url;
