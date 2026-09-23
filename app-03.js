@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v2.99</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v2.99');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.01</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.01');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -341,7 +341,9 @@ function cardCurrentBalance(a){
  return Number(a.balance||0);
 }
 function planMonthly(p){
- const base=Math.floor((p.fullAmount/p.months)*100)/100;
+ // Use normal currency rounding for the recurring amount and place only the
+ // unavoidable rounding remainder in the final installment.
+ const base=Math.round((p.fullAmount/p.months)*100)/100;
  const arr=Array(p.months).fill(base);
  arr[arr.length-1]=Math.round((p.fullAmount-base*(p.months-1))*100)/100;
  return arr;
@@ -364,7 +366,10 @@ function installmentPaidThroughReleasedStatement(p){
  for(let i=0;i<Math.max(0,Number(p.months||0));i++){
   const idx=start+i, y=Math.floor(idx/12), m=(idx%12)+1;
   const ym=`${y}-${String(m).padStart(2,'0')}`;
-  if(cardCycleHasStatement(p.cardId,ym) && cardCycleFullyPaid(p.cardId,ym)) paidThrough=i+1;
+  // An installment leaves the future reserve as soon as its card statement is
+  // genuinely released. Paying that statement is a separate event which later
+  // restores available credit; it must not control the installment schedule.
+  if(cardCycleHasStatement(p.cardId,ym)) paidThrough=i+1;
   else break;
  }
  return paidThrough;
@@ -388,10 +393,9 @@ function planCalc(p){
  const basePaid=Math.min(Math.max(Number(p.paidInstallments||0),0),p.months);
  const autoElapsed=elapsedMonths(installmentReferenceMonth(p));
  const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
- // V272: calendar passage alone does NOT mean an installment was paid.
- // Only explicitly recorded paid installments or a released statement cycle that
- // is fully settled may advance the plan. This prevents one-month purchases from
- // being shown as paid/completed merely because their scheduled month has passed.
+ // Calendar passage alone does NOT advance an installment. A released statement
+ // does: that month's installment has moved from future reserve into the released
+ // statement balance. Statement payment remains tracked independently.
  const scheduledPaid=Math.min(p.months,Math.max(basePaid,releasedStatementPaid));
  const scheduledRemainingCount=Math.max(p.months-scheduledPaid,0);
  let scheduledRemaining=schedule.slice(scheduledPaid).reduce((sum,v)=>sum+v,0);
@@ -399,12 +403,11 @@ function planCalc(p){
  scheduledRemaining=Math.max(0,Math.round(scheduledRemaining*100)/100);
  const completionCandidate=(scheduledRemainingCount===0||scheduledRemaining<=0.005);
  const confirmedCompleted=!!p.completedConfirmed;
- const status=confirmedCompleted?'Completed':completionCandidate?'Review':'Active';
+ const status=(confirmedCompleted||completionCandidate)?'Completed':'Active';
  let calcPaid=scheduledPaid,remaining=scheduledRemaining,remainingCount=scheduledRemainingCount;
  let monthly=status==='Active'?(schedule[Math.min(scheduledPaid,p.months-1)]||0):0;
- if(status==='Review'){calcPaid=Math.max(0,p.months-1);remainingCount=1;remaining=schedule[p.months-1]||0;monthly=remaining;}
  if(status==='Completed'){calcPaid=p.months;remainingCount=0;remaining=0;monthly=0;}
- return {schedule,paid:calcPaid,scheduledPaid,basePaid,autoElapsed,releasedStatementPaid,remaining,scheduledRemaining,monthly,remainingCount,scheduledRemainingCount,status,completionCandidate};
+ return {schedule,paid:calcPaid,scheduledPaid,basePaid,autoElapsed,releasedStatementPaid,remaining,scheduledRemaining,monthly,remainingCount,scheduledRemainingCount,status,completionCandidate,completionReason:status==='Completed'?(confirmedCompleted?'confirmed':'fully-billed'):''};
 }
 function reconcileRemainingPrincipalPlans(){
  const nowMonth=currentYearMonth();
@@ -432,7 +435,7 @@ function reconcileRemainingPrincipalPlans(){
 }
 
 function activeInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&['Active','Review'].includes(planCalc(p).status));}
-function completedInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&p.completedConfirmed===true);}
+function completedInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&planCalc(p).status==='Completed');}
 function cardInstallmentRemaining(cardId){return activeInstallmentPlans(cardId).reduce((sum,p)=>sum+planCalc(p).remaining,0)}
 function linkedActiveInstallment(txId){
  return installments.find(p=>p.linkedTransactionId===txId && !p.completedConfirmed && ['Active','Review'].includes(planCalc(p).status))||null;
