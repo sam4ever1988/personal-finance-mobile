@@ -1153,17 +1153,17 @@ function parseImportDate(v){
 }
 function guessImportedCategory(desc){
  const d=String(desc||'').toLowerCase();
- if(/advance payment|top[- ]?up|payment received|card payment/.test(d))return ['Financial Obligations','Credit Card Payments','transfer'];
- if(/loan|installment deduction/.test(d))return ['Financial Obligations','Loan Payments','obligation'];
- if(/netflix|streaming/.test(d))return ['Lifestyle & Entertainment','Streaming Services','expense'];
- if(/stc|mobily|globe|internet|phone/.test(d))return ['Housing & Utilities','Internet & Phone','expense'];
- if(/tamimi|othaim|danube|supermarket|grocery|market/.test(d))return ['Food & Groceries','Supermarket Purchases','expense'];
- if(/dunkin|coffee|starbucks|half million/.test(d))return ['Food & Groceries','Coffee / Snacks','expense'];
- if(/restaurant|mcdonald|hunger|keeta|food|shrimp/.test(d))return ['Food & Groceries','Dining Out / Takeaway','expense'];
- if(/jeeny|bolt|uber|careem/.test(d))return ['Transportation','Public Transport','expense'];
- if(/aldrees|fuel|petrol/.test(d))return ['Transportation','Fuel','expense'];
- if(/sadad|electric/.test(d))return ['Housing & Utilities','Electricity','expense'];
- return ['Miscellaneous','Unexpected Expenses','expense']
+ if(/advance payment|top[- ]?up|payment received|card payment/.test(d))return ['Financial Obligations','Credit Card Payments','transfer',false];
+ if(/loan|installment deduction/.test(d))return ['Financial Obligations','Loan Payments','obligation',false];
+ if(/netflix|streaming/.test(d))return ['Lifestyle & Entertainment','Streaming Services','expense',false];
+ if(/stc|mobily|globe|internet|phone/.test(d))return ['Housing & Utilities','Internet & Phone','expense',false];
+ if(/tamimi|othaim|danube|supermarket|grocery|market/.test(d))return ['Food & Groceries','Supermarket Purchases','expense',false];
+ if(/dunkin|coffee|starbucks|half million/.test(d))return ['Food & Groceries','Coffee / Snacks','expense',false];
+ if(/restaurant|mcdonald|hunger|keeta|food|shrimp/.test(d))return ['Food & Groceries','Dining Out / Takeaway','expense',false];
+ if(/jeeny|bolt|uber|careem/.test(d))return ['Transportation','Public Transport','expense',false];
+ if(/aldrees|fuel|petrol/.test(d))return ['Transportation','Fuel','expense',false];
+ if(/sadad|electric/.test(d))return ['Housing & Utilities','Electricity','expense',false];
+ return ['Miscellaneous','Unexpected Expenses','expense',true]
 }
 function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  const low={};Object.keys(raw||{}).forEach(k=>low[k.toLowerCase().trim()]=raw[k]);
@@ -1176,12 +1176,12 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  const debit=Number(String(pick('debit','withdrawal','debit amount')).replace(/[,\s]/g,'')),credit=Number(String(pick('credit','deposit','credit amount')).replace(/[,\s]/g,''));
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
- const [category,subcategory,kind]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
+ const [category,subcategory,kind,needsReview]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
  const physicalCardEnding=
   String(raw?.['Physical Card Ending']||raw?.physicalCardEnding||'').replace(/\D/g,'') ||
   detectPhysicalCardEndingFromRaw(raw,accountId) ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
@@ -1417,7 +1417,7 @@ function parsePdfLineHeuristic(line,accountId,forcedStatementMonth='',physicalCa
   .replace(/\s+/g,' ').trim();
  if(description.length<3)return null;
 
- const [category,subcategory,kind]=guessImportedCategory(description);
+ const [category,subcategory,kind,needsReview]=guessImportedCategory(description);
  if(kind==='expense'&&mark!=='CR')amount=-Math.abs(amount);
  if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
 
@@ -1433,6 +1433,8 @@ function parsePdfLineHeuristic(line,accountId,forcedStatementMonth='',physicalCa
   category,
   subcategory,
   kind,
+  needsReview,
+  categoryReviewed:!needsReview,
   currency:'SAR',
   original:null,
   manual:false,

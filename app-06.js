@@ -325,6 +325,19 @@ function importPreviewTypeFromRow(row){
  return Number(row?.amount||0)>=0?'income':'expense';
 }
 
+function importPreviewNeedsReview(row){
+ if(!row)return true;
+ if(row.needsReview===true && row.categoryReviewed!==true)return true;
+ const category=String(row.category||'').trim();
+ const subcategory=String(row.subcategory||'').trim();
+ if(!category||!categories[category]||!subcategory)return true;
+ return !categories[category].includes(subcategory);
+}
+
+function importPreviewReviewRows(){
+ return importPreviewRows.map((row,index)=>({row,index})).filter(x=>importPreviewNeedsReview(x.row));
+}
+
 function updateImportPreviewEditCycle(){
  const accountId=$('importPreviewEditAccount')?.value||'';
  const date=$('importPreviewEditDate')?.value||'';
@@ -402,7 +415,7 @@ $('importPreviewEditForm').addEventListener('submit',e=>{
  const category=$('importPreviewEditCategory').value;
  const subcategory=$('importPreviewEditSubcategory').value;
 
- if(!accountId||!date||!description||!Number.isFinite(absAmount)||absAmount<=0||!category){
+ if(!accountId||!date||!description||!Number.isFinite(absAmount)||absAmount<=0||!category||!subcategory){
   alert('Please complete all required transaction fields.');
   return;
  }
@@ -424,7 +437,9 @@ $('importPreviewEditForm').addEventListener('submit',e=>{
   kind:type,
   paymentMonth,
   statementMonth:paymentMonth,
-  previewEdited:true
+  previewEdited:true,
+  needsReview:false,
+  categoryReviewed:true
  });
 
  // Keep the selected card in the main import selector aligned when the user
@@ -439,26 +454,37 @@ $('importPreviewEditForm').addEventListener('submit',e=>{
 
 
 function renderImportPreview(){
- $('importPreviewMeta').textContent=importPreviewRows.length
-  ?`${importPreviewRows.length} transaction(s) found in ${importPreviewFileName}. Review, edit or delete any incorrect rows before importing. Edit opens the full transaction form with Category and Subcategory dropdowns.`
+ const reviewRows=importPreviewReviewRows();
+ const reviewIndexes=new Set(reviewRows.map(x=>x.index));
+ const total=importPreviewRows.length;
+ const ready=total-reviewRows.length;
+ $('importPreviewTotal').textContent=String(total);
+ $('importPreviewReady').textContent=String(ready);
+ $('importPreviewReview').textContent=String(reviewRows.length);
+ const reviewButton=$('reviewImportTransactions');
+ reviewButton.hidden=!reviewRows.length;
+ reviewButton.textContent=reviewRows.length?`Review Transactions (${reviewRows.length})`:'Review Transactions';
+ $('importPreviewMeta').textContent=total
+  ?`${total} transaction(s) found in ${importPreviewFileName}. ${reviewRows.length?`${reviewRows.length} must be reviewed because Category or Subcategory was not recognized.`:'All transactions are classified and ready to import.'}`
   :'Choose a statement to begin.';
 
- $('importPreviewBody').innerHTML=importPreviewRows.length
-  ?importPreviewRows.slice(0,300).map((t,index)=>`<tr>
+ $('importPreviewBody').innerHTML=total
+  ?importPreviewRows.slice(0,300).map((t,index)=>`<tr class="${reviewIndexes.has(index)?'importNeedsReview':''}">
     <td>${t.date}${t.previewEdited?'<div class="meta green">Edited</div>':''}</td>
     <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}${account(t.account)?.type==='card'?` • ${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}`:''}</div></td>
-    <td>${t.category}<div class="meta">${t.subcategory}</div></td>
+    <td>${t.category||'—'}<div class="meta">${t.subcategory||'—'}</div>${reviewIndexes.has(index)?'<span class="importReviewBadge">Needs Review</span>':'<span class="importReadyBadge">Ready</span>'}</td>
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
     <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn small" type="button" data-edit-import-preview="${index}">Edit</button>
+      <button class="btn small ${reviewIndexes.has(index)?'primary':''}" type="button" data-edit-import-preview="${index}">${reviewIndexes.has(index)?'Review':'Edit'}</button>
       <button class="btn small danger" type="button" data-delete-import-preview="${index}">Delete</button>
     </div></td>
    </tr>`).join('')
   :'<tr><td colspan="6">No statement loaded.</td></tr>';
 
- $('confirmStatementImport').disabled=!importPreviewRows.length;
- $('clearImportPreview').disabled=!importPreviewRows.length;
+ $('confirmStatementImport').disabled=!total||reviewRows.length>0;
+ $('confirmStatementImport').title=reviewRows.length?'Review all unknown categories and subcategories before importing.':'';
+ $('clearImportPreview').disabled=!total;
  bindImportPreviewActions();
 }
 function importBatchReconciliation(index){
@@ -573,8 +599,18 @@ async function handleStatementFile(file){
 }
 $('statementFile').addEventListener('change',e=>{handleStatementFile(e.target.files?.[0]);e.target.value=''});
 $('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;renderImportPreview();$('importStatus').style.display='none'});
+$('reviewImportTransactions').addEventListener('click',()=>{
+ const first=importPreviewReviewRows()[0];
+ if(first)editImportPreviewRow(first.index);
+});
 $('confirmStatementImport').addEventListener('click',()=>{
  if(!importPreviewRows.length)return;
+ const reviewRows=importPreviewReviewRows();
+ if(reviewRows.length){
+  alert(`${reviewRows.length} transaction(s) still need Category/Subcategory review before import.`);
+  editImportPreviewRow(reviewRows[0].index);
+  return;
+ }
  const activeImported=importedTransactions.filter(t=>!transactionActions[t._id]?.status);
  const existing=[...activeImported,...manualTransactions];
  const result=splitFreshStatementRows(importPreviewRows,existing);

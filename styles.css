@@ -199,6 +199,15 @@ button{cursor:pointer}
 .importStatus{padding:11px 12px;border-radius:10px;font-size:11px;margin-top:10px}
 .importStatus.info{background:#eef4fb;color:#345b7e}.importStatus.success{background:#e9f7f3;color:#087d68}.importStatus.error{background:#fdecec;color:#b83232}
 .importPreview{max-height:430px;overflow:auto}
+.importPreviewSummary{display:grid;grid-template-columns:repeat(3,minmax(0,180px));gap:10px;margin:14px 0 12px}
+.importPreviewSummary>div{padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--soft)}
+.importPreviewSummary span,.importPreviewSummary b{display:block}.importPreviewSummary span{font-size:10px;color:var(--muted);font-weight:800}.importPreviewSummary b{margin-top:4px;font-size:21px}
+.importPreviewSummary .ready{border-color:#1d8a70;background:rgba(17,169,136,.1)}.importPreviewSummary .ready b{color:#24d4a7}
+.importPreviewSummary .review{border-color:#a87418;background:rgba(196,139,29,.12)}.importPreviewSummary .review b{color:#f0b43c}
+.importNeedsReview td{background:rgba(196,139,29,.09)!important}.importReviewBadge,.importReadyBadge{display:inline-flex;margin-top:5px;padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900}
+.importReviewBadge{background:#5a4218;color:#ffd36a;border:1px solid #9e7928}.importReadyBadge{background:#073f36;color:#53e2b2;border:1px solid #16775f}
+.reviewImportBtn{border-color:#b28327!important;background:#503b16!important;color:#ffda7d!important;font-weight:900!important}
+@media(max-width:650px){.importPreviewSummary{grid-template-columns:repeat(3,minmax(0,1fr))}.importPreviewSummary>div{padding:9px}.importPreviewSummary b{font-size:18px}.importPreviewSummary span{font-size:9px}}
 
 .bankLogoBox{width:96px;height:54px;display:flex;align-items:center;justify-content:center;overflow:hidden;width:82px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;border:1px solid #e5e9ef;padding:4px;flex:0 0 auto}.bankLogoBox img{max-width:100%;max-height:100%;object-fit:contain}.bankLogoFallback{font-size:10px;font-weight:900;text-align:center;color:#27364b}
 .payPlanner{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.payCard{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:14px;min-width:0}.payCard[data-open-payment-account]{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}.payCard[data-open-payment-account]:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.08)}.payCard[data-open-payment-account]:focus-visible{outline:3px solid rgba(16,185,129,.25);outline-offset:2px}.payCard .amount{font-size:22px;font-weight:950;margin-top:6px}.payCard.pending .amount{font-size:16px;color:var(--muted)}
