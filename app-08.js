@@ -94,7 +94,9 @@ function initializeSortableTables(root=document){
 
 function scheduleSortableTableRefresh(){
  clearTimeout(tableSortRefreshTimer);
- tableSortRefreshTimer=setTimeout(()=>initializeSortableTables(document),30);
+ // Restore saved row order before the browser's next paint so refreshed
+ // installment and transaction tables do not visibly jump.
+ tableSortRefreshTimer=setTimeout(()=>initializeSortableTables(document),0);
 }
 
 // Tables are rebuilt by many render functions and by realtime sync.

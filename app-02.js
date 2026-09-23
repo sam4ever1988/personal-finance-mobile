@@ -1463,9 +1463,21 @@ function ledgerRowsForCardCycle(cardId,month){
 function rebuildPlannerPaymentHistoryFromLedger(p){
  if(!p)return p;
  const rows=ledgerRowsForCardCycle(p.accountId,p.month);
- if(!rows.length)return p;
+ const reversedLedgerKeys=new Set();
+ (cashFlowLedger||[]).filter(x=>x.type==='card-payment'&&x.status==='reversed').forEach(x=>{
+  if(x.id)reversedLedgerKeys.add(String(x.id));
+  if(x.referenceId)reversedLedgerKeys.add(String(x.referenceId));
+ });
 
- const existing=Array.isArray(p.paymentHistory)?p.paymentHistory:[];
+ // A reversed ledger payment must never survive as an active planner payment.
+ // Older builds could leave the planner history behind after reversing the
+ // durable ledger row, which made the card look paid and still affected the
+ // source account even though the payment no longer existed.
+ const existing=(Array.isArray(p.paymentHistory)?p.paymentHistory:[]).filter(h=>{
+  const ledgerId=String(h.ledgerId||'');
+  const reference=String(h.ledgerReferenceId||h.referenceId||'');
+  return !(ledgerId&&reversedLedgerKeys.has(ledgerId)) && !(reference&&reversedLedgerKeys.has(reference));
+ });
  const merged=[...existing];
 
  rows.forEach((x,i)=>{
@@ -1495,9 +1507,7 @@ function rebuildPlannerPaymentHistoryFromLedger(p){
  });
 
  p.paymentHistory=merged;
- p.paidAmount=Math.round(
-  rows.reduce((s,x)=>s+Math.max(0,Number(x.amount||0)),0)*100
- )/100;
+ recomputePlanPaidAmountFromHistory(p);
 
  return p;
 }

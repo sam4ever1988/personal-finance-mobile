@@ -869,11 +869,13 @@ function renderCreditCardAllocations(){
  const box=$('creditCardAllocations');if(!box)return;
  box.innerHTML=accounts.filter(a=>a.type==='card').map(a=>{
   const p=findBestPaymentPlanForCard(a.id),remaining=p?paymentRemainingAmount(p):null;
+  const paidAmount=p?paymentPaidAmount(p):0;
   const amount=Number.isFinite(remaining)?money(remaining):'Awaiting statement';
   const paid=Number.isFinite(remaining)&&remaining<=0.005;
-  return `<div class="allocationRow"><div style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<div><b>${a.bank} ${a.name} •${a.ending}</b><div class="meta">${p?.due?`Current payment due ${paymentFormatDate(p.due)}`:'Current-month statement not released'}</div></div></div><div class="currentCardPayment"><span>Remaining to pay this month</span><b>${amount}</b><div id="obligation_${a.id}" class="meta"></div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><button class="btn primary" type="button" data-income-pay="${a.id}" ${!p||paid?'disabled':''}>${paid?'Paid':'Pay Now'}</button></div></div>`;
+  return `<div class="allocationRow"><div style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<div><b>${a.bank} ${a.name} •${a.ending}</b><div class="meta">${p?.due?`Current payment due ${paymentFormatDate(p.due)}`:'Current-month statement not released'}</div></div></div><div class="currentCardPayment"><span>Remaining payment</span><b>${amount}</b><div id="obligation_${a.id}" class="meta"></div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><button class="btn primary" type="button" data-income-pay="${a.id}" ${!p||paid?'disabled':''}>${paid?'Paid':'Pay Now'}</button>${p&&paidAmount>0.005?`<button class="btn danger" type="button" data-income-undo="${p.id}">Undo Payment</button>`:''}</div></div>`;
  }).join('');
  document.querySelectorAll('[data-income-pay]').forEach(b=>b.addEventListener('click',()=>openIncomePlanPayment(b.dataset.incomePay)));
+ document.querySelectorAll('[data-income-undo]').forEach(b=>b.addEventListener('click',()=>undoLastPartialPayment(b.dataset.incomeUndo)));
 }
 
 function incomeMonthKey(dateValue=new Date()){

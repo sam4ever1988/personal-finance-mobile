@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.02</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.02');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.03</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.03');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -357,6 +357,17 @@ function elapsedMonths(fromMonth,toMonth=currentYearMonth()){
  const a=monthIndex(fromMonth),b=monthIndex(toMonth);return a===null||b===null?0:Math.max(0,b-a);
 }
 function installmentReferenceMonth(p){return p.referenceMonth||'2026-08';}
+function cardCycleHasRecordedPayment(cardId,month){
+ return cardPaymentPlan.some(row=>
+  row.accountId===cardId &&
+  row.month===month &&
+  !row.upcomingOnly &&
+  (
+   Number(paymentPaidAmount(row)||0)>0.005 ||
+   (Array.isArray(row.paymentHistory)&&row.paymentHistory.some(h=>!h.mirrored&&Number(h.amount||0)>0.005))
+  )
+ );
+}
 function installmentPaidThroughReleasedStatement(p){
  if(!p||p.completedConfirmed)return 0;
  const ref=installmentReferenceMonth(p);
@@ -369,7 +380,8 @@ function installmentPaidThroughReleasedStatement(p){
   // An installment leaves the future reserve as soon as its card statement is
   // genuinely released. Paying that statement is a separate event which later
   // restores available credit; it must not control the installment schedule.
-  if(cardCycleHasStatement(p.cardId,ym)) paidThrough=i+1;
+  const onePaymentPlan=Number((p.remainingMonthsOverride??p.months)||0)===1;
+  if(cardCycleHasStatement(p.cardId,ym)||(onePaymentPlan&&cardCycleHasRecordedPayment(p.cardId,ym))) paidThrough=i+1;
   else break;
  }
  return paidThrough;

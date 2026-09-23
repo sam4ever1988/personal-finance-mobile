@@ -540,7 +540,10 @@ function cardPaymentSourceDisplay(p){
   .map(x=>({amount:x.amount,date:x.date,recordedAt:x.recordedAt,sourceId:x.sourceId,sourceName:x.sourceName,ledgerId:x.id}));
  const seen=new Set();
  const history=[...directHistory,...ledgerHistory].filter(h=>{
-  const key=h.ledgerId||`${h.sourceId||''}|${h.date||h.recordedAt||''}|${Number(h.amount||0).toFixed(2)}`;
+  // Legacy planner history and its durable ledger row describe one payment.
+  // Use the financial identity rather than the later-added ledger ID so the
+  // same payment is not displayed twice.
+  const key=`${h.sourceId||''}|${h.date||String(h.recordedAt||'').slice(0,10)}|${Number(h.amount||0).toFixed(2)}`;
   if(seen.has(key))return false;
   seen.add(key);
   return true;
