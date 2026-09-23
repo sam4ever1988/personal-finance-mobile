@@ -46,7 +46,7 @@ window.rentalOpenDay=function(date){
  var booking=rentalBookings.find(b=>date>=b.checkin&&date<b.checkout);
  if(booking){rentalOpenBooking(date);return}
  var block=rentalBlocks.find(b=>b.date===date);
- rentalModal("Manage availability",'<div class="field"><label>Start Date</label><input name="startDate" type="date" required value="'+date+'"></div><div class="field"><label>End Date</label><input name="endDate" type="date" required value="'+date+'"></div><div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+String(block?.note||'').replace(/"/g,"&quot;")+'" placeholder="Optional reason for the selected date range"></div>',fd=>{
+ rentalModal("Manage availability",'<div class="field"><label>Start Date</label><input name="startDate" type="date" required value="'+date+'"></div><div class="field"><label>End Date</label><input name="endDate" type="date" required value="'+date+'"></div><div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Create Booking</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+String(block?.note||'').replace(/"/g,"&quot;")+'" placeholder="Optional reason for the selected date range"></div>',fd=>{
   var start=String(fd.get("startDate")||date),end=String(fd.get("endDate")||start),status=fd.get("status"),note=fd.get("note");
   if(end<start){alert("End Date must be the same as or after Start Date.");return false}
   var dates=rentalDatesInRange(start,end);
@@ -54,6 +54,7 @@ window.rentalOpenDay=function(date){
   if(status!=="available"&&conflicts.length){alert("This range overlaps an existing booking. Change the dates or edit the booking first.");return false}
   var selected=new Set(dates);rentalBlocks=rentalBlocks.filter(b=>!selected.has(b.date));
   if(status!=="available")dates.forEach(x=>rentalBlocks.push({date:x,status,note,rangeStart:start,rangeEnd:end}));
+  else if(start===end&&!block)setTimeout(()=>rentalOpenBooking(start),0);
  });
 }
 function rentalModal(title,fields,onSave){
