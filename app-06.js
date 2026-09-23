@@ -841,25 +841,17 @@ function renderCreditCardCalendar(){
 }
 
 function findBestPaymentPlanForCard(cardId){
- const selected=$('paymentMonth')?.value||plannerDefaultMonth();
- ensureMonthlyPlannerRows(selected);
- const selectedRow=cardPaymentPlan.find(p=>p.accountId===cardId && p.month===selected && !p.paid && !p.upcomingOnly);
- if(selectedRow)return selectedRow;
- return cardPaymentPlan
-  .filter(p=>p.accountId===cardId && !p.paid)
-  .sort((a,b)=>String(a.due||'9999-99-99').localeCompare(String(b.due||'9999-99-99')))[0]||null;
+ const month=currentIncomeMonth();
+ ensureMonthlyPlannerRows(month);
+ const rows=cardPaymentPlan
+  .filter(p=>p.accountId===cardId&&!p.upcomingOnly&&(p.month===month||String(p.due||'').slice(0,7)===month))
+  .sort((a,b)=>releasedPaymentRowPriority(b)-releasedPaymentRowPriority(a));
+ return rows[0]||null;
 }
 function openIncomePlanPayment(cardId){
- const input=$('alloc_'+cardId);
- const amount=Number(input?.value||0);
- if(!Number.isFinite(amount)||amount<=0){
-  alert('Enter the amount you want to pay first.');
-  input?.focus();
-  return;
- }
  const p=findBestPaymentPlanForCard(cardId);
  if(!p){
-  alert('No open payment-plan record was found for this card. Add or edit the card payment plan first.');
+  alert('No current-month payment was found for this card. Add or release the current statement first.');
   return;
  }
  const remaining=paymentRemainingAmount(p);
@@ -867,22 +859,20 @@ function openIncomePlanPayment(cardId){
   alert('Set the card payment amount first in Card Payment Planner.');
   return;
  }
- if(amount>remaining+0.005){
-  alert(`The entered payment ${money(amount)} is greater than the remaining card payment ${money(remaining)}.`);
-  return;
- }
+ if(remaining<=0.005){alert('This month\'s card payment is already fully paid.');return;}
  openRecordPayment(p.id);
- $('paymentAmountInput').value=amount.toFixed(2);
+ $('paymentAmountInput').value=remaining.toFixed(2);
  updatePaymentSourcePreview();
  $('paymentSourceModal').dataset.incomeCardId=cardId;
 }
 function renderCreditCardAllocations(){
  const box=$('creditCardAllocations');if(!box)return;
  box.innerHTML=accounts.filter(a=>a.type==='card').map(a=>{
-  const due=cardNextDueInfo(a);
-  return `<div class="allocationRow"><div style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<div><b>${a.bank} ${a.name} •${a.ending}</b><div class="meta">Next due ${due.label}</div></div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><input class="control cardAllocInput" type="number" min="0" step="0.01" id="alloc_${a.id}" data-card-allocation="${a.id}" placeholder="Payment"><button class="btn primary" type="button" data-income-pay="${a.id}">Paid</button></div><div id="obligation_${a.id}" class="meta"></div></div>`;
+  const p=findBestPaymentPlanForCard(a.id),remaining=p?paymentRemainingAmount(p):null;
+  const amount=Number.isFinite(remaining)?money(remaining):'Awaiting statement';
+  const paid=Number.isFinite(remaining)&&remaining<=0.005;
+  return `<div class="allocationRow"><div style="display:flex;align-items:center;gap:10px">${bankLogoHTML(a)}<div><b>${a.bank} ${a.name} •${a.ending}</b><div class="meta">${p?.due?`Current payment due ${paymentFormatDate(p.due)}`:'Current-month statement not released'}</div></div></div><div class="currentCardPayment"><span>Remaining to pay this month</span><b>${amount}</b><div id="obligation_${a.id}" class="meta"></div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><button class="btn primary" type="button" data-income-pay="${a.id}" ${!p||paid?'disabled':''}>${paid?'Paid':'Pay Now'}</button></div></div>`;
  }).join('');
- document.querySelectorAll('[data-card-allocation]').forEach(el=>el.addEventListener('input',updateIncomePlanPreview));
  document.querySelectorAll('[data-income-pay]').forEach(b=>b.addEventListener('click',()=>openIncomePlanPayment(b.dataset.incomePay)));
 }
 
@@ -1222,15 +1212,14 @@ function updateIncomePlanPreview(){
  document.querySelectorAll('[data-delete-cash-ledger]').forEach(b=>b.onclick=()=>deleteCashFlowLedgerEntry(b.dataset.deleteCashLedger));
 
  accounts.filter(a=>a.type==='card').forEach(a=>{
-  const m=cardMetrics(a),el=$('obligation_'+a.id);
+  const el=$('obligation_'+a.id);
   if(!el)return;
-  const dueRow=cardPaymentPlan.filter(p=>p.accountId===a.id&&!p.paid&&Number.isFinite(Number(plannerAmountForRow(p)))).sort((x,y)=>String(x.due||'').localeCompare(String(y.due||'')))[0];
-  const planned=dueRow?paymentRemainingAmount(dueRow):null;
-  let txt='Current obligation (excluding reserved installments): '+money(m.current);
-  if(Number.isFinite(planned))txt+=` • Next planned payment remaining: ${money(planned)}`;
-  el.textContent=txt;
+  const current=findBestPaymentPlanForCard(a.id),remaining=current?paymentRemainingAmount(current):null;
+  el.textContent=Number.isFinite(remaining)
+   ? `Current-month payment only • ${money(remaining)} remaining`
+   : 'No released current-month payment yet';
  });
- const allocated=Object.values(incomePlan.allocations||{}).reduce((sum,v)=>sum+Number(v||0),0);
+ const allocated=0;
  // afterPreview already subtracts all card payments funded from Monthly Planned Income.
  // Do not subtract them a second time here.
  const unallocated=afterPreview-allocated;

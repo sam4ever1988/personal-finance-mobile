@@ -529,6 +529,33 @@ if(!window.__transactionSelectionDelegated){
  },true);
 }
 
+function cardPaymentSourceDisplay(p){
+ const directHistory=(Array.isArray(p?.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored&&Number(h.amount||0)>0);
+ const ledgerHistory=(cashFlowLedger||[])
+  .filter(x=>x.type==='card-payment'&&x.status!=='reversed'&&x.targetId===p?.accountId&&(
+   String(x.referenceId||'').startsWith(`payment:${p?.id}:`) ||
+   (x.targetPaymentMonth&&x.targetPaymentMonth===p?.month) ||
+   (!x.targetPaymentMonth&&x.month===p?.month)
+  ))
+  .map(x=>({amount:x.amount,date:x.date,recordedAt:x.recordedAt,sourceId:x.sourceId,sourceName:x.sourceName,ledgerId:x.id}));
+ const seen=new Set();
+ const history=[...directHistory,...ledgerHistory].filter(h=>{
+  const key=h.ledgerId||`${h.sourceId||''}|${h.date||h.recordedAt||''}|${Number(h.amount||0).toFixed(2)}`;
+  if(seen.has(key))return false;
+  seen.add(key);
+  return true;
+ });
+ if(!history.length){
+  return Number(paymentPaidAmount(p)||0)>0
+   ? '<span class="meta amber">Source not recorded in this historical payment</span>'
+   : '<span class="meta">—</span>';
+ }
+ return history.slice().reverse().map(h=>{
+  const source=h.sourceName||(h.sourceId==='cash-source'?'Monthly Planned Income':accountName(h.sourceId))||'Source not recorded';
+  return `<div class="cashPaymentSource"><b>${escapeHtml(source)}</b><span>${money(Number(h.amount||0))}${h.date?` • ${paymentFormatDate(h.date)}`:''}</span></div>`;
+ }).join('');
+}
+
 function renderAccounts(){
  const grid=$('accountsGrid');if(grid){grid.innerHTML=accounts.map(accountCardHTML).join('');bindAccountCards();}
  const cards=accounts.filter(a=>a.type==='card'),banks=accounts.filter(a=>a.type==='bank');
@@ -559,7 +586,7 @@ function renderAccounts(){
  if($('cashUtilLegend'))$('cashUtilLegend').innerHTML=`<div class="cashLegendRow"><span>Credit limit</span><b>${money(totalLimit)}</b></div><div class="cashLegendRow"><span>Utilized / reserved</span><b>${money(utilized)}</b></div><div class="cashLegendRow"><span>Available</span><b style="color:#38e0a4">${money(available)}</b></div>`;
  if($('cashCards'))$('cashCards').innerHTML=metrics.length?metrics.map(({a,m})=>`<div class="cashCard" data-cash-account="${a.id}"><div class="cashCardTop">${bankLogoHTML(a)}<div><div class="cashCardName">${escapeHtml(a.bank+' • '+a.name)}</div><div class="cashCardMeta">Ending •${escapeHtml(String(a.ending||''))}</div></div></div><div class="cashCardValue" style="color:#38e0a4">${money(m.available)}</div><div class="cashCardMeta">Available credit</div><div class="cashProgress"><i style="width:${Math.min(100,Math.max(0,Number(m.util||0)))}%"></i></div><div class="cashCardStats"><div class="cashCardStat"><span>Current usage</span><b>${money(m.current||0)}</b></div><div class="cashCardStat"><span>Installment reserve</span><b>${money(m.inst||0)}</b></div><div class="cashCardStat"><span>Total utilized</span><b>${money(m.total||0)}</b></div><div class="cashCardStat"><span>Utilization</span><b>${Number(m.util||0).toFixed(1)}%</b></div></div></div>`).join(''):'<div class="cashEmpty">No credit cards saved.</div>';
  if($('cashPaymentMonth'))$('cashPaymentMonth').value=month;
- if($('cashPaymentBody'))$('cashPaymentBody').innerHTML=payRows.length?payRows.map(p=>{const a=account(p.accountId),eff=plannerAmountForRow(p),paid=paymentPaidAmount(p),rem=paymentRemainingAmount(p);return `<tr><td><b>${escapeHtml(a?`${a.bank} •${a.ending}`:p.accountId)}</b></td><td>${eff===null?'Awaiting statement':money(Number(eff||0))}</td><td style="color:#38e0a4">${money(paid)}</td><td style="color:${Number(rem||0)>0?'#ff6f7d':'#38e0a4'}"><b>${Number.isFinite(rem)?money(rem):'—'}</b></td><td>${p.due?paymentFormatDate(p.due):'Pending'}</td><td><span class="cashPayStatus ${p.paid?'paid':Number(rem||0)>0?'due':''}">${p.paid?'PAID':paid>0?'PARTIAL':plannerAmountSource(p)}</span></td></tr>`}).join(''):'<tr><td colspan="6" class="cashEmpty">No card payment obligations for this month.</td></tr>';
+ if($('cashPaymentBody'))$('cashPaymentBody').innerHTML=payRows.length?payRows.map(p=>{const a=account(p.accountId),eff=plannerAmountForRow(p),paid=paymentPaidAmount(p),rem=paymentRemainingAmount(p);return `<tr><td><b>${escapeHtml(a?`${a.bank} •${a.ending}`:p.accountId)}</b></td><td>${eff===null?'Awaiting statement':money(Number(eff||0))}</td><td style="color:#38e0a4">${money(paid)}</td><td>${cardPaymentSourceDisplay(p)}</td><td style="color:${Number(rem||0)>0?'#ff6f7d':'#38e0a4'}"><b>${Number.isFinite(rem)?money(rem):'—'}</b></td><td>${p.due?paymentFormatDate(p.due):'Pending'}</td><td><span class="cashPayStatus ${p.paid?'paid':Number(rem||0)>0?'due':''}">${p.paid?'PAID':paid>0?'PARTIAL':plannerAmountSource(p)}</span></td></tr>`}).join(''):'<tr><td colspan="7" class="cashEmpty">No card payment obligations for this month.</td></tr>';
  const upcoming=cardPaymentPlan.filter(p=>isCreditCardAccountId(p.accountId)&&!p.paid&&p.due&&p.due>=new Date().toISOString().slice(0,10)).map(p=>({p,rem:paymentRemainingAmount(p)})).filter(x=>Number.isFinite(x.rem)&&x.rem>0).sort((a,b)=>a.p.due.localeCompare(b.p.due)).slice(0,6);
  if($('cashUpcomingCount'))$('cashUpcomingCount').textContent=upcoming.length+' upcoming';
  if($('cashUpcoming'))$('cashUpcoming').innerHTML=upcoming.length?upcoming.map(({p,rem})=>{const a=account(p.accountId);return `<div class="cashUpcomingItem"><div><b>${escapeHtml(a?`${a.bank} • ${a.name} •${a.ending}`:p.accountId)}</b><small>Due ${paymentFormatDate(p.due)} • ${escapeHtml(plannerAmountSource(p))}</small></div><div class="cashUpcomingAmt">${money(rem)}</div></div>`}).join(''):'<div class="cashEmpty">No upcoming card payments found.</div>';

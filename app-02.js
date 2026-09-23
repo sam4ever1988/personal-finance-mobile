@@ -1420,10 +1420,12 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
   // User-edited plans use remaining principal / remaining months as the source of truth.
   // This is the critical V91 fix: changing remaining amount or months immediately changes
   // the payment planner for SAB, meem, Al Rajhi, NBD, and every other card.
-  if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null || p.planType==='balance-offer'){
+  if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null){
    const elapsed=(refIdx!==null&&payIdx!==null)?Math.max(0,payIdx-refIdx):0;
-   if(elapsed>=Number(c.remainingCount||0))return sum;
-   return sum+Number(c.schedule?.[elapsed]??c.monthly??0);
+   const releasedOffset=Math.max(0,Number(c.releasedStatementPaid||0));
+   const remainingIndex=elapsed-releasedOffset;
+   if(remainingIndex<0||remainingIndex>=Number(c.remainingCount||0))return sum;
+   return sum+Number(c.schedule?.[remainingIndex]??c.monthly??0);
   }
 
   const idx=Math.max(0,Number(p.paidInstallments||0)+elapsedMonths(ref,paymentMonth));

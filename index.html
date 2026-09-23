@@ -97,7 +97,7 @@
   <div class="cashKpis" id="cashKpis"></div>
   <div class="cashGridTop"><section class="cashPanel"><div class="cashPanelHead"><h2>Bank Accounts</h2><span id="cashBankCount"></span></div><div class="cashBankGrid" id="cashBankGrid"></div></section><section class="cashPanel"><div class="cashPanelHead"><h2>Credit Utilization</h2><span>Live position</span></div><div class="cashUtilWrap"><div class="cashDonut" id="cashUtilDonut"><div><b id="cashUtilPct">0%</b><small>utilized</small></div></div><div class="cashUtilLegend" id="cashUtilLegend"></div></div></section></div>
   <section class="cashPanel"><div class="cashPanelHead"><div><h2>Credit Cards</h2><p>Available credit, current usage, installment reserve and released statement position.</p></div><button class="cashBtn" data-page-jump="incomeplan">Manage Payments</button></div><div class="cashCards" id="cashCards"></div></section>
-  <div class="cashGridBottom"><section class="cashPanel"><div class="cashPanelHead"><div><h2>Credit Payment Control</h2><p>Statement amount, paid amount and remaining obligation for the selected payment month.</p></div><input type="month" id="cashPaymentMonth" class="cashMonth"></div><div class="cashTableWrap"><table class="cashTable"><thead><tr><th>Card</th><th>Statement / Plan</th><th>Paid</th><th>Remaining</th><th>Due Date</th><th>Status</th></tr></thead><tbody id="cashPaymentBody"></tbody></table></div></section><section class="cashPanel"><div class="cashPanelHead"><h2>Upcoming Payments</h2><span id="cashUpcomingCount"></span></div><div id="cashUpcoming"></div></section></div>
+  <div class="cashGridBottom"><section class="cashPanel"><div class="cashPanelHead"><div><h2>Credit Payment Control</h2><p>Statement amount, paid amount, funding source and remaining obligation for the selected payment month.</p></div><input type="month" id="cashPaymentMonth" class="cashMonth"></div><div class="cashTableWrap"><table class="cashTable"><thead><tr><th>Card</th><th>Statement / Plan</th><th>Paid</th><th>Paid From</th><th>Remaining</th><th>Due Date</th><th>Status</th></tr></thead><tbody id="cashPaymentBody"></tbody></table></div></section><section class="cashPanel"><div class="cashPanelHead"><h2>Upcoming Payments</h2><span id="cashUpcomingCount"></span></div><div id="cashUpcoming"></div></section></div>
   <section class="cashPanel cashLegacy"><div class="cashPanelHead"><div><h2>Detailed Credit Obligation Register</h2><p>Existing card accounting logic retained for reconciliation and audit.</p></div></div><div class="cashTableWrap"><table class="summaryTable"><thead><tr><th>Card</th><th>Current Usage</th><th>Future Reserved Installments</th><th>Bank Utilized / Reserved</th><th>Credit Limit</th><th>Available / Remaining</th><th>Utilization</th></tr></thead><tbody id="cardSummaryBody"></tbody></table></div><div id="accountsGrid" style="display:none"></div></section>
  </main></div>
 </div>
@@ -354,7 +354,7 @@
   <div class="cloudHeroState"><span class="cloudLiveDot"></span><span>REALTIME CLOUD</span></div>
  </div>
  <div class="cloudStatusCard">
-  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V301</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
+  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V302</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
   <div id="cloudLoggedOut" class="cloudLogin">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="cloudPrimaryBtn" id="cloudSendLink" type="button">Send Secure Login Link</button>
@@ -781,13 +781,13 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=301');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=302');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
     if(bad>=0)throw new Error('Failed to load '+files[bad]+' ('+responses[bad].status+')');
     const parts=await Promise.all(responses.map(r=>r.text()));
-    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v301.js'],{type:'text/javascript'});
+    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v302.js'],{type:'text/javascript'});
     const url=URL.createObjectURL(blob);
     const s=document.createElement('script');
     s.src=url;

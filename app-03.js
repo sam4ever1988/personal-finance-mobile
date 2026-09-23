@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.01</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.01');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.02</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.02');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -374,20 +374,35 @@ function installmentPaidThroughReleasedStatement(p){
  }
  return paidThrough;
 }
+function reduceRemainingPrincipalByReleasedStatements(remaining,remainingCount,releasedCount){
+ let rem=Math.max(0,Math.round(Number(remaining||0)*100)/100);
+ let count=Math.max(0,Number(remainingCount||0));
+ const billed=Math.min(count,Math.max(0,Number(releasedCount||0)));
+ for(let i=0;i<billed&&count>0;i++){
+  const installment=count===1?rem:Math.round((rem/count)*100)/100;
+  rem=Math.max(0,Math.round((rem-installment)*100)/100);
+  count=Math.max(0,count-1);
+ }
+ return {remaining:rem,remainingCount:count,billed};
+}
 function planCalc(p){
  if(p.scheduleMode==='remaining-principal-review'){
   return {schedule:[],paid:Number(p.paidInstallments||0),scheduledPaid:Number(p.paidInstallments||0),basePaid:Number(p.paidInstallments||0),autoElapsed:0,remaining:0,scheduledRemaining:0,monthly:0,remainingCount:0,scheduledRemainingCount:0,status:p.completedConfirmed?'Completed':'Review',completionCandidate:true};
  }
  if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null){
-  const remaining=Math.max(0,Math.round(Number(p.manualRemaining||0)*100)/100);
-  const remainingCount=Math.max(0,Number(p.remainingMonthsOverride||0));
-  const paid=Math.max(0,Number(p.paidInstallments||0));
+  const savedRemaining=Math.max(0,Math.round(Number(p.manualRemaining||0)*100)/100);
+  const savedRemainingCount=Math.max(0,Number(p.remainingMonthsOverride||0));
+  const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
+  const advanced=reduceRemainingPrincipalByReleasedStatements(savedRemaining,savedRemainingCount,releasedStatementPaid);
+  const remaining=advanced.remaining;
+  const remainingCount=advanced.remainingCount;
+  const paid=Math.max(0,Number(p.paidInstallments||0))+advanced.billed;
   const completed=p.completedConfirmed===true || remaining<=0.005 || remainingCount<=0;
   const status=completed?'Completed':'Active';
   const monthly=completed?0:Math.round((remaining/remainingCount)*100)/100;
   const schedule=remainingCount>0?Array(remainingCount).fill(monthly):[];
   if(schedule.length)schedule[schedule.length-1]=Math.round((remaining-monthly*(remainingCount-1))*100)/100;
-  return {schedule,paid,scheduledPaid:paid,basePaid:paid,autoElapsed:0,remaining:completed?0:remaining,scheduledRemaining:completed?0:remaining,monthly,remainingCount:completed?0:remainingCount,scheduledRemainingCount:completed?0:remainingCount,status,completionCandidate:completed};
+  return {schedule,paid,scheduledPaid:paid,basePaid:Number(p.paidInstallments||0),autoElapsed:0,releasedStatementPaid:advanced.billed,remaining:completed?0:remaining,scheduledRemaining:completed?0:remaining,monthly,remainingCount:completed?0:remainingCount,scheduledRemainingCount:completed?0:remainingCount,status,completionCandidate:completed,completionReason:completed?(p.completedConfirmed?'confirmed':'fully-billed'):''};
  }
  const schedule=planMonthly(p);
  const basePaid=Math.min(Math.max(Number(p.paidInstallments||0),0),p.months);
@@ -410,28 +425,25 @@ function planCalc(p){
  return {schedule,paid:calcPaid,scheduledPaid,basePaid,autoElapsed,releasedStatementPaid,remaining,scheduledRemaining,monthly,remainingCount,scheduledRemainingCount,status,completionCandidate,completionReason:status==='Completed'?(confirmedCompleted?'confirmed':'fully-billed'):''};
 }
 function reconcileRemainingPrincipalPlans(){
- const nowMonth=currentYearMonth();
  let changed=false;
  installments.forEach(p=>{
   if(p.scheduleMode!=='remaining-principal' || p.completedConfirmed)return;
-  const ref=p.referenceMonth||nowMonth;
-  const elapsed=elapsedMonths(ref,nowMonth);
-  if(elapsed<=0)return;
-  let rem=Math.max(0,Number(p.manualRemaining||0));
-  let months=Math.max(0,Number(p.remainingMonthsOverride||0));
-  for(let i=0;i<elapsed && months>0 && rem>0.005;i++){
-   const payment=Math.round((rem/months)*100)/100;
-   rem=Math.max(0,Math.round((rem-payment)*100)/100);
-   months=Math.max(0,months-1);
-   p.paidInstallments=Number(p.paidInstallments||0)+1;
-  }
-  p.manualRemaining=rem;
-  p.remainingMonthsOverride=months;
-  p.referenceMonth=nowMonth;
-  if(months===0||rem<=0.005){p.manualRemaining=0;p.remainingMonthsOverride=0;p.scheduleMode='remaining-principal-review';}
+  const ref=p.referenceMonth||p.startMonth||currentYearMonth();
+  const released=installmentPaidThroughReleasedStatement(p);
+  if(released<=0)return;
+  const advanced=reduceRemainingPrincipalByReleasedStatements(p.manualRemaining,p.remainingMonthsOverride,released);
+  p.manualRemaining=advanced.remaining;
+  p.remainingMonthsOverride=advanced.remainingCount;
+  p.paidInstallments=Math.max(0,Number(p.paidInstallments||0))+advanced.billed;
+  p.referenceMonth=addMonthsToYM(ref,advanced.billed);
+  p.statementBilledInstallments=Math.max(0,Number(p.statementBilledInstallments||0))+advanced.billed;
+  p.lastStatementBilledAt=new Date().toISOString();
   changed=true;
  });
- if(changed)localStorage.setItem('pf_installments',JSON.stringify(installments));
+ if(changed){
+  localStorage.setItem('pf_installments',JSON.stringify(installments));
+  if(window.__financeStateInitialized===true&&typeof scheduleRecordPush==='function')scheduleRecordPush('installment-statement-release');
+ }
 }
 
 function activeInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&['Active','Review'].includes(planCalc(p).status));}
