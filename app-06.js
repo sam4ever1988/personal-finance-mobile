@@ -402,6 +402,51 @@ function saveImportBulkReview(){
  importStatus(`${updates.length} transaction(s) reviewed. All classifications are ready for import.`,'success');
 }
 
+function syncImportPreviewAssignmentControls(){
+ const bar=$('importPreviewAssignment');
+ if(!bar)return;
+ const hasRows=importPreviewRows.length>0;
+ bar.hidden=!hasRows;
+ if(!hasRows)return;
+
+ const accountSelect=$('importPreviewBulkAccount');
+ accountSelect.innerHTML=accounts.map(a=>
+  `<option value="${a.id}">${a.bank} • ${a.name}${a.ending?` •${a.ending}`:''}</option>`
+ ).join('');
+ const accountIds=[...new Set(importPreviewRows.map(row=>row.account).filter(Boolean))];
+ accountSelect.value=accountIds.length===1?accountIds[0]:($('importAccount')?.value||accounts[0]?.id||'');
+
+ const months=[...new Set(importPreviewRows.map(row=>row.statementMonth||row.paymentMonth||assignedTransactionPaymentMonth(row.account,row)).filter(Boolean))];
+ $('importPreviewBulkMonth').value=months.length===1?months[0]:($('importStatementMonth')?.value||'');
+}
+
+function applyImportPreviewAssignment(){
+ if(!importPreviewRows.length)return;
+ const accountId=$('importPreviewBulkAccount').value;
+ const statementMonth=$('importPreviewBulkMonth').value;
+ const selectedAccount=account(accountId);
+ if(!accountId||!selectedAccount){
+  alert('Choose the correct account or credit card.');
+  return;
+ }
+ importPreviewRows.forEach(row=>{
+  const assignedMonth=statementMonth||paymentMonthForTransaction(accountId,row.date);
+  Object.assign(row,{
+   account:accountId,
+   paymentMonth:assignedMonth,
+   statementMonth:assignedMonth,
+   physicalCardEnding:String(selectedAccount.ending||''),
+   previewEdited:true
+  });
+ });
+ $('importAccount').value=accountId;
+ $('importStatementMonth').value=statementMonth;
+ renderImportPreview();
+ const monthText=statementMonth?cardMonthLabel(statementMonth):'the recalculated card cycle';
+ $('importAssignmentResult').innerHTML=`Updated <b>${importPreviewRows.length}</b> rows to <b>${escapeHtml(accountName(accountId))}</b> and <b>${escapeHtml(monthText)}</b>.`;
+ importStatus(`Statement assignment corrected for ${importPreviewRows.length} transaction(s). Review the preview before importing.`,'success');
+}
+
 function updateImportPreviewEditCycle(){
  const accountId=$('importPreviewEditAccount')?.value||'';
  const date=$('importPreviewEditDate')?.value||'';
@@ -528,6 +573,7 @@ function renderImportPreview(){
  $('importPreviewTotal').textContent=String(total);
  $('importPreviewReady').textContent=String(ready);
  $('importPreviewReview').textContent=String(reviewRows.length);
+ syncImportPreviewAssignmentControls();
  const reviewButton=$('reviewImportTransactions');
  reviewButton.hidden=!reviewRows.length;
  reviewButton.textContent=reviewRows.length?`Review Transactions (${reviewRows.length})`:'Review Transactions';
@@ -663,13 +709,14 @@ function renderImportHistory(){
 }
 function renderImportPage(){fillAccountSelect($('importAccount'));renderImportPreview();renderImportHistory();renderStatementFormats()}
 async function handleStatementFile(file){
- if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];importStatementMeta=null;renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
+ if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];importStatementMeta=null;if($('importAssignmentResult'))$('importAssignmentResult').textContent='';renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
  try{const rows=await parseStatementFile(file,accountId,$('importStatementMonth').value);if(!rows.length)throw new Error('No transaction rows were recognized. Try Excel/CSV, or send me this statement format so I can add its PDF parser.');importPreviewRows=rows;renderImportPreview();importStatus(`Found ${rows.length} transaction(s) in ${file.name}. Assigned to ${accountName($('importAccount').value)}. Review the preview, then click Import Transactions.`,'success')}catch(e){importStatus(e.message||String(e),'error')}
 }
 $('statementFile').addEventListener('change',e=>{handleStatementFile(e.target.files?.[0]);e.target.value=''});
-$('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;renderImportPreview();$('importStatus').style.display='none'});
+$('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;$('importAssignmentResult').textContent='';renderImportPreview();$('importStatus').style.display='none'});
 $('reviewImportTransactions').addEventListener('click',()=>openImportBulkReview());
 $('saveImportBulkReview').addEventListener('click',saveImportBulkReview);
+$('applyImportAssignment').addEventListener('click',applyImportPreviewAssignment);
 $('confirmStatementImport').addEventListener('click',()=>{
  if(!importPreviewRows.length)return;
  const reviewRows=importPreviewReviewRows();
@@ -687,13 +734,13 @@ $('confirmStatementImport').addEventListener('click',()=>{
  const officialConfirmed=confirmOfficialStatementCandidate(officialCandidate,importPreviewFileName);
 
  const importedFresh=fresh.map((t,i)=>{
-  const accountId=importedAccountId||t.account;
+  const accountId=t.account||importedAccountId;
   const paymentMonth=paymentMonthForTransaction(accountId,t.date);
   return {
    ...t,
    account:accountId,
-   paymentMonth:t.paymentMonth||paymentMonth,
-   statementMonth:t.paymentMonth||paymentMonth,
+   paymentMonth:t.paymentMonth||t.statementMonth||paymentMonth,
+   statementMonth:t.statementMonth||t.paymentMonth||paymentMonth,
    previewEdited:!!t.previewEdited,
    _id:`import${stamp}_${i}`,
    importBatchId:batchId,

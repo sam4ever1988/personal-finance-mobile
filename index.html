@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • V309 Bulk Statement Review</title>
+<title>Personal Finance • V310 Statement Assignment Correction</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-<link rel="stylesheet" href="styles.css?v=309">
-<!-- V309 bulk statement transaction review: 2026-09-23 -->
+<link rel="stylesheet" href="styles.css?v=310">
+<!-- V310 statement account and month correction: 2026-09-23 -->
 </head>
 <body class="execMode financeAccessLocked">
 <div id="financeAccessGate" class="financeAccessGate" role="dialog" aria-modal="false" aria-labelledby="financeGateTitle">
@@ -338,7 +338,7 @@
   <div class="panel"><div class="panelTitle">How Import Works</div><div class="meta" style="line-height:1.7">• Imported rows are treated as <b>statement transactions</b>, not manual transactions.<br>• Before import, rows are compared with existing transactions on the same card. Matching date/amount/description rows are <b>skipped automatically</b> so reports do not double-count.<br>• A manual transaction can be reviewed against a matching imported statement transaction.<br>• Card payments/top-ups are treated as transfers and excluded from spending.<br>• You review the preview before importing.</div></div>
  </div>
  <div class="sectionTitle">2. Preview</div>
- <div class="panel"><div class="splitHead"><div><div class="panelTitle" style="margin-bottom:4px">Transactions Found</div><div class="meta" id="importPreviewMeta">Choose a statement to begin.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn reviewImportBtn" id="reviewImportTransactions" type="button" hidden>Review Transactions</button><button class="btn" id="clearImportPreview" disabled>Clear</button><button class="btn primary" id="confirmStatementImport" disabled>Import Transactions</button></div></div><div class="importPreviewSummary" id="importPreviewSummary"><div><span>Total Found</span><b id="importPreviewTotal">0</b></div><div class="ready"><span>Ready to Import</span><b id="importPreviewReady">0</b></div><div class="review"><span>Needs Review</span><b id="importPreviewReview">0</b></div></div><div class="importPreview"><table class="txTable"><thead><tr><th>Date</th><th>Description</th><th>Category / Subcategory</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="importPreviewBody"><tr><td colspan="6">No statement loaded.</td></tr></tbody></table></div></div>
+ <div class="panel"><div class="splitHead"><div><div class="panelTitle" style="margin-bottom:4px">Transactions Found</div><div class="meta" id="importPreviewMeta">Choose a statement to begin.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn reviewImportBtn" id="reviewImportTransactions" type="button" hidden>Review Transactions</button><button class="btn" id="clearImportPreview" disabled>Clear</button><button class="btn primary" id="confirmStatementImport" disabled>Import Transactions</button></div></div><div class="importAssignmentBar" id="importPreviewAssignment" hidden><div class="field"><label>Correct Account / Card</label><select id="importPreviewBulkAccount"></select></div><div class="field"><label>Correct Statement Month</label><input id="importPreviewBulkMonth" type="month"><div class="hint">Leave blank to recalculate each row using the card cycle.</div></div><button class="btn primary" id="applyImportAssignment" type="button">Apply to All Preview Rows</button><div class="importAssignmentResult" id="importAssignmentResult"></div></div><div class="importPreviewSummary" id="importPreviewSummary"><div><span>Total Found</span><b id="importPreviewTotal">0</b></div><div class="ready"><span>Ready to Import</span><b id="importPreviewReady">0</b></div><div class="review"><span>Needs Review</span><b id="importPreviewReview">0</b></div></div><div class="importPreview"><table class="txTable"><thead><tr><th>Date</th><th>Description</th><th>Category / Subcategory</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="importPreviewBody"><tr><td colspan="6">No statement loaded.</td></tr></tbody></table></div></div>
  <div class="sectionTitle">Supported Statement Formats</div>
  <div class="panel">
   <div class="splitHead"><div><div class="panelTitle">Statement Format Library</div><div class="meta">Built-in formats plus formats you add/import. Export a format definition to reuse it on another machine.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn" id="addStatementFormat" type="button">+ Add Format</button><button class="btn" id="downloadStatementFormatTemplate" type="button">Excel Mapping Template</button><label class="btn" for="statementFormatFile">Import Format</label><input id="statementFormatFile" type="file" accept=".json,application/json" hidden><button class="btn" id="exportStatementFormats" type="button">Export Formats</button></div></div>
@@ -354,7 +354,7 @@
   <div class="cloudHeroState"><span class="cloudLiveDot"></span><span>REALTIME CLOUD</span></div>
  </div>
  <div class="cloudStatusCard">
-  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V309</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
+  <div class="cloudStatusTop"><div><h2>Supabase Protected Two-Way Sync</h2><div class="cloudVersion">Current app build <b>V310</b> · Sync engine <b>Protected Record Sync</b></div><div class="cloudConnection" id="cloudStatus">Checking connection…</div></div><span class="cloudShield">PROTECTED</span></div>
   <div id="cloudLoggedOut" class="cloudLogin">
    <div class="field"><label>Email</label><input type="email" id="cloudEmail" placeholder="your@email.com"></div>
    <button class="cloudPrimaryBtn" id="cloudSendLink" type="button">Send Secure Login Link</button>
@@ -791,13 +791,13 @@
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
-  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=309');
+  const files=[1,2,3,4,5,6,7,8,9,10].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v=310');
   try{
     const responses=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'})));
     const bad=responses.findIndex(r=>!r.ok);
     if(bad>=0)throw new Error('Failed to load '+files[bad]+' ('+responses[bad].status+')');
     const parts=await Promise.all(responses.map(r=>r.text()));
-    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v309.js'],{type:'text/javascript'});
+    const blob=new Blob([parts.join('\n')+'\n//# sourceURL=personal-finance-v310.js'],{type:'text/javascript'});
     const url=URL.createObjectURL(blob);
     const s=document.createElement('script');
     s.src=url;
