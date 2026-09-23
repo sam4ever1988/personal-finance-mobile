@@ -1412,6 +1412,18 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
 function installmentAmountForPaymentMonth(cardId,paymentMonth){
  const plans=installments.filter(p=>p.cardId===cardId && !p.completedConfirmed);
  return plans.reduce((sum,p)=>{
+  // Once an installment has been billed into a statement it is no longer part
+  // of the future reserve, but it must stay inside that statement's payment.
+  // Keep the billed slice in its original payment month so completing a plan
+  // cannot reduce an already-established current-month obligation.
+  const billedCount=Math.max(0,Number(p.statementBilledInstallments||0));
+  const billedStart=p.startMonth||p.referenceMonth||currentYearMonth();
+  const billedStartIdx=monthIndex(billedStart),paymentIdx=monthIndex(paymentMonth);
+  const billedIndex=billedStartIdx!==null&&paymentIdx!==null?paymentIdx-billedStartIdx:-1;
+  if(billedIndex>=0&&billedIndex<billedCount){
+   const originalSchedule=planMonthly({fullAmount:Number(p.fullAmount||0),months:Math.max(1,Number(p.months||1))});
+   return sum+Number(originalSchedule[Math.min(billedIndex,originalSchedule.length-1)]||0);
+  }
   const c=planCalc(p);
   const ref=p.referenceMonth||p.startMonth||currentYearMonth();
   const refIdx=monthIndex(ref),payIdx=monthIndex(paymentMonth);
