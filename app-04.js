@@ -979,6 +979,7 @@ function renderTransactions(){
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
  $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
+ if(typeof initializeSortableTables==='function')initializeSortableTables($('transactions'));
  renderTxExecutiveInsights(rows);
  if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
  requestAnimationFrame(()=>window.scrollTo(__scrollX,__scrollY));

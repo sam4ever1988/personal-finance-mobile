@@ -381,7 +381,8 @@ function installmentPaidThroughReleasedStatement(p){
   // genuinely released. Paying that statement is a separate event which later
   // restores available credit; it must not control the installment schedule.
   const onePaymentPlan=Number((p.remainingMonthsOverride??p.months)||0)===1;
-  if(cardCycleHasStatement(p.cardId,ym)||(onePaymentPlan&&cardCycleHasRecordedPayment(p.cardId,ym))) paidThrough=i+1;
+  const confirmedInsideCurrentStatement=p.currentStatementIncluded===true;
+  if(cardCycleHasStatement(p.cardId,ym)||((onePaymentPlan||confirmedInsideCurrentStatement)&&cardCycleHasRecordedPayment(p.cardId,ym))) paidThrough=i+1;
   else break;
  }
  return paidThrough;

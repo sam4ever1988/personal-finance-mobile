@@ -93,10 +93,14 @@ function initializeSortableTables(root=document){
 }
 
 function scheduleSortableTableRefresh(){
- clearTimeout(tableSortRefreshTimer);
- // Restore saved row order before the browser's next paint so refreshed
- // installment and transaction tables do not visibly jump.
- tableSortRefreshTimer=setTimeout(()=>initializeSortableTables(document),0);
+ if(tableSortRefreshTimer)return;
+ // MutationObserver already runs in the browser's microtask checkpoint. Keep the
+ // refresh in that same checkpoint so saved row order is restored before paint.
+ tableSortRefreshTimer=true;
+ queueMicrotask(()=>{
+  tableSortRefreshTimer=null;
+  initializeSortableTables(document);
+ });
 }
 
 // Tables are rebuilt by many render functions and by realtime sync.

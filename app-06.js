@@ -1400,9 +1400,22 @@ function mergeOneRecordIntoSection(row){
  if(singletonSections.has(section)){
   if(deleted)return false;
   const data=row.data;
+  const currentSingleton={
+   finance_settings:financeSettings,categories,merchant_rules:merchantRules,
+   tx_overrides:txOverrides,income_plan:incomePlan,duplicate_decisions:duplicateDecisions,
+   statement_rule:statementRule,transaction_actions:transactionActions,
+   bank_balance_overrides:bankBalanceOverrides,reset_card_ids:[...resetCardIds],
+   card_reset_history:cardResetHistory,deleted_installment_ids:[...deletedInstallmentIds],
+   personal_assets_market:goldMarket
+  }[section];
+  // A full record push can echo an unchanged singleton back to this browser.
+  // Treating that echo as a real change rebuilt the visible table and made rows
+  // appear to move away and return. Only render when the data actually differs.
+  try{if(JSON.stringify(currentSingleton)===JSON.stringify(data))return false;}catch(_){}
   switch(section){
    case 'finance_settings':
-    if(!financeSettingsEditing && !financeSettingsDirty){
+    if(financeSettingsEditing||financeSettingsDirty)return false;
+    {
      financeSettings=data||financeSettings;
      if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];
      if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};
