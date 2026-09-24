@@ -565,11 +565,14 @@ function recordedCardPaymentCredit(cardId){
    const released=isGenuineReleasedStatementRow(p)||importedOfficialPlannerRow(p.accountId,p.month);
    if(!released){
     const liveUsage=Math.max(0,Number(liveUsageByMonth[p.month]||0));
-    // A live cycle can include transaction usage plus installment principal.
-    // The full recorded payment restores card limit; do not cap it to only the
-    // transaction slice. If the cycle has no live usage, it has already closed
-    // and its historical payment must not become a permanent future credit.
+    // A calculated cycle may consist solely of an installment. Its paid
+    // installment still occupies the plan's remaining principal until a
+    // released statement advances that principal, so keep the payment credit
+    // across subsequent open cycles. Cap this path to the installment due;
+    // explicit overpayments are carried by extraCredit below.
+    const installmentDue=Math.max(0,Number(installmentAmountForPaymentMonth(cardId,p.month)||0));
     if(liveUsage>0)credit+=Math.max(0,Number(paymentPaidAmount(p)||0));
+    else if(installmentDue>0)credit+=Math.min(installmentDue,Math.max(0,Number(paymentPaidAmount(p)||0)));
    }
    (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
     credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));
