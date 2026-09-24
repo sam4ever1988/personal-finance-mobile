@@ -373,7 +373,8 @@ function migrateCashFlowLedger(){
 
  // Rebuild outgoing payments as well.
  outgoings.forEach(o=>{
-  Object.entries(o.payments||{}).forEach(([month,p])=>{
+  Object.keys(o.payments||{}).forEach(month=>outgoingPaymentEntries(o,month).forEach(p=>{
+   if(cashFlowLedger.some(x=>x.referenceId===`outgoing:${o.id}:${month}` && x.status!=='reversed' && x.sourceId===p.sourceId && x.date===p.date && Math.abs(Number(x.amount||0)-Number(p.amount||0))<0.01))return;
    const before=cashFlowLedger.length;
    addCashFlowLedgerEntry({
     type:'outgoing-payment',
@@ -386,12 +387,12 @@ function migrateCashFlowLedger(){
     targetId:o.id,
     targetName:o.description,
     deductFromIncome:p.sourceId==='cash-source',
-    referenceId:`outgoing:${o.id}:${month}`,
+    referenceId:`outgoing:${p.id}`,
     referenceType:'outgoing-payment',
     createdAt:p.recordedAt||new Date().toISOString()
    },false);
    if(cashFlowLedger.length>before)added++;
-  });
+  }));
  });
 
  if(added)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
@@ -745,6 +746,7 @@ function undoLastPartialPayment(id){
  renderPaymentPlanner();
  renderDashboard();
  renderAccounts();
+ renderIncomePlan();
 
  setTimeout(()=>alert(
   `Payment undone.\n\nPaid so far: ${money(paymentPaidAmount(p))}\nRemaining to pay: ${money(paymentRemainingAmount(p))}`

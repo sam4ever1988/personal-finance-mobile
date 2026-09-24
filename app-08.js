@@ -368,13 +368,13 @@ function editGoldZakatPayment(id){
 function deleteGoldZakatPayment(id){
  const i=goldZakatHistory.findIndex(x=>x.id===id);if(i<0)return;
  const z=goldZakatHistory[i];
- if(!confirm(`Undo this Zakat payment?\n\n${z.assetName} • ${money(z.amount)} • ${z.paidDate}\n\nThis restores any bank deduction, reverses the cash-flow entry, and removes the payment from Zakat history.`))return;
+ if(!confirm(`Delete this Zakat payment?\n\n${z.assetName} • ${money(z.amount)} • ${z.paidDate}\n\nThis restores any bank deduction, reverses the cash-flow entry, and removes the payment from Zakat history.`))return;
  adjustZakatBankBalance(z.sourceId,Number(z.amount||0));
  const ledger=goldZakatLedgerRow(z);
- if(ledger)Object.assign(ledger,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Zakat payment undone'});
+ if(ledger)Object.assign(ledger,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Zakat payment deleted'});
  goldZakatHistory.splice(i,1);
  refreshAfterGoldZakatChange();
- if(typeof recordImmediateDelete==='function')recordImmediateDelete('personal_assets_zakat',z.id,'zakat-payment-undo');
+ if(typeof recordImmediateDelete==='function')recordImmediateDelete('personal_assets_zakat',z.id,'zakat-payment-delete');
 }
 
 manualGoldMarketPrice=function(){openUnifiedAction({title:'Manual Gold Market Price',subtitle:'Set the current 24K gold price per gram in SAR.',save:'Update Price',fields:[{name:'price',label:'24K Price / Gram (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(goldMarket.price24k||0).toFixed(2),required:true,full:false}],submit:v=>{const price=Number(v.price);if(!(price>0))return goldActionError('Enter a valid gold price greater than zero.');goldMarket={price24k:price,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();renderDashboard();return true}})};
