@@ -1630,7 +1630,7 @@ function renderOutgoings(){
 
  k.innerHTML=[
   kpiHTML('Planned Outgoings',String(outgoings.length),'One-time + recurring','blue'),
-  kpiHTML(`${cardMonthLabel(activeMonth)} Cash Impact`,money(outgoingForMonth(activeMonth)),'Paid from Monthly Planned Income','red'),
+  kpiHTML(`${cardMonthLabel(activeMonth)} Cash Impact`,money(paidMonth),`${money(outgoingForMonth(activeMonth))} from Monthly Planned Income • ${money(Math.max(0,paidMonth-outgoingForMonth(activeMonth)))} from bank/card accounts`,'red'),
   kpiHTML('Paid This Month',money(paidMonth),`${money(unpaidMonth)} still unpaid`,'green'),
   kpiHTML('Forever Monthly',money(foreverMonthly),'Repeats every month until deleted','amber')
  ].join('');
