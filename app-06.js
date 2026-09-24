@@ -1554,6 +1554,9 @@ function syncRecordValue(value){
 }
 function mergeOneRecordIntoSection(row){
  const section=row.section,recordId=String(row.record_id);
+ // Older rental blocks used their array position as a cloud ID. The date-key
+ // migration owns those legacy rows; importing them would duplicate a day.
+ if(section==='rental_blocks'&&/^\d+$/.test(recordId))return false;
  if(recordPendingDeletes.some(x=>x.section===section&&String(x.record_id)===recordId))return false;
  const deleted=!!row.deleted_at;
 
@@ -1737,6 +1740,7 @@ function applyRecordSyncDeltaRows(rows,{render=true}={}){
 
 function syncStableId(section,x,i=0){
  if(section==='investments_trades'&&x?._cloudRecordId!=null)return String(x._cloudRecordId);
+ if(section==='rental_blocks'&&x?.date)return `rental-block:${x.date}`;
  if(x && (x._id!=null || x.id!=null))return String(x._id??x.id);
  if(section==='import_history')return String(x?.id ?? `${x?.fileName||x?.file_name||'file'}|${x?.importedAt||x?.imported_at||i}`);
  if(section==='cash_flow_ledger')return String(x?.id ?? cashFlowLedgerKey(x||{}));
