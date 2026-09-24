@@ -45,6 +45,13 @@ function applyRecordSyncRows(rows){
   outgoings=list('outgoings');
   installments=list('installments').filter(p=>!deletedInstallmentIds.has(p.id));
   cardPaymentPlan=list('card_payment_plan');
+  if(typeof rentalBookings!=='undefined')rentalBookings=list('rental_bookings');
+  if(typeof rentalExpenses!=='undefined')rentalExpenses=list('rental_expenses');
+  if(typeof rentalBlocks!=='undefined')rentalBlocks=active.filter(r=>r.section==='rental_blocks'&&String(r.record_id).startsWith('rental-block:')).map(r=>r.data);
+  if(typeof goldAssets!=='undefined')goldAssets=list('personal_assets_gold');
+  if(typeof goldZakatHistory!=='undefined')goldZakatHistory=list('personal_assets_zakat');
+  if(typeof goldSaleHistory!=='undefined')goldSaleHistory=list('personal_assets_sales');
+  if(typeof goldMarket!=='undefined')goldMarket=singleton('personal_assets_market',goldMarket);
   if(rows.some(r=>r.section==='investments_holdings')&&typeof invHoldings!=='undefined'){
    invHoldings=list('investments_holdings');localStorage.setItem('pf_investments_holdings',JSON.stringify(invHoldings));
   }
@@ -276,19 +283,18 @@ async function recordPushAll(reason='edit'){
   // Pull cloud edits only where this browser has not changed that record since
   // its baseline. This includes cloud-side reconciliation and other devices.
   const safeRemote=before.filter(r=>{
-   if(r.deleted_at)return false;
    const key=`${r.section}|${r.record_id}`;
    const local=current.find(x=>`${x.section}|${x.record_id}`===key);
    if(!local||baseline[key]===undefined)return false;
    const old=syncRecordValue(JSON.parse(baseline[key]));
-   return old===syncRecordValue(local.data)&&old!==syncRecordValue(r.data);
+   return old===syncRecordValue(local.data)&&(!!r.deleted_at||old!==syncRecordValue(r.data));
   });
   if(safeRemote.length){
    applyRecordSyncDeltaRows(safeRemote,{render:true});
    current=buildRecordSyncRowsFromState();
    rememberRemoteRecordBaseline(safeRemote.filter(r=>{
     const local=current.find(x=>x.section===r.section&&x.record_id===r.record_id);
-    return local&&syncRecordValue(local.data)===syncRecordValue(r.data);
+    return r.deleted_at?!local:local&&syncRecordValue(local.data)===syncRecordValue(r.data);
    }));
   }
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
@@ -305,7 +311,9 @@ async function recordPushAll(reason='edit'){
   const upserts=current.filter(r=>{
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
    if(!cloud)return true;
-   if(cloud.deleted_at){if(baseline[key]!==undefined)return false;return true;}
+   // Deletion is authoritative until the user explicitly creates a new ID.
+   // A stale device must never resurrect a tombstoned record through a bulk push.
+   if(cloud.deleted_at)return false;
    // Another device may have already published this exact edit while this
    // browser still holds an older baseline. Matching values are reconciled.
    if(syncRecordValue(cloud.data)===syncRecordValue(r.data))return false;
@@ -1600,6 +1608,7 @@ async function recoverCloudOnlyRecords(){
  const baseline=recordSyncBaseline();
  const queued=new Set(recordPendingDeletes.map(x=>`${x.section}|${x.record_id}`));
  const missing=remote.filter(r=>{
+  if(r.section==='rental_blocks'&&/^\d+$/.test(String(r.record_id)))return false;
   const key=`${r.section}|${r.record_id}`,current=local.get(key);
   const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
   return !queued.has(key) && Array.isArray(syncArrayForSection(r.section)) && (!current || (old===syncRecordValue(current.data) && old!==syncRecordValue(r.data)));
