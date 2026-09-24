@@ -5,7 +5,8 @@ var rentalBlocks=JSON.parse(localStorage.getItem("pf_rental_blocks")||"[]");
 window.rentalView=new Date();rentalView.setDate(1);
 function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks));if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave()}
 function rDate(s){return new Date(s+"T12:00:00")}
-window.rIso=function(d){return d.toISOString().slice(0,10)}
+window.rIso=function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function rNextDate(s){var d=rDate(s);d.setDate(d.getDate()+1);return rIso(d)}
 function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
 function rentalMonthDataFor(viewDate){
@@ -39,7 +40,7 @@ window.renderRental=function(){
 }
 function rentalDatesInRange(start,end){
  var dates=[],cursor=rDate(start),last=rDate(end);
- while(cursor<=last){dates.push(rIso(cursor));cursor=new Date(cursor.getTime()+86400000)}
+ while(cursor<=last){dates.push(rIso(cursor));cursor.setDate(cursor.getDate()+1)}
  return dates;
 }
 window.rentalOpenDay=function(date){
@@ -61,7 +62,7 @@ function rentalModal(title,fields,onSave){
  var old=document.getElementById("rentalModal");if(old)old.remove();var d=document.createElement("div");d.className="modalBack open";d.id="rentalModal";d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">'+title+'</div><button class="closeBtn" type="button">✕</button></div><form class="formGrid" id="rentalForm">'+fields+'<div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn rentalCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>';document.body.appendChild(d);d.querySelector(".closeBtn").onclick=d.querySelector(".rentalCancel").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();if(onSave(new FormData(e.target))===false)return;d.remove();rentalSave();renderRental()}
 }
 window.rentalOpenBooking=function(date){
- rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rIso(new Date(rDate(date||rIso(new Date())).getTime()+86400000))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Daily Rate (SAR / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return false}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),dailyRate:Number(fd.get("dailyRate")),paid:fd.get("paid")==="1",paidAmount:fd.get("paid")==="1"?Number(fd.get("dailyRate"))*rNights(a,z):0,paymentDate:fd.get("paid")==="1"?rIso(new Date()):"",note:fd.get("note")})});
+ rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rNextDate(date||rIso(new Date()))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Daily Rate (SAR / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return false}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),dailyRate:Number(fd.get("dailyRate")),paid:fd.get("paid")==="1",paidAmount:fd.get("paid")==="1"?Number(fd.get("dailyRate"))*rNights(a,z):0,paymentDate:fd.get("paid")==="1"?rIso(new Date()):"",note:fd.get("note")})});
 }
 window.rentalOpenExpense=function(id){
  var existing=id!=null?rentalExpenses.find(e=>String(e.id)===String(id)):null;
