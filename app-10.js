@@ -53,7 +53,7 @@ window.rentalOpenDay=function(date){
   var conflicts=rentalBookings.filter(b=>dates.some(x=>x>=b.checkin&&x<b.checkout));
   if(status!=="available"&&conflicts.length){alert("This range overlaps an existing booking. Change the dates or edit the booking first.");return false}
   var selected=new Set(dates);if(status==='available'&&typeof recordImmediateDelete==='function')rentalBlocks.filter(b=>selected.has(b.date)).forEach(b=>recordImmediateDelete('rental_blocks',syncStableId('rental_blocks',b),'rental-block-delete'));rentalBlocks=rentalBlocks.filter(b=>!selected.has(b.date));
-  if(status!=="available")dates.forEach(x=>rentalBlocks.push({date:x,status,note,rangeStart:start,rangeEnd:end}));
+  if(status!=="available")dates.forEach(x=>{var row={date:x,status,note,rangeStart:start,rangeEnd:end};rentalBlocks.push(row);if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_blocks',syncStableId('rental_blocks',row),row,'rental-block-edit')});
   else if(start===end&&!block)setTimeout(()=>rentalOpenBooking(start),0);
  });
 }
