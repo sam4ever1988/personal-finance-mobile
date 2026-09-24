@@ -476,6 +476,7 @@ $('outgoingPaymentForm').addEventListener('submit',e=>{
  if(!outgoingId||!month||amount<=0||!sourceId||!date)return;
  if(recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId)){
   closeModal('outgoingPaymentModal');
+  refreshAfterOutgoingPayment();
  }
 });
 
