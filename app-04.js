@@ -1111,6 +1111,7 @@ function deleteInstallmentPlan(id){
   retired.add(id);localStorage.setItem('pf_retired_installment_seed_ids',JSON.stringify([...retired]));
  }
  deletedInstallmentIds.add(id);
+ if(typeof recordImmediateDelete==='function')recordImmediateDelete('installments',id,'installment-delete');
  localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
  installments=installments.filter(x=>x.id!==id);
  localStorage.setItem('pf_installments',JSON.stringify(installments));
@@ -1135,6 +1136,7 @@ function deleteCompletedInstallmentRecord(id){
  try{saveRecoverySnapshot('before-delete-completed-installment');}catch(_){}
 
  deletedInstallmentIds.add(id);
+ if(typeof recordImmediateDelete==='function')recordImmediateDelete('installments',id,'completed-installment-delete');
  localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
 
  installments=installments.filter(x=>x.id!==id);
