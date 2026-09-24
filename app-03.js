@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.17</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.17');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.18</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.18');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -1355,10 +1355,21 @@ function monthAdd(ym,offset){
 
 function outgoingPaymentRecord(outgoingId,month){
  const o=outgoings.find(x=>x.id===outgoingId);
- return o?.payments?.[month]||null;
+ return outgoingPaymentEntries(o,month)[0]||null;
+}
+function outgoingPaymentEntries(o,month){
+ const stored=o?.payments?.[month];
+ return Array.isArray(stored)?stored:stored?[stored]:[];
+}
+function outgoingPaidAmount(o,month){
+ return Math.round(outgoingPaymentEntries(o,month).reduce((sum,p)=>sum+Number(p.amount||0),0)*100)/100;
+}
+function outgoingRemaining(o,month){
+ return Math.max(0,Math.round((Number(o.amount||0)-outgoingPaidAmount(o,month))*100)/100);
 }
 function outgoingOccurrencePaid(x){
- return !!outgoingPaymentRecord(x.outgoingId,x.month);
+ const o=outgoings.find(o=>o.id===x.outgoingId);
+ return !!o && outgoingRemaining(o,x.month)<=0.005;
 }
 function outgoingPaymentSourceLabel(p){
  if(!p)return 'Unpaid';
@@ -1366,18 +1377,14 @@ function outgoingPaymentSourceLabel(p){
  return accountName(p.sourceId);
 }
 function outgoingBudgetUsesMonthlyIncome(x){
- const p=outgoingPaymentRecord(x.outgoingId,x.month);
- // A scheduled outgoing has no cash impact until paid. The selected source
- // determines whether it reduces Monthly Planned Income or a bank/card.
- return !!p && p.sourceId==='cash-source';
+ const o=outgoings.find(o=>o.id===x.outgoingId);
+ return outgoingPaymentEntries(o,x.month).some(p=>p.sourceId==='cash-source');
 }
 
 function outgoingPaymentsForMonth(month=currentIncomeMonth()){
  const rows=[];
  outgoings.forEach(o=>{
-  const p=o.payments?.[month];
-  if(!p)return;
-  rows.push({
+  outgoingPaymentEntries(o,month).forEach(p=>rows.push({
    outgoingId:o.id,
    description:o.description,
    category:o.category,
@@ -1388,7 +1395,7 @@ function outgoingPaymentsForMonth(month=currentIncomeMonth()){
    month,
    paymentId:p.id,
    generatedTransactionId:p.generatedTransactionId||''
-  });
+  }));
  });
  return rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 }
@@ -1400,30 +1407,27 @@ function outgoingPaidFromMonthlyIncomeTotal(month=currentIncomeMonth()){
 
 function outgoingPaidTotalForMonth(month){
  return allOutgoingOccurrences(36)
-  .filter(x=>x.month===month && outgoingOccurrencePaid(x))
-  .reduce((s,x)=>s+Number(outgoingPaymentRecord(x.outgoingId,x.month)?.amount||0),0);
+  .filter(x=>x.month===month)
+  .reduce((s,x)=>s+outgoingPaidAmount(outgoings.find(o=>o.id===x.outgoingId),month),0);
 }
 function outgoingUnpaidTotalForMonth(month){
  return allOutgoingOccurrences(36)
-  .filter(x=>x.month===month && !outgoingOccurrencePaid(x))
-  .reduce((s,x)=>s+Number(x.amount||0),0);
+  .filter(x=>x.month===month)
+  .reduce((s,x)=>s+outgoingRemaining(outgoings.find(o=>o.id===x.outgoingId),month),0);
 }
 
 function outgoingOccurrences(o,horizon=120){
  const n=o.forever?Math.max(1,horizon):Math.max(1,Math.min(60,Number(o.months||1)));
  return Array.from({length:n},(_,i)=>{
   const month=monthAdd(o.startMonth,i);
-  const payment=o.payments?.[month]||null;
-  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-01`,description:o.description,amount:Number(o.amount||0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||'',payment,paid:!!payment};
+  const payment=outgoingPaymentRecord(o.id,month);
+  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-01`,description:o.description,amount:Number(o.amount||0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||'',payment,paid:outgoingRemaining(o,month)<=0.005};
  });
 }
 function allOutgoingOccurrences(horizon=120){return outgoings.flatMap(o=>outgoingOccurrences(o,horizon))}
 function currentPlanMonth(){return currentIncomeMonth()}
 function outgoingForMonth(month){
- // Only payments actually made from Monthly Planned Income reduce its balance.
- return allOutgoingOccurrences(36)
-  .filter(x=>x.month===month && outgoingBudgetUsesMonthlyIncome(x))
-  .reduce((s,x)=>s+Number(x.amount||0),0);
+ return outgoingPaidFromMonthlyIncomeTotal(month);
 }
 function outgoingThisMonthTotal(){const ym=currentPlanMonth();return outgoingForMonth(ym)}
 function foreverOutgoingMonthlyTotal(){return outgoings.filter(o=>o.forever).reduce((a,o)=>a+Number(o.amount||0),0)}
@@ -1452,17 +1456,21 @@ function outgoingPaymentSourceOptions(){
   {id:'cash-source',label:'Monthly Planned Income / Cash Available'}
  ];
 }
-function openOutgoingPayment(outgoingId,month){
+function openOutgoingPayment(outgoingId,month,paymentId=''){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o)return;
- const existing=outgoingPaymentRecord(outgoingId,month);
+ const existing=outgoingPaymentEntries(o,month).find(p=>p.id===paymentId);
+ const remaining=outgoingRemaining(o,month);
+ if(!existing && remaining<=0.005)return;
  $('outgoingPaymentOutgoingId').value=outgoingId;
  $('outgoingPaymentMonth').value=month;
+ $('outgoingPaymentEditId').value=existing?.id||'';
  $('outgoingPaymentLabel').value=o.description;
  $('outgoingPaymentMonthLabel').value=cardMonthLabel(month);
- $('outgoingPaymentAmount').value=Number(existing?.amount||o.amount||0).toFixed(2);
+ $('outgoingPaymentAmount').value=Number(existing?.amount||remaining).toFixed(2);
  $('outgoingPaymentSource').innerHTML=outgoingPaymentSourceOptions().map(x=>`<option value="${x.id}">${x.label}</option>`).join('');
  $('outgoingPaymentSource').value=existing?.sourceId||'cash-source';
  $('outgoingPaymentDate').value=existing?.date||`${month}-01`;
+ $('outgoingPaymentRemaining').textContent=`Scheduled ${money(o.amount)} • Paid ${money(outgoingPaidAmount(o,month))} • Remaining ${money(remaining)}${existing?' • Editing an existing payment':''}`;
  updateOutgoingPaymentPreview();
  openModal('outgoingPaymentModal');
 }
@@ -1504,16 +1512,18 @@ function refreshAfterOutgoingPayment(){
   openAccount(currentAccountDetailId,accountDetailReturnPage);
  }
 }
-function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
+function recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId=''){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o)return false;
  o.payments=o.payments||{};
-
- // If replacing an existing payment, undo its source effect first.
- if(o.payments[month])undoOutgoingPayment(outgoingId,month,false);
+ const old=outgoingPaymentEntries(o,month).find(p=>p.id===editId);
+ const allowed=outgoingRemaining(o,month)+Number(old?.amount||0);
+ if(!Number.isFinite(amount)||amount<=0||amount>allowed+0.005){alert(`Enter an amount up to ${money(allowed)}.`);return false;}
+ if(editId && !old){alert('This payment changed. Reopen it before editing.');return false;}
+ if(old)undoOutgoingPayment(outgoingId,month,false,editId);
 
  const paymentId=`outpay-${outgoingId}-${month}-${Date.now()}`;
  const p={id:paymentId,amount:Number(amount),sourceId,date,month,recordedAt:new Date().toISOString()};
- o.payments[month]=p;
+ o.payments[month]=[...outgoingPaymentEntries(o,month),p];
  addCashFlowLedgerEntry({
   type:'outgoing-payment',
   date,
@@ -1525,7 +1535,7 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
   targetId:o.id,
   targetName:o.description,
   deductFromIncome:sourceId==='cash-source',
-  referenceId:`outgoing:${o.id}:${month}`,
+  referenceId:`outgoing:${paymentId}`,
   referenceType:'outgoing-payment',
   createdAt:p.recordedAt
  });
@@ -1561,10 +1571,17 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date){
  refreshAfterOutgoingPayment();
  return true;
 }
-function undoOutgoingPayment(outgoingId,month,refresh=true){
- const o=outgoings.find(x=>x.id===outgoingId);if(!o?.payments?.[month])return false;
- const p=o.payments[month];
- reverseCashFlowLedgerByReference(`outgoing:${outgoingId}:${month}`);
+function undoOutgoingPayment(outgoingId,month,refresh=true,paymentId=''){
+ const o=outgoings.find(x=>x.id===outgoingId);if(!o)return false;
+ const entries=outgoingPaymentEntries(o,month);
+ const p=entries.find(x=>x.id===paymentId)||(!paymentId&&entries.length===1?entries[0]:null);
+ if(!p)return false;
+ reverseCashFlowLedgerByReference(`outgoing:${p.id}`);
+ // Historic single payments used a month-level reference, even after a later
+ // partial payment converted the month into a list.
+ if((cashFlowLedger||[]).some(x=>x.referenceId===`outgoing:${outgoingId}:${month}` && x.status!=='reversed' && Math.abs(Number(x.amount||0)-Number(p.amount||0))<0.01 && x.sourceId===p.sourceId && x.date===p.date)){
+  reverseCashFlowLedgerByReference(`outgoing:${outgoingId}:${month}`);
+ }
  const src=p.sourceId==='cash-source'?null:account(p.sourceId);
 
  if(src?.type==='bank'){
@@ -1575,7 +1592,8 @@ function undoOutgoingPayment(outgoingId,month,refresh=true){
   delete transactionActions[p.generatedTransactionId];
  }
 
- delete o.payments[month];
+ const survivors=entries.filter(x=>x!==p);
+ if(survivors.length)o.payments[month]=survivors;else delete o.payments[month];
  saveLocal();
  if(refresh)refreshAfterOutgoingPayment();
  return true;
@@ -1595,14 +1613,15 @@ function renderOutgoings(){
  ].join('');
 
  grid.innerHTML=outgoings.map(o=>{
-  const thisPay=o.payments?.[activeMonth];
+  const thisPay=outgoingPaymentEntries(o,activeMonth);
+  const remaining=outgoingRemaining(o,activeMonth);
   return `<div class="outgoingCard">
    <div class="meta">${o.method||'Cash'}</div>
    <div style="font-weight:900">${o.description}</div>
    <div class="outAmount">${money(o.amount)}</div>
    <span class="outgoingBadge">${o.forever?'Forever • Monthly':`${o.months} month${Number(o.months)===1?'':'s'}`}</span>
    <div class="outMeta" style="margin-top:8px">${o.category} → ${o.subcategory}<br>Starts ${o.startMonth}${o.forever?'<br>Continues until you edit or delete it':''}</div>
-   ${thisPay?`<div class="meta green" style="margin-top:8px"><b>${cardMonthLabel(activeMonth)} paid</b> • ${outgoingPaymentSourceLabel(thisPay)}</div>`:''}
+   ${thisPay.length?`<div class="meta green" style="margin-top:8px"><b>${cardMonthLabel(activeMonth)} ${remaining>0.005?'partially paid':'paid'}</b> • ${money(outgoingPaidAmount(o,activeMonth))} paid • ${money(remaining)} remaining</div>`:''}
    <div class="outActions">
     <button class="btn small" data-edit-outgoing="${o.id}">Edit</button>
     <button type="button" class="btn small danger" data-del-outgoing="${o.id}">Delete</button>
@@ -1611,7 +1630,9 @@ function renderOutgoings(){
  }).join('')||'<div class="panel"><div class="meta">No cash or recurring outgoings yet.</div></div>';
 
  body.innerHTML=occ.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(x=>{
-  const p=outgoingPaymentRecord(x.outgoingId,x.month);
+  const o=outgoings.find(o=>o.id===x.outgoingId);
+  const payments=outgoingPaymentEntries(o,x.month);
+  const remaining=outgoingRemaining(o,x.month);
   return `<tr>
    <td>${x.month}</td>
    <td><b>${x.description}</b><div class="meta">${x.method}</div></td>
@@ -1619,10 +1640,9 @@ function renderOutgoings(){
    <td>${x.subcategory}</td>
    <td class="red">${money(x.amount)}</td>
    <td>${x.forever?'Monthly • Forever':`#${x.occurrence} of #${x.total}`}</td>
-   <td>${p?`<span class="badge active">Paid</span><div class="meta">${outgoingPaymentSourceLabel(p)}<br>${paymentFormatDate(p.date)}</div>`:`<span class="badge pending">Unpaid</span>`}</td>
-   <td>${p
-    ?`<button class="btn small" data-undo-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}">Undo Payment</button>`
-    :`<button class="btn small primary" data-pay-outgoing="${x.outgoingId}" data-pay-month="${x.month}">Pay</button>`}
+   <td><span class="badge ${remaining<=0.005?'active':'pending'}">${remaining<=0.005?'Paid':payments.length?'Partially paid':'Unpaid'}</span><div class="meta">${payments.map(p=>`${money(p.amount)} • ${outgoingPaymentSourceLabel(p)} • ${paymentFormatDate(p.date)}`).join('<br>')}${remaining>0.005?`<br>${money(remaining)} remaining`:''}</div></td>
+   <td>${payments.map(p=>`<button class="btn small" data-edit-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}">Edit</button> <button class="btn small" data-undo-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}">Undo</button>`).join(' ')}
+    ${remaining>0.005?`<button class="btn small primary" data-pay-outgoing="${x.outgoingId}" data-pay-month="${x.month}">Pay ${money(remaining)}</button>`:''}
    </td>
   </tr>`;
  }).join('')||'<tr><td colspan="8">No scheduled outgoings.</td></tr>';
@@ -1632,16 +1652,17 @@ function renderOutgoings(){
   const o=outgoings.find(x=>x.id===b.dataset.delOutgoing);
   if(o&&confirm(`Delete "${o.description}" and its whole schedule? Existing payment history for this outgoing will also be removed.`)){
    // Reverse paid source effects before deleting the schedule.
-   Object.keys(o.payments||{}).forEach(month=>undoOutgoingPayment(o.id,month,false));
+   Object.keys(o.payments||{}).forEach(month=>outgoingPaymentEntries(o,month).slice().forEach(p=>undoOutgoingPayment(o.id,month,false,p.id)));
    outgoings=outgoings.filter(x=>x.id!==o.id);
    saveLocal();refreshAfterOutgoingPayment();renderImportPage();
   }
  }));
  document.querySelectorAll('[data-pay-outgoing]').forEach(b=>b.addEventListener('click',()=>openOutgoingPayment(b.dataset.payOutgoing,b.dataset.payMonth)));
+ document.querySelectorAll('[data-edit-outgoing-pay]').forEach(b=>b.addEventListener('click',()=>openOutgoingPayment(b.dataset.editOutgoingPay,b.dataset.payMonth,b.dataset.paymentId)));
  document.querySelectorAll('[data-undo-outgoing-pay]').forEach(b=>b.addEventListener('click',()=>{
   const o=outgoings.find(x=>x.id===b.dataset.undoOutgoingPay);
   if(o&&confirm(`Undo ${cardMonthLabel(b.dataset.payMonth)} payment for "${o.description}"?`)){
-   undoOutgoingPayment(o.id,b.dataset.payMonth,true);
+   undoOutgoingPayment(o.id,b.dataset.payMonth,true,b.dataset.paymentId);
   }
  }));
 }
@@ -1749,7 +1770,7 @@ function renderGoldAssets(){
  if($('goldPriceGrid'))$('goldPriceGrid').innerHTML=['24','22','21','18'].map(k=>kpiHTML(`${k}K / gram`,money(goldPricePerGram(k)),k==='24'?'Live base price':'Derived by purity')).join('');
  if($('goldPriceMeta'))$('goldPriceMeta').textContent=`${goldMarket.manual?'Manual override':'Live spot reference'} • ${goldMarket.updatedAt?new Date(goldMarket.updatedAt).toLocaleString():'Not refreshed yet'} • Source: ${goldMarket.source||'Gold-API'}`;
  const b=$('goldAssetsBody');if(b)b.innerHTML=active.length?active.map(a=>{const w=activeGoldWeight(a),v=goldAssetValue(a),cost=Number(a.purchasePrice||0)*(w/Math.max(.0001,Number(a.weight||0))),gain=v-cost,dueDate=goldNextDue(a),dueNow=goldZakatDue(a),zak=v*.025;return `<tr><td><b>${escapeHtml(a.name)}</b><div class="meta">${a.id}</div></td><td>${escapeHtml(a.goldType||'Gold')} • ${escapeHtml(a.purity||'24K')}</td><td><b>${MONEY.format(w)} g</b></td><td>${a.purchaseDate}</td><td>${money(cost)}</td><td><b>${money(v)}</b></td><td class="${gain>=0?'green':'red'}">${money(gain)}</td><td>${dueDate}<div class="meta">${new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{day:'numeric',month:'short',year:'numeric'}).format(new Date(dueDate+'T12:00:00'))}</div></td><td class="${dueNow?'amber':''}"><b>${money(zak)}</b><div class="meta">${dueNow?'DUE':'Not due'}</div></td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn small" data-edit-gold="${a.id}">Edit</button><button class="btn small" data-sell-gold="${a.id}">Sell</button>${dueNow?`<button class="btn small primary" data-pay-zakat="${a.id}">Pay Zakat</button>`:''}<button class="btn small danger" data-delete-gold="${a.id}">Delete</button></div></td></tr>`}).join(''):'<tr><td colspan="10">No active gold assets yet.</td></tr>';
- const zh=$('goldZakatHistoryBody');if(zh)zh.innerHTML=goldZakatHistory.length?goldZakatHistory.slice().reverse().map(z=>`<tr><td>${escapeHtml(z.assetName)}<div class="meta">${z.assetId}</div></td><td>${escapeHtml(z.hijriCycle||'')}</td><td>${MONEY.format(z.weight)} g</td><td>${money(z.valueUsed)}</td><td><b>${money(z.amount)}</b></td><td>${z.paidDate}</td><td>${escapeHtml(z.sourceName||'')}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn small" data-edit-zakat="${z.id}">Edit</button><button class="btn small danger" data-delete-zakat="${z.id}">Undo</button></div></td></tr>`).join(''):'<tr><td colspan="8">No Zakat payments recorded yet.</td></tr>';
+ const zh=$('goldZakatHistoryBody');if(zh)zh.innerHTML=goldZakatHistory.length?goldZakatHistory.slice().reverse().map(z=>`<tr><td>${escapeHtml(z.assetName)}<div class="meta">${z.assetId}</div></td><td>${escapeHtml(z.hijriCycle||'')}</td><td>${MONEY.format(z.weight)} g</td><td>${money(z.valueUsed)}</td><td><b>${money(z.amount)}</b></td><td>${z.paidDate}</td><td>${escapeHtml(z.sourceName||'')}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn small" data-edit-zakat="${z.id}">Edit</button><button class="btn small danger" data-delete-zakat="${z.id}">Delete</button></div></td></tr>`).join(''):'<tr><td colspan="8">No Zakat payments recorded yet.</td></tr>';
  const sh=$('goldSaleHistoryBody');if(sh)sh.innerHTML=goldSaleHistory.length?goldSaleHistory.slice().reverse().map(x=>`<tr><td>${escapeHtml(x.assetName)}<div class="meta">${x.assetId}</div></td><td>${x.date}</td><td>${MONEY.format(x.weight)} g</td><td>${money(x.proceeds)}</td><td>${escapeHtml(x.receivedToName||'Monthly Cash')}</td><td class="${x.gainLoss>=0?'green':'red'}">${money(x.gainLoss)}</td></tr>`).join(''):'<tr><td colspan="6">No gold sales recorded yet.</td></tr>';
  document.querySelectorAll('[data-edit-gold]').forEach(x=>x.onclick=()=>editGoldAsset(x.dataset.editGold));document.querySelectorAll('[data-sell-gold]').forEach(x=>x.onclick=()=>sellGoldAsset(x.dataset.sellGold));document.querySelectorAll('[data-delete-gold]').forEach(x=>x.onclick=()=>deleteGoldAsset(x.dataset.deleteGold));document.querySelectorAll('[data-pay-zakat]').forEach(x=>x.onclick=()=>payGoldZakat(x.dataset.payZakat));document.querySelectorAll('[data-edit-zakat]').forEach(x=>x.onclick=()=>editGoldZakatPayment(x.dataset.editZakat));document.querySelectorAll('[data-delete-zakat]').forEach(x=>x.onclick=()=>deleteGoldZakatPayment(x.dataset.deleteZakat));
 }
