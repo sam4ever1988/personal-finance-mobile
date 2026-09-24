@@ -1,3 +1,4 @@
+53884 app-08.js
 function applyTableSort(table,colIndex,direction,remember=true){
  const tbody=table.tBodies?.[0];
  if(!tbody)return;
@@ -283,7 +284,17 @@ function openUnifiedAction(cfg){
  modal.onclick=e=>{if(e.target===modal){modal.classList.remove('open');modal.style.display='';}};
  modal.classList.add('open');
 }
-function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice" style="margin-bottom:7px"><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending)+'</b> • '+money(adjustedBankBalance(b))+'</div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>'}
+function renderCustomBanks(){const el=$('customBanksList');if(!el)return;el.innerHTML=customBanks.length?customBanks.map(b=>'<div class="notice customAccountEditRow" style="margin-bottom:7px"><div><b>'+escapeHtml(b.bank)+' • '+escapeHtml(b.name)+' •'+escapeHtml(b.ending)+'</b> • '+money(adjustedBankBalance(b))+'</div><button type="button" class="btn small" data-edit-bank="'+escapeHtml(b.id)+'">Edit</button></div>').join(''):'<div class="meta">No manually added bank accounts yet.</div>';el.querySelectorAll('[data-edit-bank]').forEach(btn=>btn.addEventListener('click',()=>editCustomBank(btn.dataset.editBank)))}
+function editCustomBank(id){
+ const current=customBanks.find(b=>b.id===id);if(!current)return;
+ openUnifiedAction({title:'Edit Bank Account',subtitle:'Update account details and the current tracked bank balance.',save:'Save Changes',fields:[{name:'bank',label:'Bank Name',value:current.bank,required:true,full:false},{name:'name',label:'Account Name',value:current.name,required:true,full:false},{name:'ending',label:'Last 4 Digits',value:current.ending,required:true,full:false},{name:'balance',label:'Live Bank Balance (SAR)',type:'number',step:'0.01',min:'0',value:adjustedBankBalance(current),required:true,full:false}],submit:v=>{
+  const ending=String(v.ending||'').replace(/\D/g,'').slice(-4),balance=Number(v.balance);
+  if(ending.length!==4||!Number.isFinite(balance)||balance<0)return goldActionError('Enter exactly four digits and a valid bank balance.');
+  Object.assign(current,{bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending,updatedAt:new Date().toISOString()});
+  localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));
+  syncCustomAccountsIntoAccounts();setTrackedBankBalance(current.id,balance);saveLocal();scheduleRecordPush('custom-bank-edit');refreshAccountDependentUI();return true;
+ }});
+}
 function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'This account will be available across transactions, imports, payment sources, reports and dashboards.',save:'Add Bank',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Account Name',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'balance',label:'Live Bank Balance (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),bal=Number(v.balance);if(e.length!==4||!Number.isFinite(bal)||bal<0)return goldActionError('Enter exactly 4 digits and a valid bank balance.');const b={id:'custom-bank-'+e+'-'+Date.now(),bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,type:'bank',custom:true,balance:bal,balanceLabel:'Live Balance',extra:{}};customBanks.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));syncCustomAccountsIntoAccounts();setTrackedBankBalance(b.id,bal);saveLocal();scheduleRecordPush('custom-bank-add');refreshAccountDependentUI();return true}})}
 function bindCustomAccountButtons(){
  const bank=$('addCustomBank'),card=$('addCustomCreditCard');
