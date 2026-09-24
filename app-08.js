@@ -1,4 +1,3 @@
-53884 app-08.js
 function applyTableSort(table,colIndex,direction,remember=true){
  const tbody=table.tBodies?.[0];
  if(!tbody)return;
