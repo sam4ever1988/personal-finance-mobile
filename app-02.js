@@ -536,7 +536,7 @@ function remainingIncomeAvailable(month=currentIncomeMonth()){
   const plan=incomePlanForMonth(month);
   availableBeforeCardPayments=plan?monthlyPlanTotal(plan)-totalFixedLoans()-outgoingForMonth(month):0;
  }
- const otherCashLedger=(cashFlowLedger||[]).filter(r=>r.status!=='reversed'&&r.sourceId==='cash-source'&&r.month===month&&r.type!=='card-payment').reduce((z,r)=>z+Math.max(0,Number(r.amount||0)),0);
+ const otherCashLedger=(cashFlowLedger||[]).filter(r=>r.status!=='reversed'&&r.sourceId==='cash-source'&&r.month===month&&r.type!=='card-payment'&&r.type!=='outgoing-payment').reduce((z,r)=>z+Math.max(0,Number(r.amount||0)),0);
  return Math.max(0,availableBeforeCardPayments-remainingIncomePaymentsTotal(month)-otherCashLedger);
 }
 

@@ -1549,7 +1549,7 @@ function mergeOneRecordIntoSection(row){
  const singletonSections=new Set([
   'finance_settings','categories','merchant_rules','tx_overrides','income_plan',
   'duplicate_decisions','statement_rule','transaction_actions','bank_balance_overrides',
-  'reset_card_ids','card_reset_history','deleted_installment_ids','personal_assets_market'
+  'reset_card_ids','card_reset_history','deleted_installment_ids','personal_assets_market','custom_banks','custom_credit_cards'
  ]);
 
  if(singletonSections.has(section)){
@@ -1561,7 +1561,7 @@ function mergeOneRecordIntoSection(row){
    statement_rule:statementRule,transaction_actions:transactionActions,
    bank_balance_overrides:bankBalanceOverrides,reset_card_ids:[...resetCardIds],
    card_reset_history:cardResetHistory,deleted_installment_ids:[...deletedInstallmentIds],
-   personal_assets_market:goldMarket
+   personal_assets_market:goldMarket,custom_banks:customBanks,custom_credit_cards:customCreditCards
   }[section];
   // A full record push can echo an unchanged singleton back to this browser.
   // Treating that echo as a real change rebuilt the visible table and made rows
@@ -1591,6 +1591,8 @@ function mergeOneRecordIntoSection(row){
    case 'card_reset_history': cardResetHistory=Array.isArray(data)?data:[];break;
    case 'deleted_installment_ids': deletedInstallmentIds=new Set(Array.isArray(data)?data:[]);break;
    case 'personal_assets_market': goldMarket=data||goldMarket;localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));break;
+   case 'custom_banks': customBanks=Array.isArray(data)?data:[];localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));syncCustomAccountsIntoAccounts();break;
+   case 'custom_credit_cards': customCreditCards=Array.isArray(data)?data:[];localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));syncCustomAccountsIntoAccounts();break;
   }
   return true;
  }
@@ -1618,6 +1620,7 @@ function mergeOneRecordIntoSection(row){
 }
 function normalizeAfterRecordSections(sections){
  const s=new Set(sections);
+ if(s.has('custom_banks')||s.has('custom_credit_cards'))syncCustomAccountsIntoAccounts();
 
  if(s.has('deleted_installment_ids')){
   installments=(installments||[]).filter(p=>!deletedInstallmentIds.has(p.id));
@@ -1657,7 +1660,7 @@ function sectionAffectsPage(section,page){
  const map={
   transactions:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','duplicate_decisions','merchant_rules','categories','statement_rule','reset_card_ids','card_reset_history']),
   accountDetail:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','reset_card_ids','card_reset_history']),
-  accounts:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings']),
+  accounts:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','custom_banks','custom_credit_cards']),
   dashboard:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','income_plan','outgoings']),
   reports:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','categories']),
   installments:new Set(['installments','deleted_installment_ids','card_payment_plan']),
@@ -1665,7 +1668,7 @@ function sectionAffectsPage(section,page){
   outgoings:new Set(['outgoings','cash_flow_ledger']),
   categories:new Set(['categories','merchant_rules']),
   importstatements:new Set(['import_history','manual_transactions','imported_transactions']),
-  financeSettings:new Set(['finance_settings']),
+  financeSettings:new Set(['finance_settings','custom_banks','custom_credit_cards']),
   investments:new Set(['investments_holdings','investments_trades']),
   rental:new Set(['rental_bookings','rental_expenses','rental_blocks']),
   personalassets:new Set(['personal_assets_gold','personal_assets_zakat','personal_assets_sales','personal_assets_market'])
@@ -1690,7 +1693,7 @@ function renderCurrentPageForSections(sections){
  else if(page==='rental'&&typeof renderRental==='function')renderRental();
  else if(page==='personalassets'&&typeof renderPersonalAssets==='function')renderPersonalAssets();
  else if(page==='financeSettings'){
-  if(!financeSettingsEditing)renderFinanceSettings();
+  if(!financeSettingsEditing){renderFinanceSettings();renderCustomBanks();renderCustomCreditCards();}
   else return false;
  }
  else if(page==='accountDetail'&&currentAccountDetailId){
