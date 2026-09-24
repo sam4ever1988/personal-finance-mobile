@@ -879,7 +879,7 @@ const RECOVERY_LIMIT=8;
 
 function rawLocalRecoveryState(reason='manual'){
  return {
-  version:138,
+  version:320,
   createdAt:new Date().toISOString(),
   reason,
   financeSettings:JSON.parse(JSON.stringify(financeSettings||{})),
@@ -898,6 +898,18 @@ function rawLocalRecoveryState(reason='manual'){
   statementRule:JSON.parse(JSON.stringify(statementRule||{})),
   transactionActions:JSON.parse(JSON.stringify(transactionActions||{})),
   bankBalanceOverrides:JSON.parse(JSON.stringify(bankBalanceOverrides||{})),
+  customBanks:JSON.parse(JSON.stringify(customBanks||[])),
+  customCreditCards:JSON.parse(JSON.stringify(customCreditCards||[])),
+  investmentsHoldings:JSON.parse(JSON.stringify(typeof invHoldings!=='undefined'?invHoldings:[])),
+  investmentsTrades:JSON.parse(JSON.stringify(typeof invTrades!=='undefined'?invTrades:[])),
+  rentalBookings:JSON.parse(JSON.stringify(typeof rentalBookings!=='undefined'?rentalBookings:[])),
+  rentalExpenses:JSON.parse(JSON.stringify(typeof rentalExpenses!=='undefined'?rentalExpenses:[])),
+  rentalBlocks:JSON.parse(JSON.stringify(typeof rentalBlocks!=='undefined'?rentalBlocks:[])),
+  goldAssets:JSON.parse(JSON.stringify(typeof goldAssets!=='undefined'?goldAssets:[])),
+  goldZakatHistory:JSON.parse(JSON.stringify(typeof goldZakatHistory!=='undefined'?goldZakatHistory:[])),
+  goldSaleHistory:JSON.parse(JSON.stringify(typeof goldSaleHistory!=='undefined'?goldSaleHistory:[])),
+  goldMarket:JSON.parse(JSON.stringify(typeof goldMarket!=='undefined'?goldMarket:{})),
+  statementFormats:JSON.parse(JSON.stringify(typeof statementFormats!=='undefined'?statementFormats:[])),
   resetCardIds:[...resetCardIds],
   cardResetHistory:JSON.parse(JSON.stringify(cardResetHistory||[])),
   cardPaymentPlan:JSON.parse(JSON.stringify(cardPaymentPlan||[])),
@@ -949,6 +961,16 @@ function persistRecoveredState(){
  localStorage.setItem('pf_card_payment_plan',JSON.stringify(cardPaymentPlan));
  localStorage.setItem('pf_custom_banks',JSON.stringify(Array.isArray(customBanks)?customBanks:[]));
  localStorage.setItem('pf_custom_credit_cards',JSON.stringify(Array.isArray(customCreditCards)?customCreditCards:[]));
+ localStorage.setItem('pf_investments_holdings',JSON.stringify(invHoldings||[]));
+ localStorage.setItem('pf_investments_trades',JSON.stringify(invTrades||[]));
+ localStorage.setItem('pf_rental_bookings',JSON.stringify(rentalBookings||[]));
+ localStorage.setItem('pf_rental_expenses',JSON.stringify(rentalExpenses||[]));
+ localStorage.setItem('pf_rental_blocks',JSON.stringify(rentalBlocks||[]));
+ localStorage.setItem('pf_gold_assets',JSON.stringify(goldAssets||[]));
+ localStorage.setItem('pf_gold_zakat_history',JSON.stringify(goldZakatHistory||[]));
+ localStorage.setItem('pf_gold_sale_history',JSON.stringify(goldSaleHistory||[]));
+ localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket||{}));
+ localStorage.setItem('pf_statement_formats',JSON.stringify(statementFormats||[]));
 }
 
 function applyRecoverySnapshot(snap){
@@ -970,8 +992,18 @@ function applyRecoverySnapshot(snap){
  statementRule=(snap.statementRule&&typeof snap.statementRule==='object')?JSON.parse(JSON.stringify(snap.statementRule)):{cutoffDay:24};
  transactionActions=(snap.transactionActions&&typeof snap.transactionActions==='object')?JSON.parse(JSON.stringify(snap.transactionActions)):{};
  bankBalanceOverrides=(snap.bankBalanceOverrides&&typeof snap.bankBalanceOverrides==='object')?JSON.parse(JSON.stringify(snap.bankBalanceOverrides)):{};
- customBanks=Array.isArray(snap.customBanks)?JSON.parse(JSON.stringify(snap.customBanks)):[];
- customCreditCards=Array.isArray(snap.customCreditCards)?JSON.parse(JSON.stringify(snap.customCreditCards)):[];
+ customBanks=Array.isArray(snap.customBanks)?JSON.parse(JSON.stringify(snap.customBanks)):customBanks;
+ customCreditCards=Array.isArray(snap.customCreditCards)?JSON.parse(JSON.stringify(snap.customCreditCards)):customCreditCards;
+ if(Array.isArray(snap.investmentsHoldings))invHoldings=JSON.parse(JSON.stringify(snap.investmentsHoldings));
+ if(Array.isArray(snap.investmentsTrades))invTrades=JSON.parse(JSON.stringify(snap.investmentsTrades));
+ if(Array.isArray(snap.rentalBookings))rentalBookings=JSON.parse(JSON.stringify(snap.rentalBookings));
+ if(Array.isArray(snap.rentalExpenses))rentalExpenses=JSON.parse(JSON.stringify(snap.rentalExpenses));
+ if(Array.isArray(snap.rentalBlocks))rentalBlocks=JSON.parse(JSON.stringify(snap.rentalBlocks));
+ if(Array.isArray(snap.goldAssets))goldAssets=JSON.parse(JSON.stringify(snap.goldAssets));
+ if(Array.isArray(snap.goldZakatHistory))goldZakatHistory=JSON.parse(JSON.stringify(snap.goldZakatHistory));
+ if(Array.isArray(snap.goldSaleHistory))goldSaleHistory=JSON.parse(JSON.stringify(snap.goldSaleHistory));
+ if(snap.goldMarket&&typeof snap.goldMarket==='object')goldMarket=JSON.parse(JSON.stringify(snap.goldMarket));
+ if(Array.isArray(snap.statementFormats))statementFormats=JSON.parse(JSON.stringify(snap.statementFormats));
  if(typeof syncCustomAccountsIntoAccounts==='function')syncCustomAccountsIntoAccounts();
  resetCardIds=new Set(Array.isArray(snap.resetCardIds)?snap.resetCardIds:[]);
  cardResetHistory=Array.isArray(snap.cardResetHistory)?JSON.parse(JSON.stringify(snap.cardResetHistory)):[];
