@@ -472,8 +472,9 @@ $('outgoingPaymentForm').addEventListener('submit',e=>{
  const amount=Math.max(0,Number($('outgoingPaymentAmount').value||0));
  const sourceId=$('outgoingPaymentSource').value;
  const date=$('outgoingPaymentDate').value;
+ const editId=$('outgoingPaymentEditId').value;
  if(!outgoingId||!month||amount<=0||!sourceId||!date)return;
- if(recordOutgoingPayment(outgoingId,month,amount,sourceId,date)){
+ if(recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId)){
   closeModal('outgoingPaymentModal');
  }
 });
