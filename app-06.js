@@ -1274,7 +1274,9 @@ function deleteCashFlowLedgerEntry(ledgerId){
   ))return;
 
   try{saveRecoverySnapshot('before-delete-cash-flow-outgoing');}catch(_){}
-  undoOutgoingPayment(outgoingId,month,true);
+  undoOutgoingPayment(outgoingId,month,true,(outgoingPaymentEntries(outgoings.find(o=>o.id===outgoingId),month).find(p=>
+   `outgoing:${p.id}`===row.referenceId || (`outgoing:${outgoingId}:${month}`===row.referenceId && p.sourceId===row.sourceId && p.date===row.date && Math.abs(Number(p.amount||0)-Number(row.amount||0))<0.01)
+  )||{}).id);
   scheduleRecordPush('delete-cash-flow-outgoing');
   return;
  }
