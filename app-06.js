@@ -647,6 +647,10 @@ function deleteImportBatch(index){
  const h=importHistory[index];if(!h)return;
  const rows=importBatchRows(h),ids=new Set(rows.map(t=>t._id));
  if(!confirm(`Delete this entire import?\n\nFile: ${h.fileName}\nTransactions to remove: ${rows.length}\n\nThis removes only transactions created by this import batch. Your manual transactions and other statement imports will not be touched.`))return;
+ // Queue explicit cloud tombstones before changing local state. A failed upload
+ // stays queued across reloads, so the cloud recovery cannot restore this batch.
+ rows.forEach(t=>queueRecordDelete('imported_transactions',syncStableId('imported_transactions',t)));
+ queueRecordDelete('import_history',syncStableId('import_history',h,index));
  importedTransactions=importedTransactions.filter(t=>!ids.has(t._id));
  importHistory.splice(index,1);
  rebuildTransactions();saveLocal();renderDashboard();renderAccounts();renderTransactions();renderReports();renderReviewAlerts();renderImportHistory();renderTxHistory();
@@ -1539,6 +1543,7 @@ function setSyncArrayForSection(section,value){
 }
 function mergeOneRecordIntoSection(row){
  const section=row.section,recordId=String(row.record_id);
+ if(recordPendingDeletes.some(x=>x.section===section&&String(x.record_id)===recordId))return false;
  const deleted=!!row.deleted_at;
 
  const singletonSections=new Set([
