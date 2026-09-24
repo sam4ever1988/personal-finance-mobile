@@ -1800,6 +1800,7 @@ function recordRowsFromSnapshot(s){
  add('deleted_installment_ids',RECORD_SYNC_SINGLETON,Array.isArray(s.deletedInstallmentIds)?s.deletedInstallmentIds:[]);
  add('custom_banks',RECORD_SYNC_SINGLETON,Array.isArray(s.customBanks)?s.customBanks:[]);
  add('custom_credit_cards',RECORD_SYNC_SINGLETON,Array.isArray(s.customCreditCards)?s.customCreditCards:[]);
+ if(s.goldMarket) add('personal_assets_market',RECORD_SYNC_SINGLETON,s.goldMarket);
 
  (s.manualTransactions||[]).forEach((x,i)=>add('manual_transactions',syncStableId('manual_transactions',x,i),x));
  (s.importedTransactions||[]).forEach((x,i)=>add('imported_transactions',syncStableId('imported_transactions',x,i),x));
@@ -1808,6 +1809,14 @@ function recordRowsFromSnapshot(s){
  (s.outgoings||[]).forEach((x,i)=>add('outgoings',syncStableId('outgoings',x,i),x));
  (s.installments||[]).forEach((x,i)=>add('installments',syncStableId('installments',x,i),x));
  (s.cardPaymentPlan||[]).forEach((x,i)=>add('card_payment_plan',syncStableId('card_payment_plan',x,i),x));
+ (s.investmentsHoldings||[]).forEach((x,i)=>add('investments_holdings',syncStableId('investments_holdings',x,i),x));
+ (s.investmentsTrades||[]).forEach((x,i)=>add('investments_trades',syncStableId('investments_trades',x,i),x));
+ (s.rentalBookings||[]).forEach((x,i)=>add('rental_bookings',syncStableId('rental_bookings',x,i),x));
+ (s.rentalExpenses||[]).forEach((x,i)=>add('rental_expenses',syncStableId('rental_expenses',x,i),x));
+ (s.rentalBlocks||[]).forEach((x,i)=>add('rental_blocks',syncStableId('rental_blocks',x,i),x));
+ (s.goldAssets||[]).forEach((x,i)=>add('personal_assets_gold',syncStableId('personal_assets_gold',x,i),x));
+ (s.goldZakatHistory||[]).forEach((x,i)=>add('personal_assets_zakat',syncStableId('personal_assets_zakat',x,i),x));
+ (s.goldSaleHistory||[]).forEach((x,i)=>add('personal_assets_sales',syncStableId('personal_assets_sales',x,i),x));
 
  return rows;
 }
