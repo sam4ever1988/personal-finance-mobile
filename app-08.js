@@ -531,7 +531,7 @@ bindCustomAccountButtons();
 renderCustomCreditCards();
 
 $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPaymentPlanner();});fillCategorySelect($('reportCategory'));
- $('reportFrom').value='2026-07-31';$('reportTo').value='2026-08-28';fillReportSubcategories();
+ setReportCurrentMonthDates();fillReportSubcategories();
 
  if($('addLoanSetting'))$('addLoanSetting').onclick=addLoanSetting;
  if($('saveFinanceSettingsBtn'))$('saveFinanceSettingsBtn').onclick=()=>saveFinanceSettings(true);
