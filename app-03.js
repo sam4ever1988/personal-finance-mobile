@@ -1676,6 +1676,7 @@ function renderOutgoings(){
   if(o&&confirm(`Delete "${o.description}" and its whole schedule? Existing payment history for this outgoing will also be removed.`)){
    // Reverse paid source effects before deleting the schedule.
    Object.keys(o.payments||{}).forEach(month=>outgoingPaymentEntries(o,month).slice().forEach(p=>undoOutgoingPayment(o.id,month,false,p.id)));
+   if(typeof recordImmediateDelete==='function')recordImmediateDelete('outgoings',o.id,'outgoing-delete');
    outgoings=outgoings.filter(x=>x.id!==o.id);
    saveLocal();refreshAfterOutgoingPayment();renderImportPage();
   }
