@@ -265,15 +265,33 @@ async function recordPushAll(reason='edit'){
    return false;
   }
 
-  const current=buildRecordSyncRowsFromState();
-  const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
   const before=await recordFetchAll();
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
   const baseline=recordSyncBaseline();
+  let current=buildRecordSyncRowsFromState();
   if(!Object.keys(baseline).length){
    // Upgrading an existing device must not treat all cached rows as new edits.
    rememberRecordSyncBaseline(current);
   }
+  // Pull cloud edits only where this browser has not changed that record since
+  // its baseline. This includes cloud-side reconciliation and other devices.
+  const safeRemote=before.filter(r=>{
+   if(r.deleted_at)return false;
+   const key=`${r.section}|${r.record_id}`;
+   const local=current.find(x=>`${x.section}|${x.record_id}`===key);
+   if(!local||baseline[key]===undefined)return false;
+   const old=syncRecordValue(JSON.parse(baseline[key]));
+   return old===syncRecordValue(local.data)&&old!==syncRecordValue(r.data);
+  });
+  if(safeRemote.length){
+   applyRecordSyncDeltaRows(safeRemote,{render:true});
+   current=buildRecordSyncRowsFromState();
+   rememberRemoteRecordBaseline(safeRemote.filter(r=>{
+    const local=current.find(x=>x.section===r.section&&x.record_id===r.record_id);
+    return local&&syncRecordValue(local.data)===syncRecordValue(r.data);
+   }));
+  }
+  const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
   if(recordPendingDeletes.length){
    const deletedAt=new Date().toISOString();
    const tombstones=recordPendingDeletes.map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
@@ -288,8 +306,12 @@ async function recordPushAll(reason='edit'){
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
    if(!cloud)return true;
    if(cloud.deleted_at){if(baseline[key]!==undefined)return false;return true;}
-   if(baseline[key]===undefined || baseline[key]===JSON.stringify(r.data))return false;
-   if(JSON.stringify(cloud.data)!==baseline[key]){conflicts.push(key);return false;}
+   // Another device may have already published this exact edit while this
+   // browser still holds an older baseline. Matching values are reconciled.
+   if(syncRecordValue(cloud.data)===syncRecordValue(r.data))return false;
+   const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
+   if(old===undefined || old===syncRecordValue(r.data)){conflicts.push(key);return false;}
+   if(syncRecordValue(cloud.data)!==old){conflicts.push(key);return false;}
    return true;
   }).map(r=>({...r,deleted_at:null}));
   if(conflicts.length){
@@ -319,7 +341,7 @@ async function recordPushAll(reason='edit'){
   const activeKeys=new Set(verified.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...currentKeys].filter(k=>!activeKeys.has(k));
   let unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
-  if(!missing.length && unexpected.length && localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'){
+  if(!missing.length && unexpected.length){
    await recoverCloudOnlyRecords();
    const recoveredKeys=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
    unexpected=[...activeKeys].filter(k=>!recoveredKeys.has(k));
@@ -327,6 +349,15 @@ async function recordPushAll(reason='edit'){
   if(missing.length||unexpected.length){
    setCloudMeta({pending:missing.length>0,reconciliationMismatch:true});
    cloudSetStatus(`Cloud reconciliation needed • ${missing.length} missing • ${unexpected.length} cloud-only records`);
+   if(activeViewId()==='cloudSync')renderCloudReconciliation();
+   return false;
+  }
+  const localVerified=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
+  const differing=verified.filter(r=>!r.deleted_at&&localVerified.has(`${r.section}|${r.record_id}`)
+   &&syncRecordValue(r.data)!==syncRecordValue(localVerified.get(`${r.section}|${r.record_id}`).data));
+  if(differing.length){
+   setCloudMeta({pending:true,reconciliationMismatch:true});
+   cloudSetStatus(`Sync reconciliation needed • ${differing.length} records have different values`);
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
@@ -366,14 +397,14 @@ function recordSyncBaseline(){
  try{return JSON.parse(localStorage.getItem(RECORD_SYNC_BASELINE_KEY)||'{}')||{}}catch(_){return {}}
 }
 function rememberRecordSyncBaseline(rows){
- const baseline={};(rows||[]).forEach(r=>{baseline[`${r.section}|${r.record_id}`]=JSON.stringify(r.data)});
+ const baseline={};(rows||[]).forEach(r=>{baseline[`${r.section}|${r.record_id}`]=syncRecordValue(r.data)});
  localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
 }
 function rememberRemoteRecordBaseline(rows){
  const baseline=recordSyncBaseline();
  (rows||[]).forEach(r=>{
   const key=`${r.section}|${r.record_id}`;
-  if(r.deleted_at)delete baseline[key];else baseline[key]=JSON.stringify(r.data);
+  if(r.deleted_at)delete baseline[key];else baseline[key]=syncRecordValue(r.data);
  });
  localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
 }
@@ -1570,7 +1601,8 @@ async function recoverCloudOnlyRecords(){
  const queued=new Set(recordPendingDeletes.map(x=>`${x.section}|${x.record_id}`));
  const missing=remote.filter(r=>{
   const key=`${r.section}|${r.record_id}`,current=local.get(key);
-  return !queued.has(key) && Array.isArray(syncArrayForSection(r.section)) && (!current || (baseline[key]===JSON.stringify(current.data) && baseline[key]!==JSON.stringify(r.data)));
+  const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
+  return !queued.has(key) && Array.isArray(syncArrayForSection(r.section)) && (!current || (old===syncRecordValue(current.data) && old!==syncRecordValue(r.data)));
  });
  if(!missing.length)return [];
  try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
