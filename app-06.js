@@ -1358,9 +1358,14 @@ function updateIncomePlanPreview(){
   ? ledgerRows.map(x=>{
      const type=x.type==='card-payment'?'Card Payment':x.type==='outgoing-payment'?'Outgoing Payment':x.type;
      const source=x.sourceName||(x.sourceId==='cash-source'?'Monthly Planned Income':accountName(x.sourceId));
+     const sourceCard=account(x.sourceId);
+     const funded=x.type==='card-payment'&&sourceCard?.type==='card'
+       ?cardFundedPaymentBreakdown(x.sourceId).find(h=>h.id===x.id):null;
      const impact=x.deductFromIncome
-       ? '<span class="red"><b>Deducted</b></span>'
-       : '<span class="green"><b>Not deducted</b></span>';
+       ? '<span class="red"><b>Deducted from income</b></span>'
+       : funded
+         ? `<span class="amber"><b>Not from income</b></span><div class="meta">${funded.uncoveredAmount>0.005?`${money(funded.uncoveredAmount)} occupies source-card credit`:'Covered by source-card payment or statement'}</div>`
+         : '<span class="green"><b>Not deducted from income</b></span>';
      return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td><td><button class="btn small danger" type="button" data-delete-cash-ledger="${x.id}">Delete</button></td></tr>`;
     }).join('')
   : '<tr><td colspan="7">No cash-flow usage recorded for this month.</td></tr>';
