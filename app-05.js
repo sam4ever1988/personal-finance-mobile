@@ -1094,7 +1094,7 @@ ${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionT
  </div>
  <div style="overflow-x:auto"><table class="txTable">
   <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${rows.map(txRow6).join('')}${sourcePaymentRows.map(x=>`<tr><td></td><td>${escapeHtml(String(x.date||''))}</td><td>—</td><td><b>Payment to ${escapeHtml(x.targetName||accountName(x.targetId))}</b><div class="meta">Recorded card transfer</div></td><td>Financial Obligations</td><td>Credit Card Payments</td><td>${escapeHtml(accountName(id))}</td><td class="red"><b>-${money(x.amount)}</b></td></tr>`).join('')}${!rows.length&&!sourcePaymentRows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
+  <tbody>${rows.map(txRow6).join('')}${sourcePaymentRows.map(x=>`<tr><td></td><td>${escapeHtml(String(x.date||''))}</td><td>—</td><td><b>Payment to ${escapeHtml(x.targetName||accountName(x.targetId))}</b><div class="meta">Recorded card transfer • source statement ${escapeHtml(paymentMonthForTransaction(id,x.date))} • target statement ${escapeHtml(x.targetPaymentMonth||'not recorded')} • edit or undo from the target card payment planner</div></td><td>Financial Obligations</td><td>Credit Card Payments</td><td>${escapeHtml(accountName(id))}</td><td class="red"><b>-${money(x.amount)}</b></td></tr>`).join('')}${!rows.length&&!sourcePaymentRows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
  </table></div>
  ${(()=>{
    const cards=accountPhysicalCards(id);
@@ -1103,11 +1103,12 @@ ${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionT
     return {ending,count:cardRows.length,total:cardRows.reduce((sum,t)=>sum+Number(t.amount||0),0)};
    }).filter(x=>x.count>0);
    const unassignedRows=rows.filter(t=>!cards.includes(transactionPhysicalCardEnding(t)));
-   if(unassignedRows.length||sourcePaymentRows.length)grouped.push({ending:'',count:unassignedRows.length+sourcePaymentRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0)});
+   if(unassignedRows.length)grouped.push({ending:'',count:unassignedRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)});
+   if(sourcePaymentRows.length)grouped.push({ending:'',label:'Recorded card transfers',count:sourcePaymentRows.length,total:-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0)});
    const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0)-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0);
    return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
     <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length+sourcePaymentRows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
-    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${g.ending?physicalCardLabelFor(id,g.ending):'Unassigned'} • ${g.count} transaction${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
+    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card')} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
    </div>`;
   })()}
 </div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
