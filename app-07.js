@@ -1575,7 +1575,11 @@ async function cloudAutoReconcile(reason='fallback'){
   const editing=!!(activeEl&&activeEl.matches?.('input,select,textarea,[contenteditable="true"]'));
   const modalOpen=!!document.querySelector('.modal.open,.modal[style*="display: block"],dialog[open]');
   const transactionSelectionActive=selectedTxIds.size>0||!!activeEl?.matches?.('[data-select-tx],#txMasterCheck,#detailTxMasterCheck');
-  if(!verified||!recordSyncReady||meta.pending||recordSyncPushBusy||recordSyncApplying||editing||modalOpen||transactionSelectionActive)return false;
+  if(!recordSyncReady||recordSyncPushBusy||recordSyncApplying||editing||modalOpen||transactionSelectionActive)return false;
+  // A pending device still needs a guarded retry. recordPushAll compares its
+  // local baseline before accepting remote edits, including tombstones.
+  if(meta.pending)return await recordPushAll(`pending-${reason}`);
+  if(!verified)return false;
   const changed=await recordFetchChangedSince(currentCloudCursorIso());
   let recovered=[];
   if(changed.length){
