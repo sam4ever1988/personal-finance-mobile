@@ -214,6 +214,7 @@ async function recordPullAll(reason='manual-full-pull'){
   if(!rows.length)return false;
 
   applyRecordSyncRows(rows);
+  rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
   rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   const sections=[...new Set(rows.map(r=>r.section))];
   renderCurrentPageForSections(sections);
@@ -266,6 +267,13 @@ async function recordPushAll(reason='edit'){
 
   const current=buildRecordSyncRowsFromState();
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
+  const before=await recordFetchAll();
+  const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
+  const baseline=recordSyncBaseline();
+  if(!Object.keys(baseline).length){
+   // Upgrading an existing device must not treat all cached rows as new edits.
+   rememberRecordSyncBaseline(current);
+  }
   if(recordPendingDeletes.length){
    const deletedAt=new Date().toISOString();
    const tombstones=recordPendingDeletes.map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
@@ -275,7 +283,21 @@ async function recordPushAll(reason='edit'){
    recordPendingDeletes=[];saveRecordDeleteQueue();
   }
 
-  const upserts=current.map(r=>({...r,deleted_at:null}));
+  const conflicts=[];
+  const upserts=current.filter(r=>{
+   const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
+   if(!cloud)return true;
+   if(cloud.deleted_at){if(baseline[key]!==undefined)return false;return true;}
+   if(baseline[key]===undefined || baseline[key]===JSON.stringify(r.data))return false;
+   if(JSON.stringify(cloud.data)!==baseline[key]){conflicts.push(key);return false;}
+   return true;
+  }).map(r=>({...r,deleted_at:null}));
+  if(conflicts.length){
+   setCloudMeta({pending:true,reconciliationMismatch:true});
+   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. Review differences.`);
+   if(activeViewId()==='cloudSync')renderCloudReconciliation();
+   return false;
+  }
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
@@ -286,13 +308,19 @@ async function recordPushAll(reason='edit'){
   const verified=await recordFetchAll();
   const activeKeys=new Set(verified.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...currentKeys].filter(k=>!activeKeys.has(k));
-  const unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
+  let unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
+  if(!missing.length && unexpected.length && localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'){
+   await recoverCloudOnlyRecords();
+   const recoveredKeys=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
+   unexpected=[...activeKeys].filter(k=>!recoveredKeys.has(k));
+  }
   if(missing.length||unexpected.length){
    setCloudMeta({pending:missing.length>0,reconciliationMismatch:true});
    cloudSetStatus(`Cloud reconciliation needed • ${missing.length} missing • ${unexpected.length} cloud-only records`);
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
+  rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
 
   // V186 PROTECTION: a normal full-device save is additive/update-only.
   // Never infer cloud deletions merely because a row is missing from this device.
@@ -321,6 +349,23 @@ async function recordPushAll(reason='edit'){
  }finally{
   recordSyncPushBusy=false;
  }
+}
+
+const RECORD_SYNC_BASELINE_KEY='pf_record_sync_baseline_v313';
+function recordSyncBaseline(){
+ try{return JSON.parse(localStorage.getItem(RECORD_SYNC_BASELINE_KEY)||'{}')||{}}catch(_){return {}}
+}
+function rememberRecordSyncBaseline(rows){
+ const baseline={};(rows||[]).forEach(r=>{baseline[`${r.section}|${r.record_id}`]=JSON.stringify(r.data)});
+ localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
+}
+function rememberRemoteRecordBaseline(rows){
+ const baseline=recordSyncBaseline();
+ (rows||[]).forEach(r=>{
+  const key=`${r.section}|${r.record_id}`;
+  if(r.deleted_at)delete baseline[key];else baseline[key]=JSON.stringify(r.data);
+ });
+ localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
 }
 
 
@@ -503,6 +548,7 @@ async function startRealtimeRecordSync(){
  // V225: an already-initialized trusted source device must keep publishing after an
  // upgrade. New/untrusted devices still require one verified manual cloud load.
  recordSyncReady=!recoveryCloudLockActive() && (verifiedCloudLoad || (meta.initialized&&meta.deviceTrusted));
+ if(recordSyncReady && !Object.keys(recordSyncBaseline()).length)rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
  cloudSetStatus(recordSyncReady?'Protected sync ready • local edits publish automatically':'Protected • use Load Latest Cloud Data once on this device');
 
  if(legacyPlannerCleanupPending){
@@ -1448,23 +1494,48 @@ async function cloudAutoReconcile(reason='fallback'){
   const transactionSelectionActive=selectedTxIds.size>0||!!activeEl?.matches?.('[data-select-tx],#txMasterCheck,#detailTxMasterCheck');
   if(!verified||!recordSyncReady||meta.pending||recordSyncPushBusy||recordSyncApplying||editing||modalOpen||transactionSelectionActive)return false;
   const changed=await recordFetchChangedSince(currentCloudCursorIso());
+  let recovered=[];
   if(changed.length){
    const result=applyRecordSyncDeltaRows(changed,{render:true});
+   rememberRemoteRecordBaseline(changed);
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
+   recovered=await recoverCloudOnlyRecords();
    setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
    if(activeViewId()==='cloudSync')await renderCloudReconciliation();
-   cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
-   return result.changed;
+   cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
+   return result.changed||recovered.length>0;
   }
+  recovered=await recoverCloudOnlyRecords();
   cloudLastAutoCheckAt=Date.now();
   if(activeViewId()==='cloudSync')await renderCloudReconciliation();
-  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
-  return false;
+  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
+  return recovered.length>0;
  }catch(e){
   console.warn('Protected cloud refresh failed',e);
   cloudSetStatus('Cloud check retry pending • '+e.message);
   return false;
  }
+}
+
+async function recoverCloudOnlyRecords(){
+ // Delta timestamps cannot find rows written before this device's cursor.
+ // A full key comparison adds missing cloud records without replacing local edits.
+ const remote=(await recordFetchAll()).filter(r=>!r.deleted_at);
+ const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
+ const baseline=recordSyncBaseline();
+ const missing=remote.filter(r=>{
+  const key=`${r.section}|${r.record_id}`,current=local.get(key);
+  return Array.isArray(syncArrayForSection(r.section)) && (!current || (baseline[key]===JSON.stringify(current.data) && baseline[key]!==JSON.stringify(r.data)));
+ });
+ if(!missing.length)return [];
+ try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
+ const result=applyRecordSyncDeltaRows(missing,{render:true});
+ if(result.changed){
+  rememberRemoteRecordBaseline(missing);
+  missing.forEach(r=>noteCloudUpdatedAt(r.updated_at));
+  return missing;
+ }
+ return [];
 }
 
 function schedulePeriodicCloudAutoSync(){
@@ -1659,6 +1730,7 @@ async function cloudDownloadAll(){
   if((cashFlowLedger||[]).length!==cloud.cashFlowRows)mismatches.push(`cash-flow ${cashFlowLedger.length}/${cloud.cashFlowRows}`);
   if((outgoings||[]).length!==cloud.outgoings)mismatches.push(`outgoings ${outgoings.length}/${cloud.outgoings}`);
   if(mismatches.length)throw new Error('Cloud-to-device verification mismatch: '+mismatches.join(' • '));
+  rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
 
   rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   const sections=[...new Set(rows.map(r=>r.section))];
