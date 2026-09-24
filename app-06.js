@@ -1548,6 +1548,10 @@ function setSyncArrayForSection(section,value){
   case 'personal_assets_sales': goldSaleHistory=value;localStorage.setItem('pf_gold_sale_history',JSON.stringify(value));break;
  }
 }
+function syncRecordValue(value){
+ return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)
+  ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
+}
 function mergeOneRecordIntoSection(row){
  const section=row.section,recordId=String(row.record_id);
  if(recordPendingDeletes.some(x=>x.section===section&&String(x.record_id)===recordId))return false;
@@ -1573,7 +1577,7 @@ function mergeOneRecordIntoSection(row){
   // A full record push can echo an unchanged singleton back to this browser.
   // Treating that echo as a real change rebuilt the visible table and made rows
   // appear to move away and return. Only render when the data actually differs.
-  try{if(JSON.stringify(currentSingleton)===JSON.stringify(data))return false;}catch(_){}
+  try{if(syncRecordValue(currentSingleton)===syncRecordValue(data))return false;}catch(_){}
   switch(section){
    case 'finance_settings':
     if(financeSettingsEditing||financeSettingsDirty)return false;
@@ -1617,7 +1621,7 @@ function mergeOneRecordIntoSection(row){
  if(idx>=0){
   // Skip if data is structurally unchanged.
   try{
-   if(JSON.stringify(arr[idx])===JSON.stringify(rowData))return false;
+   if(syncRecordValue(arr[idx])===syncRecordValue(rowData))return false;
   }catch(_){}
   const copy=arr.slice();copy[idx]=rowData;setSyncArrayForSection(section,copy);return true;
  }
