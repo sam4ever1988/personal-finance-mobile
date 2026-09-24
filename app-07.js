@@ -280,7 +280,7 @@ async function recordPushAll(reason='edit'){
    tombstones.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
    const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones,{onConflict:'section,record_id'});
    if(deleteError)throw deleteError;
-   recordPendingDeletes=[];saveRecordDeleteQueue();
+   // Keep the durable queue until a subsequent read confirms the tombstones.
   }
 
   const conflicts=[];
@@ -306,6 +306,16 @@ async function recordPushAll(reason='edit'){
   }
 
   const verified=await recordFetchAll();
+  if(recordPendingDeletes.length){
+   const verifiedMap=new Map(verified.map(r=>[`${r.section}|${r.record_id}`,r]));
+   recordPendingDeletes=recordPendingDeletes.filter(x=>!verifiedMap.get(`${x.section}|${x.record_id}`)?.deleted_at);
+   saveRecordDeleteQueue();
+   if(recordPendingDeletes.length){
+    setCloudMeta({pending:true});
+    cloudSetStatus(`Deletion pending • ${recordPendingDeletes.length} record(s) still unconfirmed`);
+    return false;
+   }
+  }
   const activeKeys=new Set(verified.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...currentKeys].filter(k=>!activeKeys.has(k));
   let unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
@@ -1523,9 +1533,10 @@ async function recoverCloudOnlyRecords(){
  const remote=(await recordFetchAll()).filter(r=>!r.deleted_at);
  const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
  const baseline=recordSyncBaseline();
+ const queued=new Set(recordPendingDeletes.map(x=>`${x.section}|${x.record_id}`));
  const missing=remote.filter(r=>{
   const key=`${r.section}|${r.record_id}`,current=local.get(key);
-  return Array.isArray(syncArrayForSection(r.section)) && (!current || (baseline[key]===JSON.stringify(current.data) && baseline[key]!==JSON.stringify(r.data)));
+  return !queued.has(key) && Array.isArray(syncArrayForSection(r.section)) && (!current || (baseline[key]===JSON.stringify(current.data) && baseline[key]!==JSON.stringify(r.data)));
  });
  if(!missing.length)return [];
  try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
