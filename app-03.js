@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.16</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.16');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.17</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.17');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -582,6 +582,8 @@ function recordedCardPaymentCredit(cardId){
 function cardFundedPaymentBreakdown(cardId){
  const activeCycle=cardActiveCycleMonth(cardId);
  const liveRows=liveCardTransactions();
+ const excessPaidByMonth=new Map();
+ const coveredByOtherTransfers=new Map();
 
  // The ledger is the durable record of an actual transfer. A payment-plan row
  // may be removed while its ledger entry is still active; that must not erase
@@ -593,10 +595,16 @@ function cardFundedPaymentBreakdown(cardId){
    const date=String(h.date||'').slice(0,10);
    const month=paymentMonthForTransaction(cardId,date);
    const isCurrentOrFuture=!!month && month>=activeCycle;
-   // V229: a card-funded payment remains utilization on the source card while
-   // that source cycle is still open, even when it is a prior unreleased month.
-   // A confirmed/released or fully paid source cycle already contains/settles it.
-   const sourceCycleStillOpen=!!month && !cardCycleHasStatement(cardId,month) && !cardCycleFullyPaid(cardId,month);
+   // A calculated source cycle contains purchases and installments, but not
+   // ledger-only transfers. Paying that calculated due must not release this
+   // separate card-funded transfer. Only payment above that due covers it.
+   const sourceCycleStillOpen=!!month && !cardCycleHasStatement(cardId,month);
+   if(!excessPaidByMonth.has(month)){
+    const plans=cardPaymentPlan.filter(p=>p.accountId===cardId && p.month===month && p.upcomingOnly!==true);
+    const due=Math.max(0,...plans.map(p=>Number(plannerAmountForRow(p)||0)));
+    const paid=Math.max(0,...plans.map(p=>Number(paymentPaidAmount(p)||0)));
+    excessPaidByMonth.set(month,Math.max(0,Math.round((paid-due)*100)/100));
+   }
 
    // If the bank/import/manual feed already contains this outgoing card-funded
    // payment, that transaction already consumes the source card limit.
@@ -609,6 +617,12 @@ function cardFundedPaymentBreakdown(cardId){
     return /card payment|credit card payment|payment|transfer/.test(desc);
    })||null;
 
+   const matchedInLiveUsage=!!matchedTransaction && liveUnreleasedTransactionRows(cardId).some(t=>t._id===matchedTransaction._id);
+   const canCount=sourceCycleStillOpen && !matchedInLiveUsage;
+   const availableExcess=excessPaidByMonth.get(month)||0;
+   const alreadyCovered=coveredByOtherTransfers.get(month)||0;
+   const covered=canCount?Math.min(amount,Math.max(0,availableExcess-alreadyCovered)):0;
+   if(canCount)coveredByOtherTransfers.set(month,alreadyCovered+covered);
    return {
     ...h,
     amount,
@@ -617,7 +631,9 @@ function cardFundedPaymentBreakdown(cardId){
     matchedTransactionId:matchedTransaction?matchedTransaction._id:'',
     matchedInTransactionFeed:!!matchedTransaction,
     sourceCycleStillOpen,
-    countsSeparately:sourceCycleStillOpen && (!matchedTransaction || !liveUnreleasedTransactionRows(cardId).some(t=>t._id===matchedTransaction._id))
+    countsSeparately:canCount && amount-covered>0.005,
+    uncoveredAmount:canCount?Math.max(0,Math.round((amount-covered)*100)/100):0,
+    coveredBySourcePayment:covered
    };
   });
 }
@@ -626,7 +642,7 @@ function cardFundedPaymentUsage(cardId){
  return Math.round(
   cardFundedPaymentBreakdown(cardId)
    .filter(x=>x.countsSeparately)
-   .reduce((sum,h)=>sum+h.amount,0)*100
+   .reduce((sum,h)=>sum+h.uncoveredAmount,0)*100
  )/100;
 }
 
