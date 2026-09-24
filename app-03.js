@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.18</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.18');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.19</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.19');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -1020,6 +1020,26 @@ function summaryData(rows=normalizedTx()){
 
 const UI_REVIEW_STATE_KEY='pf_ui_review_state_v172';
 
+function reportCurrentMonthRange(date=new Date()){
+ const day=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+ return {from:`${day.slice(0,7)}-01`,to:day};
+}
+function setReportCurrentMonthDates(){
+ const range=reportCurrentMonthRange();
+ if($('reportFrom'))$('reportFrom').value=range.from;
+ if($('reportTo'))$('reportTo').value=range.to;
+ window.__reportDefaultRange=range;
+}
+function refreshReportDatesForNewDay(){
+ const range=reportCurrentMonthRange(),previous=window.__reportDefaultRange;
+ if(!previous || previous.to===range.to)return;
+ if($('reportFrom')?.value===previous.from && $('reportTo')?.value===previous.to){
+  $('reportFrom').value=range.from;
+  $('reportTo').value=range.to;
+ }
+ window.__reportDefaultRange=range;
+}
+
 function activeViewId(){
  const active=document.querySelector('.view.active');
  return active?.id||'dashboard';
@@ -1044,6 +1064,7 @@ function captureReviewState(){
    statementMonth:$('txStatementMonth')?.value||''
   },
   reportFilters:{
+   defaultDay:window.__reportDefaultRange?.to||'',
    from:$('reportFrom')?.value||'',
    to:$('reportTo')?.value||'',
    account:$('reportAccount')?.value||'',
@@ -1071,8 +1092,10 @@ function restoreReviewControls(state){
  }
 
  if(state.reportFilters){
-  if($('reportFrom'))$('reportFrom').value=state.reportFilters.from||'';
-  if($('reportTo'))$('reportTo').value=state.reportFilters.to||'';
+  if(state.reportFilters.defaultDay===reportCurrentMonthRange().to){
+   if($('reportFrom'))$('reportFrom').value=state.reportFilters.from||'';
+   if($('reportTo'))$('reportTo').value=state.reportFilters.to||'';
+  }
   if($('reportAccount'))$('reportAccount').value=state.reportFilters.account||'';
   if($('reportPhysicalCard'))$('reportPhysicalCard').value=state.reportFilters.physicalCard||'';
   if($('reportCategory'))$('reportCategory').value=state.reportFilters.category||'';
@@ -1495,22 +1518,23 @@ function updateOutgoingPaymentPreview(){
  $('outgoingPaymentPreview').textContent=text;
 }
 function refreshAfterOutgoingPayment(){
- rebuildTransactions();
- ensureImportedTransactionPlannerRows(importedAccountId,importedFresh);
- ensureReleasedCyclePlannerRows();
- normalizeReleasedPaymentAliases();
- ensureMonthlyPlannerRows(currentIncomeMonth());
- renderOutgoings();
- renderDashboard();
- renderIncomePlan();
- renderReports();
- renderAccounts();
- renderTransactions();
- renderPaymentPlanner();
- renderInstallments();
+ const run=(name,fn)=>{try{fn();}catch(error){console.error(`Outgoing payment ${name} refresh failed`,error);}};
+ // Refresh the page the user is looking at before unrelated views. An error
+ // in a hidden view must not leave the paid status stale on screen.
+ run('outgoings',renderOutgoings);
+ run('income plan',renderIncomePlan);
+ run('transactions',()=>{
+  rebuildTransactions();
+  ensureImportedTransactionPlannerRows(importedAccountId,importedFresh);
+  ensureReleasedCyclePlannerRows();
+  normalizeReleasedPaymentAliases();
+  ensureMonthlyPlannerRows(currentIncomeMonth());
+ });
+ [renderDashboard,renderReports,renderAccounts,renderTransactions,renderPaymentPlanner,renderInstallments].forEach((fn,i)=>run(`view ${i+1}`,fn));
  if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
-  openAccount(currentAccountDetailId,accountDetailReturnPage);
+  run('account detail',()=>openAccount(currentAccountDetailId,accountDetailReturnPage));
  }
+ if(typeof captureReviewState==='function')run('review state',captureReviewState);
 }
 function recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId=''){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o)return false;
@@ -1568,7 +1592,6 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId=''){
  }
 
  saveLocal();
- refreshAfterOutgoingPayment();
  return true;
 }
 function undoOutgoingPayment(outgoingId,month,refresh=true,paymentId=''){
@@ -1641,8 +1664,8 @@ function renderOutgoings(){
    <td class="red">${money(x.amount)}</td>
    <td>${x.forever?'Monthly • Forever':`#${x.occurrence} of #${x.total}`}</td>
    <td><span class="badge ${remaining<=0.005?'active':'pending'}">${remaining<=0.005?'Paid':payments.length?'Partially paid':'Unpaid'}</span><div class="meta">${payments.map(p=>`${money(p.amount)} • ${outgoingPaymentSourceLabel(p)} • ${paymentFormatDate(p.date)}`).join('<br>')}${remaining>0.005?`<br>${money(remaining)} remaining`:''}</div></td>
-   <td>${payments.map(p=>`<button class="btn small" data-edit-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}">Edit</button> <button class="btn small" data-undo-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}">Undo</button>`).join(' ')}
-    ${remaining>0.005?`<button class="btn small primary" data-pay-outgoing="${x.outgoingId}" data-pay-month="${x.month}">Pay ${money(remaining)}</button>`:''}
+   <td>${payments.map(p=>`<div style="margin-bottom:7px"><span class="meta">${money(p.amount)} • ${outgoingPaymentSourceLabel(p)}</span><br><button class="btn small" data-edit-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}" aria-label="Edit ${money(p.amount)} payment">Edit</button> <button class="btn small" data-undo-outgoing-pay="${x.outgoingId}" data-pay-month="${x.month}" data-payment-id="${p.id}" aria-label="Undo ${money(p.amount)} payment">Undo</button></div>`).join('')}
+    ${remaining>0.005?`<button class="btn small primary" data-pay-outgoing="${x.outgoingId}" data-pay-month="${x.month}">Pay remaining ${money(remaining)}</button>`:''}
    </td>
   </tr>`;
  }).join('')||'<tr><td colspan="8">No scheduled outgoings.</td></tr>';

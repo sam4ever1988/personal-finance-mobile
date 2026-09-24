@@ -1034,6 +1034,7 @@ function reportRows(){
 }
 function groupSpend(rows,keyfn){const m={};rows.filter(isSpend).forEach(t=>{const k=keyfn(t);m[k]=(m[k]||0)+Math.abs(t.amount)});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
 function renderReports(){
+ refreshReportDatesForNewDay();
  fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
  const rows=reportRows(),s=summaryData(rows);
  $('reportKpis').innerHTML=[
