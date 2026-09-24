@@ -266,8 +266,6 @@ async function recordPushAll(reason='edit'){
 
   const current=buildRecordSyncRowsFromState();
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
-  const cloudRows=await recordFetchAll();
-
   if(recordPendingDeletes.length){
    const deletedAt=new Date().toISOString();
    const tombstones=recordPendingDeletes.map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
@@ -285,6 +283,17 @@ async function recordPushAll(reason='edit'){
    if(error)throw error;
   }
 
+  const verified=await recordFetchAll();
+  const activeKeys=new Set(verified.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
+  const missing=[...currentKeys].filter(k=>!activeKeys.has(k));
+  const unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
+  if(missing.length||unexpected.length){
+   setCloudMeta({pending:missing.length>0,reconciliationMismatch:true});
+   cloudSetStatus(`Cloud reconciliation needed • ${missing.length} missing • ${unexpected.length} cloud-only records`);
+   if(activeViewId()==='cloudSync')renderCloudReconciliation();
+   return false;
+  }
+
   // V186 PROTECTION: a normal full-device save is additive/update-only.
   // Never infer cloud deletions merely because a row is missing from this device.
   // This prevents an older/stale second machine from tombstoning valid canonical rows.
@@ -294,12 +303,13 @@ async function recordPushAll(reason='edit'){
    initialized:true,
    deviceTrusted:true,
    pending:false,
+   reconciliationMismatch:false,
    lastSyncedAt:new Date().toISOString(),
    lastAutoSyncAt:new Date().toISOString(),
    lastAutoSyncReason:`record-${reason}`
   });
   financeSettingsDirty=false;
-  cloudSetStatus(`Change published • ${new Date().toLocaleTimeString()}`);
+  cloudSetStatus(`Change published and reconciled • ${new Date().toLocaleTimeString()}`);
 
   // No post-push full pull. Realtime echo is muted for this local write.
   return true;
@@ -332,12 +342,12 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
   if(error)throw error;
 
   setCloudMeta({
-   initialized:true,deviceTrusted:true,pending:false,
+   initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,
    lastSyncedAt:new Date().toISOString(),
    lastAutoSyncAt:new Date().toISOString(),
    lastAutoSyncReason:`immediate-${reason}`
   });
-  cloudSetStatus(`Synced • ${new Date().toLocaleTimeString()}`);
+  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Record saved • cloud reconciliation needed':'Record saved • full sync pending verification'} • ${new Date().toLocaleTimeString()}`);
   return true;
  }catch(e){
   console.warn('Immediate record sync failed',section,recordId,e);
@@ -359,8 +369,8 @@ async function recordImmediateDelete(section,recordId,reason='direct-delete'){
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(row,{onConflict:'section,record_id'});
   if(error)throw error;
   recordPendingDeletes=recordPendingDeletes.filter(x=>!(x.section===section&&String(x.record_id)===String(recordId)));saveRecordDeleteQueue();
-  setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date().toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`immediate-${reason}`});
-  cloudSetStatus(`Deletion synced • ${new Date().toLocaleTimeString()}`);return true;
+  setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,lastSyncedAt:new Date().toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`immediate-${reason}`});
+  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Deletion saved • cloud reconciliation needed':'Deletion saved • full sync pending verification'} • ${new Date().toLocaleTimeString()}`);return true;
  }catch(e){
   console.warn('Immediate record delete failed',section,recordId,e);setCloudMeta({pending:true});cloudSetStatus('Deletion sync pending • '+e.message);scheduleRecordPush(reason);return false;
  }
@@ -390,12 +400,12 @@ async function recordImmediateBatch(section,records,reason='batch-write'){
   if(error)throw error;
 
   setCloudMeta({
-   initialized:true,deviceTrusted:true,pending:false,
+   initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,
    lastSyncedAt:new Date().toISOString(),
    lastAutoSyncAt:new Date().toISOString(),
    lastAutoSyncReason:`immediate-${reason}`
   });
-  cloudSetStatus(`Synced • ${records.length} record${records.length===1?'':'s'} • ${new Date().toLocaleTimeString()}`);
+  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Records saved • cloud reconciliation needed':'Records saved • full sync pending verification'} • ${new Date().toLocaleTimeString()}`);
   return true;
  }catch(e){
   console.warn('Immediate batch sync failed',section,e);
@@ -751,6 +761,9 @@ async function renderCloudReconciliation(){
   const different=[...localMap.keys()].filter(k=>cloudMap.has(k)&&!same(localMap.get(k).data,cloudMap.get(k).data));
   const detail=different.map(k=>({key:k,section:localMap.get(k).section,recordId:localMap.get(k).record_id,diffs:fieldDiffs(localMap.get(k).data,cloudMap.get(k).data)}));
   const local=localSyncSummary();
+  const mismatch=!!(missing.length||unexpected.length||different.length);
+  localStorage.setItem(CLOUD_META_KEY,JSON.stringify({...getCloudMeta(),reconciliationMismatch:mismatch}));
+  if($('cloudPendingState'))$('cloudPendingState').textContent=mismatch?'Reconciliation needed':getCloudMeta().pending?'Pending':'Protected Auto Sync • Up to Date';
   if(!missing.length&&!unexpected.length&&!different.length){
    el.className='notice success';
    el.innerHTML=`<b>Local vs Cloud: EXACT MATCH</b> • ${active.length} canonical records • ${local.transactions} active transactions • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} active cash-flow rows.<div class="meta" style="margin-top:5px">Every local record key and value matches the live cloud database.</div>`;
@@ -758,9 +771,20 @@ async function renderCloudReconciliation(){
    const esc=v=>String(v==null?'':(typeof v==='object'?JSON.stringify(v):v)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
    const rows=detail.flatMap(x=>x.diffs.map(d=>`<tr><td>${esc(x.section)}</td><td>${esc(x.recordId)}</td><td>${esc(d.field)}</td><td><code>${esc(d.local)}</code></td><td><code>${esc(d.cloud)}</code></td></tr>`)).slice(0,500).join('');
    const missingRows=missing.slice(0,50).map(k=>`<li>Missing in cloud: <code>${esc(k)}</code></li>`).join('');
-   const unexpectedRows=unexpected.slice(0,50).map(k=>`<li>Unexpected in cloud: <code>${esc(k)}</code></li>`).join('');
+   const unexpectedRows=unexpected.slice(0,100).map(k=>`<li>Cloud only: <code>${esc(k)}</code></li>`).join('');
+   const cloudActions=cloudMap.get(`transaction_actions|${RECORD_SYNC_SINGLETON}`)?.data||{};
+   const cloudOnlyRows=unexpected.map(k=>{
+    const r=cloudMap.get(k),d=r?.data||{},action=cloudActions[r?.record_id]?.status||'';
+    const date=d.date||d.transactionDate||d.importedAt||d.createdAt||'';
+    const accountId=d.account||d.accountId||d.sourceId||d.cardId||'';
+    const description=d.description||d.label||d.fileName||d.name||'';
+    const amount=d.amount??d.fullAmount??'';
+    return `<tr><td>${esc(r.section)}</td><td><code>${esc(r.record_id)}</code></td><td>${esc(date)}</td><td>${esc(accountId)}</td><td>${esc(description)}</td><td>${esc(amount)}</td><td>${esc(action||'—')}</td></tr>`;
+   }).join('');
+   const bySection={};unexpected.forEach(k=>{const section=k.split('|')[0];bySection[section]=(bySection[section]||0)+1});
+   const sectionSummary=Object.entries(bySection).sort((a,b)=>b[1]-a[1]).map(([section,count])=>`${esc(section)}: ${count}`).join(' • ');
    el.className='notice danger';
-   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><ul style="margin:0 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>MacBook / Local</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
+   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>MacBook / Local</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
    const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
   }
  }catch(e){
@@ -772,7 +796,7 @@ function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
- if($('cloudPendingState'))$('cloudPendingState').textContent=m.pending?'Pending':'Protected Auto Sync • Up to Date';
+ if($('cloudPendingState'))$('cloudPendingState').textContent=m.reconciliationMismatch?'Reconciliation needed':m.pending?'Pending':'Protected Auto Sync • Up to Date';
  if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Verified Device • Auto Two-Way':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
@@ -1428,11 +1452,13 @@ async function cloudAutoReconcile(reason='fallback'){
    const result=applyRecordSyncDeltaRows(changed,{render:true});
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
    setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
-   cloudSetStatus(`${result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
+   if(activeViewId()==='cloudSync')await renderCloudReconciliation();
+   cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
    return result.changed;
   }
   cloudLastAutoCheckAt=Date.now();
-  cloudSetStatus(`Cloud verified • ${new Date().toLocaleTimeString()}`);
+  if(activeViewId()==='cloudSync')await renderCloudReconciliation();
+  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
   return false;
  }catch(e){
   console.warn('Protected cloud refresh failed',e);
@@ -1572,7 +1598,7 @@ async function cloudUploadAll(){
   if(!recordSyncReady)await startRealtimeRecordSync();
   if(!recordSyncReady)throw new Error('This device is not verified. Use Load Latest Cloud Data once before Sync Now.');
   const published=await recordPushAll('manual-sync');
-  if(!published)throw new Error('No cloud write was completed. Local data remains pending.');
+  if(!published)throw new Error(getCloudMeta().reconciliationMismatch?'Cloud contains records absent from this device. Review Data Reconciliation before resolving them; no cloud-only records were deleted.':'Cloud publish or verification did not complete. Local data remains pending.');
   const cloudRows=await recordFetchAll();
   const cc=v185ActiveCloudCounts(cloudRows);
   const s=localSyncSummary();
