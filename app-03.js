@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.15</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.15');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">v3.16</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent='v3.16');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -583,8 +583,11 @@ function cardFundedPaymentBreakdown(cardId){
  const activeCycle=cardActiveCycleMonth(cardId);
  const liveRows=liveCardTransactions();
 
- return allPaymentHistory()
-  .filter(h=>h.sourceId===cardId && h.targetCardId!==cardId)
+ // The ledger is the durable record of an actual transfer. A payment-plan row
+ // may be removed while its ledger entry is still active; that must not erase
+ // utilization on the funding card.
+ return (cashFlowLedger||[])
+  .filter(h=>h.type==='card-payment' && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId)
   .map(h=>{
    const amount=Math.max(0,Number(h.amount||0));
    const date=String(h.date||'').slice(0,10);
@@ -1348,9 +1351,9 @@ function outgoingPaymentSourceLabel(p){
 }
 function outgoingBudgetUsesMonthlyIncome(x){
  const p=outgoingPaymentRecord(x.outgoingId,x.month);
- // Before payment, reserve it from Monthly Planned Income.
- // After payment, only keep that deduction if the chosen source is Monthly Planned Income.
- return !p || p.sourceId==='cash-source';
+ // A scheduled outgoing has no cash impact until paid. The selected source
+ // determines whether it reduces Monthly Planned Income or a bank/card.
+ return !!p && p.sourceId==='cash-source';
 }
 
 function outgoingPaymentsForMonth(month=currentIncomeMonth()){
@@ -1401,8 +1404,7 @@ function outgoingOccurrences(o,horizon=120){
 function allOutgoingOccurrences(horizon=120){return outgoings.flatMap(o=>outgoingOccurrences(o,horizon))}
 function currentPlanMonth(){return currentIncomeMonth()}
 function outgoingForMonth(month){
- // Planned/unpaid outgoings reserve Monthly Planned Income.
- // Once paid from a bank/card, that month is funded from that source instead.
+ // Only payments actually made from Monthly Planned Income reduce its balance.
  return allOutgoingOccurrences(36)
   .filter(x=>x.month===month && outgoingBudgetUsesMonthlyIncome(x))
   .reduce((s,x)=>s+Number(x.amount||0),0);
@@ -1571,7 +1573,7 @@ function renderOutgoings(){
 
  k.innerHTML=[
   kpiHTML('Planned Outgoings',String(outgoings.length),'One-time + recurring','blue'),
-  kpiHTML(`${cardMonthLabel(activeMonth)} Cash Impact`,money(outgoingForMonth(activeMonth)),'Reserved/deducted from Monthly Planned Income','red'),
+  kpiHTML(`${cardMonthLabel(activeMonth)} Cash Impact`,money(outgoingForMonth(activeMonth)),'Paid from Monthly Planned Income','red'),
   kpiHTML('Paid This Month',money(paidMonth),`${money(unpaidMonth)} still unpaid`,'green'),
   kpiHTML('Forever Monthly',money(foreverMonthly),'Repeats every month until deleted','amber')
  ].join('');
