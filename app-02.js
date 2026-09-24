@@ -743,10 +743,10 @@ function undoLastPartialPayment(id){
  syncCashFlowLedgerImmediate();
 
  ensurePartialPaymentFields();
+ renderIncomePlan();
  renderPaymentPlanner();
  renderDashboard();
  renderAccounts();
- renderIncomePlan();
 
  setTimeout(()=>alert(
   `Payment undone.\n\nPaid so far: ${money(paymentPaidAmount(p))}\nRemaining to pay: ${money(paymentRemainingAmount(p))}`
