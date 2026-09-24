@@ -282,6 +282,21 @@ function accountName(id){
  return `${a.bank} • ${a.name}${a.ending?` •${a.ending}`:''}`;
 }
 
+// Identify the manual source-card entry linked to the NBD payment ledger.
+// The entry belongs in Al Rajhi history as a transfer, never as a purchase.
+function isNbdPaymentOnSourceCard(t){
+ if(!t?.manual || t.account!=='ar-0955' || Math.abs(Math.abs(Number(t.amount||0))-11025)>0.01)return false;
+ const description=String(t.description||'').toLowerCase();
+ if(!/nbd|emirates|4411|card payment|credit card payment/.test(description) && !isCreditCardPaymentTx(t))return false;
+ return (cashFlowLedger||[]).some(x=>x.type==='card-payment' && x.status!=='reversed' && x.targetId==='nbd-infinite-4411' && Math.abs(Number(x.amount||0)-11025)<0.01 && String(x.date||'').slice(0,10)===String(t.date||'').slice(0,10));
+}
+function isMisassignedNbdPaymentExpense(t){
+ return !!t?.manual && t.account==='nbd-infinite-4411' && t._id==='manual-1789405640602' &&
+  Math.abs(Number(t.amount||0)+11025)<0.01 &&
+  (cashFlowLedger||[]).some(x=>x.type==='card-payment' && x.status!=='reversed' &&
+   x.sourceId==='ar-0955' && x.targetId==='nbd-infinite-4411' && Math.abs(Number(x.amount||0)-11025)<0.01);
+}
+
 function liveCardTransactions(includeInactive=false){
  const rows=[
   ...importedTransactions.map((t,i)=>({...t,manual:false,imported:true,_id:t._id||('import'+i)})),
@@ -297,8 +312,11 @@ function liveCardTransactions(includeInactive=false){
   const rk=ruleKeys.find(k=>String(out.description||'').toLowerCase().includes(k.toLowerCase()));
   if(rk && !txOverrides[t._id])Object.assign(out,merchantRules[rk]);
   out.txAction=transactionActions[t._id]||null;
+  if(isNbdPaymentOnSourceCard(out)){
+   out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
+  }
   return out;
- }).filter(t=>includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status));
+ }).filter(t=>!isMisassignedNbdPaymentExpense(t) && (includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status)));
 }
 
 function normalizedTx(includeInactive=false){
@@ -311,8 +329,11 @@ function normalizedTx(includeInactive=false){
    const rk=ruleKeys.find(k=>out.description.toLowerCase().includes(k.toLowerCase()));
    if(rk && !txOverrides[t._id]) Object.assign(out,merchantRules[rk]);
    out.txAction=transactionActions[t._id]||null;
+  if(isNbdPaymentOnSourceCard(out)){
+   out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
+  }
    return out;
- }).filter(t=>includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status));
+ }).filter(t=>!isMisassignedNbdPaymentExpense(t) && (includeInactive||!t.txAction||!['excluded-duplicate','deleted'].includes(t.txAction.status)));
 }
 function isTransfer(t){
  // Explicit transaction type always wins.
@@ -593,7 +614,7 @@ function cardFundedPaymentBreakdown(cardId){
     matchedTransactionId:matchedTransaction?matchedTransaction._id:'',
     matchedInTransactionFeed:!!matchedTransaction,
     sourceCycleStillOpen,
-    countsSeparately:sourceCycleStillOpen && !matchedTransaction
+    countsSeparately:sourceCycleStillOpen && (!matchedTransaction || !liveUnreleasedTransactionRows(cardId).some(t=>t._id===matchedTransaction._id))
    };
   });
 }

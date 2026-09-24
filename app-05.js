@@ -752,6 +752,29 @@ function cardTransactionsForDetail(cardId){
  return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 }
 
+function cardPaymentLedgerForDetail(cardId){
+ return (cashFlowLedger||[]).filter(x=>x.type==='card-payment' && x.status!=='reversed' && x.targetId===cardId)
+  .filter(x=>!accountDetailTxFilter.month || (x.targetPaymentMonth||x.month)===accountDetailTxFilter.month)
+  .filter(x=>!accountDetailTxFilter.fromDate || String(x.date||'').slice(0,10)>=accountDetailTxFilter.fromDate)
+  .filter(x=>!accountDetailTxFilter.toDate || String(x.date||'').slice(0,10)<=accountDetailTxFilter.toDate)
+  .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+}
+function cardPaymentsMadeForDetail(cardId){
+ return (cashFlowLedger||[]).filter(x=>x.type==='card-payment' && x.status!=='reversed' && x.sourceId===cardId && x.targetId!==cardId)
+  .filter(x=>!accountDetailTxFilter.month || paymentMonthForTransaction(cardId,x.date)===accountDetailTxFilter.month)
+  .filter(x=>!accountDetailTxFilter.fromDate || String(x.date||'').slice(0,10)>=accountDetailTxFilter.fromDate)
+  .filter(x=>!accountDetailTxFilter.toDate || String(x.date||'').slice(0,10)<=accountDetailTxFilter.toDate)
+  .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+}
+function cardPaymentSourceRowsForDetail(cardId,visibleRows){
+ if(accountDetailTxFilter.physicalCard)return [];
+ return cardPaymentsMadeForDetail(cardId).filter(x=>!visibleRows.some(t=>
+  Number(t.amount||0)<0 && Math.abs(Math.abs(Number(t.amount||0))-Number(x.amount||0))<0.01 &&
+  String(t.date||'').slice(0,10)===String(x.date||'').slice(0,10) &&
+  /payment|transfer|nbd|emirates|4411/i.test(String(t.description||''))
+ ));
+}
+
 
 function importedOfficialStatementMonths(cardId){
  const months=new Set();
@@ -984,6 +1007,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
+ const sourcePaymentRows=cardPaymentSourceRowsForDetail(id,rows);
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Open Cycle (${cardMonthLabel(m.activeCycleMonth)})</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Prior Unreleased Cycle(s)</span><b class="amber">${money(m.priorOpenCycleTransactions||0)}</b></div>
@@ -1059,6 +1083,7 @@ function openAccount(id,returnPage){
  </div>
  <div class="meta" style="margin-top:8px">Statement and date filters work together. Reset Card Month still uses only the selected statement/payment month.</div>
 </div>
+${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionTitle">Payments received by this card</div><div class="meta">Recorded card payments are shown separately from purchases. They are already applied to the card balance.</div><div style="overflow-x:auto"><table class="txTable"><thead><tr><th>Date</th><th>From</th><th>Payment month</th><th>Amount received</th></tr></thead><tbody>${cardPaymentLedgerForDetail(id).map(x=>`<tr><td>${escapeHtml(String(x.date||''))}</td><td>${escapeHtml(x.sourceName||accountName(x.sourceId))}</td><td>${escapeHtml(x.targetPaymentMonth||x.month||'')}</td><td class="green">${money(x.amount)}</td></tr>`).join('')}</tbody></table></div></div>`:''}
 <div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
@@ -1069,7 +1094,7 @@ function openAccount(id,returnPage){
  </div>
  <div style="overflow-x:auto"><table class="txTable">
   <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="8">No transactions match the selected filters.</td></tr>'}</tbody>
+  <tbody>${rows.map(txRow6).join('')}${sourcePaymentRows.map(x=>`<tr><td></td><td>${escapeHtml(String(x.date||''))}</td><td>—</td><td><b>Payment to ${escapeHtml(x.targetName||accountName(x.targetId))}</b><div class="meta">Recorded card transfer</div></td><td>Financial Obligations</td><td>Credit Card Payments</td><td>${escapeHtml(accountName(id))}</td><td class="red"><b>-${money(x.amount)}</b></td></tr>`).join('')}${!rows.length&&!sourcePaymentRows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
  </table></div>
  ${(()=>{
    const cards=accountPhysicalCards(id);
@@ -1078,10 +1103,10 @@ function openAccount(id,returnPage){
     return {ending,count:cardRows.length,total:cardRows.reduce((sum,t)=>sum+Number(t.amount||0),0)};
    }).filter(x=>x.count>0);
    const unassignedRows=rows.filter(t=>!cards.includes(transactionPhysicalCardEnding(t)));
-   if(unassignedRows.length)grouped.push({ending:'',count:unassignedRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)});
-   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0);
+   if(unassignedRows.length||sourcePaymentRows.length)grouped.push({ending:'',count:unassignedRows.length+sourcePaymentRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0)});
+   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0)-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0);
    return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
-    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
+    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length+sourcePaymentRows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
     <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${g.ending?physicalCardLabelFor(id,g.ending):'Unassigned'} • ${g.count} transaction${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
    </div>`;
   })()}
