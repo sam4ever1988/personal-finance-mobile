@@ -495,12 +495,14 @@ function syncCashFlowLedgerImmediate(){
 
 
 function scheduleRecordPush(reason='edit'){
- if(recordSyncApplying)return;
  setCloudMeta({pending:true});
  clearTimeout(recordSyncPushTimer);
  const delay=window.__financeStateInitialized===true?250:900;
  recordSyncPushTimer=setTimeout(()=>{
   if(window.__financeStateInitialized!==true){scheduleRecordPush(reason+'-startup');return;}
+  // A local save may occur while a realtime row is being applied. Keep the
+  // pending write queued until that short critical section completes.
+  if(recordSyncApplying){scheduleRecordPush(reason+'-after-apply');return;}
   recordPushAll(reason);
  },delay);
 }
