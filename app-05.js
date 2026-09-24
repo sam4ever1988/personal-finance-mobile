@@ -703,7 +703,7 @@ $('balanceOfferForm').addEventListener('submit',e=>{
  const amount=Number($('balanceOfferAmount').value||0),months=Math.max(1,Math.floor(Number($('balanceOfferMonths').value||1))),fee=Math.max(0,Number($('balanceOfferFee').value||0));
  if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid offer amount.');return;}
  if(scope==='current'&&amount>m.current+0.01&&!confirm(`This amount is above the current non-installment balance ${money(m.current)} and may double-count existing installment reserves. Continue?`))return;
- if(scope==='full'){const active=installments.filter(p=>p.cardId===cardId&&planCalc(p).remaining>0);if(active.length&&!confirm(`Replace ${active.length} existing active installment plan(s) with this full-balance offer?`))return;installments=installments.filter(p=>!(p.cardId===cardId&&planCalc(p).remaining>0));}
+ if(scope==='full'){const active=installments.filter(p=>p.cardId===cardId&&planCalc(p).remaining>0);if(active.length&&!confirm(`Replace ${active.length} existing active installment plan(s) with this full-balance offer?`))return;active.forEach(p=>{deletedInstallmentIds.add(p.id);if(typeof recordImmediateDelete==='function')recordImmediateDelete('installments',p.id,'balance-offer-replace')});localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));installments=installments.filter(p=>!(p.cardId===cardId&&planCalc(p).remaining>0));}
  installments.push({id:'balance-offer-'+Date.now(),cardId,description:$('balanceOfferDescription').value.trim()||'Card Balance Installment Offer',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:Math.round(amount*100)/100,months,startMonth:$('balanceOfferStartMonth').value||currentMonthInput(),referenceMonth:$('balanceOfferStartMonth').value||currentMonthInput(),paidInstallments:0,monthlyFee:fee,source:'Bank Balance Installment Offer',planType:'balance-offer',offerScope:scope,createdAt:new Date().toISOString().slice(0,10)});
  if(a.extra&&a.extra['Future Installment Reserve']!==undefined)delete a.extra['Future Installment Reserve'];
  localStorage.setItem('pf_installments',JSON.stringify(installments));saveLocal();closeBalanceOffer();renderInstallments();renderAccounts();renderDashboard();openAccount(cardId);
@@ -878,6 +878,17 @@ function resetCardData(cardId){
    updatedAt:new Date().toISOString()
   };
  });
+
+ // These rows have stable cloud identities; queue explicit tombstones before
+ // removing them locally so another device cannot restore this reset month.
+ if(typeof queueRecordDelete==='function'){
+  manualTransactions.filter(t=>t.account===cardId&&cardTransactionStatementMonth(cardId,t)===selectedMonth).forEach(t=>queueRecordDelete('manual_transactions',syncStableId('manual_transactions',t)));
+  importedTransactions.filter(t=>t.account===cardId&&cardTransactionStatementMonth(cardId,t)===selectedMonth).forEach(t=>queueRecordDelete('imported_transactions',syncStableId('imported_transactions',t)));
+  linkedPlans.forEach(p=>queueRecordDelete('installments',p.id));
+  plannerRows.forEach(p=>queueRecordDelete('card_payment_plan',p.id));
+ }
+ linkedPlans.forEach(p=>deletedInstallmentIds.add(p.id));
+ localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));
 
  // User/import transactions are physically removed only for the selected statement month.
  manualTransactions=manualTransactions.filter(t=>!(
