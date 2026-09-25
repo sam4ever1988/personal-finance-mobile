@@ -68,16 +68,16 @@ function renderCategories(){
  if($('categoryCountMetric'))$('categoryCountMetric').textContent=names.length;
  if($('subcategoryCountMetric'))$('subcategoryCountMetric').textContent=subCount;
  if($('merchantRuleCountMetric'))$('merchantRuleCountMetric').textContent=ruleCount;
- $('categoryList').innerHTML=names.map(c=>`<div class="catEditRow"><button class="${c===selectedCategory?'selected':''}" data-cat="${c}" style="flex:1;text-align:left">${c}<span style="float:right;color:#98a2b3">${(categories[c]||[]).length}</span></button><div class="catEditActions"><button class="catEditBtn" data-edit-cat="${c}">Edit</button><button type="button" class="catEditBtn danger" data-del-cat="${c}">Delete</button></div></div>`).join('');
+ $('categoryList').innerHTML=names.map(c=>`<div class="catEditRow"><button class="${c===selectedCategory?'selected':''}" data-cat="${escapeHtml(c)}" style="flex:1;text-align:left">${escapeHtml(c)}<span style="float:right;color:#98a2b3">${(categories[c]||[]).length}</span></button><div class="catEditActions"><button class="catEditBtn" data-edit-cat="${escapeHtml(c)}">Edit</button><button type="button" class="catEditBtn danger" data-del-cat="${escapeHtml(c)}">Delete</button></div></div>`).join('');
  document.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{selectedCategory=b.dataset.cat;renderCategories()}));
  document.querySelectorAll('[data-edit-cat]').forEach(b=>b.addEventListener('click',()=>openSimple('edit-category',b.dataset.editCat)));
  document.querySelectorAll('[data-del-cat]').forEach(b=>b.addEventListener('click',()=>deleteCategoryName(b.dataset.delCat)));
  $('selectedCatTitle').textContent=selectedCategory||'Subcategories';
- $('subcategoryList').innerHTML=(categories[selectedCategory]||[]).map(x=>`<div class="subItem catEditRow"><span>${x}</span><div class="catEditActions"><button class="catEditBtn" data-edit-sub="${x}">Edit</button><button type="button" class="catEditBtn danger" data-del-sub="${x}">Delete</button></div></div>`).join('');
+ $('subcategoryList').innerHTML=(categories[selectedCategory]||[]).map(x=>`<div class="subItem catEditRow"><span>${escapeHtml(x)}</span><div class="catEditActions"><button class="catEditBtn" data-edit-sub="${escapeHtml(x)}">Edit</button><button type="button" class="catEditBtn danger" data-del-sub="${escapeHtml(x)}">Delete</button></div></div>`).join('');
  document.querySelectorAll('[data-edit-sub]').forEach(b=>b.addEventListener('click',()=>openSimple('edit-subcategory',b.dataset.editSub)));
  document.querySelectorAll('[data-del-sub]').forEach(b=>b.addEventListener('click',()=>deleteSubcategoryName(selectedCategory,b.dataset.delSub)));
  const rules=Object.entries(merchantRules);
- $('merchantRulesBody').innerHTML=rules.map(([k,v])=>`<tr><td>${k}</td><td>${v.category}</td><td>${v.subcategory||'—'}</td><td><button type="button" class="btn small danger" data-rule="${encodeURIComponent(k)}">Delete</button></td></tr>`).join('')||'<tr><td colspan="4">No remembered merchant rules yet.</td></tr>';
+ $('merchantRulesBody').innerHTML=rules.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v.category)}</td><td>${escapeHtml(v.subcategory||'—')}</td><td><button type="button" class="btn small danger" data-rule="${escapeHtml(encodeURIComponent(k))}">Delete</button></td></tr>`).join('')||'<tr><td colspan="4">No remembered merchant rules yet.</td></tr>';
  document.querySelectorAll('[data-rule]').forEach(b=>b.addEventListener('click',()=>{delete merchantRules[decodeURIComponent(b.dataset.rule)];saveLocal();renderCategories();renderTransactions();renderReports()}));
  refreshCategoryDropdowns();
 }
@@ -530,7 +530,7 @@ function editPlan(id){openInstallment(installments.find(p=>p.id===id))}
 function openTxEdit(id){
  editingTxId=id;const t=normalizedTx().find(x=>x._id===id);if(!t)return;
  const eligible=isEligibleInstallmentTx(t),linked=isTxLinkedToInstallment(t);
- $('txEditInfo').innerHTML=`<b>${t.description}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${t.date} • ${accountName(t.account)} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
+ $('txEditInfo').innerHTML=`<b>${escapeHtml(t.description)}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${escapeHtml(t.date)} • ${escapeHtml(accountName(t.account))} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
  $('editDescription').value=t.description||''; $('editDate').value=t.date||''; $('editAmount').value=Number(t.amount||0);
  $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
