@@ -199,7 +199,7 @@ function purgeLegacyAr5867SeedRows(){
     t.account==='ar-5867' &&
     String(t.date||'').slice(0,10)==='2026-08-01' &&
     Math.abs(Number(t.amount||0)-40)<0.01 &&
-    /advance payment|top[- ]?up/i.test(String(t.description||''));
+    (/advance payment/i.test(String(t.description||''))||isTopUpPaymentDescription(t.description));
    if(isLegacy){
     const id='tx'+i;
     transactionActions[id]={
@@ -911,7 +911,7 @@ function estimateAlRajhi0955Statement(paymentMonth){
   const type=txType(t);
   if(type==='transfer'||type==='income')return false;
   const d=String(t.description||'').toLowerCase();
-  if(/advance payment|top[- ]?up|payment received|credit card payment|move to payment plan|credit adjustment/.test(d))return false;
+  if((/advance payment|payment received|credit card payment|move to payment plan|credit adjustment/.test(d)||isTopUpPaymentDescription(d)))return false;
   return true;
  });
 
@@ -936,6 +936,11 @@ function dueDateForPaymentMonth(cardId,paymentMonth){
  const [y,m]=String(paymentMonth).split('-').map(Number);
  const maxDay=new Date(y,m,0).getDate();
  return `${y}-${String(m).padStart(2,'0')}-${String(Math.min(Number(cyc.dueDay||25),maxDay)).padStart(2,'0')}`;
+}
+function isTopUpPaymentDescription(description){
+ // A store can include "TOP UP" in its registered name. Only a standalone
+ // card-funding label is a transfer; merchant purchases remain card spending.
+ return /^(?:card\s+)?top[- ]?up(?:\s+(?:payment|credit|transfer|to\s+(?:credit\s+)?card))?$/i.test(String(description||'').trim());
 }
 function paymentMonthForTransaction(cardId,dateValue){
  const cyc=cardCycleSetting(cardId);
@@ -978,7 +983,7 @@ function transactionAmountForPaymentMonthAll(cardId,paymentMonth){
 
   if(linkedActiveInstallment(t._id))return false;
   const d=String(t.description||'').toLowerCase();
-  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  if((/payment received|advance payment|credit card payment|card payment/.test(d)||isTopUpPaymentDescription(d)))return false;
   return true;
  }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
 }
@@ -1397,7 +1402,7 @@ function resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth){
   if(['transfer','income'].includes(txType(t)))return false;
   if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
   const d=String(t.description||'').toLowerCase();
-  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  if((/payment received|advance payment|credit card payment|card payment/.test(d)||isTopUpPaymentDescription(d)))return false;
   return true;
  }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
 }
@@ -1410,7 +1415,7 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
   if(['transfer','income'].includes(txType(t)))return false;
   // Converted purchases are removed from normal card spending; only their installment monthly commitment is due.\n  if(installments.some(p=>p.linkedTransactionId===t._id && !p.completedConfirmed))return false;
   const d=String(t.description||'').toLowerCase();
-  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  if((/payment received|advance payment|credit card payment|card payment/.test(d)||isTopUpPaymentDescription(d)))return false;
   return true;
  }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
 }
