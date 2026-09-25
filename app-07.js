@@ -83,9 +83,10 @@ function applyRecordSyncRows(rows){
 async function recordFetchAll(){
  if(!cloudClient)return [];
  const {data:{session}}=await cloudClient.auth.getSession();
- if(!session)return [];
+ if(!session||session.user.id!==window.financeActiveUserId)return [];
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
    .select('section,record_id,data,updated_at,deleted_at')
+   .eq('user_id',session.user.id)
    .order('updated_at',{ascending:true});
  if(error)throw error;
  return data||[];
@@ -94,9 +95,10 @@ async function recordFetchAll(){
 async function recordFetchLatestUpdatedAt(){
  if(!cloudClient)return 0;
  const {data:{session}}=await cloudClient.auth.getSession();
- if(!session)return 0;
+ if(!session||session.user.id!==window.financeActiveUserId)return 0;
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
   .select('updated_at')
+  .eq('user_id',session.user.id)
   .order('updated_at',{ascending:false})
   .limit(1);
  if(error)throw error;
@@ -106,9 +108,10 @@ async function recordFetchLatestUpdatedAt(){
 async function recordFetchChangedSince(iso){
  if(!cloudClient)return [];
  const {data:{session}}=await cloudClient.auth.getSession();
- if(!session)return [];
+ if(!session||session.user.id!==window.financeActiveUserId)return [];
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
   .select('section,record_id,data,updated_at,deleted_at')
+  .eq('user_id',session.user.id)
   .gt('updated_at',iso)
   .order('updated_at',{ascending:true});
  if(error)throw error;
@@ -117,6 +120,8 @@ async function recordFetchChangedSince(iso){
 
 
 async function recordSeedFromLegacyCloudIfNeeded(){
+ const {data:{session}}=await cloudClient.auth.getSession();
+ if(!session)return [];
  const existing=await recordFetchAll();
  if(existing.length)return existing;
 
@@ -131,7 +136,7 @@ async function recordSeedFromLegacyCloudIfNeeded(){
 
  const payload=seedRows.map(r=>({...r,deleted_at:null}));
  const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(payload,{onConflict:'section,record_id'});
+   .upsert(payload.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
  if(error)throw error;
 
  return await recordFetchAll();
@@ -178,7 +183,7 @@ async function recordPullAll(reason='manual-full-pull'){
     const seedRows=recordRowsFromSnapshot(legacy.value).map(r=>({...r,deleted_at:null}));
     if(seedRows.length){
       const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-        .upsert(seedRows,{onConflict:'section,record_id'});
+        .upsert(seedRows.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
       if(error)console.warn('Row-cloud repair from app_state failed',error);
     }
 
@@ -212,7 +217,7 @@ async function recordPullAll(reason='manual-full-pull'){
       if(rows.length){
         const payload=rows.map(r=>({...r,deleted_at:null}));
         const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-          .upsert(payload,{onConflict:'section,record_id'});
+          .upsert(payload.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
         if(error)throw error;
         rows=await recordFetchAll();
       }
@@ -264,7 +269,7 @@ async function recordPushAll(reason='edit'){
  recordSyncPushBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session){
+  if(!session||session.user.id!==window.financeActiveUserId){
    setCloudMeta({pending:true});
    cloudSetStatus('Publish waiting for cloud sign-in');
    clearTimeout(recordSyncPushTimer);
@@ -302,7 +307,7 @@ async function recordPushAll(reason='edit'){
    const deletedAt=new Date().toISOString();
    const tombstones=recordPendingDeletes.map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
    tombstones.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
-   const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones,{onConflict:'section,record_id'});
+   const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
    if(deleteError)throw deleteError;
    // Keep the durable queue until a subsequent read confirms the tombstones.
   }
@@ -331,7 +336,7 @@ async function recordPushAll(reason='edit'){
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-    .upsert(upserts,{onConflict:'section,record_id'});
+    .upsert(upserts.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
    if(error)throw error;
   }
 
@@ -424,7 +429,7 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
  }
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session||!recordSyncReady){
+  if(!session||session.user.id!==window.financeActiveUserId||!recordSyncReady){
    scheduleRecordPush(reason);return false;
   }
 
@@ -432,7 +437,7 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
   markLocalRecordWrite(section,recordId);
 
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(row,{onConflict:'section,record_id'});
+   .upsert({...row,user_id:session.user.id},{onConflict:'user_id,section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
@@ -457,10 +462,10 @@ async function recordImmediateDelete(section,recordId,reason='direct-delete'){
  if(!cloudClient||!recordSyncReady){scheduleRecordPush(reason);return false}
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session){scheduleRecordPush(reason);return false}
+  if(!session||session.user.id!==window.financeActiveUserId){scheduleRecordPush(reason);return false}
   const row={section,record_id:String(recordId),data:{},deleted_at:new Date().toISOString()};
   markLocalRecordWrite(section,recordId);
-  const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(row,{onConflict:'section,record_id'});
+  const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert({...row,user_id:session.user.id},{onConflict:'user_id,section,record_id'});
   if(error)throw error;
   recordPendingDeletes=recordPendingDeletes.filter(x=>!(x.section===section&&String(x.record_id)===String(recordId)));saveRecordDeleteQueue();
   setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,lastSyncedAt:new Date().toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`immediate-${reason}`});
@@ -477,7 +482,7 @@ async function recordImmediateBatch(section,records,reason='batch-write'){
  }
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session||!recordSyncReady){
+  if(!session||session.user.id!==window.financeActiveUserId||!recordSyncReady){
    scheduleRecordPush(reason);return false;
   }
 
@@ -490,7 +495,7 @@ async function recordImmediateBatch(section,records,reason='batch-write'){
   rows.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
 
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(rows,{onConflict:'section,record_id'});
+   .upsert(rows.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
@@ -551,6 +556,7 @@ async function handleRealtimeRecordPayload(payload){
  try{
   const row=payload?.new&&Object.keys(payload.new).length?payload.new:payload?.old;
   if(!row?.section||row.record_id==null)return;
+  if(row.user_id!==window.financeActiveUserId)return;
 
   noteCloudUpdatedAt(row.updated_at);
 
@@ -625,10 +631,12 @@ async function startRealtimeRecordSync(){
 // ===================================================================
 
 function financeProtectedAccountCatalogReady(){
+ if(window.financeActiveUserId&&!window.financeIsOwner)return true;
  return typeof customBanks!=='undefined'&&Array.isArray(customBanks)&&customBanks.length>0&&
         typeof customCreditCards!=='undefined'&&Array.isArray(customCreditCards)&&customCreditCards.length>0;
 }
 function financeDeviceCloudVerified(){
+ if(window.financeActiveUserId&&!window.financeIsOwner)return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
  return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'&&financeProtectedAccountCatalogReady();
 }
 function setFinanceAccessGate(session){
@@ -663,10 +671,8 @@ async function financeSignOutCurrentDevice(){
   recordSyncReady=false;
   const {error}=await cloudClient.auth.signOut({scope:'local'});
   if(error)throw error;
-  await cloudRefreshAuth();
-  updateCloudSyncPanel(false);
-  if(typeof nav==='function')nav('executive');
-  if(status)status.textContent='Signed out on this device. Navigation remains available; finance data and actions are hidden.';
+  await window.financeScopeSwitch(null);
+  location.reload();
  }catch(e){
   if(status)status.textContent='Sign out error: '+e.message;
   cloudSetStatus('Sign out error: '+e.message);
@@ -679,7 +685,7 @@ function bindFinanceAccessGate(){
   send.disabled=true;if(status)status.textContent='Sending secure login link…';
   try{
    if(!cloudClient)throw new Error('Cloud connection is unavailable.');
-   const {error}=await cloudClient.auth.signInWithOtp({email:address,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+   const {error}=await cloudClient.auth.signInWithOtp({email:address,options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:true}});
    if(error)throw error;
    if(status)status.textContent='Secure login link sent. Check your email.';
   }catch(e){if(status)status.textContent='Login error: '+e.message;}
@@ -698,8 +704,8 @@ function bindFinanceAccessGate(){
  if(wipe&&!wipe.dataset.bound){wipe.dataset.bound='1';wipe.onclick=async()=>{
   if(!confirm('Wipe finance data stored only on this device? Protected cloud data will not be deleted.'))return;
   wipe.disabled=true;if(status)status.textContent='Wiping this device only…';
-  Object.keys(localStorage).filter(k=>k.startsWith('pf_')).forEach(k=>localStorage.removeItem(k));
-  try{await new Promise(resolve=>{const req=indexedDB.deleteDatabase('PersonalFinanceDB');req.onsuccess=req.onerror=req.onblocked=()=>resolve();});}catch(_){}
+  await window.financeScopeWipe();
+  try{await new Promise(resolve=>{const req=indexedDB.deleteDatabase(financeDB.name);req.onsuccess=req.onerror=req.onblocked=()=>resolve();});}catch(_){}
   location.reload();
  };}
 }
@@ -713,6 +719,12 @@ async function cloudRefreshAuth(){
   return null;
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
+ if(session && session.user.id!==localStorage.getItem('pf_active_user_id')){
+  recordSyncReady=false;
+  clearTimeout(recordSyncPushTimer);
+  await window.financeScopeSwitch(session);
+  location.reload();return null;
+ }
  setFinanceAccessGate(session);
  $('cloudLoggedOut').style.display=on?'none':'block';
  $('cloudLoggedIn').style.display=on?'block':'none';
@@ -727,6 +739,7 @@ async function cloudRefreshAuth(){
  return session;
 }
 async function cloudClaim(){
+ if(window.financeActiveUserId&&!window.financeIsOwner){$('cloudResult').textContent='Your finance account is ready.';return;}
  const {error}=await cloudClient.rpc('claim_finance_database');
  $('cloudResult').textContent=error?'Claim failed: '+error.message:'Finance database ownership verified.';
 }
@@ -903,6 +916,7 @@ function updateCloudSyncPanel(remoteInitialized=null){
  setTimeout(()=>renderCloudReconciliation(),0);
 }
 async function cloudInspectState(){
+ if(window.financeActiveUserId&&!window.financeIsOwner)return {initialized:false,value:null,updatedAt:''};
  if(!cloudClient)return {initialized:false,value:null,updatedAt:''};
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return {initialized:false,value:null,updatedAt:''};
@@ -1198,7 +1212,7 @@ async function deleteAllCloudFinanceData(){
   // Run a second pass after a short delay to catch any write that was already in flight.
   for(let pass=1;pass<=2;pass++){
    const {error:rowErr}=await cloudClient.from(RECORD_SYNC_TABLE)
-     .delete().not('record_id','is',null);
+     .delete().eq('user_id',window.financeActiveUserId).not('record_id','is',null);
    if(rowErr)throw new Error('Could not physically clear finance_sync_records (pass '+pass+'): '+rowErr.message);
 
    const {error:stateErr}=await cloudClient.from('settings').delete().eq('key','app_state');
@@ -1227,7 +1241,7 @@ async function deleteAllCloudFinanceData(){
  }
 }
 function clearAllLocalFinanceStorage(){
- const keepKeys=new Set([RECOVERY_KEY]); // keep recovery snapshots until clean restore succeeds
+ const keepKeys=new Set([RECOVERY_KEY,'pf_active_user_id']); // keep recovery snapshots and account ownership
  Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&!keepKeys.has(k)).forEach(k=>localStorage.removeItem(k));
 }
 
@@ -1277,7 +1291,7 @@ async function publishRestoredBackupToCloud(){
  for(let i=0;i<rows.length;i+=chunkSize){
   const chunk=rows.slice(i,i+chunkSize);
   const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
-    .upsert(chunk,{onConflict:'section,record_id'})
+    .upsert(chunk.map(r=>({...r,user_id:(window.financeActiveUserId||'')})),{onConflict:'user_id,section,record_id'})
     .select('section,record_id,deleted_at');
   if(error)throw new Error(`Cloud write failed at rows ${i+1}-${i+chunk.length}: ${error.message}`);
   const returned=new Set((data||[]).map(r=>`${r.section}|${r.record_id}`));
@@ -1519,6 +1533,7 @@ function applyCloudSnapshot(d){
  return true;
 }
 async function cloudSaveSnapshot(silent=true,forceInitial=false){
+ if(!window.financeIsOwner)return false;
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return false;
@@ -1848,11 +1863,21 @@ async function refreshCloudSafetyState(){
  // settings/app_state snapshot may be absent even when all finance rows exist.
  // Never disable Load Latest Cloud Data based only on that retired snapshot.
  let cloudRows=[];
- try{cloudRows=await recordFetchAll();}catch(e){console.warn('Canonical cloud check failed',e);}
+ try{cloudRows=await recordFetchAll();}catch(e){console.warn('Canonical cloud check failed',e);cloudSetStatus('Cloud verification failed • retry before editing');return;}
  const activeCloudRows=cloudRows.filter(r=>!r.deleted_at).length;
  const remote=await cloudInspectState();
  const canonicalCloudExists=activeCloudRows>0;
  const anyCloudExists=canonicalCloudExists||remote.initialized;
+ if(!anyCloudExists && window.financeActiveUserId && !window.financeIsOwner){
+  localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
+  setCloudMeta({initialized:true,deviceTrusted:true,pending:false});
+  setFinanceAccessGate(session);
+  await startRealtimeRecordSync();
+  cloudSetStatus('New account ready • your finance data starts empty');
+  if($('financeGateStatus'))$('financeGateStatus').textContent='Your new finance account is ready. Add your first bank account or credit card.';
+  updateCloudSyncPanel(false);
+  return;
+ }
  updateCloudSyncPanel(anyCloudExists);
  const meta=getCloudMeta();
  if(!meta.deviceTrusted){
@@ -1869,7 +1894,7 @@ async function refreshCloudSafetyState(){
 }
 
 if(cloudClient){
- $('cloudSendLink').addEventListener('click',async()=>{const email=$('cloudEmail').value.trim();if(!email)return cloudSetStatus('Enter your email first.');const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});cloudSetStatus(error?'Login error: '+error.message:'Login link sent. Check your email.');});
+ $('cloudSendLink').addEventListener('click',async()=>{const email=$('cloudEmail').value.trim();if(!email)return cloudSetStatus('Enter your email first.');const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:true}});cloudSetStatus(error?'Login error: '+error.message:'Login link sent. Check your email.');});
  if($('cloudInitialUpload'))$('cloudInitialUpload').addEventListener('click',cloudInitialUpload);
  $('cloudUpload').addEventListener('click',cloudUploadAll);
  $('cloudDownload').addEventListener('click',cloudDownloadAll);

@@ -17,7 +17,7 @@ var INV_SEED=[
  {ticker:"LCID",company:"Lucid Group",market:"US",qty:51,avg:34.66,price:5.09},
  {ticker:"RIO",company:"Rio Tinto",market:"US",qty:11,avg:69.39,price:104.78}
 ];
-var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||JSON.parse(JSON.stringify(INV_SEED));
+var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||(window.financeActiveUserId&&!window.financeIsOwner?[]:JSON.parse(JSON.stringify(INV_SEED)));
 var invTrades=JSON.parse(localStorage.getItem("pf_investments_trades")||"[]");
 var invLastPriceUpdate=localStorage.getItem("pf_investments_price_time")||"";
 

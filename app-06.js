@@ -1508,12 +1508,12 @@ function runtimeSelfTest(){
 
 
 const SUPABASE_URL='https://qxayaygycgqwrerhrrlq.supabase.co', SUPABASE_PUBLISHABLE_KEY='sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2';
-const cloudClient=window.supabase?.createClient?window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;
+const cloudClient=window.financeSupabaseClient||(window.supabase?.createClient?window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null);
 function cloudSetStatus(x){if($('cloudStatus'))$('cloudStatus').textContent=x;}
 
 // ===================== V145 REALTIME RECORD SYNC =====================
 // Supabase is the canonical database. Browser storage is a cache/recovery layer.
-const RECORD_SYNC_TABLE='finance_sync_records';
+const RECORD_SYNC_TABLE='finance_user_records';
 const RECORD_SYNC_SINGLETON='singleton';
 var recordSyncReady=false;
 var recordSyncApplying=false;
