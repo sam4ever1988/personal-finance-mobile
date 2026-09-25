@@ -587,9 +587,13 @@ function renderImportPreview(){
  const reviewIndexes=new Set(reviewRows.map(x=>x.index));
  const total=importPreviewRows.length;
  const ready=total-reviewRows.length;
+ const selectedAmount=importPreviewRows.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0);
+ const selectedNet=importPreviewRows.reduce((sum,row)=>sum+Number(row.amount||0),0);
  $('importPreviewTotal').textContent=String(importDuplicateDecision?.found??total);
  $('importPreviewReady').textContent=String(ready);
  $('importPreviewReview').textContent=String(reviewRows.length);
+ $('importPreviewTotalAmount').textContent=money(selectedAmount);
+ $('importPreviewNetAmount').textContent=`Net: ${signed(Math.round(selectedNet*100)/100)}`;
  syncImportPreviewAssignmentControls();
  const reviewButton=$('reviewImportTransactions');
  reviewButton.hidden=!reviewRows.length;
@@ -724,7 +728,7 @@ function renderImportHistory(){
  if(!body)return;
  body.innerHTML=importHistory.length?importHistory.map((h,index)=>({h,index})).reverse().map(({h,index})=>{
   const n=importBatchRows(h).length;
-  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button type="button" class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
+  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${Number.isFinite(Number(h.totalAmount))?`<div class="meta">Imported transaction amount: ${money(Number(h.totalAmount))}</div>`: ''}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button type="button" class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
  }).join(''):'<tr><td colspan="5">No statements imported yet.</td></tr>';
  document.querySelectorAll('[data-view-import]').forEach(b=>b.addEventListener('click',()=>viewImportBatch(Number(b.dataset.viewImport))));
  document.querySelectorAll('[data-delete-import]').forEach(b=>b.addEventListener('click',()=>deleteImportBatch(Number(b.dataset.deleteImport))));
@@ -796,6 +800,7 @@ function commitStatementPreviewImport(){
   fileName:importPreviewFileName,
   accountId:importedAccountId,
   count:importedFresh.length,
+  totalAmount:Math.round(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0)*100)/100,
   skipped,
   duplicateSkipped:skipped,
   importedAt:new Date(stamp).toISOString(),
@@ -834,7 +839,7 @@ function commitStatementPreviewImport(){
   accountDetailTxFilter.month='';
   openAccount(importedAccountId,accountDetailReturnPage);
  }
- importStatus(`Imported ${importedFresh.length} transaction(s)${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${officialConfirmed&&officialCandidate?` Official statement CONFIRMED: ${money(officialCandidate.amount)}${officialCandidate.due?` due ${paymentFormatDate(officialCandidate.due)}`:''}.`:officialCandidate?` Transactions imported only. Official statement was NOT confirmed and remains ${money(0)}.`:plannerUpdate.updated?' Transactions imported and the payment estimate was recalculated from transaction dates.':''}`,'success');
+ importStatus(`Imported ${importedFresh.length} transaction(s), total ${money(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0))}${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${officialConfirmed&&officialCandidate?` Official statement CONFIRMED: ${money(officialCandidate.amount)}${officialCandidate.due?` due ${paymentFormatDate(officialCandidate.due)}`:''}.`:officialCandidate?` Transactions imported only. Official statement was NOT confirmed and remains ${money(0)}.`:plannerUpdate.updated?' Transactions imported and the payment estimate was recalculated from transaction dates.':''}`,'success');
  importPreviewRows=[];importDuplicateDecision=null;importStatementMeta=null;renderImportPreview()
 }
 const importDrop=$('importDrop');['dragenter','dragover'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.remove('drag')}));importDrop.addEventListener('drop',e=>handleStatementFile(e.dataTransfer.files?.[0]));

@@ -97,8 +97,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.32')+'</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.32');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.33')+'</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.33');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -785,7 +785,7 @@ function liveUnreleasedTransactionRows(cardId){
   if(linkedActiveInstallment(t._id))return false;
 
   const d=String(t.description||'').toLowerCase();
-  if(/payment received|advance payment|top[- ]?up|credit card payment|card payment/.test(d))return false;
+  if((/payment received|advance payment|credit card payment|card payment/.test(d)||isTopUpPaymentDescription(d)))return false;
 
   return true;
  });

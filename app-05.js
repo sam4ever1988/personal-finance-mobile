@@ -1197,7 +1197,7 @@ function parseImportDate(v){
 }
 function guessImportedCategory(desc){
  const d=String(desc||'').toLowerCase();
- if(/advance payment|top[- ]?up|payment received|card payment/.test(d))return ['Financial Obligations','Credit Card Payments','transfer',false];
+ if((/advance payment|payment received|card payment/.test(d)||isTopUpPaymentDescription(d)))return ['Financial Obligations','Credit Card Payments','transfer',false];
  if(/loan|installment deduction/.test(d))return ['Financial Obligations','Loan Payments','obligation',false];
  if(/netflix|streaming/.test(d))return ['Lifestyle & Entertainment','Streaming Services','expense',false];
  if(/stc|mobily|globe|internet|phone/.test(d))return ['Housing & Utilities','Internet & Phone','expense',false];
