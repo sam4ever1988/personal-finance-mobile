@@ -1,0 +1,42 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const html=fs.readFileSync('index.html','utf8');
+const start=html.indexOf('/* V259 loader:');
+const code=html.slice(start,html.indexOf('</script>',start));
+const values=new Map([['pf_manual_transactions','[{"id":"owner-private"}]'],['pf_investments_holdings','[{"ticker":"OWNER"}]'],['pf_custom_banks','[{"id":"owner-bank"}]']]);
+const localStorage=new Proxy({getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k),key:i=>[...values.keys()][i]}, {ownKeys:()=>[...values.keys()],getOwnPropertyDescriptor:(_,k)=>values.has(k)?{configurable:true,enumerable:true,value:values.get(k)}:undefined});
+const slots=new Map();
+const indexedDB={open:()=>{const request={};setTimeout(()=>{request.result={
+ createObjectStore:()=>{},close:()=>{},transaction:()=>{const tx={};tx.objectStore=()=>({get:key=>{
+  const q={};setTimeout(()=>{q.result=slots.get(key);q.onsuccess?.();tx.oncomplete?.()},0);return q;
+ },put:(val,key)=>{const q={};setTimeout(()=>{slots.set(key,val);q.onsuccess?.();tx.oncomplete?.()},0);return q;}});return tx;}};
+ request.onupgradeneeded?.();request.onsuccess?.()},0);return request;}};
+let current='owner';
+const client={auth:{getSession:async()=>({data:{session:{user:{id:current,email:'owner@example.test'}}}})},from:()=>({select:()=>({limit:async()=>({data:current==='owner'?[{id:1}]:[],error:null})})})};
+const window={supabase:{createClient:()=>client}};
+const document={createElement:()=>({}),body:{appendChild:()=>{}}};
+const context={window,localStorage,indexedDB,document,fetch:async()=>({ok:true,text:async()=>''}),Blob,URL:{createObjectURL:()=>'',revokeObjectURL:()=>{}},setTimeout,console};
+vm.runInNewContext(code,context);
+(async()=>{
+ await new Promise(r=>setTimeout(r,70));
+ assert.equal(localStorage.getItem('pf_active_user_id'),'owner');
+ assert.match(localStorage.getItem('pf_manual_transactions'),/owner-private/g);
+ current='other';await window.financeScopeSwitch({user:{id:'other'}});
+ assert.equal(localStorage.getItem('pf_manual_transactions'),null,'new account starts clean');
+ assert.equal(localStorage.getItem('pf_investments_holdings'),null,'portfolio starts clean');
+ assert.equal(localStorage.getItem('pf_custom_banks'),null,'bank accounts start clean');
+ localStorage.setItem('pf_manual_transactions','[{"id":"other-private"}]');
+ current='owner';await window.financeScopeSwitch({user:{id:'owner'}});
+ assert.match(localStorage.getItem('pf_manual_transactions'),/owner-private/g,'owner data restored');
+ assert.match(localStorage.getItem('pf_investments_holdings'),/OWNER/g,'owner portfolio restored');
+ assert.match(localStorage.getItem('pf_custom_banks'),/owner-bank/g,'owner banks restored');
+ assert.doesNotMatch(localStorage.getItem('pf_manual_transactions'),/other-private/g);
+ current='other';await window.financeScopeSwitch({user:{id:'other'}});
+ assert.match(localStorage.getItem('pf_manual_transactions'),/other-private/g,'second account data restored separately');
+ await window.financeScopeSwitch(null);
+ assert.equal(localStorage.getItem('pf_manual_transactions'),null,'sign out clears visible finance data');
+ current='owner';await window.financeScopeSwitch({user:{id:'owner'}});
+ assert.match(localStorage.getItem('pf_manual_transactions'),/owner-private/g,'original owner returns after sign out');
+ console.log('Owner → new account → owner → second account cache isolation passed');
+})().catch(e=>{console.error(e);process.exitCode=1});
