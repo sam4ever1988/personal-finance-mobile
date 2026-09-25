@@ -234,7 +234,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:window.APP_BUILD_VERSION||'3.33',
+  version:window.APP_BUILD_VERSION||'3.34',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -291,14 +291,36 @@ function editCustomBank(id){
   if(ending.length!==4||!Number.isFinite(balance)||balance<0)return goldActionError('Enter exactly four digits and a valid bank balance.');
   Object.assign(current,{bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending,updatedAt:new Date().toISOString()});
   localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));
-  syncCustomAccountsIntoAccounts();setTrackedBankBalance(current.id,balance);saveLocal();scheduleRecordPush('custom-bank-edit');refreshAccountDependentUI();return true;
+  syncCustomAccountsIntoAccounts();setTrackedBankBalance(current.id,balance-bankTransferImpact(current.id));saveLocal();scheduleRecordPush('custom-bank-edit');refreshAccountDependentUI();return true;
  }});
 }
 function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'This account will be available across transactions, imports, payment sources, reports and dashboards.',save:'Add Bank',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'name',label:'Account Name',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'balance',label:'Live Bank Balance (SAR)',type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),bal=Number(v.balance);if(e.length!==4||!Number.isFinite(bal)||bal<0)return goldActionError('Enter exactly 4 digits and a valid bank balance.');const b={id:'custom-bank-'+e+'-'+Date.now(),bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,type:'bank',custom:true,balance:bal,balanceLabel:'Live Balance',extra:{}};customBanks.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));syncCustomAccountsIntoAccounts();setTrackedBankBalance(b.id,bal);saveLocal();scheduleRecordPush('custom-bank-add');refreshAccountDependentUI();return true}})}
+function openBankTransfer(){
+ const banks=accounts.filter(a=>a.type==='bank');
+ if(banks.length<2){alert('Add at least two bank accounts to transfer money.');return;}
+ const options=banks.map(a=>({value:a.id,label:accountName(a.id)}));
+ openUnifiedAction({title:'Transfer Between Bank Accounts',subtitle:'Moves money between your own bank accounts. Both balances update together.',save:'Save Transfer',fields:[
+  {name:'sourceId',label:'From Account',type:'select',value:banks[0].id,options,required:true,full:false},
+  {name:'targetId',label:'To Account',type:'select',value:banks[1].id,options,required:true,full:false},
+  {name:'amount',label:'Amount (SAR)',type:'number',step:'0.01',min:'0.01',required:true,full:false},
+  {name:'date',label:'Transfer Date',type:'date',value:new Date().toLocaleDateString('en-CA'),required:true,full:false},
+  {name:'note',label:'Note',placeholder:'Optional transfer reference',full:true}
+ ],submit:v=>{
+  const source=account(v.sourceId),target=account(v.targetId),amount=Number(v.amount);
+  if(!source||!target||source.type!=='bank'||target.type!=='bank'||source.id===target.id)return goldActionError('Select two different bank accounts.');
+  if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter an amount greater than zero with no more than two decimals.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid transfer date.');
+  if(amount>adjustedBankBalance(source)+0.001)return goldActionError('Transfer amount exceeds the source account balance.');
+  const id='bank-transfer-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+  addCashFlowLedgerEntry({id,type:'bank-transfer',date:v.date,amount,sourceId:source.id,sourceName:accountName(source.id),targetId:target.id,targetName:accountName(target.id),description:String(v.note||'').trim()||'Bank account transfer',referenceId:id});
+  saveLocal();syncCashFlowLedgerImmediate();refreshAccountDependentUI();renderIncomePlan();return true;
+ }});
+}
 function bindCustomAccountButtons(){
  const bank=$('addCustomBank'),card=$('addCustomCreditCard');
  if(bank){bank.type='button';bank.onclick=e=>{e.preventDefault();addCustomBank();};bank.dataset.accountActionBound='1';}
  if(card){card.type='button';card.onclick=e=>{e.preventDefault();addCustomCreditCard();};card.dataset.accountActionBound='1';}
+ const transfer=$('openBankTransfer');if(transfer){transfer.type='button';transfer.onclick=e=>{e.preventDefault();openBankTransfer();};}
 }
 function goldActionError(message){$('unifiedActionSub').textContent=message;$('unifiedActionSub').style.color='var(--red)';return false;}
 function goldActionSources(label='Monthly Planned Income'){return [{value:'cash-source',label},...accounts.filter(x=>x.type==='bank').map(x=>({value:x.id,label:accountName(x.id)}))];}
