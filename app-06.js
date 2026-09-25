@@ -266,6 +266,9 @@ function duplicateTextSimilar(a,b){
 function isStatementDuplicate(candidate,existing){
  if(!candidate||!existing)return false;
  if(candidate.account!==existing.account)return false;
+ const candidateCard=String(candidate.physicalCardEnding||'').replace(/\D/g,'').slice(-4);
+ const existingCard=String(existing.physicalCardEnding||'').replace(/\D/g,'').slice(-4);
+ if(candidate.physicalCardDetected===true&&existing.physicalCardDetected===true&&candidateCard&&existingCard&&candidateCard!==existingCard)return false;
  if(Math.abs(Number(candidate.amount||0)-Number(existing.amount||0))>0.005)return false;
  const days=importDateDays(candidate.date,existing.date);
  if(days===0)return true; // same card + same amount + same transaction date
@@ -286,6 +289,20 @@ function splitFreshStatementRows(previewRows,existingRows){
   }else fresh.push(t);
  });
  return {fresh,duplicates};
+}
+function existingStatementImportRows(){
+ const active=importedTransactions.filter(t=>!transactionActions[t._id]?.status);
+ const cardPayments=(cashFlowLedger||[]).filter(h=>h.type==='card-payment'&&h.status!=='reversed'&&h.sourceId&&h.targetId!==h.sourceId)
+  .map(h=>({account:h.sourceId,date:String(h.date||'').slice(0,10),amount:-Math.abs(Number(h.amount||0)),description:h.targetName?`Card payment to ${h.targetName}`:'Recorded card-funded payment',physicalCardDetected:false}));
+ return [...active,...manualTransactions,...cardPayments];
+}
+function statementImportDuplicateReview(){
+ return splitFreshStatementRows(importPreviewRows,existingStatementImportRows());
+}
+function showStatementImportDuplicates(review=statementImportDuplicateReview()){
+ $('importDuplicateReviewBody').innerHTML=review.duplicates.map(({row,match},i)=>`<tr><td>${i+1}</td><td>${escapeHtml(row.date)}<div class="meta">${escapeHtml(accountName(row.account))} • ${escapeHtml(String(row.physicalCardEnding||''))}</div></td><td><b>${escapeHtml(row.description)}</b><div class="meta">Existing: ${escapeHtml(match.description)} • ${escapeHtml(match.date)}</div></td><td>${signed(Number(row.amount||0))}</td><td><label><input type="checkbox" data-import-duplicate-include="${i}"> Import anyway</label></td></tr>`).join('');
+ $('importDuplicateReviewMeta').textContent=`${review.duplicates.length} matched existing transaction(s); ${review.fresh.length} new. Matched rows are skipped unless you select Import anyway.`;
+ openModal('importDuplicateReviewModal');
 }
 function cleanupExistingImportedStatementDuplicates(){
  // BASE is the trusted original set embedded in the dashboard.
@@ -577,8 +594,9 @@ function renderImportPreview(){
  const reviewButton=$('reviewImportTransactions');
  reviewButton.hidden=!reviewRows.length;
  reviewButton.textContent=reviewRows.length?`Review Transactions (${reviewRows.length})`:'Review Transactions';
+ const dup=total?statementImportDuplicateReview():{duplicates:[],fresh:[]};
  $('importPreviewMeta').textContent=total
-  ?`${total} transaction(s) found in ${importPreviewFileName}. ${reviewRows.length?`${reviewRows.length} must be reviewed because Category or Subcategory was not recognized.`:'All transactions are classified and ready to import.'}`
+  ?`${total} transaction(s) found in ${importPreviewFileName}. ${dup.duplicates.length} match existing transactions; ${dup.fresh.length} new. ${reviewRows.length?`${reviewRows.length} need category review.`:'Classifications are ready.'}`
   :'Choose a statement to begin.';
 
  $('importPreviewBody').innerHTML=total
@@ -714,14 +732,27 @@ function renderImportHistory(){
 function renderImportPage(){fillAccountSelect($('importAccount'));renderImportPreview();renderImportHistory();renderStatementFormats()}
 async function handleStatementFile(file){
  if(!file)return;const accountId=$('importAccount').value||accounts[0]?.id||'';importPreviewRows=[];importStatementMeta=null;if($('importAssignmentResult'))$('importAssignmentResult').textContent='';renderImportPreview();importPreviewFileName=file.name;importStatus('Reading '+file.name+' and detecting bank/card…');
- try{const rows=await parseStatementFile(file,accountId,$('importStatementMonth').value);if(!rows.length)throw new Error('No transaction rows were recognized. Try Excel/CSV, or send me this statement format so I can add its PDF parser.');importPreviewRows=rows;renderImportPreview();importStatus(`Found ${rows.length} transaction(s) in ${file.name}. Assigned to ${accountName($('importAccount').value)}. Review the preview, then click Import Transactions.`,'success')}catch(e){importStatus(e.message||String(e),'error')}
+ try{const rows=await parseStatementFile(file,accountId,$('importStatementMonth').value);if(!rows.length)throw new Error('No transaction rows were recognized. Try Excel/CSV, or send me this statement format so I can add its PDF parser.');importPreviewRows=rows;renderImportPreview();const dup=statementImportDuplicateReview();importStatus(`Found ${rows.length} transaction(s) in ${file.name}. ${dup.duplicates.length} match existing records and ${dup.fresh.length} are new. Review the preview before importing.`,'success');if(dup.duplicates.length)showStatementImportDuplicates(dup)}catch(e){importStatus(e.message||String(e),'error')}
 }
 $('statementFile').addEventListener('change',e=>{handleStatementFile(e.target.files?.[0]);e.target.value=''});
 $('clearImportPreview').addEventListener('click',()=>{importPreviewRows=[];importPreviewFileName='';importStatementMeta=null;$('importAssignmentResult').textContent='';renderImportPreview();$('importStatus').style.display='none'});
 $('reviewImportTransactions').addEventListener('click',()=>openImportBulkReview());
 $('saveImportBulkReview').addEventListener('click',saveImportBulkReview);
 $('applyImportAssignment').addEventListener('click',applyImportPreviewAssignment);
+let statementDuplicateReviewConfirmed=false;
 $('confirmStatementImport').addEventListener('click',()=>{
+ statementDuplicateReviewConfirmed=false;
+ commitStatementPreviewImport();
+});
+$('confirmImportDuplicateReview').addEventListener('click',()=>{
+ const review=statementImportDuplicateReview();
+ const selected=[...$('importDuplicateReviewBody').querySelectorAll('[data-import-duplicate-include]:checked')].map(c=>Number(c.dataset.importDuplicateInclude));
+ const include=selected.map(i=>review.duplicates[i]?.row).filter(Boolean);
+ closeModal('importDuplicateReviewModal');
+ statementDuplicateReviewConfirmed=true;
+ commitStatementPreviewImport([...review.fresh,...include]);
+});
+function commitStatementPreviewImport(approvedRows=null){
  if(!importPreviewRows.length)return;
  const reviewRows=importPreviewReviewRows();
  if(reviewRows.length){
@@ -729,10 +760,11 @@ $('confirmStatementImport').addEventListener('click',()=>{
   openImportBulkReview(reviewRows[0].index);
   return;
  }
- const activeImported=importedTransactions.filter(t=>!transactionActions[t._id]?.status);
- const existing=[...activeImported,...manualTransactions];
+ const existing=existingStatementImportRows();
  const result=splitFreshStatementRows(importPreviewRows,existing);
- const fresh=result.fresh,skipped=result.duplicates.length,stamp=Date.now(),batchId=`batch_${stamp}`;
+ if(result.duplicates.length&&!statementDuplicateReviewConfirmed){showStatementImportDuplicates(result);return;}
+ const fresh=approvedRows||result.fresh,skipped=importPreviewRows.length-fresh.length,stamp=Date.now(),batchId=`batch_${stamp}`;
+ statementDuplicateReviewConfirmed=false;
  const importedAccountId=$('importAccount').value;
  const officialCandidate=detectOfficialStatementCandidate(importedAccountId,importPreviewFileName,importPreviewRows,importStatementMeta);
  const officialConfirmed=confirmOfficialStatementCandidate(officialCandidate,importPreviewFileName);
@@ -802,7 +834,7 @@ $('confirmStatementImport').addEventListener('click',()=>{
  }
  importStatus(`Imported ${importedFresh.length} transaction(s)${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${officialConfirmed&&officialCandidate?` Official statement CONFIRMED: ${money(officialCandidate.amount)}${officialCandidate.due?` due ${paymentFormatDate(officialCandidate.due)}`:''}.`:officialCandidate?` Transactions imported only. Official statement was NOT confirmed and remains ${money(0)}.`:plannerUpdate.updated?' Transactions imported and the payment estimate was recalculated from transaction dates.':''}`,'success');
  importPreviewRows=[];importStatementMeta=null;renderImportPreview()
-});
+}
 const importDrop=$('importDrop');['dragenter','dragover'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.remove('drag')}));importDrop.addEventListener('drop',e=>handleStatementFile(e.dataTransfer.files?.[0]));
 
 
