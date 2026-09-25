@@ -564,7 +564,7 @@ function adjustedBankBalance(a){
 }
 function setTrackedBankBalance(accountId,value){
  const n=Number(value);if(!Number.isFinite(n))return false;
- bankBalanceOverrides[accountId]=Math.round(n*100)/100;
+ bankBalanceOverrides[accountId]=Math.round((n-(account(accountId)?.type==='bank'?bankTransferImpact(accountId):0))*100)/100;
  localStorage.setItem('pf_bank_balance_overrides',JSON.stringify(bankBalanceOverrides));
  localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
  localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
