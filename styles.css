@@ -2520,6 +2520,13 @@ body.financeAccessLocked{overflow:hidden!important}
 }
 .financeAccessCard button{width:100%;min-height:52px;border-radius:11px!important;font-size:16px!important;font-weight:900!important}
 .financeGatePrimary{border:0!important;background:linear-gradient(135deg,#12b98b,#0da3d5)!important;color:#fff!important}
+.financeGateSecondary{margin-top:9px;border:1px solid #2683a1!important;background:#103e53!important;color:#eef8ff!important}
+.financeGateTextButton{min-height:36px!important;margin-top:6px;border:0!important;background:transparent!important;color:#8fe7d1!important;font-size:13px!important;text-decoration:underline}
+.financeAccessCard [hidden]{display:none!important}
+.cloudPasswordSettings{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0;padding:14px;border:1px solid #22627d;border-radius:10px}
+.cloudPasswordSettings label{width:100%;font-weight:800}
+.cloudPasswordSettings input{min-height:40px;padding:8px 11px;border:1px solid #22627d;border-radius:8px;background:#092c40;color:#fff}
+.cloudPasswordSettings small{width:100%;color:#abc6d5}
 .financeGateWipe{margin-top:12px;border:1px solid #b64c59!important;background:#3d2029!important;color:#ffb7bf!important}
 .financeGateStatus{min-height:22px;margin-top:14px;color:#8fe7d1;font-size:13px;line-height:1.45}
 .financeAccessCard small{display:block;margin-top:10px;color:#89a9bc;font-size:12px;line-height:1.45}
