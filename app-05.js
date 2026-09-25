@@ -1221,11 +1221,12 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
  const [category,subcategory,kind,needsReview]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
- const physicalCardEnding=
+ const detectedPhysicalCardEnding=
   String(raw?.['Physical Card Ending']||raw?.physicalCardEnding||'').replace(/\D/g,'') ||
-  detectPhysicalCardEndingFromRaw(raw,accountId) ||
+  detectPhysicalCardEndingFromRaw(raw,accountId);
+ const physicalCardEnding=detectedPhysicalCardEnding ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
@@ -1273,6 +1274,7 @@ function workbookRows(wb,accountId=''){
 
   const isAr=accountId==='ar-0955';
   let currentEnding=isAr?String(account(accountId)?.ending||'0955'):'';
+  let currentEndingDetected=false;
   let pendingKind='';
   let detectedStructured=false;
 
@@ -1288,9 +1290,11 @@ function workbookRows(wb,accountId=''){
       pendingKind=kind;
       if(ending){
        currentEnding=ending;
+       currentEndingDetected=true;
        pendingKind='';
       }else if(kind==='primary'){
        currentEnding=String(account(accountId)?.ending||'0955');
+       currentEndingDetected=false;
       }
       r++;
       continue;
@@ -1298,8 +1302,9 @@ function workbookRows(wb,accountId=''){
 
     if(pendingKind){
      const nearby=alRajhiExcelPhysicalCardEndingFromRow(row,accountId);
-     if(nearby){
-      currentEnding=nearby;
+      if(nearby){
+       currentEnding=nearby;
+       currentEndingDetected=true;
       pendingKind='';
       r++;
       continue;
@@ -1309,6 +1314,7 @@ function workbookRows(wb,accountId=''){
     const standalone=alRajhiExcelPhysicalCardEndingFromRow(row,accountId);
     if(standalone && !isAlRajhiTransactionHeaderRow(row)){
      currentEnding=standalone;
+     currentEndingDetected=true;
     }
    }
 
@@ -1331,9 +1337,11 @@ function workbookRows(wb,accountId=''){
        pendingKind=nextKind;
        if(nextEnding){
         currentEnding=nextEnding;
+        currentEndingDetected=true;
         pendingKind='';
        }else if(nextKind==='primary'){
         currentEnding=String(account(accountId)?.ending||'0955');
+        currentEndingDetected=false;
        }
        r++;
        break;
@@ -1344,6 +1352,7 @@ function workbookRows(wb,accountId=''){
        const dateCell=dataRow.find(v=>/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(cleanImportText(v)));
        if(!dateCell){
         currentEnding=nextEnding;
+        currentEndingDetected=true;
         r++;
         continue;
        }
@@ -1357,6 +1366,7 @@ function workbookRows(wb,accountId=''){
         cleanImportText(obj['Transaction Date'])){
       if(isAr){
        obj['Physical Card Ending']=currentEnding;
+       obj.physicalCardDetected=currentEndingDetected;
        obj['Physical Card']=physicalCardLabelFor(accountId,currentEnding);
       }
       all.push(obj);
