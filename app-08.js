@@ -234,7 +234,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:window.APP_BUILD_VERSION||'3.39',
+  version:window.APP_BUILD_VERSION||'3.40',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
