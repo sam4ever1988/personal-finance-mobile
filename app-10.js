@@ -111,6 +111,98 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
  applyFinancePreferences();setTimeout(renderAccountProfile,0);
 })();
 
+/* Cloud audit and per-account sharing summary. Database RLS remains authoritative. */
+(function(){
+ const client=window.financeSupabaseClient;
+ const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=String(text);return node};
+ async function identity(){
+  if(!client)throw new Error('Cloud connection is unavailable.');
+  const {data:{session},error}=await client.auth.getSession();
+  if(error)throw error;
+  if(!session)throw new Error('Sign in to view account activity.');
+  return session.user.id;
+ }
+ async function directory(){
+  const {data,error}=await client.rpc('finance_access_directory');
+  if(error)throw error;
+  return data||[];
+ }
+ window.renderFinanceSharedWith=async function(){
+  const box=document.getElementById('accountSharedWith');if(!box)return;
+  box.textContent='Checking sharing permissions…';
+  try{
+   const userId=await identity();
+   const [{data:grants,error},users]=await Promise.all([
+    client.from('finance_workspace_grants').select('member_user_id,page,permission').eq('owner_user_id',userId).order('member_user_id'),
+    directory()
+   ]);
+   if(error)throw error;
+   box.replaceChildren();
+   if(!grants?.length){box.textContent='No one has access to your workspace.';return}
+   const emails=new Map(users.map(u=>[u.user_id,u.user_email]));
+   const groups=new Map();
+   grants.forEach(g=>{if(!groups.has(g.member_user_id))groups.set(g.member_user_id,[]);groups.get(g.member_user_id).push(g)});
+   for(const [member,pages] of groups){
+    const item=el('div','prefsStatus');
+    item.append(el('b','',emails.get(member)||'User '+member.slice(0,8)),
+      el('span','',pages.map(p=>p.page+' ('+p.permission+')').join(' · ')));
+    box.append(item);
+   }
+  }catch(e){box.textContent='Sharing list unavailable: '+e.message}
+ };
+ const sectionPage={
+  investments_holdings:'Investments',investments_trades:'Investments',
+  personal_assets_gold:'Personal Assets',personal_assets_market:'Personal Assets',
+  personal_assets_zakat:'Personal Assets',personal_assets_sales:'Personal Assets',
+  rental_bookings:'Airbnb / Rental',rental_expenses:'Airbnb / Rental',rental_blocks:'Airbnb / Rental',
+  imported_transactions:'Transactions',manual_transactions:'Transactions',import_history:'Import Statements',
+  outgoings:'Outgoings',cash_flow_ledger:'Cash & Credit',installments:'Installments',
+  card_payment_plan:'Income & Payment Plan',income_plan:'Income & Payment Plan',
+  custom_banks:'Cash & Credit',custom_credit_cards:'Cash & Credit'
+ };
+ let cachedDirectory=[];
+ window.renderFinanceAuditTrail=async function(){
+  const status=document.getElementById('auditStatus'),rows=document.getElementById('auditRows'),select=document.getElementById('auditWorkspace');
+  if(!status||!rows||!select)return;
+  status.textContent='Loading audit trail…';rows.replaceChildren();
+  try{
+   const userId=await identity();
+   cachedDirectory=await directory();
+   const admin=!!window.financeIsOwner;
+   const selected=select.value||userId;
+   select.replaceChildren();
+   (admin?cachedDirectory:cachedDirectory.filter(u=>u.user_id===userId)).forEach(u=>{
+    const option=el('option','',u.user_email||u.user_id);option.value=u.user_id;select.append(option);
+   });
+   select.value=Array.from(select.options).some(o=>o.value===selected)?selected:userId;
+   let query=client.from('finance_record_audit')
+    .select('id,workspace_user_id,actor_user_id,section,record_id,operation,before_data,after_data,changed_at')
+    .eq('workspace_user_id',select.value).order('changed_at',{ascending:false}).limit(150);
+   const action=document.getElementById('auditAction')?.value;
+   const from=document.getElementById('auditFrom')?.value,to=document.getElementById('auditTo')?.value;
+   if(action)query=query.eq('operation',action);
+   if(from)query=query.gte('changed_at',from+'T00:00:00');
+   if(to)query=query.lte('changed_at',to+'T23:59:59.999');
+   const {data,error}=await query;
+   if(error)throw error;
+   status.textContent=(data?.length||0)+' cloud change'+(data?.length===1?'':'s')+' shown (latest 150).';
+   if(!data?.length){rows.textContent='No recorded changes for these filters.';return}
+   const emails=new Map(cachedDirectory.map(u=>[u.user_id,u.user_email]));
+   for(const row of data){
+    const details=el('details','auditEntry');
+    const title=el('summary','');
+    title.append(el('b','',row.operation.toUpperCase()+' · '+(sectionPage[row.section]||row.section.replaceAll('_',' '))),
+      el('span','',new Date(row.changed_at).toLocaleString()),
+      el('span','',row.actor_user_id?(emails.get(row.actor_user_id)||'User '+row.actor_user_id.slice(0,8)):'System / legacy sync'));
+    details.append(title,el('div','meta','Record: '+row.record_id));
+    const pre=el('pre','auditDiff',JSON.stringify({before:row.before_data,after:row.after_data},null,2));
+    details.append(pre);rows.append(details);
+   }
+  }catch(e){status.textContent='Audit trail unavailable: '+e.message}
+ };
+ document.getElementById('auditRefresh')?.addEventListener('click',()=>window.renderFinanceAuditTrail());
+})();
+
 
 /* V293 — isolated Neotek-style Open Banking sandbox */
 const BANK_SANDBOX_KEY_V293='pf_bank_sandbox_v293';
