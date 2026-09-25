@@ -960,7 +960,7 @@ function renderMonthlyIncomePlans(){
  document.querySelectorAll('[data-edit-income-month]').forEach(b=>b.addEventListener('click',()=>{
   const p=incomePlanForMonth(b.dataset.editIncomeMonth);if(!p)return;
   const mine=prompt(`My Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.mySalary||0)));if(mine===null)return;
-  const wife=prompt(`Wife Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.wifeSalary||0)));if(wife===null)return;
+  const wife=prompt(`Other Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.wifeSalary||0)));if(wife===null)return;
   const other=prompt(`Other Income for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.otherIncome||0)));if(other===null)return;
   const vals=[Number(mine),Number(wife),Number(other)];
   if(vals.some(v=>!Number.isFinite(v)||v<0)){alert('Please enter valid non-negative amounts.');return;}
