@@ -945,7 +945,10 @@ function paymentMonthForTransaction(cardId,dateValue){
 
  // meem / GIB Saudi •7102 statement period is the 3rd through the 2nd.
  // Example: 03 Aug–02 Sep belongs to the September statement.
- const cutoffDay=cardId==='meem-7102'?2:Number(cyc.statementDay||1);
+ // A statement closing on the last day of the previous month includes no
+ // transactions from the 1st of the new month. Preserve other cards' explicit
+ // cutoff days (for example meem's 2nd and NBD's 7th).
+ const cutoffDay=cardId==='meem-7102'?2:(Number(cyc.statementDay||1)===1?0:Number(cyc.statementDay||1));
  const statementMonth=d.getDate()<=cutoffDay?txMonth:addMonthsToYM(txMonth,1);
 
  // meem due date is within the same statement month (27th).
@@ -1418,7 +1421,7 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
   // of the future reserve, but it must stay inside that statement's payment.
   // Keep the billed slice in its original payment month so completing a plan
   // cannot reduce an already-established current-month obligation.
-  const billedCount=Math.max(0,Number(p.statementBilledInstallments||0));
+  const billedCount=Math.max(0,Number(p.statementBilledInstallments||0),Number(installmentPaidThroughReleasedStatement(p)||0));
   const billedStart=p.startMonth||p.referenceMonth||currentYearMonth();
   const billedStartIdx=monthIndex(billedStart),paymentIdx=monthIndex(paymentMonth);
   const billedIndex=billedStartIdx!==null&&paymentIdx!==null?paymentIdx-billedStartIdx:-1;
@@ -1435,6 +1438,14 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
   // This is the critical V91 fix: changing remaining amount or months immediately changes
   // the payment planner for SAB, meem, Al Rajhi, NBD, and every other card.
   if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null){
+   // Keep the original installment cents when the remaining principal is
+   // exactly the unpaid slice of the original schedule (e.g. 781.97, 781.97,
+   // 781.98). An edited principal uses its own recalculated schedule instead.
+   if(billedCount>0 && billedIndex>=billedCount && billedIndex<Number(p.months||0)){
+    const original=planMonthly({fullAmount:Number(p.fullAmount||0),months:Number(p.months||1)});
+    const originalRemaining=Math.round(original.slice(billedCount).reduce((v,n)=>v+n,0)*100)/100;
+    if(Math.abs(originalRemaining-Number(c.remaining||0))<0.011)return sum+Number(original[billedIndex]||0);
+   }
    const elapsed=(refIdx!==null&&payIdx!==null)?Math.max(0,payIdx-refIdx):0;
    const releasedOffset=Math.max(0,Number(c.releasedStatementPaid||0));
    const remainingIndex=elapsed-releasedOffset;
@@ -1729,7 +1740,23 @@ function importedOfficialPlannerRow(cardId,month){
 function calculatedPaymentCycleAmount(cardId,month){
  const transactions=Number(transactionAmountForPaymentMonthAll(cardId,month)||0);
  const installment=Number(installmentAmountForPaymentMonth(cardId,month)||0);
- return Math.round((transactions+installment)*100)/100;
+ const transfers=Number(cardLedgerSourceTransfersForMonth(cardId,month)||0);
+ return Math.round((transactions+installment+transfers)*100)/100;
+}
+function cardLedgerSourceTransfersForMonth(cardId,month){
+ const rows=liveCardTransactions();
+ return Math.round((cashFlowLedger||[]).filter(h=>
+  h.type==='card-payment' && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId &&
+  (h.sourcePaymentMonth||paymentMonthForTransaction(cardId,h.date))===month
+ ).reduce((sum,h)=>{
+  const matched=rows.some(t=>t.account===cardId && Number(t.amount||0)<0 &&
+   Math.abs(Math.abs(Number(t.amount||0))-Number(h.amount||0))<0.01 &&
+   String(t.date||'').slice(0,10)===String(h.date||'').slice(0,10) &&
+   assignedTransactionPaymentMonth(cardId,t)===month &&
+   !['transfer','income'].includes(txType(t)) &&
+   /card payment|credit card payment|payment|transfer/i.test(String(t.description||'')));
+  return sum+(matched?0:Math.max(0,Number(h.amount||0)));
+ },0)*100)/100;
 }
 
 function plannerAmountSource(p){
@@ -1773,8 +1800,9 @@ function plannerAmountExplanation(p){
 
  const activity=Number(transactionAmountForPaymentMonthAll(p.accountId,p.month)||0);
  const installment=Number(installmentAmountForPaymentMonth(p.accountId,p.month)||0);
- const total=Math.round((activity+installment)*100)/100;
- return `Date-driven ${cardMonthLabel(p.month)} cycle: ${money(activity)} transaction activity + ${money(installment)} installment commitment = ${money(total)}. Transactions are assigned by this card's statement/payment-cycle dates. An imported official statement will replace this calculated amount.`;
+ const transfers=Number(cardLedgerSourceTransfersForMonth(p.accountId,p.month)||0);
+ const total=Math.round((activity+installment+transfers)*100)/100;
+ return `Date-driven ${cardMonthLabel(p.month)} cycle: ${money(activity)} transaction activity + ${money(installment)} installment commitment + ${money(transfers)} card-funded transfers = ${money(total)}. An imported official statement will replace this calculated amount.`;
 }
 function syncUpcomingNbdMazeed(){
  // V155: legacy fixed Mazeed SAR 9,321 planner rows are retired.

@@ -383,10 +383,7 @@ function cardCycleHasRecordedPayment(cardId,month){
   row.accountId===cardId &&
   row.month===month &&
   !row.upcomingOnly &&
-  (
-   Number(paymentPaidAmount(row)||0)>0.005 ||
-   (Array.isArray(row.paymentHistory)&&row.paymentHistory.some(h=>!h.mirrored&&Number(h.amount||0)>0.005))
-  )
+  row.paid===true && Number(paymentPaidAmount(row)||0)>0.005
  );
 }
 function installmentPaidThroughReleasedStatement(p){
@@ -395,15 +392,12 @@ function installmentPaidThroughReleasedStatement(p){
  const start=monthIndex(ref);
  if(start===null)return 0;
  let paidThrough=0;
- for(let i=0;i<Math.max(0,Number(p.months||0));i++){
+ for(let i=0;i<Math.max(0,Number(p.remainingMonthsOverride??(Number(p.months||0)-Number(p.paidInstallments||0))));i++){
   const idx=start+i, y=Math.floor(idx/12), m=(idx%12)+1;
   const ym=`${y}-${String(m).padStart(2,'0')}`;
-  // An installment leaves the future reserve as soon as its card statement is
-  // genuinely released. Paying that statement is a separate event which later
-  // restores available credit; it must not control the installment schedule.
-  const onePaymentPlan=Number((p.remainingMonthsOverride??p.months)||0)===1;
-  const confirmedInsideCurrentStatement=p.currentStatementIncluded===true;
-  if(cardCycleHasStatement(p.cardId,ym)||((onePaymentPlan||confirmedInsideCurrentStatement)&&cardCycleHasRecordedPayment(p.cardId,ym))) paidThrough=i+1;
+  // A confirmed statement moves the installment into that statement. A fully
+  // paid calculated cycle also advances it; a partial payment never does.
+  if(cardCycleHasStatement(p.cardId,ym)||cardCycleHasRecordedPayment(p.cardId,ym)) paidThrough=i+1;
   else break;
  }
  return paidThrough;
@@ -571,8 +565,11 @@ function recordedCardPaymentCredit(cardId){
     // across subsequent open cycles. Cap this path to the installment due;
     // explicit overpayments are carried by extraCredit below.
     const installmentDue=Math.max(0,Number(installmentAmountForPaymentMonth(cardId,p.month)||0));
-    if(liveUsage>0)credit+=Math.max(0,Number(paymentPaidAmount(p)||0));
-    else if(installmentDue>0)credit+=Math.min(installmentDue,Math.max(0,Number(paymentPaidAmount(p)||0)));
+    const paid=Math.max(0,Number(paymentPaidAmount(p)||0));
+    // Once a paid cycle advances installment principal, crediting that same
+    // installment payment again would inflate available credit.
+    if(liveUsage>0)credit+=p.paid===true?Math.min(liveUsage,paid):paid;
+    else if(installmentDue>0 && p.paid!==true)credit+=Math.min(installmentDue,paid);
    }
    (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
     credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));
@@ -596,7 +593,7 @@ function cardFundedPaymentBreakdown(cardId){
   .map(h=>{
    const amount=Math.max(0,Number(h.amount||0));
    const date=String(h.date||'').slice(0,10);
-   const month=paymentMonthForTransaction(cardId,date);
+   const month=h.sourcePaymentMonth||paymentMonthForTransaction(cardId,date);
    const isCurrentOrFuture=!!month && month>=activeCycle;
    // A calculated source cycle contains purchases and installments, but not
    // ledger-only transfers. Paying that calculated due must not release this
@@ -604,7 +601,9 @@ function cardFundedPaymentBreakdown(cardId){
    const sourceCycleStillOpen=!!month && !cardCycleHasStatement(cardId,month);
    if(!excessPaidByMonth.has(month)){
     const plans=cardPaymentPlan.filter(p=>p.accountId===cardId && p.month===month && p.upcomingOnly!==true);
-    const due=Math.max(0,...plans.map(p=>Number(plannerAmountForRow(p)||0)));
+    // Excess over ordinary purchases + installments is the amount that can
+    // release card-funded transfers. Planner due also contains the transfers.
+    const due=Math.max(0,Number(transactionAmountForPaymentMonthAll(cardId,month)||0)+Number(installmentAmountForPaymentMonth(cardId,month)||0));
     const paid=Math.max(0,...plans.map(p=>Number(paymentPaidAmount(p)||0)));
     excessPaidByMonth.set(month,Math.max(0,Math.round((paid-due)*100)/100));
    }
