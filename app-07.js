@@ -641,7 +641,7 @@ function financeDeviceCloudVerified(){
 }
 function setFinanceAccessGate(session){
  const gate=$('financeAccessGate');if(!gate)return;
- const signedIn=!!session,ready=signedIn&&financeDeviceCloudVerified();
+ const signedIn=!!session,recovery=new URLSearchParams(location.search).has('password-reset'),ready=signedIn&&financeDeviceCloudVerified()&&!recovery;
  gate.classList.toggle('financeGateHidden',ready);
  gate.setAttribute('aria-hidden',ready?'true':'false');
  document.body.classList.toggle('financeAccessLocked',!ready);
@@ -662,6 +662,10 @@ function setFinanceAccessGate(session){
  if(out)out.style.display=signedIn?'none':'block';
  if(inside)inside.style.display=signedIn?'block':'none';
  const user=$('financeGateUser');if(user&&signedIn)user.textContent=session.user?.email||'Authenticated owner';
+ const recoveryForm=$('financeGateRecovery'),load=$('financeGateLoadCloud'),help=$('financeGateCloudHelp');
+ if(recoveryForm)recoveryForm.hidden=!recovery;
+ if(load)load.hidden=recovery;
+ if(help&&recovery)help.textContent='Choose a new password for your account.';
 }
 async function financeSignOutCurrentDevice(){
  const status=$('financeGateStatus');
@@ -679,13 +683,52 @@ async function financeSignOutCurrentDevice(){
  }
 }
 function bindFinanceAccessGate(){
- const send=$('financeGateSendLink'),load=$('financeGateLoadCloud'),wipe=$('financeGateWipeDevice'),email=$('financeGateEmail'),status=$('financeGateStatus');
+ const send=$('financeGateSendLink'),load=$('financeGateLoadCloud'),wipe=$('financeGateWipeDevice'),email=$('financeGateEmail'),password=$('financeGatePassword'),status=$('financeGateStatus');
+ const address=()=>String(email?.value||'').trim();
+ const redirect=()=>window.location.origin+window.location.pathname;
+ const run=async(button,message,task)=>{
+  if(button.disabled)return;
+  button.disabled=true;if(status)status.textContent=message;
+  try{if(!cloudClient)throw new Error('Cloud connection is unavailable.');await task();}
+  catch(e){if(status)status.textContent=e.message||'Authentication failed. Please try again.';}
+  finally{button.disabled=false;}
+ };
+ const signIn=$('financeGateSignIn');
+ if(signIn&&!signIn.dataset.bound){signIn.dataset.bound='1';signIn.onclick=()=>run(signIn,'Signing in…',async()=>{
+  if(!address()||!password.value)throw new Error('Enter your email and password.');
+  const {error}=await cloudClient.auth.signInWithPassword({email:address(),password:password.value});
+  if(error)throw error;
+  password.value='';if(status)status.textContent='Signed in. Loading your account…';
+ });}
+ const signUp=$('financeGateSignUp');
+ if(signUp&&!signUp.dataset.bound){signUp.dataset.bound='1';signUp.onclick=()=>run(signUp,'Creating your account…',async()=>{
+  if(!address()||password.value.length<8)throw new Error('Enter your email and a password with at least 8 characters.');
+  const {data,error}=await cloudClient.auth.signUp({email:address(),password:password.value,options:{emailRedirectTo:redirect()}});
+  if(error)throw error;
+  password.value='';
+  if(status)status.textContent=data.session?'Account created. Loading your empty workspace…':'Account request received. Check your inbox and spam folder for the verification email before signing in.';
+ });}
+ const reset=$('financeGateReset');
+ if(reset&&!reset.dataset.bound){reset.dataset.bound='1';reset.onclick=()=>run(reset,'Requesting password reset…',async()=>{
+  if(!address())throw new Error('Enter your email first.');
+  const {error}=await cloudClient.auth.resetPasswordForEmail(address(),{redirectTo:redirect()+'?password-reset=1'});
+  if(error)throw error;
+  if(status)status.textContent='If this account exists, a password reset email was requested. Check inbox and spam.';
+ });}
+ const save=$('financeGateSavePassword');
+ if(save&&!save.dataset.bound){save.dataset.bound='1';save.onclick=()=>run(save,'Saving your password…',async()=>{
+  const field=$('financeGateNewPassword');
+  if(!field||field.value.length<8)throw new Error('Use at least 8 characters.');
+  const {error}=await cloudClient.auth.updateUser({password:field.value});
+  if(error)throw error;
+  field.value='';history.replaceState(null,'',redirect());location.reload();
+ });}
  if(send&&!send.dataset.bound){send.dataset.bound='1';send.onclick=async()=>{
-  const address=String(email?.value||'').trim();if(!address){if(status)status.textContent='Enter your email first.';return;}
+  const selected=address();if(!selected){if(status)status.textContent='Enter your email first.';return;}
   send.disabled=true;if(status)status.textContent='Sending secure login link…';
   try{
    if(!cloudClient)throw new Error('Cloud connection is unavailable.');
-   const {error}=await cloudClient.auth.signInWithOtp({email:address,options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:true}});
+   const {error}=await cloudClient.auth.signInWithOtp({email:selected,options:{emailRedirectTo:redirect(),shouldCreateUser:false}});
    if(error)throw error;
    if(status)status.textContent='Secure login link sent. Check your email.';
   }catch(e){if(status)status.textContent='Login error: '+e.message;}
@@ -1894,14 +1937,24 @@ async function refreshCloudSafetyState(){
 }
 
 if(cloudClient){
- $('cloudSendLink').addEventListener('click',async()=>{const email=$('cloudEmail').value.trim();if(!email)return cloudSetStatus('Enter your email first.');const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:true}});cloudSetStatus(error?'Login error: '+error.message:'Login link sent. Check your email.');});
+ $('cloudSavePassword').addEventListener('click',async()=>{
+  const field=$('cloudNewPassword');
+  if(!field||field.value.length<8)return cloudSetStatus('Use a password with at least 8 characters.');
+  const button=$('cloudSavePassword');button.disabled=true;
+  try{
+   const {error}=await cloudClient.auth.updateUser({password:field.value});
+   if(error)throw error;
+   field.value='';cloudSetStatus('Password saved. You can use it at your next sign-in.');
+  }catch(e){cloudSetStatus('Password change failed: '+e.message);}
+  finally{button.disabled=false;}
+ });
  if($('cloudInitialUpload'))$('cloudInitialUpload').addEventListener('click',cloudInitialUpload);
  $('cloudUpload').addEventListener('click',cloudUploadAll);
  $('cloudDownload').addEventListener('click',cloudDownloadAll);
  $('cloudSignOut').addEventListener('click',financeSignOutCurrentDevice);
  cloudClient.auth.onAuthStateChange(()=>setTimeout(async()=>{await refreshCloudSafetyState();},0));
 }else{
- $('cloudSendLink').addEventListener('click',()=>cloudSetStatus('Cloud sync is unavailable right now. The dashboard is running normally in local mode.'));
+ if($('cloudSavePassword'))$('cloudSavePassword').disabled=true;
 }
 
 
