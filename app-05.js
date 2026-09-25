@@ -721,8 +721,13 @@ function assignedTransactionPaymentMonth(cardId,t){
  if(ov?.statementMonth)return ov.statementMonth;
  if(t.statementMonth && t.statementMonthManual===true)return t.statementMonth;
 
- // Imported rows may already carry a paymentMonth.
- if(t.paymentMonth)return t.paymentMonth;
+ // Old imports stored the 1st in the same month under the former cutoff rule.
+ // Recalculate that specific stale assignment unless the user chose a month.
+ if(t.paymentMonth){
+  const day=String(t.date||'').slice(8,10);
+  const closingOnPreviousMonth=Number(cardCycleSetting(cardId).statementDay||1)===1;
+  if(!(closingOnPreviousMonth && day==='01' && t.paymentMonth===String(t.date||'').slice(0,7)))return t.paymentMonth;
+ }
 
  return paymentMonthForTransaction(cardId,t.date);
 }
@@ -763,7 +768,7 @@ function cardPaymentLedgerForDetail(cardId){
 }
 function cardPaymentsMadeForDetail(cardId){
  return (cashFlowLedger||[]).filter(x=>x.type==='card-payment' && x.status!=='reversed' && x.sourceId===cardId && x.targetId!==cardId)
-  .filter(x=>!accountDetailTxFilter.month || paymentMonthForTransaction(cardId,x.date)===accountDetailTxFilter.month)
+  .filter(x=>!accountDetailTxFilter.month || (x.sourcePaymentMonth||paymentMonthForTransaction(cardId,x.date))===accountDetailTxFilter.month)
   .filter(x=>!accountDetailTxFilter.fromDate || String(x.date||'').slice(0,10)>=accountDetailTxFilter.fromDate)
   .filter(x=>!accountDetailTxFilter.toDate || String(x.date||'').slice(0,10)<=accountDetailTxFilter.toDate)
   .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
