@@ -549,9 +549,18 @@ function manualAccountMovement(accountId){
 function legacyAdjustedBankBalance(a){
  return Number(a.balance||0)+manualAccountMovement(a.id)+paymentSourceImpact(a.id);
 }
+function bankTransferImpact(accountId){
+ return (cashFlowLedger||[]).reduce((sum,row)=>{
+  if(row.type!=='bank-transfer'||row.status==='reversed')return sum;
+  const amount=Number(row.amount||0);
+  return sum+(row.targetId===accountId?amount:0)-(row.sourceId===accountId?amount:0);
+ },0);
+}
 function adjustedBankBalance(a){
  const v=Number(bankBalanceOverrides?.[a.id]);
- return Number.isFinite(v)?v:legacyAdjustedBankBalance(a);
+ const base=Number.isFinite(v)?v:legacyAdjustedBankBalance(a);
+ if(a.type!=='bank')return base;
+ return Math.round((base+bankTransferImpact(a.id))*100)/100;
 }
 function setTrackedBankBalance(accountId,value){
  const n=Number(value);if(!Number.isFinite(n))return false;
