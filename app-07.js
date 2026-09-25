@@ -1917,6 +1917,8 @@ $('paymentSourceForm').addEventListener('submit',e=>{
   month:budgetMonth,
   description:`Card payment • ${accountName(p.accountId)}`,
   amount,
+  duePortion,
+  extraCredit,
   sourceId,
   sourceName:hist.sourceName,
   targetId:p.accountId,
