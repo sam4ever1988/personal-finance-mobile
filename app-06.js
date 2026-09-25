@@ -1331,6 +1331,7 @@ function deleteCashFlowLedgerEntry(ledgerId){
  syncCashFlowLedgerImmediate();
  renderIncomePlan();
  renderDashboard();
+ renderAccounts();
 }
 
 function updateIncomePlanPreview(){
@@ -1394,15 +1395,15 @@ function updateIncomePlanPreview(){
  }
 
  const ledgerRows=cashFlowLedgerRows(planMonth);
- if($('cashFlowLedgerCount'))$('cashFlowLedgerCount').textContent=`${ledgerRows.length} entr${ledgerRows.length===1?'y':'ies'} • ${money(ledgerRows.reduce((s,x)=>s+Number(x.amount||0),0))}`;
+ if($('cashFlowLedgerCount'))$('cashFlowLedgerCount').textContent=`${ledgerRows.length} entr${ledgerRows.length===1?'y':'ies'} • ${money(ledgerRows.filter(x=>x.type!=='bank-transfer').reduce((s,x)=>s+Number(x.amount||0),0))} outflow`;
  if($('cashFlowLedgerBody'))$('cashFlowLedgerBody').innerHTML=ledgerRows.length
   ? ledgerRows.map(x=>{
-     const type=x.type==='card-payment'?'Card Payment':x.type==='outgoing-payment'?'Outgoing Payment':x.type;
+     const type=x.type==='card-payment'?'Card Payment':x.type==='outgoing-payment'?'Outgoing Payment':x.type==='bank-transfer'?'Bank Transfer':x.type;
      const source=x.sourceName||(x.sourceId==='cash-source'?'Monthly Planned Income':accountName(x.sourceId));
      const sourceCard=account(x.sourceId);
      const funded=x.type==='card-payment'&&sourceCard?.type==='card'
        ?cardFundedPaymentBreakdown(x.sourceId).find(h=>h.id===x.id):null;
-     const impact=x.deductFromIncome
+     const impact=x.type==='bank-transfer'?'<span class="green"><b>Bank to bank • no income impact</b></span>':x.deductFromIncome
        ? '<span class="red"><b>Deducted from income</b></span>'
        : funded
          ? `<span class="amber"><b>Not from income</b></span><div class="meta">${funded.uncoveredAmount>0.005?`${money(funded.uncoveredAmount)} occupies source-card credit`:'Covered by source-card payment or statement'}</div>`
