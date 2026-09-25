@@ -288,6 +288,8 @@ function addCashFlowLedgerEntry(entry,persist=true){
   month:entry.month||incomeMonthKey(entry.date||new Date()),
   description:entry.description||'',
   amount:Number(entry.amount||0),
+  duePortion:entry.duePortion==null?undefined:Number(entry.duePortion),
+  extraCredit:entry.extraCredit==null?undefined:Number(entry.extraCredit),
   sourceId:entry.sourceId||'',
   sourceName:entry.sourceName||'',
   targetId:entry.targetId||'',
@@ -658,7 +660,7 @@ function durableLedgerPaidAmountForPlan(p){
   const key=x.id||cashFlowLedgerKey(x);
   if(seen.has(key))return sum;
   seen.add(key);
-  return sum+Math.max(0,Number(x.amount||0));
+  return sum+Math.max(0,Number(x.duePortion??x.amount??0));
  },0)*100)/100;
 }
 
@@ -1533,8 +1535,8 @@ function rebuildPlannerPaymentHistoryFromLedger(p){
 
   merged.push({
    amount:Number(x.amount||0),
-   duePortion:Number(x.amount||0),
-   extraPortion:0,
+   duePortion:Number(x.duePortion??x.amount??0),
+   extraCredit:Number(x.extraCredit??0),
    date:x.date||'',
    recordedAt:x.createdAt||x.date||new Date().toISOString(),
    sourceId:x.sourceId||'',
