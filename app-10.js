@@ -103,6 +103,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei){ei.value=email;ei.readOnly=true;}const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
   document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar').forEach(e=>e.textContent=initials);
   const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
+  const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner;
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
@@ -127,6 +128,167 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(error)throw error;
   return data||[];
  }
+ window.renderFinanceAdminAccess=async function(){
+  const status=document.getElementById('adminAccessStatus'),box=document.getElementById('adminAccessUsers');
+  if(!status||!box)return;
+  status.textContent='Loading access directory…';box.replaceChildren();
+  try{
+   const userId=await identity();
+   const {data:ownerRows,error:ownerError}=await client.from('finance_owner').select('owner_user_id').limit(1);
+   if(ownerError)throw ownerError;
+   if(!ownerRows?.length||ownerRows[0].owner_user_id!==userId){
+    status.textContent='Administrator access is required.';return;
+   }
+   const [users,grantResult,pageResult]=await Promise.all([
+    directory(),
+    client.from('finance_workspace_grants').select('owner_user_id,member_user_id,page,permission'),
+    client.from('finance_page_access').select('user_id,page,permission')
+   ]);
+   if(grantResult.error)throw grantResult.error;
+   if(pageResult.error)throw pageResult.error;
+   const {data:labGrants,error:labError}=await client.from('finance_access_lab_grants')
+    .select('owner_user_id,member_user_id,page,permission');
+   if(labError)throw labError;
+   const ownerSelect=document.getElementById('labGrantOwner'),memberSelect=document.getElementById('labGrantMember'),
+    grantList=document.getElementById('labGrantList');
+   if(ownerSelect&&memberSelect&&grantList){
+    const priorOwner=ownerSelect.value,priorMember=memberSelect.value;
+    ownerSelect.replaceChildren();memberSelect.replaceChildren();grantList.replaceChildren();
+    users.forEach(u=>{
+     const ownerOption=el('option','',u.user_email||u.user_id);ownerOption.value=u.user_id;ownerSelect.append(ownerOption);
+     const memberOption=el('option','',u.user_email||u.user_id);memberOption.value=u.user_id;memberSelect.append(memberOption);
+    });
+    ownerSelect.value=users.some(u=>u.user_id===priorOwner)?priorOwner:userId;
+    memberSelect.value=users.some(u=>u.user_id===priorMember)?priorMember:(users.find(u=>u.user_id!==userId)?.user_id||userId);
+    const labels=new Map(users.map(u=>[u.user_id,u.user_email||u.user_id]));
+    grantList.textContent=labGrants.length?'':'No test access assigned.';
+    labGrants.forEach(g=>grantList.append(el('div','prefsStatus',
+     (labels.get(g.owner_user_id)||g.owner_user_id)+' → '+(labels.get(g.member_user_id)||g.member_user_id)+
+     ' · '+g.page+' · '+g.permission)));
+   }
+   const grants=grantResult.data||[],pages=pageResult.data||[];
+   status.textContent=users.length+' registered account'+(users.length===1?'':'s')+' · '+grants.length+' explicit sharing grant'+(grants.length===1?'':'s')+'.';
+   for(const user of users){
+    const card=el('div','prefsStatus');
+    const name=el('b','',user.user_email||user.user_id);
+    const detail=el('span','',user.user_id===userId?'Administrator · own workspace':
+      'Private workspace · '+pages.filter(p=>p.user_id===user.user_id).length+' page setting(s)');
+    card.append(name,detail);
+    const ownGrants=grants.filter(g=>g.owner_user_id===user.user_id);
+    if(ownGrants.length)card.append(el('small','',ownGrants.length+' page grant(s) to other users'));
+    box.append(card);
+   }
+ }catch(e){status.textContent='Access directory unavailable: '+e.message;}
+ };
+ const labPages=[['transactions','Transactions'],['investments','Investments'],['assets','Personal Assets'],['rental','Airbnb / Rental']];
+ document.getElementById('labSaveGrant')?.addEventListener('click',async()=>{
+  const status=document.getElementById('labGrantStatus');
+  const owner=document.getElementById('labGrantOwner').value,member=document.getElementById('labGrantMember').value,
+   page=document.getElementById('labGrantPage').value,permission=document.getElementById('labGrantPermission').value;
+  if(owner===member){status.textContent='Choose two different users.';return;}
+  status.textContent='Saving test access…';
+  try{
+   const actor=await identity();
+   const {data:ownerRows,error:ownerError}=await client.from('finance_owner').select('owner_user_id').limit(1);
+   if(ownerError||ownerRows?.[0]?.owner_user_id!==actor)throw new Error('Administrator access is required.');
+   const result=permission==='off'
+    ?await client.from('finance_access_lab_grants').delete().eq('owner_user_id',owner).eq('member_user_id',member).eq('page',page)
+    :await client.from('finance_access_lab_grants').upsert({
+      owner_user_id:owner,member_user_id:member,page,permission,granted_by:actor
+     },{onConflict:'owner_user_id,member_user_id,page'});
+   if(result.error)throw result.error;
+   status.textContent=permission==='off'?'Test access removed.':'Test access saved.';
+   await window.renderFinanceAdminAccess();
+  }catch(e){status.textContent='Could not save test access: '+e.message;}
+ });
+ window.renderFinanceAccessLab=async function(){
+  const status=document.getElementById('labStatus'),workspace=document.getElementById('labWorkspace'),
+   page=document.getElementById('labPage'),items=document.getElementById('labItems'),form=document.getElementById('labAddForm');
+  if(!status||!workspace||!page||!items||!form)return;
+  status.textContent='Checking access…';items.replaceChildren();form.hidden=true;
+  try{
+   const actor=await identity();
+   const [directoryResult,grantResult]=await Promise.all([
+    client.rpc('finance_access_lab_directory'),
+    client.from('finance_access_lab_grants').select('owner_user_id,member_user_id,page,permission').eq('member_user_id',actor)
+   ]);
+   if(directoryResult.error)throw directoryResult.error;
+   if(grantResult.error)throw grantResult.error;
+   const grants=grantResult.data||[],users=directoryResult.data||[];
+   const allowedOwners=new Set([actor,...grants.map(g=>g.owner_user_id)]);
+   const priorWorkspace=workspace.value,priorPage=page.value;
+   workspace.replaceChildren();
+   users.filter(u=>allowedOwners.has(u.user_id)).forEach(u=>{
+    const o=el('option','',(u.user_id===actor?'Own data · ':'Shared data · ')+(u.user_email||u.user_id));
+    o.value=u.user_id;workspace.append(o);
+   });
+   workspace.value=allowedOwners.has(priorWorkspace)?priorWorkspace:actor;
+   const owner=workspace.value;
+   const visiblePages=owner===actor?labPages:labPages.filter(([id])=>grants.some(g=>g.owner_user_id===owner&&g.page===id));
+   page.replaceChildren();
+   visiblePages.forEach(([id,label])=>{const o=el('option','',label);o.value=id;page.append(o)});
+   if(visiblePages.some(([id])=>id===priorPage))page.value=priorPage;
+   if(!page.value){status.textContent='No pages are shared with you in this test.';return;}
+   const permission=owner===actor?'edit':grants.find(g=>g.owner_user_id===owner&&g.page===page.value)?.permission;
+   const {data,error}=await client.from('finance_access_lab_items')
+    .select('id,title,note,updated_at,updated_by').eq('owner_user_id',owner).eq('page',page.value)
+    .order('updated_at',{ascending:false});
+   if(error)throw error;
+   status.textContent=(owner===actor?'Own':'Shared')+' sample data · '+(permission==='edit'?'View and edit':'View only')+
+    ' · '+(data?.length||0)+' item(s).';
+   form.hidden=permission!=='edit';
+   if(!data?.length)items.textContent='No sample records on this page yet.';
+   for(const row of data||[]){
+    const item=el('div','prefsStatus');
+    item.append(el('b','',row.title),el('span','',row.note||'No note'));
+    if(permission==='edit'){
+     const edit=el('button','btn','Edit'),remove=el('button','btn danger','Delete');
+     edit.type=remove.type='button';
+     edit.onclick=async()=>{
+      const title=prompt('Sample title',row.title);if(title===null)return;
+      if(!title.trim()||title.length>150)return;
+      const {error}=await client.from('finance_access_lab_items').update({
+       title:title.trim(),updated_at:new Date().toISOString(),updated_by:actor
+      }).eq('id',row.id).eq('owner_user_id',owner).select('id').single();
+      status.textContent=error?'Edit blocked: '+error.message:'Sample updated.';
+      await window.renderFinanceAccessLab();
+     };
+     remove.onclick=async()=>{
+      if(!confirm('Delete this sample record?'))return;
+      const {error}=await client.from('finance_access_lab_items').delete().eq('id',row.id)
+       .eq('owner_user_id',owner).select('id').single();
+      status.textContent=error?'Delete blocked: '+error.message:'Sample deleted.';
+      await window.renderFinanceAccessLab();
+     };
+     item.append(edit,remove);
+    }
+    items.append(item);
+   }
+  }catch(e){status.textContent='Access test unavailable: '+e.message;}
+ };
+ document.getElementById('labWorkspace')?.addEventListener('change',()=>{
+  document.getElementById('labPage').value='';window.renderFinanceAccessLab();
+ });
+ document.getElementById('labPage')?.addEventListener('change',()=>window.renderFinanceAccessLab());
+ document.getElementById('labRefresh')?.addEventListener('click',()=>window.renderFinanceAccessLab());
+ document.getElementById('labAddForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const status=document.getElementById('labStatus'),owner=document.getElementById('labWorkspace').value,
+   page=document.getElementById('labPage').value,title=document.getElementById('labTitle').value.trim(),
+   note=document.getElementById('labNote').value.trim();
+  if(!title||!owner||!page)return;
+  try{
+   const actor=await identity();
+   const {error}=await client.from('finance_access_lab_items').insert({
+    owner_user_id:owner,page,title,note,updated_by:actor
+   });
+   if(error)throw error;
+   e.target.reset();await window.renderFinanceAccessLab();
+  }catch(err){status.textContent='Add blocked: '+err.message;}
+ });
+ setInterval(()=>{
+  if(document.getElementById('accessLab')?.classList.contains('active'))window.renderFinanceAccessLab();
+ },15000);
  window.renderFinanceSharedWith=async function(){
   const box=document.getElementById('accountSharedWith');if(!box)return;
   box.textContent='Checking sharing permissions…';
