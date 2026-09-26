@@ -24,6 +24,7 @@ function shellButton(page,icon,label){
  return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>';
 }
 function canonicalTopHTML(){
+ function safeName(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function menu(label,icon,mainPage,items){
   const visible=items.filter(x=>!window.financeCanViewPage||window.financeCanViewPage(x[0]));
   if(!visible.length)return '';
@@ -38,7 +39,7 @@ function canonicalTopHTML(){
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
- +'</nav><div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
+ +'</nav>'+(window.financeWorkspaceChoices?.length>1?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){
  var sheet=document.getElementById('canonicalMobileNavSheet');if(sheet)sheet.remove();
@@ -78,6 +79,7 @@ function ensureCanonicalShell(){
  var top=document.getElementById('canonicalAppTop');
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
  top.innerHTML=canonicalTopHTML();
+ top.querySelector('#financeWorkspaceSwitch')?.addEventListener('change',e=>window.financeChooseWorkspace?.(e.target.value));
  if(typeof renderAccountProfile==='function')renderAccountProfile();
  top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();closeCanonicalMobileSheet(top);top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
  top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
@@ -106,8 +108,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.44')+'</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.44');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.45')+'</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.45');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
