@@ -1563,6 +1563,7 @@ function syncArrayForSection(section){
   case 'rental_bookings': return (typeof rentalBookings!=='undefined'?rentalBookings:[]);
   case 'rental_expenses': return (typeof rentalExpenses!=='undefined'?rentalExpenses:[]);
   case 'rental_blocks': return (typeof rentalBlocks!=='undefined'?rentalBlocks:[]);
+  case 'rental_units': return (typeof rentalUnits!=='undefined'?rentalUnits:[]);
   case 'personal_assets_gold': return (typeof goldAssets!=='undefined'?goldAssets:[]);
   case 'personal_assets_zakat': return (typeof goldZakatHistory!=='undefined'?goldZakatHistory:[]);
   case 'personal_assets_sales': return (typeof goldSaleHistory!=='undefined'?goldSaleHistory:[]);
@@ -1583,6 +1584,7 @@ function setSyncArrayForSection(section,value){
   case 'rental_bookings': rentalBookings=value;localStorage.setItem('pf_rental_bookings',JSON.stringify(value));break;
   case 'rental_expenses': rentalExpenses=value;localStorage.setItem('pf_rental_expenses',JSON.stringify(value));break;
   case 'rental_blocks': rentalBlocks=value;localStorage.setItem('pf_rental_blocks',JSON.stringify(value));break;
+  case 'rental_units': rentalUnits=value;localStorage.setItem('pf_rental_units',JSON.stringify(value));break;
   case 'personal_assets_gold': goldAssets=value;localStorage.setItem('pf_gold_assets',JSON.stringify(value));break;
   case 'personal_assets_zakat': goldZakatHistory=value;localStorage.setItem('pf_gold_zakat_history',JSON.stringify(value));break;
   case 'personal_assets_sales': goldSaleHistory=value;localStorage.setItem('pf_gold_sale_history',JSON.stringify(value));break;
@@ -1724,7 +1726,7 @@ function sectionAffectsPage(section,page){
   importstatements:new Set(['import_history','manual_transactions','imported_transactions']),
   financeSettings:new Set(['finance_settings','custom_banks','custom_credit_cards']),
   investments:new Set(['investments_holdings','investments_trades']),
-  rental:new Set(['rental_bookings','rental_expenses','rental_blocks']),
+  rental:new Set(['rental_bookings','rental_expenses','rental_blocks','rental_units']),
   assets:new Set(['personal_assets_gold','personal_assets_zakat','personal_assets_sales','personal_assets_market'])
  };
  return map[page]?.has(section)??false;
@@ -1780,7 +1782,7 @@ function applyRecordSyncDeltaRows(rows,{render=true}={}){
 
 function syncStableId(section,x,i=0){
  if(section==='investments_trades'&&x?._cloudRecordId!=null)return String(x._cloudRecordId);
- if(section==='rental_blocks'&&x?.date)return `rental-block:${x.date}`;
+ if(section==='rental_blocks'&&x?.date)return `rental-block:${x.unitId&&x.unitId!=='default'?x.unitId+':':''}${x.date}`;
  if(x && (x._id!=null || x.id!=null))return String(x._id??x.id);
  if(section==='import_history')return String(x?.id ?? `${x?.fileName||x?.file_name||'file'}|${x?.importedAt||x?.imported_at||i}`);
  if(section==='cash_flow_ledger')return String(x?.id ?? cashFlowLedgerKey(x||{}));
@@ -1825,6 +1827,7 @@ function buildRecordSyncRowsFromState(){
  (typeof rentalBookings!=='undefined'?rentalBookings:[]).forEach((x,i)=>add('rental_bookings',syncStableId('rental_bookings',x,i),x));
  (typeof rentalExpenses!=='undefined'?rentalExpenses:[]).forEach((x,i)=>add('rental_expenses',syncStableId('rental_expenses',x,i),x));
  (typeof rentalBlocks!=='undefined'?rentalBlocks:[]).forEach((x,i)=>add('rental_blocks',syncStableId('rental_blocks',x,i),x));
+ (typeof rentalUnits!=='undefined'?rentalUnits:[]).forEach((x,i)=>add('rental_units',syncStableId('rental_units',x,i),x));
  (typeof goldAssets!=='undefined'?goldAssets:[]).forEach((x,i)=>add('personal_assets_gold',syncStableId('personal_assets_gold',x,i),x));
  (typeof goldZakatHistory!=='undefined'?goldZakatHistory:[]).forEach((x,i)=>add('personal_assets_zakat',syncStableId('personal_assets_zakat',x,i),x));
  (typeof goldSaleHistory!=='undefined'?goldSaleHistory:[]).forEach((x,i)=>add('personal_assets_sales',syncStableId('personal_assets_sales',x,i),x));
@@ -1865,6 +1868,7 @@ function recordRowsFromSnapshot(s){
  (s.rentalBookings||[]).forEach((x,i)=>add('rental_bookings',syncStableId('rental_bookings',x,i),x));
  (s.rentalExpenses||[]).forEach((x,i)=>add('rental_expenses',syncStableId('rental_expenses',x,i),x));
  (s.rentalBlocks||[]).forEach((x,i)=>add('rental_blocks',syncStableId('rental_blocks',x,i),x));
+ (s.rentalUnits||[]).forEach((x,i)=>add('rental_units',syncStableId('rental_units',x,i),x));
  (s.goldAssets||[]).forEach((x,i)=>add('personal_assets_gold',syncStableId('personal_assets_gold',x,i),x));
  (s.goldZakatHistory||[]).forEach((x,i)=>add('personal_assets_zakat',syncStableId('personal_assets_zakat',x,i),x));
  (s.goldSaleHistory||[]).forEach((x,i)=>add('personal_assets_sales',syncStableId('personal_assets_sales',x,i),x));

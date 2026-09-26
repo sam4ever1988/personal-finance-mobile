@@ -2,74 +2,126 @@
 var rentalBookings=JSON.parse(localStorage.getItem("pf_rental_bookings")||"[]");
 var rentalExpenses=JSON.parse(localStorage.getItem("pf_rental_expenses")||"[]");
 var rentalBlocks=JSON.parse(localStorage.getItem("pf_rental_blocks")||"[]");
+var rentalUnits=JSON.parse(localStorage.getItem("pf_rental_units")||"[]");
+if(!Array.isArray(rentalUnits)||!rentalUnits.length)rentalUnits=[{id:'default',name:'Main Unit',organiserFee:30}];
+var rentalUnitId='default';
+function rentalUnit(){return rentalUnits.find(u=>u.id===rentalUnitId)||rentalUnits[0]}
+function rentalBelongs(row){return String(row.unitId||'default')===String(rentalUnit().id)}
+function rentalFeeRate(booking){return Math.min(100,Math.max(0,Number(booking.organiserFee??rentalUnit().organiserFee??30)))}
+function rentalRate(booking){return Number(booking.dailyRate??(Number(booking.total||0)/rNights(booking.checkin,booking.checkout)))}
+function rentalGross(booking){return rentalRate(booking)*rNights(booking.checkin,booking.checkout)}
+function rEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 window.rentalView=new Date();rentalView.setDate(1);
-function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks));if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave()}
+function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(rentalBookings));localStorage.setItem("pf_rental_expenses",JSON.stringify(rentalExpenses));localStorage.setItem("pf_rental_blocks",JSON.stringify(rentalBlocks));localStorage.setItem("pf_rental_units",JSON.stringify(rentalUnits));if(typeof scheduleCloudAutoSave==="function")scheduleCloudAutoSave()}
 function rDate(s){return new Date(s+"T12:00:00")}
 window.rIso=function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function rNextDate(s){var d=rDate(s);d.setDate(d.getDate()+1);return rIso(d)}
 function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
 function rentalMonthDataFor(viewDate){
- var view=viewDate instanceof Date?viewDate:rentalView,y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1),end=new Date(y,m+1,1),days=new Date(y,m+1,0).getDate(),revenue=0,booked=0;
- var bookings=Array.isArray(rentalBookings)?rentalBookings:[],expenseRows=Array.isArray(rentalExpenses)?rentalExpenses:[];
- bookings.forEach(b=>{var a=rDate(b.checkin),z=rDate(b.checkout),over=Math.max(0,(Math.min(z,end)-Math.max(a,start))/86400000);if(over>0){booked+=over;revenue+=Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*over}});
+ var view=viewDate instanceof Date?viewDate:rentalView,y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1,12),end=new Date(y,m+1,1,12),days=new Date(y,m+1,0).getDate(),revenue=0,booked=0;
+ var bookings=(Array.isArray(rentalBookings)?rentalBookings:[]).filter(rentalBelongs),expenseRows=(Array.isArray(rentalExpenses)?rentalExpenses:[]).filter(rentalBelongs),fees=0;
+ bookings.forEach(b=>{var a=rDate(b.checkin),z=rDate(b.checkout),over=Math.max(0,(Math.min(z,end)-Math.max(a,start))/86400000);if(over>0){booked+=over;const gross=rentalRate(b)*over;revenue+=gross;fees+=gross*rentalFeeRate(b)/100}});
  var expenses=expenseRows.filter(e=>{var d=rDate(e.date);return d>=start&&d<end}).reduce((s,e)=>s+Number(e.amount||0),0);
- return{revenue,expenses,net:revenue-expenses,booked,days,occupancy:days?booked/days*100:0,adr:booked?revenue/booked:0}
+ return{revenue,fees,expenses,net:revenue-fees-expenses,booked,days,occupancy:days?booked/days*100:0,adr:booked?revenue/booked:0}
 }
 function rentalMonthData(){return rentalMonthDataFor(rentalView)}
 window.renderRental=function(){
  var cal=document.getElementById("rentalCalendar");if(!cal)return;var y=rentalView.getFullYear(),m=rentalView.getMonth(),md=rentalMonthData();
+ var selector=document.getElementById('rentalUnitSelect');if(selector){selector.innerHTML=rentalUnits.map(u=>'<option value="'+rEsc(u.id)+'">'+rEsc(u.name)+'</option>').join('');selector.value=rentalUnit().id}
+ var feeInput=document.getElementById('rentalDefaultFee');if(feeInput)feeInput.value=Number(rentalUnit().organiserFee??30);
  document.getElementById("rentalMonthTitle").textContent=rentalView.toLocaleDateString("en-US",{month:"long",year:"numeric"});
- document.getElementById("rentalKpis").innerHTML=[["Monthly Revenue",rMoney(md.revenue),"income"],["Monthly Expenses",rMoney(md.expenses),"expense"],["Net Rental Income",rMoney(md.net),md.net>=0?"income":"expense"],["Occupancy",md.occupancy.toFixed(0)+"%","occupancy"],["Booked Nights",md.booked.toFixed(0)+" / "+md.days,"nights"],["Avg. Nightly Rate",rMoney(md.adr),"rate"]].map(x=>'<div class="rentalKpi '+x[2]+'"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
+ document.getElementById("rentalKpis").innerHTML=[["Gross Booking Revenue",rMoney(md.revenue),"income"],["Organiser Fees",rMoney(md.fees),"expense"],["Monthly Expenses",rMoney(md.expenses),"expense"],["Net Rental Income",rMoney(md.net),md.net>=0?"income":"expense"],["Occupancy",md.occupancy.toFixed(0)+"%","occupancy"],["Booked Nights",md.booked.toFixed(0)+" / "+md.days,"nights"],["Avg. Nightly Rate",rMoney(md.adr),"rate"]].map(x=>'<div class="rentalKpi '+x[2]+'"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
  var first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),html="";
  for(var p=0;p<first;p++)html+='<div class="rentalDay empty"></div>';
- for(var d=1;d<=days;d++){var dt=new Date(y,m,d),iso=rIso(dt),booking=rentalBookings.find(b=>iso>=b.checkin&&iso<b.checkout),block=rentalBlocks.find(b=>b.date===iso),cls=booking?"booked":block?.status||"available",label=booking?(booking.ref||"Booked"):(block?.status==="maintenance"?"Maintenance":block?.status==="blocked"?"Blocked":"Available");
-  html+='<button class="rentalDay '+cls+'" data-date="'+iso+'"><span class="rentalDayNo">'+d+'</span><span class="rentalDayState">'+label+'</span>'+(booking?'<small>'+rMoney(Number(booking.dailyRate??(Number(booking.total||0)/rNights(booking.checkin,booking.checkout))))+'</small>':'')+'</button>'}
+ for(var d=1;d<=days;d++){var dt=new Date(y,m,d),iso=rIso(dt),booking=rentalBookings.find(b=>rentalBelongs(b)&&iso>=b.checkin&&iso<b.checkout),block=rentalBlocks.find(b=>rentalBelongs(b)&&b.date===iso),cls=booking?"booked":block?.status||"available",label=booking?(booking.ref||"Booked"):(block?.status==="maintenance"?"Maintenance":block?.status==="blocked"?"Blocked":"Available");
+  html+='<button class="rentalDay '+cls+'" data-date="'+iso+'"><span class="rentalDayNo">'+d+'</span><span class="rentalDayState">'+rEsc(label)+'</span>'+(booking?'<small>'+rMoney(rentalRate(booking))+'</small>':'')+'</button>'}
  cal.innerHTML=html;cal.querySelectorAll(".rentalDay:not(.empty)").forEach(b=>b.onclick=()=>rentalOpenDay(b.dataset.date));
- document.getElementById("rentalMonthFinance").innerHTML='<div class="rentalFinanceRow"><span>Gross booking revenue</span><b>'+rMoney(md.revenue)+'</b></div><div class="rentalFinanceRow"><span>Operating expenses</span><b class="red">− '+rMoney(md.expenses)+'</b></div><div class="rentalFinanceRow total"><span>Net rental income</span><b class="'+(md.net>=0?"green":"red")+'">'+rMoney(md.net)+'</b></div><div class="rentalOcc"><div><span>Occupancy</span><b>'+md.occupancy.toFixed(0)+'%</b></div><div class="rentalOccBar"><i style="width:'+Math.min(100,md.occupancy)+'%"></i></div></div>';
- var now=rIso(new Date()),up=rentalBookings.filter(b=>b.checkout>=now).sort((a,b)=>a.checkin.localeCompare(b.checkin)).slice(0,5);
- document.getElementById("rentalUpcoming").innerHTML=up.length?up.map(b=>'<div class="rentalUpcoming"><div><b>'+b.checkin+' → '+b.checkout+'</b><span>'+(b.ref||"Booking")+' • '+rNights(b.checkin,b.checkout)+' nights</span></div><b>'+rMoney(b.total)+'</b></div>').join(""):'<div class="meta rentalEmpty">No upcoming bookings yet.</div>';
- document.getElementById("rentalBookingBody").innerHTML=rentalBookings.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)).map((b,i)=>'<tr><td><b>'+b.checkin+'</b><small>to '+b.checkout+'</small></td><td>'+(b.ref||"—")+'</td><td>'+rNights(b.checkin,b.checkout)+'</td><td><b>'+rMoney(Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout))))+'</b><small>/ night</small></td><td><button type="button" class="rentalBadge rentalPaymentToggle '+(b.paid?"paid":"pending")+'" data-id="'+b.id+'" title="Click to change payment status">'+(b.paid?("Received ✓<small>"+rMoney(Number(b.paidAmount||Number(b.dailyRate??(Number(b.total||0)/rNights(b.checkin,b.checkout)))*rNights(b.checkin,b.checkout)))+(b.paymentDate?" • "+b.paymentDate:"")+"</small>"):"Pending • Mark Paid")+'</button></td><td>'+((b.checkout<now)?"Completed":b.checkin<=now?"Occupied":"Booked")+'</td><td><button class="btn rentalDeleteBooking" data-i="'+i+'">Delete</button></td></tr>').join("")||'<tr><td colspan="7" class="meta">No bookings recorded.</td></tr>';
- document.querySelectorAll(".rentalPaymentToggle").forEach(b=>b.onclick=()=>{var x=rentalBookings.find(v=>String(v.id)===String(b.dataset.id));if(!x)return;var newPaid=!x.paid;x.paid=newPaid;x.paidAmount=newPaid?Number(x.dailyRate??(Number(x.total||0)/rNights(x.checkin,x.checkout)))*rNights(x.checkin,x.checkout):0;x.paymentDate=newPaid?rIso(new Date()):"";if(newPaid){var related=rentalBookings.filter(v=>v!==x&&!v.paid&&v.ref&&x.ref&&v.ref.trim().toLowerCase()===x.ref.trim().toLowerCase());if(related.length&&confirm("Mark all "+(related.length+1)+" bookings in this sequence/reference as paid?"))related.forEach(v=>{v.paid=true;v.paidAmount=Number(v.dailyRate??(Number(v.total||0)/rNights(v.checkin,v.checkout)))*rNights(v.checkin,v.checkout);v.paymentDate=rIso(new Date())})}rentalSave();renderRental()});
- document.querySelectorAll(".rentalDeleteBooking").forEach(b=>b.onclick=()=>{if(confirm("Delete this booking?")){var sorted=rentalBookings.slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)),target=sorted[Number(b.dataset.i)];if(!target)return;if(typeof recordImmediateDelete==='function')recordImmediateDelete('rental_bookings',target.id,'rental-booking-delete');rentalBookings=rentalBookings.filter(x=>String(x.id)!==String(target.id));rentalSave();renderRental()}});
- var exp=rentalExpenses.filter(e=>rDate(e.date).getFullYear()===y&&rDate(e.date).getMonth()===m).sort((a,b)=>b.date.localeCompare(a.date));
+ document.getElementById("rentalMonthFinance").innerHTML='<div class="rentalFinanceRow"><span>Gross booking revenue</span><b>'+rMoney(md.revenue)+'</b></div><div class="rentalFinanceRow"><span>Organiser fees</span><b class="red">− '+rMoney(md.fees)+'</b></div><div class="rentalFinanceRow"><span>Operating expenses</span><b class="red">− '+rMoney(md.expenses)+'</b></div><div class="rentalFinanceRow total"><span>Net rental income</span><b class="'+(md.net>=0?"green":"red")+'">'+rMoney(md.net)+'</b></div><div class="rentalOcc"><div><span>Occupancy</span><b>'+md.occupancy.toFixed(0)+'%</b></div><div class="rentalOccBar"><i style="width:'+Math.min(100,md.occupancy)+'%"></i></div></div>';
+ var now=rIso(new Date()),up=rentalBookings.filter(b=>rentalBelongs(b)&&b.checkout>=now).sort((a,b)=>a.checkin.localeCompare(b.checkin)).slice(0,5);
+ document.getElementById("rentalUpcoming").innerHTML=up.length?up.map(b=>'<div class="rentalUpcoming"><div><b>'+b.checkin+' → '+b.checkout+'</b><span>'+rEsc(b.ref||"Booking")+' • '+rNights(b.checkin,b.checkout)+' nights</span></div><b>'+rMoney(rentalGross(b))+'</b></div>').join(""):'<div class="meta rentalEmpty">No upcoming bookings yet.</div>';
+ document.getElementById("rentalBookingBody").innerHTML=rentalBookings.filter(rentalBelongs).slice().sort((a,b)=>b.checkin.localeCompare(a.checkin)).map(b=>`<tr><td><b>${b.checkin}</b><small>to ${b.checkout}</small></td><td>${rEsc(b.ref||"—")}</td><td>${rNights(b.checkin,b.checkout)}</td><td><b>${rMoney(rentalRate(b))}</b><small>/ night</small></td><td>${rMoney(rentalGross(b)*rentalFeeRate(b)/100)} <small>(${rentalFeeRate(b)}%)</small></td><td><button type="button" class="rentalBadge rentalPaymentToggle ${b.paid?"paid":"pending"}" data-id="${rEsc(b.id)}">${b.paid?"Received ✓":"Pending • Mark Paid"}</button></td><td>${b.checkout<now?"Completed":b.checkin<=now?"Occupied":"Booked"}</td><td><button class="btn rentalEditBooking" data-id="${rEsc(b.id)}">Edit</button> <button class="btn rentalDeleteBooking" data-id="${rEsc(b.id)}">Delete</button></td></tr>`).join("")||'<tr><td colspan="8" class="meta">No bookings recorded.</td></tr>';
+ document.querySelectorAll('.rentalEditBooking').forEach(b=>b.onclick=()=>rentalOpenBooking(null,b.dataset.id));
+ document.querySelectorAll(".rentalPaymentToggle").forEach(b=>b.onclick=()=>{var x=rentalBookings.find(v=>String(v.id)===String(b.dataset.id)&&rentalBelongs(v));if(!x)return;var newPaid=!x.paid;x.paid=newPaid;x.paidAmount=newPaid?rentalGross(x):0;x.paymentDate=newPaid?rIso(new Date()):"";if(newPaid){var related=rentalBookings.filter(v=>v!==x&&rentalBelongs(v)&&!v.paid&&v.ref&&x.ref&&v.ref.trim().toLowerCase()===x.ref.trim().toLowerCase());if(related.length&&confirm("Mark all "+(related.length+1)+" bookings in this sequence/reference as paid?"))related.forEach(v=>{v.paid=true;v.paidAmount=rentalGross(v);v.paymentDate=rIso(new Date())})}rentalSave();renderRental()});
+ document.querySelectorAll(".rentalDeleteBooking").forEach(b=>b.onclick=()=>{if(confirm("Delete this booking?")){var target=rentalBookings.find(x=>String(x.id)===String(b.dataset.id));if(!target)return;if(typeof recordImmediateDelete==='function')recordImmediateDelete('rental_bookings',target.id,'rental-booking-delete');rentalBookings=rentalBookings.filter(x=>String(x.id)!==String(target.id));rentalSave();renderRental()}});
+ var exp=rentalExpenses.filter(e=>rentalBelongs(e)&&rDate(e.date).getFullYear()===y&&rDate(e.date).getMonth()===m).sort((a,b)=>b.date.localeCompare(a.date));
  document.getElementById("rentalExpenses").innerHTML=exp.length?exp.map(e=>'<div class="rentalExpenseLine"><div><b>'+e.category+'</b><span>'+e.date+(e.note?" • "+e.note:"")+'</span></div><div class="rentalExpenseRight"><b>− '+rMoney(e.amount)+'</b><div class="rentalExpenseActions"><button type="button" class="btn rentalEditExpense" data-id="'+e.id+'">Edit</button><button type="button" class="btn danger rentalDeleteExpense" data-id="'+e.id+'">Delete</button></div></div></div>').join(""):'<div class="meta rentalEmpty">No expenses recorded for this month.</div>';
  document.querySelectorAll(".rentalEditExpense").forEach(b=>b.onclick=()=>rentalOpenExpense(b.dataset.id));
  document.querySelectorAll(".rentalDeleteExpense").forEach(b=>b.onclick=()=>{var x=rentalExpenses.find(e=>String(e.id)===String(b.dataset.id));if(!x)return;if(confirm("Delete "+x.category+" expense of "+rMoney(x.amount)+"?")){if(typeof recordImmediateDelete==='function')recordImmediateDelete('rental_expenses',x.id,'rental-expense-delete');rentalExpenses=rentalExpenses.filter(e=>String(e.id)!==String(b.dataset.id));rentalSave();renderRental()}});
-
+ renderRentalReport();
 }
+window.rentalAddUnit=function(){
+ const name=prompt('Name of the new rental unit');if(!name?.trim())return;
+ if(rentalUnits.some(u=>u.name.toLowerCase()===name.trim().toLowerCase())){alert('A unit with this name already exists.');return}
+ const unit={id:'unit-'+Date.now(),name:name.trim(),organiserFee:30};rentalUnits.push(unit);rentalUnitId=unit.id;
+ if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_units',unit.id,unit,'rental-unit-add');rentalSave();renderRental();
+};
+window.rentalUpdateFee=function(value){
+ const rate=Number(value);if(!Number.isFinite(rate)||rate<0||rate>100){alert('Enter a fee from 0 to 100%.');renderRental();return}
+ rentalUnit().organiserFee=rate;
+ if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_units',rentalUnit().id,rentalUnit(),'rental-fee-change');
+ rentalSave();renderRental();
+};
+window.renderRentalReport=function(){
+ const target=document.getElementById('rentalReport');if(!target)return;
+ const period=document.getElementById('rentalReportPeriod')?.value||'monthly',bookings=rentalBookings.filter(rentalBelongs),expenses=rentalExpenses.filter(rentalBelongs),groups=new Map();
+ const keyFor=iso=>{const d=rDate(iso);if(period==='yearly')return iso.slice(0,4);if(period==='monthly')return iso.slice(0,7);if(period==='weekly'){const monday=rDate(iso);monday.setDate(monday.getDate()-((monday.getDay()+6)%7));return rIso(monday)}return iso};
+ const group=key=>{if(!groups.has(key))groups.set(key,{nights:0,gross:0,fees:0,expenses:0,received:0});return groups.get(key)};
+ bookings.forEach(b=>{for(let d=rDate(b.checkin),end=rDate(b.checkout);d<end;d.setDate(d.getDate()+1)){const g=group(keyFor(rIso(d))),gross=rentalRate(b);g.nights++;g.gross+=gross;g.fees+=gross*rentalFeeRate(b)/100}if(b.paid&&b.paymentDate)group(keyFor(b.paymentDate)).received+=Number(b.paidAmount??rentalGross(b))});
+ expenses.forEach(e=>{if(e.date)group(keyFor(e.date)).expenses+=Number(e.amount||0)});
+ target.innerHTML='<div class="tableWrap"><table class="rentalTable"><thead><tr><th>Period</th><th>Booked Nights</th><th>Gross</th><th>Organiser Fees</th><th>Expenses</th><th>Net</th><th>Received</th></tr></thead><tbody>'+([...groups].sort((a,b)=>b[0].localeCompare(a[0])).map(([key,g])=>`<tr><td>${key}</td><td>${g.nights}</td><td>${rMoney(g.gross)}</td><td>${rMoney(g.fees)}</td><td>${rMoney(g.expenses)}</td><td>${rMoney(g.gross-g.fees-g.expenses)}</td><td>${rMoney(g.received)}</td></tr>`).join('')||'<tr><td colspan="7">No rental activity recorded.</td></tr>')+'</tbody></table></div>';
+};
 function rentalDatesInRange(start,end){
  var dates=[],cursor=rDate(start),last=rDate(end);
  while(cursor<=last){dates.push(rIso(cursor));cursor.setDate(cursor.getDate()+1)}
  return dates;
 }
 window.rentalOpenDay=function(date){
- var booking=rentalBookings.find(b=>date>=b.checkin&&date<b.checkout);
- if(booking){rentalOpenBooking(date);return}
- var block=rentalBlocks.find(b=>b.date===date);
- rentalModal("Manage availability",'<div class="field"><label>Start Date</label><input name="startDate" type="date" required value="'+date+'"></div><div class="field"><label>End Date</label><input name="endDate" type="date" required value="'+date+'"></div><div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Create Booking</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+String(block?.note||'').replace(/"/g,"&quot;")+'" placeholder="Optional reason for the selected date range"></div>',fd=>{
+ var booking=rentalBookings.find(b=>rentalBelongs(b)&&date>=b.checkin&&date<b.checkout);
+ if(booking){rentalOpenBooking(null,booking.id);return}
+ var block=rentalBlocks.find(b=>rentalBelongs(b)&&b.date===date);
+ rentalModal("Manage availability",'<div class="field"><label>Start Date</label><input name="startDate" type="date" required value="'+date+'"></div><div class="field"><label>End Date (inclusive)</label><input name="endDate" type="date" required value="'+date+'"></div><div class="field full"><label>Day Status</label><select name="status"><option value="available"'+(!block?' selected':'')+'>Available / Remove Block</option><option value="booking">Create Booking for Range</option><option value="blocked"'+(block?.status==="blocked"?' selected':'')+'>Blocked</option><option value="maintenance"'+(block?.status==="maintenance"?' selected':'')+'>Maintenance</option></select></div><div class="field full"><label>Reason / Note</label><input name="note" value="'+rEsc(block?.note||'')+'" placeholder="Optional reason for the selected date range"></div>',fd=>{
   var start=String(fd.get("startDate")||date),end=String(fd.get("endDate")||start),status=fd.get("status"),note=fd.get("note");
   if(end<start){alert("End Date must be the same as or after Start Date.");return false}
   var dates=rentalDatesInRange(start,end);
-  var conflicts=rentalBookings.filter(b=>dates.some(x=>x>=b.checkin&&x<b.checkout));
+  var conflicts=rentalBookings.filter(b=>rentalBelongs(b)&&dates.some(x=>x>=b.checkin&&x<b.checkout));
   if(status!=="available"&&conflicts.length){alert("This range overlaps an existing booking. Change the dates or edit the booking first.");return false}
-  var selected=new Set(dates);if(status==='available'&&typeof recordImmediateDelete==='function')rentalBlocks.filter(b=>selected.has(b.date)).forEach(b=>recordImmediateDelete('rental_blocks',syncStableId('rental_blocks',b),'rental-block-delete'));rentalBlocks=rentalBlocks.filter(b=>!selected.has(b.date));
-  if(status!=="available")dates.forEach(x=>{var row={date:x,status,note,rangeStart:start,rangeEnd:end};rentalBlocks.push(row);if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_blocks',syncStableId('rental_blocks',row),row,'rental-block-edit')});
-  else if(start===end&&!block)setTimeout(()=>rentalOpenBooking(start),0);
+  if(status==='booking'){
+   if(dates.some(x=>rentalBlocks.some(b=>rentalBelongs(b)&&b.date===x&&b.status!=='available'))){alert('The range contains blocked or maintenance days. Make them available first.');return false}
+   setTimeout(()=>rentalOpenBooking(start,null,rNextDate(end)),0);return;
+  }
+  var selected=new Set(dates),removed=rentalBlocks.filter(b=>rentalBelongs(b)&&selected.has(b.date));
+  if(status==='available')removed.forEach(b=>{if(typeof recordImmediateDelete==='function')recordImmediateDelete('rental_blocks',syncStableId('rental_blocks',b),'rental-block-delete')});
+  rentalBlocks=rentalBlocks.filter(b=>!rentalBelongs(b)||!selected.has(b.date));
+  if(status!=="available"){
+   const added=dates.map(x=>({date:x,unitId:rentalUnit().id,status,note,rangeStart:start,rangeEnd:end}));
+   rentalBlocks.push(...added);
+   if(typeof recordImmediateBatch==='function')recordImmediateBatch('rental_blocks',added,'rental-range-save');
+  }
  });
 }
 function rentalModal(title,fields,onSave){
  var old=document.getElementById("rentalModal");if(old)old.remove();var d=document.createElement("div");d.className="modalBack open";d.id="rentalModal";d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">'+title+'</div><button class="closeBtn" type="button">✕</button></div><form class="formGrid" id="rentalForm">'+fields+'<div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn rentalCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>';document.body.appendChild(d);d.querySelector(".closeBtn").onclick=d.querySelector(".rentalCancel").onclick=()=>d.remove();d.querySelector("form").onsubmit=e=>{e.preventDefault();if(onSave(new FormData(e.target))===false)return;d.remove();rentalSave();renderRental()}
 }
-window.rentalOpenBooking=function(date){
- rentalModal("Add Booking",'<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(date||rIso(new Date()))+'"></div><div class="field"><label>Check-out</label><input name="checkout" type="date" required value="'+rNextDate(date||rIso(new Date()))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Daily Rate (SAR / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required></div><div class="field"><label>Payment</label><select name="paid"><option value="1">Received</option><option value="0">Pending</option></select></div><div class="field"><label>Notes</label><input name="note"></div>',fd=>{var a=fd.get("checkin"),z=fd.get("checkout");if(z<=a){alert("Check-out must be after check-in.");return false}rentalBookings.push({id:Date.now(),checkin:a,checkout:z,ref:fd.get("ref"),dailyRate:Number(fd.get("dailyRate")),paid:fd.get("paid")==="1",paidAmount:fd.get("paid")==="1"?Number(fd.get("dailyRate"))*rNights(a,z):0,paymentDate:fd.get("paid")==="1"?rIso(new Date()):"",note:fd.get("note")})});
+window.rentalOpenBooking=function(date,id,checkout){
+ const existing=id!=null?rentalBookings.find(b=>String(b.id)===String(id)&&rentalBelongs(b)):null;
+ rentalModal(existing?'Edit Booking':'Add Booking','<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(existing?.checkin||date||rIso(new Date()))+'"></div><div class="field"><label>Check-out (not a booked night)</label><input name="checkout" type="date" required value="'+(existing?.checkout||checkout||rNextDate(date||rIso(new Date())))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" value="'+rEsc(existing?.ref||'')+'" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Daily Rate (SAR / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required value="'+(existing?rentalRate(existing):'')+'"></div><div class="field"><label>Organiser Fee (%)</label><input name="organiserFee" type="number" min="0" max="100" step="0.01" required value="'+(existing?rentalFeeRate(existing):Number(rentalUnit().organiserFee??30))+'"></div><div class="field"><label>Payment</label><select name="paid"><option value="0">Pending</option><option value="1"'+(existing?.paid?' selected':'')+'>Received</option></select></div><div class="field full"><label>Notes</label><input name="note" value="'+rEsc(existing?.note||'')+'"></div>',fd=>{
+  const a=String(fd.get('checkin')),z=String(fd.get('checkout')),rate=Number(fd.get('dailyRate')),fee=Number(fd.get('organiserFee'));
+  if(z<=a){alert('Check-out must be after check-in.');return false}
+  if(!Number.isFinite(fee)||fee<0||fee>100){alert('Fee must be 0–100%.');return false}
+  if(rentalBookings.some(b=>b!==existing&&rentalBelongs(b)&&a<b.checkout&&z>b.checkin)){alert('Booking overlaps another reservation for this unit.');return false}
+  if(rentalDatesInRange(a,rIso(new Date(rDate(z).getTime()-86400000))).some(day=>rentalBlocks.some(b=>rentalBelongs(b)&&b.date===day&&b.status!=='available'))){alert('Booking overlaps blocked or maintenance dates.');return false}
+  const paid=fd.get('paid')==='1',row={id:existing?.id||Date.now(),unitId:rentalUnit().id,checkin:a,checkout:z,ref:String(fd.get('ref')||''),dailyRate:rate,organiserFee:fee,paid,paidAmount:paid?rate*rNights(a,z):0,paymentDate:paid?(existing?.paymentDate||rIso(new Date())):'',note:String(fd.get('note')||'')};
+  if(existing)Object.assign(existing,row);else rentalBookings.push(row);
+  if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_bookings',row.id,row,'rental-booking-save');
+ });
 }
 window.rentalOpenExpense=function(id){
  var existing=id!=null?rentalExpenses.find(e=>String(e.id)===String(id)):null;
  var categories=["Cleaning","Laundry","Utilities","Internet","Maintenance","Supplies","Platform Fee","Furniture","Other"];
  var categoryOptions=categories.map(c=>'<option'+(existing&&existing.category===c?' selected':'')+'>'+c+'</option>').join("");
  rentalModal(existing?"Edit Rental Expense":"Add Rental Expense",'<div class="field"><label>Date</label><input name="date" type="date" required value="'+(existing?.date||rIso(new Date()))+'"></div><div class="field"><label>Category</label><select name="category">'+categoryOptions+'</select></div><div class="field"><label>Amount (SAR)</label><input name="amount" type="number" min="0" step="0.01" required value="'+(existing?.amount??"")+'"></div><div class="field"><label>Note</label><input name="note" value="'+String(existing?.note||"").replace(/"/g,"&quot;")+'"></div>',fd=>{
-  var data={id:existing?.id||Date.now(),date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")};
+  var data={id:existing?.id||Date.now(),unitId:rentalUnit().id,date:fd.get("date"),category:fd.get("category"),amount:Number(fd.get("amount")),note:fd.get("note")};
   if(existing){Object.assign(existing,data)}else rentalExpenses.push(data)
  })
 }
@@ -193,6 +245,11 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
     const detail=el('span','',user.user_id===userId?'Administrator · own workspace':
       'Private workspace · '+pages.filter(p=>p.user_id===user.user_id).length+' page setting(s)');
     card.append(name,detail);
+    if(user.user_id!==userId){const edit=el('button','btn','Edit own page access');edit.type='button';edit.onclick=()=>{
+      const selector=document.getElementById('ownAccessUser');if(!selector)return;
+      selector.value=user.user_id;window.renderOwnAccessMatrix?.();
+      document.getElementById('ownAccessMatrix')?.scrollIntoView({behavior:'smooth',block:'center'});
+     };card.append(edit)}
     const ownGrants=grants.filter(g=>g.owner_user_id===user.user_id);
     if(ownGrants.length)card.append(el('small','',ownGrants.length+' page grant(s) to other users'));
     box.append(card);

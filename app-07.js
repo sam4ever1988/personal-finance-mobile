@@ -49,6 +49,7 @@ function applyRecordSyncRows(rows){
   if(typeof rentalBookings!=='undefined')rentalBookings=list('rental_bookings');
   if(typeof rentalExpenses!=='undefined')rentalExpenses=list('rental_expenses');
   if(typeof rentalBlocks!=='undefined')rentalBlocks=active.filter(r=>r.section==='rental_blocks'&&String(r.record_id).startsWith('rental-block:')).map(r=>r.data);
+  if(typeof rentalUnits!=='undefined'){const units=list('rental_units');if(units.length)rentalUnits=units}
   if(typeof goldAssets!=='undefined')goldAssets=list('personal_assets_gold');
   if(typeof goldZakatHistory!=='undefined')goldZakatHistory=list('personal_assets_zakat');
   if(typeof goldSaleHistory!=='undefined')goldSaleHistory=list('personal_assets_sales');
@@ -1022,6 +1023,7 @@ function rawLocalRecoveryState(reason='manual'){
   rentalBookings:JSON.parse(JSON.stringify(typeof rentalBookings!=='undefined'?rentalBookings:[])),
   rentalExpenses:JSON.parse(JSON.stringify(typeof rentalExpenses!=='undefined'?rentalExpenses:[])),
   rentalBlocks:JSON.parse(JSON.stringify(typeof rentalBlocks!=='undefined'?rentalBlocks:[])),
+  rentalUnits:JSON.parse(JSON.stringify(typeof rentalUnits!=='undefined'?rentalUnits:[])),
   goldAssets:JSON.parse(JSON.stringify(typeof goldAssets!=='undefined'?goldAssets:[])),
   goldZakatHistory:JSON.parse(JSON.stringify(typeof goldZakatHistory!=='undefined'?goldZakatHistory:[])),
   goldSaleHistory:JSON.parse(JSON.stringify(typeof goldSaleHistory!=='undefined'?goldSaleHistory:[])),
@@ -1083,6 +1085,7 @@ function persistRecoveredState(){
  localStorage.setItem('pf_rental_bookings',JSON.stringify(rentalBookings||[]));
  localStorage.setItem('pf_rental_expenses',JSON.stringify(rentalExpenses||[]));
  localStorage.setItem('pf_rental_blocks',JSON.stringify(rentalBlocks||[]));
+ localStorage.setItem('pf_rental_units',JSON.stringify(rentalUnits||[]));
  localStorage.setItem('pf_gold_assets',JSON.stringify(goldAssets||[]));
  localStorage.setItem('pf_gold_zakat_history',JSON.stringify(goldZakatHistory||[]));
  localStorage.setItem('pf_gold_sale_history',JSON.stringify(goldSaleHistory||[]));
@@ -1116,6 +1119,7 @@ function applyRecoverySnapshot(snap){
  if(Array.isArray(snap.rentalBookings))rentalBookings=JSON.parse(JSON.stringify(snap.rentalBookings));
  if(Array.isArray(snap.rentalExpenses))rentalExpenses=JSON.parse(JSON.stringify(snap.rentalExpenses));
  if(Array.isArray(snap.rentalBlocks))rentalBlocks=JSON.parse(JSON.stringify(snap.rentalBlocks));
+ if(Array.isArray(snap.rentalUnits))rentalUnits=JSON.parse(JSON.stringify(snap.rentalUnits));
  if(Array.isArray(snap.goldAssets))goldAssets=JSON.parse(JSON.stringify(snap.goldAssets));
  if(Array.isArray(snap.goldZakatHistory))goldZakatHistory=JSON.parse(JSON.stringify(snap.goldZakatHistory));
  if(Array.isArray(snap.goldSaleHistory))goldSaleHistory=JSON.parse(JSON.stringify(snap.goldSaleHistory));
