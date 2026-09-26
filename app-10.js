@@ -103,6 +103,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei){ei.value=email;ei.readOnly=true;}const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
   document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar').forEach(e=>e.textContent=initials);
   const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
+  const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner;
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
@@ -127,6 +128,38 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(error)throw error;
   return data||[];
  }
+ window.renderFinanceAdminAccess=async function(){
+  const status=document.getElementById('adminAccessStatus'),box=document.getElementById('adminAccessUsers');
+  if(!status||!box)return;
+  status.textContent='Loading access directory…';box.replaceChildren();
+  try{
+   const userId=await identity();
+   const {data:ownerRows,error:ownerError}=await client.from('finance_owner').select('owner_user_id').limit(1);
+   if(ownerError)throw ownerError;
+   if(!ownerRows?.length||ownerRows[0].owner_user_id!==userId){
+    status.textContent='Administrator access is required.';return;
+   }
+   const [users,grantResult,pageResult]=await Promise.all([
+    directory(),
+    client.from('finance_workspace_grants').select('owner_user_id,member_user_id,page,permission'),
+    client.from('finance_page_access').select('user_id,page,permission')
+   ]);
+   if(grantResult.error)throw grantResult.error;
+   if(pageResult.error)throw pageResult.error;
+   const grants=grantResult.data||[],pages=pageResult.data||[];
+   status.textContent=users.length+' registered account'+(users.length===1?'':'s')+' · '+grants.length+' explicit sharing grant'+(grants.length===1?'':'s')+'.';
+   for(const user of users){
+    const card=el('div','prefsStatus');
+    const name=el('b','',user.user_email||user.user_id);
+    const detail=el('span','',user.user_id===userId?'Administrator · own workspace':
+      'Private workspace · '+pages.filter(p=>p.user_id===user.user_id).length+' page setting(s)');
+    card.append(name,detail);
+    const ownGrants=grants.filter(g=>g.owner_user_id===user.user_id);
+    if(ownGrants.length)card.append(el('small','',ownGrants.length+' page grant(s) to other users'));
+    box.append(card);
+   }
+  }catch(e){status.textContent='Access directory unavailable: '+e.message;}
+ };
  window.renderFinanceSharedWith=async function(){
   const box=document.getElementById('accountSharedWith');if(!box)return;
   box.textContent='Checking sharing permissions…';
