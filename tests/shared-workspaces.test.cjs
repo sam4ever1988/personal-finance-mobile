@@ -5,23 +5,31 @@ const read=name=>fs.readFileSync(require('node:path').join(__dirname,'..',name),
 
 async function testCacheSwitch(){
  const source='window.financeScopeSwitch='+read('index.html').split('window.financeScopeSwitch=')[1].split('window.financeScopeWipe=')[0];
- const actor='owner',other='member',mem=new Map([['pf_secret','own-data']]),slots=new Map();
+ const actor='owner',other='member',mem=new Map([['pf_secret','own-data']]),sessionMem=new Map(),slots=new Map();
  const storage=new Proxy({getItem:k=>mem.get(k)||null,setItem:(k,v)=>mem.set(k,String(v)),removeItem:k=>mem.delete(k)},
   {ownKeys:()=>[...mem.keys()],getOwnPropertyDescriptor:()=>({enumerable:true,configurable:true})});
- const c={window:{financeWorkspaceUserId:actor},localStorage:storage,
+ const tabStorage=new Proxy({getItem:k=>sessionMem.get(k)||null,setItem:(k,v)=>sessionMem.set(k,String(v)),removeItem:k=>sessionMem.delete(k)},
+  {ownKeys:()=>[...sessionMem.keys()],getOwnPropertyDescriptor:()=>({enumerable:true,configurable:true})});
+ const c={window:{financeWorkspaceUserId:actor},localStorage:storage,sessionStorage:tabStorage,
+  indexedDB:{databases:async()=>[]},
   scoped:{from:()=>({select:()=>({limit:async()=>({data:[{id:1}]})})})},
   cacheSlot:async(k,v)=>{if(v===undefined)return slots.get(k);slots.set(k,v)}};
  vm.createContext(c);vm.runInContext(source,c);
  await c.window.financeScopeSwitch({user:{id:actor}});
+ slots.set(actor+'|'+other,{pf_secret:'old-shared-disk-copy'});
  c.window.financeWorkspaceUserId=other;
  await c.window.financeScopeSwitch({user:{id:actor}});
  assert.equal(storage.getItem('pf_secret'),null);
  assert.equal(storage.getItem('pf_active_user_id'),actor+'|'+other);
- storage.setItem('pf_secret','shared-data');
+ assert.equal(slots.get(actor+'|'+other).pf_secret,undefined);
+ tabStorage.setItem('pf_secret','shared-data');
+ await c.window.financeScopeSwitch({user:{id:actor}});
+ assert.equal(tabStorage.getItem('pf_secret'),'shared-data');
  c.window.financeWorkspaceUserId=actor;
  await c.window.financeScopeSwitch({user:{id:actor}});
  assert.equal(storage.getItem('pf_secret'),'own-data');
- assert.equal(slots.get(actor+'|'+other).pf_secret,'shared-data');
+ assert.equal(tabStorage.getItem('pf_secret'),null);
+ assert.equal(slots.get(actor+'|'+other).pf_secret,undefined);
 }
 function testNavigation(){
  const source=read('app-03.js').split('function closeCanonicalMobileSheet')[0];
@@ -50,4 +58,4 @@ function testRentalReport(){
  }
  c.rentalUnitId='other';assert.equal(c.rentalMonthDataFor(new Date(2026,9,1)).revenue,0);
 }
-(async()=>{await testCacheSwitch();testNavigation();testRentalReport();console.log('Workspace cache, restricted navigation, rental period and unit reports passed.');})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{await testCacheSwitch();testNavigation();testRentalReport();console.log('Shared tab cache switch, restricted navigation and rental reports passed.');})().catch(e=>{console.error(e);process.exitCode=1});

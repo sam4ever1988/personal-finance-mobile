@@ -785,7 +785,7 @@ async function cloudRefreshAuth(){
   return null;
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
- if(session && window.financeCacheSlotId!==localStorage.getItem('pf_active_user_id')){
+ if(session && window.financeCacheSlotId!==window.localStorage.getItem('pf_active_user_id')){
   recordSyncReady=false;
   clearTimeout(recordSyncPushTimer);
   await window.financeScopeSwitch(session);

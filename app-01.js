@@ -14,8 +14,8 @@ var financeDB={
  async put(key,value){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readwrite');tx.objectStore(this.store).put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})},
  async get(key){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readonly');const r=tx.objectStore(this.store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
  snapshot(){return {categories,installments,merchantRules,txOverrides,incomePlan,manualTransactions,importedTransactions,importHistory,outgoings,duplicateDecisions,statementRule,transactionActions,cardPaymentPlan,cashFlowLedger,savedAt:new Date().toISOString()}},
- async save(){try{await this.put('finance_state',this.snapshot());updateDbStatus(true)}catch(e){console.warn('IndexedDB save failed',e);updateDbStatus(false)}},
- async restore(){try{const d=await this.get('finance_state');if(!d)return false;
+ async save(){if(window.financeSharedWorkspace)return;try{await this.put('finance_state',this.snapshot());updateDbStatus(true)}catch(e){console.warn('IndexedDB save failed',e);updateDbStatus(false)}},
+ async restore(){if(window.financeSharedWorkspace)return false;try{const d=await this.get('finance_state');if(!d)return false;
    categories=d.categories||categories;installments=d.installments||installments;merchantRules=d.merchantRules||merchantRules;txOverrides=d.txOverrides||txOverrides;incomePlan=d.incomePlan||incomePlan;manualTransactions=d.manualTransactions||manualTransactions;importedTransactions=d.importedTransactions||importedTransactions;importHistory=d.importHistory||importHistory;outgoings=d.outgoings||outgoings;duplicateDecisions=d.duplicateDecisions||duplicateDecisions;statementRule=d.statementRule||statementRule;transactionActions=d.transactionActions||transactionActions;cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;
  purgeLegacyAr5867SeedRows();
  purgeLegacySabAnchorRows();
