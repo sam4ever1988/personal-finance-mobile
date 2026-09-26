@@ -1251,6 +1251,8 @@ function renderFinanceSettings(force=false){
    el.oninput=commit;el.onchange=commit;
   });
  }
+ renderCustomBanks();
+ renderCustomCreditCards();
 }
 function addLoanSetting(){
  const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',referenceMonth:currentYearMonth(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
@@ -1749,8 +1751,9 @@ function renderCurrentPageForSections(sections){
  else if(page==='rental'&&typeof renderRental==='function')renderRental();
  else if(page==='assets'&&typeof renderGoldAssets==='function')renderGoldAssets();
  else if(page==='financeSettings'){
-  if(!financeSettingsEditing){renderFinanceSettings();renderCustomBanks();renderCustomCreditCards();}
-  else return false;
+  if(!financeSettingsEditing)renderFinanceSettings();
+  else if(!sections.some(s=>s==='custom_banks'||s==='custom_credit_cards'))return false;
+  renderCustomBanks();renderCustomCreditCards();
  }
  else if(page==='accountDetail'&&currentAccountDetailId){
   openAccount(currentAccountDetailId,accountDetailReturnPage||'accounts');
