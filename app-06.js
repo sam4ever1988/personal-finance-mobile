@@ -1251,6 +1251,8 @@ function renderFinanceSettings(force=false){
    el.oninput=commit;el.onchange=commit;
   });
  }
+ renderCustomBanks();
+ renderCustomCreditCards();
 }
 function addLoanSetting(){
  const loan={id:'loan-'+Date.now(),name:'New Loan',monthly:0,remainingAmount:0,remainingMonths:0,status:'active',referenceMonth:currentYearMonth(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
