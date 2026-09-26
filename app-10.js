@@ -104,6 +104,14 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar').forEach(e=>e.textContent=initials);
   const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
   const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner;
+  const ownCard=document.getElementById('accountOwnAccessCard'),summary=document.getElementById('accountOwnAccessSummary');
+  if(ownCard&&summary){
+   ownCard.hidden=!!window.financeIsOwner;
+   const entries=Object.entries(window.financePagePermissions||{}).filter(([,v])=>v==='view'||v==='edit');
+   summary.textContent=entries.length
+    ?entries.map(([page,permission])=>page.replaceAll('_',' ')+' ('+permission+')').join(' · ')
+    :'No finance pages assigned yet. Your administrator can enable pages for your own account.';
+  }
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
@@ -167,6 +175,17 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
      ' · '+g.page+' · '+g.permission)));
    }
    const grants=grantResult.data||[],pages=pageResult.data||[];
+   window.financeOwnAccessRows=pages;
+   const ownSelect=document.getElementById('ownAccessUser');
+   if(ownSelect){
+    const selected=ownSelect.value;
+    ownSelect.replaceChildren();
+    users.filter(u=>u.user_id!==userId).forEach(u=>{
+     const option=el('option','',u.user_email||u.user_id);option.value=u.user_id;ownSelect.append(option);
+    });
+    if(users.some(u=>u.user_id===selected&&u.user_id!==userId))ownSelect.value=selected;
+    window.renderOwnAccessMatrix?.();
+   }
    status.textContent=users.length+' registered account'+(users.length===1?'':'s')+' · '+grants.length+' explicit sharing grant'+(grants.length===1?'':'s')+'.';
    for(const user of users){
     const card=el('div','prefsStatus');
@@ -180,6 +199,57 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    }
  }catch(e){status.textContent='Access directory unavailable: '+e.message;}
  };
+ const ownPages=[
+  ['executive','Executive Overview'],['accounts','Cash & Credit'],
+  ['financialposition','Financial Position'],['strategy','Financial Strategy'],
+  ['transactions','Transactions'],['incomeplan','Income & Payment Plan'],
+  ['outgoings','Cash & Other Outgoings'],['installments','Installments'],
+  ['importstatements','Import Statements'],['investments','Investments'],
+  ['assets','Personal Assets'],['rental','Airbnb / Rental'],
+  ['reports','Reports'],['financeSettings','Finance Settings']
+ ];
+ window.renderOwnAccessMatrix=function(){
+  const user=document.getElementById('ownAccessUser')?.value,
+   matrix=document.getElementById('ownAccessMatrix'),status=document.getElementById('ownAccessStatus');
+  if(!matrix||!status)return;
+  matrix.replaceChildren();
+  if(!user){status.textContent='No other registered users yet. They will appear here after signup.';return;}
+  const saved=new Map((window.financeOwnAccessRows||[]).filter(r=>r.user_id===user).map(r=>[r.page,r.permission]));
+  status.textContent=saved.size?'Saved page access is shown below.':'New account · no finance pages assigned yet.';
+  ownPages.forEach(([id,label])=>{
+   const row=el('label','');row.append(el('span','',label));
+   const select=el('select','');select.dataset.ownPage=id;
+   [['off','Hidden'],['view','View only'],['edit','View and edit']].forEach(([value,textLabel])=>{
+    const option=el('option','',textLabel);option.value=value;select.append(option);
+   });
+   select.value=saved.get(id)||'off';row.append(select);matrix.append(row);
+  });
+ };
+ document.getElementById('ownAccessUser')?.addEventListener('change',()=>window.renderOwnAccessMatrix());
+ document.getElementById('ownAccessAirbnbOnly')?.addEventListener('click',()=>{
+  document.querySelectorAll('[data-own-page]').forEach(s=>s.value=s.dataset.ownPage==='rental'?'edit':'off');
+ });
+ document.getElementById('ownAccessAll')?.addEventListener('click',()=>{
+  document.querySelectorAll('[data-own-page]').forEach(s=>s.value='edit');
+ });
+ document.getElementById('ownAccessSave')?.addEventListener('click',async()=>{
+  const user=document.getElementById('ownAccessUser')?.value,status=document.getElementById('ownAccessStatus');
+  if(!user)return;
+  status.textContent='Saving page access…';
+  try{
+   const actor=await identity();
+   const {data:ownerRows,error:ownerError}=await client.from('finance_owner').select('owner_user_id').limit(1);
+   if(ownerError||ownerRows?.[0]?.owner_user_id!==actor||user===actor)throw new Error('Administrator access is required.');
+   const rows=[...document.querySelectorAll('[data-own-page]')].map(s=>({
+    user_id:user,page:s.dataset.ownPage,permission:s.value,updated_at:new Date().toISOString()
+   }));
+   if(rows.length!==ownPages.length)throw new Error('Page list is incomplete. Refresh and try again.');
+   const {error}=await client.from('finance_page_access').upsert(rows,{onConflict:'user_id,page'});
+   if(error)throw error;
+   status.textContent='Saved. The user’s open devices will refresh their permissions shortly.';
+   await window.renderFinanceAdminAccess();
+  }catch(e){status.textContent='Could not save page access: '+e.message;}
+ });
  const labPages=[['transactions','Transactions'],['investments','Investments'],['assets','Personal Assets'],['rental','Airbnb / Rental']];
  document.getElementById('labSaveGrant')?.addEventListener('click',async()=>{
   const status=document.getElementById('labGrantStatus');
@@ -363,6 +433,34 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   }catch(e){status.textContent='Audit trail unavailable: '+e.message}
  };
  document.getElementById('auditRefresh')?.addEventListener('click',()=>window.renderFinanceAuditTrail());
+ if(window.financeCanViewPage){
+  setTimeout(()=>{
+   const active=document.querySelector('.view.active')?.id;
+   if(!window.financeCanViewPage(active)){
+    const first=['executive','rental','investments','transactions','accounts','assets',
+     'outgoings','installments','incomeplan','reports','accountprofile']
+     .find(p=>window.financeCanViewPage(p))||'accountprofile';
+    nav(first);
+   }
+  },0);
+  setInterval(async()=>{
+   try{
+    const user=await identity();
+    if(user!==window.financeActiveUserId)return;
+    const {data,error}=await client.from('finance_page_access').select('page,permission').eq('user_id',user);
+    if(error)return;
+    const current=new Map((data||[]).map(r=>[r.page,r.permission]));
+    const ordered=['executive','accounts','financialposition','strategy','transactions',
+     'incomeplan','outgoings','installments','importstatements','investments',
+     'assets','rental','reports','financeSettings'];
+    if(JSON.stringify(ordered.map(p=>current.get(p)||'off'))!==window.financePageFingerprint){
+     document.body.classList.add('financeAccessLocked');
+     await window.financeScopeWipe?.();
+     location.reload();
+    }
+   }catch(e){console.warn('Page access refresh pending',e);}
+  },5000);
+ }
 })();
 
 

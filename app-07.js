@@ -1,6 +1,7 @@
 var recordPendingDeletes=(()=>{try{const x=JSON.parse(localStorage.getItem('pf_record_delete_queue')||'[]');return Array.isArray(x)?x:[]}catch(_){return []}})();
 function saveRecordDeleteQueue(){localStorage.setItem('pf_record_delete_queue',JSON.stringify(recordPendingDeletes))}
 function queueRecordDelete(section,recordId){
+ if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return;
  const key=String(section)+'|'+String(recordId);
  recordPendingDeletes=recordPendingDeletes.filter(x=>String(x.section)+'|'+String(x.record_id)!==key);
  recordPendingDeletes.push({section,record_id:String(recordId),queuedAt:new Date().toISOString()});
@@ -120,6 +121,7 @@ async function recordFetchChangedSince(iso){
 
 
 async function recordSeedFromLegacyCloudIfNeeded(){
+ if(window.financeRestrictedOwnAccess)return recordFetchAll();
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return [];
  const existing=await recordFetchAll();
@@ -213,7 +215,7 @@ async function recordPullAll(reason='manual-full-pull'){
     }
     // Only seed from local when NO valid cloud snapshot exists.
     if(!(legacy.initialized&&legacy.value)){
-      rows=buildRecordSyncRowsFromState();
+      rows=window.financeRestrictedOwnAccess?[]:buildRecordSyncRowsFromState();
       if(rows.length){
         const payload=rows.map(r=>({...r,deleted_at:null}));
         const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
@@ -277,10 +279,12 @@ async function recordPushAll(reason='edit'){
    return false;
   }
 
-  const before=await recordFetchAll();
+  const before=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
+   window.financeSectionPermission(r.section)==='edit');
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
   const baseline=recordSyncBaseline();
-  let current=buildRecordSyncRowsFromState();
+  let current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
+   window.financeSectionPermission(r.section)==='edit');
   if(!Object.keys(baseline).length){
    // Upgrading an existing device must not treat all cached rows as new edits.
    rememberRecordSyncBaseline(current);
@@ -296,24 +300,35 @@ async function recordPushAll(reason='edit'){
   });
   if(safeRemote.length){
    applyRecordSyncDeltaRows(safeRemote,{render:true});
-   current=buildRecordSyncRowsFromState();
+   current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
+    window.financeSectionPermission(r.section)==='edit');
    rememberRemoteRecordBaseline(safeRemote.filter(r=>{
     const local=current.find(x=>x.section===r.section&&x.record_id===r.record_id);
     return r.deleted_at?!local:local&&syncRecordValue(local.data)===syncRecordValue(r.data);
    }));
   }
   const currentKeys=new Set(current.map(r=>`${r.section}|${r.record_id}`));
+  if(window.financeSectionPermission){
+   recordPendingDeletes=recordPendingDeletes.filter(x=>window.financeSectionPermission(x.section)==='edit');
+   saveRecordDeleteQueue();
+  }
   if(recordPendingDeletes.length){
    const deletedAt=new Date().toISOString();
-   const tombstones=recordPendingDeletes.map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
+   const tombstones=recordPendingDeletes.filter(x=>!window.financeSectionPermission||
+    window.financeSectionPermission(x.section)==='edit')
+    .map(x=>({section:x.section,record_id:String(x.record_id),data:{},deleted_at:deletedAt}));
+   if(!tombstones.length){recordPendingDeletes=[];saveRecordDeleteQueue();}
+   else {
    tombstones.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
    const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
    if(deleteError)throw deleteError;
+   }
    // Keep the durable queue until a subsequent read confirms the tombstones.
   }
 
   const conflicts=[];
   const upserts=current.filter(r=>{
+   if(window.financeSectionPermission&&window.financeSectionPermission(r.section)!=='edit')return false;
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
    if(!cloud)return true;
    // Deletion is authoritative until the user explicitly creates a new ID.
@@ -340,7 +355,8 @@ async function recordPushAll(reason='edit'){
    if(error)throw error;
   }
 
-  const verified=await recordFetchAll();
+  const verified=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
+   window.financeSectionPermission(r.section)==='edit');
   if(recordPendingDeletes.length){
    const verifiedMap=new Map(verified.map(r=>[`${r.section}|${r.record_id}`,r]));
    recordPendingDeletes=recordPendingDeletes.filter(x=>!verifiedMap.get(`${x.section}|${x.record_id}`)?.deleted_at);
@@ -356,7 +372,8 @@ async function recordPushAll(reason='edit'){
   let unexpected=[...activeKeys].filter(k=>!currentKeys.has(k));
   if(!missing.length && unexpected.length){
    await recoverCloudOnlyRecords();
-   const recoveredKeys=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
+   const recoveredKeys=new Set(buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
+    window.financeSectionPermission(r.section)==='edit').map(r=>`${r.section}|${r.record_id}`));
    unexpected=[...activeKeys].filter(k=>!recoveredKeys.has(k));
   }
   if(missing.length||unexpected.length){
@@ -365,7 +382,8 @@ async function recordPushAll(reason='edit'){
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
-  const localVerified=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
+  const localVerified=new Map(buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
+   window.financeSectionPermission(r.section)==='edit').map(r=>[`${r.section}|${r.record_id}`,r]));
   const differing=verified.filter(r=>!r.deleted_at&&localVerified.has(`${r.section}|${r.record_id}`)
    &&syncRecordValue(r.data)!==syncRecordValue(localVerified.get(`${r.section}|${r.record_id}`).data));
   if(differing.length){
@@ -374,7 +392,7 @@ async function recordPushAll(reason='edit'){
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
-  rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
+  rememberRecordSyncBaseline(current);
 
   // V186 PROTECTION: a normal full-device save is additive/update-only.
   // Never infer cloud deletions merely because a row is missing from this device.
@@ -424,6 +442,7 @@ function rememberRemoteRecordBaseline(rows){
 
 
 async function recordImmediateUpsert(section,recordId,data,reason='direct-write'){
+ if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return false;
  if(!cloudClient){
   scheduleRecordPush(reason);return false;
  }
@@ -458,6 +477,7 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
 }
 
 async function recordImmediateDelete(section,recordId,reason='direct-delete'){
+ if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return false;
  queueRecordDelete(section,recordId);
  if(!cloudClient||!recordSyncReady){scheduleRecordPush(reason);return false}
  try{
@@ -476,6 +496,7 @@ async function recordImmediateDelete(section,recordId,reason='direct-delete'){
 }
 
 async function recordImmediateBatch(section,records,reason='batch-write'){
+ if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return false;
  if(!Array.isArray(records)||!records.length)return true;
  if(!cloudClient){
   scheduleRecordPush(reason);return false;
@@ -1908,6 +1929,18 @@ async function refreshCloudSafetyState(){
  let cloudRows=[];
  try{cloudRows=await recordFetchAll();}catch(e){console.warn('Canonical cloud check failed',e);cloudSetStatus('Cloud verification failed • retry before editing');return;}
  const activeCloudRows=cloudRows.filter(r=>!r.deleted_at).length;
+ // A restricted account has just had its old browser cache cleared on a
+ // permission change. Load only RLS-authorized rows before unlocking it.
+ if(window.financeRestrictedOwnAccess && activeCloudRows>0 &&
+    localStorage.getItem('pf_v185_authoritative_cloud_loaded')!=='1'){
+  const loaded=await recordPullAll('page-access-load');
+  if(!loaded){cloudSetStatus('Allowed pages could not be loaded. Retry before editing.');return;}
+  localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
+  setFinanceAccessGate(session);
+  await startRealtimeRecordSync();
+  updateCloudSyncPanel(true);
+  return;
+ }
  const remote=await cloudInspectState();
  const canonicalCloudExists=activeCloudRows>0;
  const anyCloudExists=canonicalCloudExists||remote.initialized;

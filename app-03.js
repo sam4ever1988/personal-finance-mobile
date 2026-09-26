@@ -19,9 +19,17 @@ function navIcon(name){
  };
  return '<svg class="navSvg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+paths[name]+'</svg>';
 }
-function shellButton(page,icon,label){return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>'}
+function shellButton(page,icon,label){
+ if(window.financeCanViewPage&&!window.financeCanViewPage(page))return '';
+ return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>';
+}
 function canonicalTopHTML(){
- function menu(label,icon,mainPage,items){return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" data-main-page="'+mainPage+'" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+items.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>'}
+ function menu(label,icon,mainPage,items){
+  const visible=items.filter(x=>!window.financeCanViewPage||window.financeCanViewPage(x[0]));
+  if(!visible.length)return '';
+  const destination=visible.some(x=>x[0]===mainPage)?mainPage:visible[0][0];
+  return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" data-main-page="'+destination+'" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+visible.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>';
+ }
  return '<div class="canonicalBrand"><span class="canonicalMark">'+navIcon('investments')+'</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="canonicalTopNav">'
  +menu('Dashboard','dashboard','executive',[['executive','dashboard','Executive Overview'],['accounts','cash','Cash & Credit'],['financialposition','position','Financial Position'],['strategy','strategy','Financial Strategy']])
  +menu('Transactions','transactions','transactions',[['transactions','transactions','Transactions'],['incomeplan','cash','Monthly Income & Payment Plan'],['outgoings','outgoings','Cash & Other Outgoings'],['installments','installments','Installments']])
@@ -98,8 +106,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.42')+'</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.42');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.43')+'</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.43');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -1125,6 +1133,11 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  restoreReviewControls(state);
 
  const page=state.page||'dashboard';
+ if(window.financeCanViewPage&&!window.financeCanViewPage(page)){
+  nav(['executive','rental','investments','transactions','accounts','assets','accountprofile']
+    .find(p=>window.financeCanViewPage(p))||'accountprofile');
+  return;
+ }
 
  // Restore the view WITHOUT the normal nav() scroll-to-top side effect.
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
@@ -1199,6 +1212,12 @@ function loadSavedReviewState(){
 
 function nav(page){
  if(page==='adminAccess'&&!window.financeIsOwner)return nav('accountprofile');
+ if(window.financeCanViewPage&&!window.financeCanViewPage(page)){
+  const first=['executive','rental','investments','transactions','accounts','assets','outgoings','installments','incomeplan','reports','accountprofile']
+   .find(p=>window.financeCanViewPage(p))||'accountprofile';
+  if(page!==first)return nav(first);
+  return;
+ }
  syncCanonicalShell(page);
  const previousPage=activeViewId();
  if(previousPage)captureReviewState();
@@ -1210,6 +1229,16 @@ function nav(page){
  }
 
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
+ const readOnly=window.financePagePermissions?.[page]==='view';
+ const currentView=document.getElementById(page);
+ window.financeReadOnlyObserver?.disconnect();
+ if(readOnly&&currentView){
+  const lockControls=()=>currentView.querySelectorAll('button:not([data-page-jump]),input:not([type=search]),textarea')
+   .forEach(control=>{if(!control.disabled)control.disabled=true;});
+  lockControls();
+  window.financeReadOnlyObserver=new MutationObserver(lockControls);
+  window.financeReadOnlyObserver.observe(currentView,{childList:true,subtree:true});
+ }
  document.body.classList.toggle('execMode',page==='executive');
  document.body.classList.toggle('strategyMode',page==='strategy');
  document.body.classList.toggle('txMode',page==='transactions');
