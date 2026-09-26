@@ -69,7 +69,26 @@ window.renderRentalReport=function(){
  const group=key=>{if(!groups.has(key))groups.set(key,{nights:0,gross:0,fees:0,expenses:0,received:0});return groups.get(key)};
  bookings.forEach(b=>{for(let d=rDate(b.checkin),end=rDate(b.checkout);d<end;d.setDate(d.getDate()+1)){const g=group(keyFor(rIso(d))),gross=rentalRate(b);g.nights++;g.gross+=gross;g.fees+=gross*rentalFeeRate(b)/100}if(b.paid&&b.paymentDate)group(keyFor(b.paymentDate)).received+=Number(b.paidAmount??rentalGross(b))});
  expenses.forEach(e=>{if(e.date)group(keyFor(e.date)).expenses+=Number(e.amount||0)});
- target.innerHTML='<div class="tableWrap"><table class="rentalTable"><thead><tr><th>Period</th><th>Booked Nights</th><th>Gross</th><th>Organiser Fees</th><th>Expenses</th><th>Net</th><th>Received</th></tr></thead><tbody>'+([...groups].sort((a,b)=>b[0].localeCompare(a[0])).map(([key,g])=>`<tr><td>${key}</td><td>${g.nights}</td><td>${rMoney(g.gross)}</td><td>${rMoney(g.fees)}</td><td>${rMoney(g.expenses)}</td><td>${rMoney(g.gross-g.fees-g.expenses)}</td><td>${rMoney(g.received)}</td></tr>`).join('')||'<tr><td colspan="7">No rental activity recorded.</td></tr>')+'</tbody></table></div>';
+ const availability=key=>{
+  let start,end;if(period==='daily'){start=rDate(key);end=rDate(rNextDate(key))}
+  else if(period==='weekly'){start=rDate(key);end=new Date(start);end.setDate(end.getDate()+7)}
+  else if(period==='monthly'){start=rDate(key+'-01');end=new Date(start);end.setMonth(end.getMonth()+1)}
+  else{start=rDate(key+'-01-01');end=new Date(start);end.setFullYear(end.getFullYear()+1)}
+  let nights=0;for(let d=new Date(start);d<end;d.setDate(d.getDate()+1)){
+   const iso=rIso(d);if(!rentalBlocks.some(b=>rentalBelongs(b)&&b.date===iso&&['blocked','maintenance'].includes(b.status)))nights++;
+  }return nights;
+ };
+ const rows=[...groups].sort((a,b)=>b[0].localeCompare(a[0])).map(([key,g])=>{
+  const available=availability(key),occupancy=available?100*g.nights/available:0,revpan=available?g.gross/available:0;
+  return `<tr><td>${key}</td><td>${g.nights} / ${available}</td><td>${occupancy.toFixed(1)}%</td><td>${rMoney(revpan)}</td><td>${rMoney(g.gross)}</td><td>${rMoney(g.fees)}</td><td>${rMoney(g.expenses)}</td><td>${rMoney(g.gross-g.fees-g.expenses)}</td><td>${rMoney(g.received)}</td></tr>`;
+ });
+ const viewMonth=rIso(rentalView).slice(0,7),comparison=rentalUnits.map(unit=>{
+  const before=rentalUnitId;rentalUnitId=unit.id;const data=rentalMonthDataFor(rentalView);
+  const blocked=rentalBlocks.filter(b=>rentalBelongs(b)&&b.date.startsWith(viewMonth)&&['blocked','maintenance'].includes(b.status)).length;
+  const available=Math.max(0,data.days-blocked);rentalUnitId=before;
+  return `<tr><td>${rEsc(unit.name)}</td><td>${data.booked} / ${available}</td><td>${(available?100*data.booked/available:0).toFixed(1)}%</td><td>${rMoney(available?data.revenue/available:0)}</td><td>${rMoney(data.revenue)}</td><td>${rMoney(data.fees)}</td><td>${rMoney(data.net)}</td></tr>`;
+ }).join('');
+ target.innerHTML='<div class="tableWrap"><table class="rentalTable"><thead><tr><th>Period</th><th>Booked / Available</th><th>Occupancy</th><th>Revenue / Available Night</th><th>Gross</th><th>Organiser Fees</th><th>Expenses</th><th>Net</th><th>Received</th></tr></thead><tbody>'+(rows.join('')||'<tr><td colspan="9">No rental activity recorded.</td></tr>')+'</tbody></table></div><h3>Unit Comparison · '+viewMonth+'</h3><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Unit</th><th>Booked / Available</th><th>Occupancy</th><th>Revenue / Available Night</th><th>Gross</th><th>Organiser Fees</th><th>Net</th></tr></thead><tbody>'+comparison+'</tbody></table></div>';
 };
 function rentalDatesInRange(start,end){
  var dates=[],cursor=rDate(start),last=rDate(end);
@@ -155,7 +174,15 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei){ei.value=email;ei.readOnly=true;}const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
   document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar').forEach(e=>e.textContent=initials);
   const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
-  const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner;
+  const ownWorkspace=window.financeWorkspaceChoices?.find(w=>w.own);
+  const workspaceName=document.getElementById('financeWorkspaceName');if(workspaceName)workspaceName.value=ownWorkspace?.name||'My Workspace';
+  const switcher=document.getElementById('accountWorkspaceSwitch');if(switcher){
+   switcher.replaceChildren();(window.financeWorkspaceChoices||[]).forEach(w=>{
+    const option=document.createElement('option');option.value=w.id;option.textContent=w.name+(w.own?' · Mine':' · Shared');switcher.append(option);
+   });switcher.value=window.financeWorkspaceUserId||'';
+   switcher.onchange=()=>window.financeChooseWorkspace?.(switcher.value);
+  }
+  const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner||!!window.financeSharedWorkspace;
   const ownCard=document.getElementById('accountOwnAccessCard'),summary=document.getElementById('accountOwnAccessSummary');
   if(ownCard&&summary){
    ownCard.hidden=!!window.financeIsOwner;
@@ -168,6 +195,31 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
+ window.financeChooseWorkspace=async function(workspaceId){
+  if(workspaceId===window.financeWorkspaceUserId)return;
+  if(!window.financeWorkspaceChoices?.some(w=>w.id===workspaceId))return;
+  if(typeof getCloudMeta==='function'&&getCloudMeta().pending){
+   const synced=await recordPushAll('before-workspace-switch');
+   if(!synced){alert('Sync is still pending. Resolve it before switching workspaces.');renderAccountProfile();return}
+  }
+  sessionStorage.setItem('finance_workspace_selected_'+window.financeActiveUserId,workspaceId);
+  location.reload();
+ };
+ document.getElementById('financeWorkspaceNameSave')?.addEventListener('click',async()=>{
+  const status=document.getElementById('financeWorkspaceNameStatus');
+  const name=document.getElementById('financeWorkspaceName')?.value.trim();
+  if(!name||name.length>80){status.textContent='Use a name between 1 and 80 characters.';return}
+  try{
+   const client=window.financeSupabaseClient,{data:{session}}=await client.auth.getSession();
+   if(!session)throw new Error('Sign in first.');
+   const {error}=await client.from('finance_workspace_profiles').upsert({owner_user_id:session.user.id,display_name:name,updated_at:new Date().toISOString()},{onConflict:'owner_user_id'});
+   if(error)throw error;
+   const own=window.financeWorkspaceChoices?.find(w=>w.own);if(own)own.name=name;
+   if(window.financeWorkspaceUserId===session.user.id)window.financeWorkspaceName=name;
+   status.textContent='Workspace name saved.';renderAccountProfile();
+   if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?activeViewId()||'accountprofile':'accountprofile');
+  }catch(error){status.textContent='Could not save workspace name: '+error.message}
+ });
  if(matchMedia)matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if((getPrefs().theme||'dark')==='system')applyFinancePreferences()});
  applyFinancePreferences();setTimeout(renderAccountProfile,0);
 })();
@@ -227,6 +279,17 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
      ' · '+g.page+' · '+g.permission)));
    }
    const grants=grantResult.data||[],pages=pageResult.data||[];
+   const grantOwner=document.getElementById('liveGrantOwner'),grantMember=document.getElementById('liveGrantMember'),liveList=document.getElementById('liveGrantList');
+   if(grantOwner&&grantMember&&liveList){
+    const beforeOwner=grantOwner.value,beforeMember=grantMember.value;
+    grantOwner.replaceChildren();grantMember.replaceChildren();liveList.replaceChildren();
+    const labels=new Map(users.map(u=>[u.user_id,u.user_email||u.user_id]));
+    users.forEach(u=>{const a=el('option','',labels.get(u.user_id)),b=el('option','',labels.get(u.user_id));a.value=b.value=u.user_id;grantOwner.append(a);grantMember.append(b)});
+    grantOwner.value=labels.has(beforeOwner)?beforeOwner:userId;
+    grantMember.value=labels.has(beforeMember)?beforeMember:(users.find(u=>u.user_id!==userId)?.user_id||userId);
+    if(!grants.length)liveList.textContent='No live workspaces shared.';
+    grants.forEach(g=>liveList.append(el('div','prefsStatus',`${labels.get(g.owner_user_id)||g.owner_user_id} → ${labels.get(g.member_user_id)||g.member_user_id} · ${g.page} · ${g.permission}`)));
+   }
    window.financeOwnAccessRows=pages;
    const ownSelect=document.getElementById('ownAccessUser');
    if(ownSelect){
@@ -306,6 +369,25 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    status.textContent='Saved. The user’s open devices will refresh their permissions shortly.';
    await window.renderFinanceAdminAccess();
   }catch(e){status.textContent='Could not save page access: '+e.message;}
+ });
+ document.getElementById('liveGrantSave')?.addEventListener('click',async()=>{
+  const owner=document.getElementById('liveGrantOwner')?.value,member=document.getElementById('liveGrantMember')?.value,
+   page=document.getElementById('liveGrantPage')?.value,permission=document.getElementById('liveGrantPermission')?.value,
+   status=document.getElementById('liveGrantStatus');
+  if(!owner||!member||owner===member){status.textContent='Choose two different registered users.';return}
+  status.textContent='Saving shared access…';
+  try{
+   const actor=await identity();
+   const {data:ownerRows,error:ownerError}=await client.from('finance_owner').select('owner_user_id').limit(1);
+   if(ownerError||ownerRows?.[0]?.owner_user_id!==actor)throw new Error('Administrator access is required.');
+   const query=client.from('finance_workspace_grants');
+   const result=permission==='off'
+    ?await query.delete().match({owner_user_id:owner,member_user_id:member,page})
+    :await query.upsert({owner_user_id:owner,member_user_id:member,page,permission,granted_by:actor},{onConflict:'owner_user_id,member_user_id,page'});
+   if(result.error)throw result.error;
+   await window.renderFinanceAdminAccess();
+   status.textContent=permission==='off'?'Access removed.':'Shared access saved. The member can choose this workspace after signing in or refreshing.';
+  }catch(error){status.textContent='Could not save shared access: '+error.message}
  });
  const labPages=[['transactions','Transactions'],['investments','Investments'],['assets','Personal Assets'],['rental','Airbnb / Rental']];
  document.getElementById('labSaveGrant')?.addEventListener('click',async()=>{
@@ -504,13 +586,16 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    try{
     const user=await identity();
     if(user!==window.financeActiveUserId)return;
-    const {data,error}=await client.from('finance_page_access').select('page,permission').eq('user_id',user);
+    const shared=!!window.financeSharedWorkspace,workspace=window.financeWorkspaceUserId||user;
+    const {data,error}=shared
+      ?await client.from('finance_workspace_grants').select('page,permission').eq('owner_user_id',workspace).eq('member_user_id',user)
+      :await client.from('finance_page_access').select('page,permission').eq('user_id',user);
     if(error)return;
     const current=new Map((data||[]).map(r=>[r.page,r.permission]));
     const ordered=['executive','accounts','financialposition','strategy','transactions',
      'incomeplan','outgoings','installments','importstatements','investments',
      'assets','rental','reports','financeSettings'];
-    if(JSON.stringify(ordered.map(p=>current.get(p)||'off'))!==window.financePageFingerprint){
+    if(JSON.stringify([workspace,...ordered.map(p=>current.get(p)||'off')])!==window.financePageFingerprint){
      document.body.classList.add('financeAccessLocked');
      await window.financeScopeWipe?.();
      location.reload();

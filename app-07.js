@@ -88,7 +88,7 @@ async function recordFetchAll(){
  if(!session||session.user.id!==window.financeActiveUserId)return [];
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
    .select('section,record_id,data,updated_at,deleted_at')
-   .eq('user_id',session.user.id)
+   .eq('user_id',window.financeWorkspaceUserId||session.user.id)
    .order('updated_at',{ascending:true});
  if(error)throw error;
  return data||[];
@@ -100,7 +100,7 @@ async function recordFetchLatestUpdatedAt(){
  if(!session||session.user.id!==window.financeActiveUserId)return 0;
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
   .select('updated_at')
-  .eq('user_id',session.user.id)
+  .eq('user_id',window.financeWorkspaceUserId||session.user.id)
   .order('updated_at',{ascending:false})
   .limit(1);
  if(error)throw error;
@@ -113,7 +113,7 @@ async function recordFetchChangedSince(iso){
  if(!session||session.user.id!==window.financeActiveUserId)return [];
  const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
   .select('section,record_id,data,updated_at,deleted_at')
-  .eq('user_id',session.user.id)
+  .eq('user_id',window.financeWorkspaceUserId||session.user.id)
   .gt('updated_at',iso)
   .order('updated_at',{ascending:true});
  if(error)throw error;
@@ -122,7 +122,7 @@ async function recordFetchChangedSince(iso){
 
 
 async function recordSeedFromLegacyCloudIfNeeded(){
- if(window.financeRestrictedOwnAccess)return recordFetchAll();
+ if(window.financeRestrictedOwnAccess||window.financeSharedWorkspace)return recordFetchAll();
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return [];
  const existing=await recordFetchAll();
@@ -139,7 +139,7 @@ async function recordSeedFromLegacyCloudIfNeeded(){
 
  const payload=seedRows.map(r=>({...r,deleted_at:null}));
  const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(payload.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+   .upsert(payload.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
  if(error)throw error;
 
  return await recordFetchAll();
@@ -186,7 +186,7 @@ async function recordPullAll(reason='manual-full-pull'){
     const seedRows=recordRowsFromSnapshot(legacy.value).map(r=>({...r,deleted_at:null}));
     if(seedRows.length){
       const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-        .upsert(seedRows.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+        .upsert(seedRows.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
       if(error)console.warn('Row-cloud repair from app_state failed',error);
     }
 
@@ -220,7 +220,7 @@ async function recordPullAll(reason='manual-full-pull'){
       if(rows.length){
         const payload=rows.map(r=>({...r,deleted_at:null}));
         const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-          .upsert(payload.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+          .upsert(payload.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
         if(error)throw error;
         rows=await recordFetchAll();
       }
@@ -321,7 +321,7 @@ async function recordPushAll(reason='edit'){
    if(!tombstones.length){recordPendingDeletes=[];saveRecordDeleteQueue();}
    else {
    tombstones.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
-   const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+   const {error:deleteError}=await cloudClient.from(RECORD_SYNC_TABLE).upsert(tombstones.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
    if(deleteError)throw deleteError;
    }
    // Keep the durable queue until a subsequent read confirms the tombstones.
@@ -352,7 +352,7 @@ async function recordPushAll(reason='edit'){
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-    .upsert(upserts.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+    .upsert(upserts.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
    if(error)throw error;
   }
 
@@ -457,7 +457,7 @@ async function recordImmediateUpsert(section,recordId,data,reason='direct-write'
   markLocalRecordWrite(section,recordId);
 
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert({...row,user_id:session.user.id},{onConflict:'user_id,section,record_id'});
+   .upsert({...row,user_id:(window.financeWorkspaceUserId||session.user.id)},{onConflict:'user_id,section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
@@ -486,7 +486,7 @@ async function recordImmediateDelete(section,recordId,reason='direct-delete'){
   if(!session||session.user.id!==window.financeActiveUserId){scheduleRecordPush(reason);return false}
   const row={section,record_id:String(recordId),data:{},deleted_at:new Date().toISOString()};
   markLocalRecordWrite(section,recordId);
-  const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert({...row,user_id:session.user.id},{onConflict:'user_id,section,record_id'});
+  const {error}=await cloudClient.from(RECORD_SYNC_TABLE).upsert({...row,user_id:(window.financeWorkspaceUserId||session.user.id)},{onConflict:'user_id,section,record_id'});
   if(error)throw error;
   recordPendingDeletes=recordPendingDeletes.filter(x=>!(x.section===section&&String(x.record_id)===String(recordId)));saveRecordDeleteQueue();
   setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,lastSyncedAt:new Date().toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`immediate-${reason}`});
@@ -517,7 +517,7 @@ async function recordImmediateBatch(section,records,reason='batch-write'){
   rows.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
 
   const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(rows.map(r=>({...r,user_id:session.user.id})),{onConflict:'user_id,section,record_id'});
+   .upsert(rows.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
   if(error)throw error;
 
   setCloudMeta({
@@ -578,7 +578,7 @@ async function handleRealtimeRecordPayload(payload){
  try{
   const row=payload?.new&&Object.keys(payload.new).length?payload.new:payload?.old;
   if(!row?.section||row.record_id==null)return;
-  if(row.user_id!==window.financeActiveUserId)return;
+  if(row.user_id!==(window.financeWorkspaceUserId||window.financeActiveUserId))return;
 
   noteCloudUpdatedAt(row.updated_at);
 
@@ -653,12 +653,12 @@ async function startRealtimeRecordSync(){
 // ===================================================================
 
 function financeProtectedAccountCatalogReady(){
- if(window.financeActiveUserId&&!window.financeIsOwner)return true;
+ if(window.financeSharedWorkspace||(window.financeActiveUserId&&!window.financeIsOwner))return true;
  return typeof customBanks!=='undefined'&&Array.isArray(customBanks)&&customBanks.length>0&&
         typeof customCreditCards!=='undefined'&&Array.isArray(customCreditCards)&&customCreditCards.length>0;
 }
 function financeDeviceCloudVerified(){
- if(window.financeActiveUserId&&!window.financeIsOwner)return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
+ if(window.financeSharedWorkspace||(window.financeActiveUserId&&!window.financeIsOwner))return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
  return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'&&financeProtectedAccountCatalogReady();
 }
 function setFinanceAccessGate(session){
@@ -697,6 +697,7 @@ async function financeSignOutCurrentDevice(){
   recordSyncReady=false;
   const {error}=await cloudClient.auth.signOut({scope:'local'});
   if(error)throw error;
+  sessionStorage.removeItem('finance_workspace_selected_'+window.financeActiveUserId);
   await window.financeScopeSwitch(null);
   location.reload();
  }catch(e){
@@ -784,7 +785,7 @@ async function cloudRefreshAuth(){
   return null;
  }
  const {data:{session}}=await cloudClient.auth.getSession(),on=!!session;
- if(session && session.user.id!==localStorage.getItem('pf_active_user_id')){
+ if(session && window.financeCacheSlotId!==localStorage.getItem('pf_active_user_id')){
   recordSyncReady=false;
   clearTimeout(recordSyncPushTimer);
   await window.financeScopeSwitch(session);
@@ -981,7 +982,7 @@ function updateCloudSyncPanel(remoteInitialized=null){
  setTimeout(()=>renderCloudReconciliation(),0);
 }
 async function cloudInspectState(){
- if(window.financeActiveUserId&&!window.financeIsOwner)return {initialized:false,value:null,updatedAt:''};
+ if(window.financeSharedWorkspace||(window.financeActiveUserId&&!window.financeIsOwner))return {initialized:false,value:null,updatedAt:''};
  if(!cloudClient)return {initialized:false,value:null,updatedAt:''};
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return {initialized:false,value:null,updatedAt:''};
@@ -1240,6 +1241,7 @@ function setRecoveryCloudLock(active){
 }
 
 async function verifyCloudCompletelyEmpty(){
+ if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)throw new Error('Sign in to Supabase first.');
@@ -1263,6 +1265,7 @@ async function verifyCloudCompletelyEmpty(){
 }
 
 async function deleteAllCloudFinanceData(){
+ if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  if(!cloudClient)throw new Error('Cloud connection is unavailable.');
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)throw new Error('Sign in to Supabase first.');
@@ -1343,6 +1346,7 @@ async function restoreBackupToLocalOnly(file){
 }
 
 async function publishRestoredBackupToCloud(){
+ if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  // Step 4 is the ONLY operation allowed to publish while recovery lock is active.
  // Perform a fresh Supabase-only read immediately before upload.
  const emptyCheck=await verifyCloudCompletelyEmpty();
@@ -1359,7 +1363,7 @@ async function publishRestoredBackupToCloud(){
  for(let i=0;i<rows.length;i+=chunkSize){
   const chunk=rows.slice(i,i+chunkSize);
   const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
-    .upsert(chunk.map(r=>({...r,user_id:(window.financeActiveUserId||'')})),{onConflict:'user_id,section,record_id'})
+    .upsert(chunk.map(r=>({...r,user_id:(window.financeWorkspaceUserId||window.financeActiveUserId||'')})),{onConflict:'user_id,section,record_id'})
     .select('section,record_id,deleted_at');
   if(error)throw new Error(`Cloud write failed at rows ${i+1}-${i+chunk.length}: ${error.message}`);
   const returned=new Set((data||[]).map(r=>`${r.section}|${r.record_id}`));
@@ -1601,7 +1605,7 @@ function applyCloudSnapshot(d){
  return true;
 }
 async function cloudSaveSnapshot(silent=true,forceInitial=false){
- if(!window.financeIsOwner)return false;
+ if(!window.financeIsOwner||window.financeSharedWorkspace)return false;
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session)return false;
@@ -1868,6 +1872,7 @@ function v185ActiveCloudCounts(rows){
  };
 }
 async function cloudDownloadAll(){
+ if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  const btn=$('cloudDownload');
  const result=$('cloudResult');
  const originalLabel=btn?btn.textContent:'Load Latest Cloud Data';
@@ -1948,7 +1953,7 @@ async function refreshCloudSafetyState(){
  const remote=await cloudInspectState();
  const canonicalCloudExists=activeCloudRows>0;
  const anyCloudExists=canonicalCloudExists||remote.initialized;
- if(!anyCloudExists && window.financeActiveUserId && !window.financeIsOwner){
+ if(!anyCloudExists && window.financeActiveUserId && (!window.financeIsOwner||window.financeSharedWorkspace)){
   localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
   setCloudMeta({initialized:true,deviceTrusted:true,pending:false});
   setFinanceAccessGate(session);

@@ -2164,6 +2164,11 @@ body.compactFinanceNav .canonicalTopNav .navSvg{width:15px!important;height:15px
 .rentalReport{margin-top:16px;overflow-x:auto}
 .rentalReport .splitHead{gap:12px;align-items:center}
 .rentalReport .rentalTable{width:100%;margin-top:10px}
+.canonicalWorkspace{display:grid;gap:2px;font-size:10px;color:#a8c6d5;white-space:nowrap}
+.canonicalWorkspace select{max-width:150px;background:#092b3e;color:#eefaff;border:1px solid #2e6880;border-radius:8px;padding:6px}
+.financeWorkspaceChooser{position:fixed;z-index:100000;inset:0;background:#041723f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#eefaff;padding:24px;text-align:center}
+.financeWorkspaceChooser button{min-width:260px;max-width:90vw}
+.financeWorkspaceChooser p{color:#a8c6d5;max-width:440px}
 
 /* V284 top-row version label */
 .canonicalDate{flex-direction:column!important;justify-content:center!important;gap:1px!important;line-height:1.05!important}
