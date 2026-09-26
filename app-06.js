@@ -1790,7 +1790,10 @@ function syncStableId(section,x,i=0){
 
 function buildRecordSyncRowsFromState(){
  const rows=[];
- const add=(section,record_id,data)=>rows.push({section,record_id:String(record_id),data});
+ const add=(section,record_id,data)=>{
+  if(window.financeSectionPermission&&window.financeSectionPermission(section)==='off')return;
+  rows.push({section,record_id:String(record_id),data});
+ };
 
  // Singleton/object sections.
  add('finance_settings',RECORD_SYNC_SINGLETON,financeSettings||{});

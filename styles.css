@@ -2716,3 +2716,6 @@ body.investmentsMode #investments .invRowActions .invTradeBtn[data-type="SELL"]{
  color:#ffb6be;
  background:#4b2530;
 }
+.ownAccessMatrix{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:10px;margin-top:14px}
+.ownAccessMatrix label{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border,#24526a);border-radius:10px;background:rgba(5,31,46,.35)}
+.ownAccessMatrix select{min-width:112px;max-width:135px}
