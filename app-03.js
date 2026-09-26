@@ -1217,13 +1217,13 @@ function nav(page){
  document.body.classList.toggle('assetsModernMode',page==='assets');
  document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync','auditTrail','accountprofile','adminAccess'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync','auditTrail','accountprofile','adminAccess','accessLab'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
- const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details',auditTrail:'Audit Trail',adminAccess:'Admin Access'};
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details',auditTrail:'Audit Trail',adminAccess:'Admin Access',accessLab:'Access Test'};
  if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
  if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
@@ -1249,6 +1249,7 @@ function nav(page){
  if(page==='accountprofile'&&typeof renderFinanceSharedWith==='function')renderFinanceSharedWith();
  if(page==='auditTrail'&&typeof renderFinanceAuditTrail==='function')renderFinanceAuditTrail();
  if(page==='adminAccess'&&typeof renderFinanceAdminAccess==='function')renderFinanceAdminAccess();
+ if(page==='accessLab'&&typeof renderFinanceAccessLab==='function')renderFinanceAccessLab();
  // V263: Transactions must render on every intentional navigation.
  // It was missing from nav(), leaving the old/empty table in the DOM until another action rebuilt it.
  if(page==='transactions')renderTransactions();
