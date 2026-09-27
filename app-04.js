@@ -1100,6 +1100,30 @@ function renderReports(){
  $('reportAccountsBody').innerHTML=accounts.map(a=>{if(a.type==='card'){const m=cardMetrics(a);return '<tr><td><b>'+escapeHtml(a.bank+' • '+a.name+' •'+a.ending)+'</b><br><span class="badge card">Credit Card</span></td><td class="red">'+money(m.total)+'</td><td>'+money(m.limit)+'</td><td class="amber">'+money(m.inst)+'</td><td class="green">'+money(m.available)+'</td><td>'+m.util.toFixed(1)+'%</td></tr>'}return '<tr><td><b>'+escapeHtml(a.bank+' • '+a.name)+'</b><br><span class="badge bank">Bank Account</span></td><td class="green">'+money(adjustedBankBalance(a))+'</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>'}).join('');
 }
 
+function bindReportFilters(){
+ const ids=['reportFrom','reportTo','reportAccount','reportPhysicalCard','reportCategory','reportSubcategory','reportType'];
+ ids.forEach(id=>{
+  const el=$(id);if(!el||el.dataset.reportBound)return;
+  el.dataset.reportBound='1';
+  el.addEventListener('change',()=>{
+   if(id==='reportCategory')fillReportSubcategories();
+   reportDrill={type:'',value:''};
+   renderReports();
+  });
+ });
+ const reset=$('reportReset');if(reset&&!reset.dataset.reportBound){
+  reset.dataset.reportBound='1';reset.addEventListener('click',()=>{
+   setReportCurrentMonthDates();
+   ['reportAccount','reportPhysicalCard','reportCategory','reportSubcategory','reportType'].forEach(id=>{if($(id))$(id).value='';});
+   reportDrill={type:'',value:''};fillReportSubcategories();renderReports();
+  });
+ }
+ const clear=$('clearReportSelection');if(clear&&!clear.dataset.reportBound){
+  clear.dataset.reportBound='1';clear.addEventListener('click',()=>{reportDrill={type:'',value:''};renderReports();});
+ }
+}
+bindReportFilters();
+
 function deleteInstallmentPlan(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
  const c=planCalc(p),a=account(p.cardId);
