@@ -343,17 +343,20 @@ async function recordPushAll(reason='edit'){
    if(syncRecordValue(cloud.data)!==old){conflicts.push(key);return false;}
    return true;
   }).map(r=>({...r,deleted_at:null}));
-  if(conflicts.length){
-   setCloudMeta({pending:true,reconciliationMismatch:true});
-   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. Review differences.`);
-   if(activeViewId()==='cloudSync')renderCloudReconciliation();
-   return false;
-  }
+  // A conflict in one section must not prevent independent account, transfer,
+  // investment, or rental edits from reaching the other device.
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
     .upsert(upserts.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
    if(error)throw error;
+   rememberRemoteRecordBaseline(upserts);
+  }
+  if(conflicts.length){
+   setCloudMeta({pending:true,reconciliationMismatch:true});
+   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. Other safe changes published; review differences.`);
+   if(activeViewId()==='cloudSync')renderCloudReconciliation();
+   return false;
   }
 
   const verified=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
