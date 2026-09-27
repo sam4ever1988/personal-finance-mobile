@@ -5,7 +5,7 @@ const source=fs.readFileSync(require('node:path').join(__dirname,'../app-02.js')
 const functions=source.slice(source.indexOf('const CENTRAL_BANK_LOGO_BANKS='),source.indexOf('function paymentStatusClass('));
 const context={URL,escapeHtml:value=>String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))};
 vm.createContext(context);
-vm.runInContext('const BANK_LOGO_URLS={"Al Rajhi Bank":"https://official.example/logo.svg"};\n'+functions,context);
+vm.runInContext('const BANK_LOGO_URLS={"Al Rajhi Bank":"https://official.example/logo.svg","meem / GIB Saudi":"https://upload.wikimedia.org/wikipedia/commons/0/03/Meem_Logo.JPG"};\n'+functions,context);
 
 assert.equal(context.bankLogoURL({bank:'STC Bank'}),'https://www.stcbank.com.sa/favicon.ico');
 assert.equal(context.bankLogoURL({bank:'SNB AlAhli',website:'https://www.alahli.com/ar/pages/personal-banking'}),'https://upload.wikimedia.org/wikipedia/commons/6/62/Saudi_National_Bank_Logo.svg');
@@ -14,6 +14,8 @@ assert.equal(context.bankLogoURL({bank:'New Bank',website:'newbank.example/path'
 assert.equal(context.bankLogoURL({bank:'New Bank',logo:'https://newbank.example/brand/logo.png'}),'https://newbank.example/brand/logo.png');
 assert.equal(context.bankLogoURL({bank:'New Bank',website:'javascript:alert(1)'}),'');
 assert.equal(context.bankLogoURL({bank:'New Bank',website:'https://user:pass@bank.example'}),'');
+assert.equal(context.bankLogoURL({bank:'meem / GIB Saudi',website:'https://meem.com.sa'}),'https://upload.wikimedia.org/wikipedia/commons/0/03/Meem_Logo.JPG');
+assert.match(context.bankLogoHTML({bank:'meem / GIB Saudi',website:'https://meem.com.sa'}),/domain=meem\.com\.sa&amp;sz=128/);
 assert.match(context.bankLogoHTML({bank:'New Bank',website:'newbank.example'}),/domain=newbank\.example&amp;sz=128/);
 assert.match(context.bankLogoHTML({bank:'New Bank',website:'newbank.example'}),/this\.style\.display='none'/);
 assert.match(context.bankLogoHTML({bank:'<Bank>',website:'javascript:alert(1)'}),/&lt;Bank&gt;/);
