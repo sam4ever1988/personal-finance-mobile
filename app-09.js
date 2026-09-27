@@ -95,6 +95,7 @@ function invEnsureLedgerV296(){
   invTrades.filter(t=>t.ticker===h.ticker).sort(invTradeSort).reverse().forEach(t=>{
    var q=Math.max(0,Number(t.qty||0)),p=Math.max(0,Number(t.price||0));
    if(t.type==="SELL")state.qty+=q;
+   else if(t.type==="BONUS"&&t.actionStatus==='confirmed'){var before=Math.max(0,state.qty-q);state.avg=before?state.qty*state.avg/before:state.avg;state.qty=before}
    else if(t.type==="BUY"){var priorQty=state.qty-q;if(priorQty>0)state.avg=Math.max(0,((state.qty*state.avg)-(q*p))/priorQty);state.qty=Math.max(0,priorQty)}
   });
   h.ledgerBaseQty=state.qty;h.ledgerBaseAvg=state.avg;changed=true;
@@ -107,6 +108,7 @@ function invCalculatedHolding(ticker,trades=invTrades){
  for(const t of trades.filter(x=>x.ticker===ticker).sort(invTradeSort)){
   var q=Math.max(0,Number(t.qty||0)),p=Math.max(0,Number(t.price||0));
   if(t.type==="BUY"){var next=qty+q;avg=next?((qty*avg)+(q*p))/next:avg;qty=next}
+  else if(t.type==="BONUS"&&t.actionStatus==='confirmed'){var next=qty+q;avg=next?(qty*avg)/next:avg;qty=next}
   else if(t.type==="SELL"){if(q>qty+.0000001)return null;qty-=q}
  }
  return{qty,avg};
@@ -118,6 +120,7 @@ function invRebaseFromCurrent(ticker){
  invTrades.filter(t=>t.ticker===ticker).sort(invTradeSort).reverse().forEach(t=>{
   var q=Math.max(0,Number(t.qty||0)),p=Math.max(0,Number(t.price||0));
   if(t.type==="SELL")state.qty+=q;
+  else if(t.type==="BONUS"&&t.actionStatus==='confirmed'){var before=Math.max(0,state.qty-q);state.avg=before?state.qty*state.avg/before:state.avg;state.qty=before}
   else if(t.type==="BUY"){var prior=state.qty-q;if(prior>0)state.avg=Math.max(0,((state.qty*state.avg)-(q*p))/prior);state.qty=Math.max(0,prior)}
  });
  h.ledgerBaseQty=state.qty;h.ledgerBaseAvg=state.avg;
@@ -152,11 +155,12 @@ function renderInvestments(){
  body.querySelectorAll(".invPlanBtn").forEach(b=>b.onclick=()=>invOpenPlan(b.dataset.t));
  document.getElementById("invAllocation").innerHTML=invHoldings.filter(h=>h.qty>0).sort((a,b)=>b.qty*b.price*invFactor(b)-a.qty*a.price*invFactor(a)).slice(0,8).map(h=>{var v=h.qty*h.price*invFactor(h),p=t.value?v/t.value*100:0;return '<div class="invAlloc"><div><b>'+invEsc(h.ticker)+'</b><span>'+p.toFixed(1)+'%</span></div><div class="invBar"><i style="width:'+Math.max(1,p)+'%"></i></div></div>'}).join("");
  renderInvTrades();
+ renderInvCorporateActions();
  var st=document.getElementById("invStatus");if(st)st.innerHTML=invLastPriceUpdate?'Live prices last refreshed <b>'+new Date(invLastPriceUpdate).toLocaleString()+'</b>. Daily change compares the live price with the previous market close. U.S. holdings are converted at 3.75 SAR/USD.':'Saved prices are shown. Select <b>Refresh Live Prices</b> to update prices and daily changes.';
 }
 function renderInvTrades(){
  var el=document.getElementById('invTrades');if(!el)return;
- var rows=invTrades.slice().sort(invTradeSort).reverse().slice(0,20);
+ var rows=invTrades.filter(x=>x.type==='BUY'||x.type==='SELL').slice().sort(invTradeSort).reverse().slice(0,20);
  el.innerHTML=rows.length?rows.map(x=>{
   var a=invTradeAmounts(x),sell=x.type==='SELL',pending=sell&&x.settlementStatus!=='settled';
   return '<div class="invTradeCard"><div class="invTradeMain"><div><span class="invTradeType '+x.type.toLowerCase()+'">'+invEsc(x.type)+'</span><b>'+invEsc(x.ticker)+'</b><span>'+Number(x.qty||0).toLocaleString('en-US')+' shares @ '+invNativeMoney(x.price,a.currency)+'</span></div><time>'+invEsc(x.date)+'</time></div><div class="invTradeTotals"><span>Gross<b>'+invNativeMoney(a.gross,a.currency)+'</b></span><span>Fee<b>'+invNativeMoney(a.fee,a.currency)+'</b></span><span>'+(sell?'Net proceeds':'Total cost')+'<b>'+invNativeMoney(a.net,a.currency)+'</b></span></div><div class="invTradeFoot">'+(sell?'<span class="invSettlementBadge '+(pending?'pending':'settled')+'">'+(pending?'Pending bank settlement':'Transferred to '+invEsc(x.bankAccountName||'bank'))+'</span>':'<span class="meta">Purchase recorded</span>')+'<div class="invTradeActions"><button type="button" class="btn small" data-inv-edit="'+invEsc(x.id)+'">Edit</button><button type="button" class="btn small danger" data-inv-delete="'+invEsc(x.id)+'">Delete</button>'+(pending?'<button type="button" class="btn small primary" data-inv-settle="'+invEsc(x.id)+'">Transfer to Bank</button>':'')+'</div></div></div>';
@@ -222,3 +226,52 @@ invEnsureLedgerV296();
 document.getElementById("invRefresh")?.addEventListener("click",invRefreshPrices);
 document.getElementById("invAddHolding")?.addEventListener("click",invOpenAdd);
 ["invSearch","invMarket","invSort"].forEach(id=>document.getElementById(id)?.addEventListener(id==="invSearch"?"input":"change",renderInvestments));
+
+/* Corporate actions share the per-record investment sync ledger. They never create cash or
+   holdings from a calendar date alone; an actual receipt must be confirmed. */
+function invLocalToday(){var p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());var v=Object.fromEntries(p.map(x=>[x.type,x.value]));return v.year+'-'+v.month+'-'+v.day}
+function invActionRows(){return invTrades.filter(x=>x.type==='DIVIDEND'||x.type==='BONUS')}
+function renderInvCorporateActions(){
+ var el=document.getElementById('invCorporateActions');if(!el)return;
+ var today=invLocalToday(),rows=invActionRows().slice().sort((a,b)=>String(a.payDate||a.date).localeCompare(String(b.payDate||b.date)));
+ el.innerHTML=rows.length?rows.map(x=>{
+  var h=invTradeHolding(x),currency=x.currency||invCurrency(h),due=(x.payDate||x.date)<=today,status=x.actionStatus||'pending',amount=invRound(Number(x.qty||0)*Number(x.price||0)),label=x.type==='BONUS'?'Bonus shares':'Cash dividend';
+  return '<div class="invTradeCard"><div class="invTradeMain"><div><b>'+invEsc(x.ticker)+' • '+label+'</b><div class="meta">Eligibility '+invEsc(x.exDate||'—')+' • Pay / allocation '+invEsc(x.payDate||x.date)+' • '+(x.type==='DIVIDEND'?Number(x.qty||0)+' eligible shares × '+invNativeMoney(x.price,currency)+' = '+invNativeMoney(amount,currency):Number(x.qty||0)+' additional shares')+'</div></div><span class="invSettlementBadge '+(status==='pending'?'pending':'settled')+'">'+(status==='pending'?(due?'Due • check receipt':'Upcoming'):status==='received'?'Received at broker':status==='transferred'?'Transferred to '+invEsc(x.bankAccountName||'bank'):'Shares confirmed')+'</span></div><div class="invTradeFoot"><span class="meta">'+(x.sourceUrl?'<a href="'+invEsc(x.sourceUrl)+'" target="_blank" rel="noopener noreferrer">Issuer announcement ↗</a>':'Manually recorded')+'</span><div class="invTradeActions">'+(status==='pending'&&due?'<button type="button" class="btn small primary" data-action-confirm="'+invEsc(x.id)+'">Confirm '+(x.type==='BONUS'?'Shares':'Received')+'</button>':'')+(status==='received'&&x.type==='DIVIDEND'?'<button type="button" class="btn small primary" data-action-transfer="'+invEsc(x.id)+'">Transfer to Bank</button>':'')+'<button type="button" class="btn small danger" data-action-delete="'+invEsc(x.id)+'">Delete</button></div></div></div>';
+ }).join(''):'<div class="meta">No dividends or bonus shares tracked yet. Add an announced event for any holding.</div>';
+ el.querySelectorAll('[data-action-confirm]').forEach(b=>b.onclick=()=>invConfirmAction(b.dataset.actionConfirm));
+ el.querySelectorAll('[data-action-transfer]').forEach(b=>b.onclick=()=>invOpenDividendTransfer(b.dataset.actionTransfer));
+ el.querySelectorAll('[data-action-delete]').forEach(b=>b.onclick=()=>invDeleteAction(b.dataset.actionDelete));
+}
+function invOpenAction(prefill){
+ var old=document.getElementById('invActionModal');if(old)old.remove();
+ var d=document.createElement('div');d.id='invActionModal';d.className='modalBack open';
+ d.innerHTML='<div class="modal"><div class="modalHead"><div><div class="modalTitle">Record Corporate Action</div><div class="meta">Use the issuer announcement and your broker statement to confirm entitlement.</div></div><button type="button" class="closeBtn">✕</button></div><form id="invActionForm" class="formGrid"><div class="field"><label>Holding</label><select id="invActionTicker" required></select></div><div class="field"><label>Type</label><select id="invActionType"><option value="DIVIDEND">Cash dividend</option><option value="BONUS">Bonus shares</option></select></div><div class="field"><label>Ex / eligibility date</label><input id="invActionEx" type="date" required></div><div class="field"><label>Payment / allocation date</label><input id="invActionPay" type="date" required></div><div class="field"><label id="invActionQtyLabel">Eligible shares held at cutoff</label><input id="invActionQty" type="number" min="0.000001" step="any" required></div><div class="field" id="invActionRateField"><label>Dividend per share (holding currency)</label><input id="invActionRate" type="number" min="0.000001" step="any" required></div><div class="field full"><label>Issuer source URL (optional)</label><input id="invActionSource" type="url" placeholder="https://..."></div><div class="field full meta" id="invActionPreview"></div><div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" id="invActionCancel">Cancel</button><button type="submit" class="btn primary">Save for Review</button></div></form></div>';
+ document.body.appendChild(d);
+ var ticker=d.querySelector('#invActionTicker');ticker.innerHTML=invHoldings.map(h=>'<option value="'+invEsc(h.ticker)+'">'+invEsc(h.ticker+' • '+h.company)+'</option>').join('');
+ if(prefill){ticker.value=prefill.ticker;d.querySelector('#invActionEx').value=prefill.exDate;d.querySelector('#invActionPay').value=prefill.payDate;d.querySelector('#invActionRate').value=prefill.rate;d.querySelector('#invActionSource').value=prefill.sourceUrl;}
+ var update=()=>{var bonus=d.querySelector('#invActionType').value==='BONUS',h=invHoldings.find(x=>x.ticker===ticker.value);d.querySelector('#invActionQtyLabel').textContent=bonus?'Bonus shares allocated':'Eligible shares held at cutoff';d.querySelector('#invActionRateField').style.display=bonus?'none':'';d.querySelector('#invActionRate').required=!bonus;d.querySelector('#invActionPreview').textContent=bonus?'Bonus shares enter the holding only after you confirm allocation. Their cost is zero, so average cost falls; live price remains a separate market quote.':'Expected gross dividend: '+invNativeMoney(Number(d.querySelector('#invActionQty').value||0)*Number(d.querySelector('#invActionRate').value||0),invCurrency(h))+'. Broker deductions and the actual SAR deposit can be entered on transfer.'};
+ ['invActionType','invActionTicker','invActionQty','invActionRate'].forEach(id=>d.querySelector('#'+id).addEventListener('input',update));update();
+ d.querySelector('.closeBtn').onclick=d.querySelector('#invActionCancel').onclick=()=>d.remove();
+ d.querySelector('#invActionForm').onsubmit=e=>{e.preventDefault();var type=d.querySelector('#invActionType').value,exDate=d.querySelector('#invActionEx').value,payDate=d.querySelector('#invActionPay').value,qty=Number(d.querySelector('#invActionQty').value),rate=Number(d.querySelector('#invActionRate').value),symbol=ticker.value,url=d.querySelector('#invActionSource').value.trim();
+  if(!invHoldings.some(h=>h.ticker===symbol)||!exDate||!payDate||exDate>payDate||!(qty>0)||(type==='DIVIDEND'&&!(rate>0)))return alert('Check the holding, dates, shares and amount.');
+  if(invActionRows().some(x=>x.ticker===symbol&&x.type===type&&x.exDate===exDate&&x.payDate===payDate))return alert('This corporate action is already recorded.');
+  var now=new Date().toISOString(),id='INV-ACTION-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),h=invHoldings.find(x=>x.ticker===symbol);invTrades.push({id,_cloudRecordId:id,type,ticker:symbol,qty,price:type==='DIVIDEND'?rate:0,fee:0,currency:invCurrency(h),date:payDate,exDate,payDate,sourceUrl:url,actionStatus:'pending',createdAt:now,updatedAt:now});invSave('investment-corporate-action-add');d.remove();renderInvestments();};
+}
+function invConfirmAction(id){var x=invActionRows().find(a=>a.id===id);if(!x||x.actionStatus!=='pending'||(x.payDate||x.date)>invLocalToday())return;
+ if(x.type==='DIVIDEND'){if(!confirm('Confirm that the dividend arrived in your brokerage account? No bank balance changes yet.'))return;x.actionStatus='received'}
+ else {if(!confirm('Confirm '+x.qty+' bonus shares were allocated to '+x.ticker+'? Their total historical cost stays the same.'))return;x.actionStatus='confirmed';if(!invRebuildHolding(x.ticker)){x.actionStatus='pending';return alert('Cannot apply bonus shares to this holding.')}}
+ x.updatedAt=new Date().toISOString();invSave('investment-corporate-action-confirm');renderInvestments();
+}
+function invOpenDividendTransfer(id){var x=invActionRows().find(a=>a.id===id);if(!x||x.type!=='DIVIDEND'||x.actionStatus!=='received')return;var banks=(typeof accounts!=='undefined'?accounts:[]).filter(a=>a.type==='bank');if(!banks.length)return alert('Add a bank account first.');
+ var old=document.getElementById('invDividendTransfer');if(old)old.remove();var d=document.createElement('div');d.className='modalBack open';d.id='invDividendTransfer';d.innerHTML='<div class="modal"><div class="modalHead"><div class="modalTitle">Transfer Dividend to Bank</div><button type="button" class="closeBtn">✕</button></div><form class="formGrid"><div class="field full"><label>Receiving bank</label><select id="invDividendBank" required></select></div><div class="field"><label>Actual net deposit (SAR)</label><input id="invDividendAmount" type="number" min="0.01" step="0.01" required></div><div class="field"><label>Deposit date</label><input id="invDividendDate" type="date" required></div><div class="field full meta">Enter the actual SAR received after broker fees, withholding and currency conversion. The gross dividend remains in the action history.</div><div class="field full" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="invDividendCancel">Cancel</button><button class="btn primary" type="submit">Confirm Transfer</button></div></form></div>';document.body.appendChild(d);
+ d.querySelector('#invDividendBank').innerHTML=banks.map(b=>'<option value="'+invEsc(b.id)+'">'+invEsc(accountName(b.id))+'</option>').join('');d.querySelector('#invDividendAmount').value=invRound(x.qty*x.price*invFactor(invTradeHolding(x))).toFixed(2);d.querySelector('#invDividendDate').value=invLocalToday();d.querySelector('.closeBtn').onclick=d.querySelector('#invDividendCancel').onclick=()=>d.remove();
+ d.querySelector('form').onsubmit=e=>{e.preventDefault();var bank=account(d.querySelector('#invDividendBank').value),amount=Number(d.querySelector('#invDividendAmount').value),date=d.querySelector('#invDividendDate').value,txId='investment-dividend-'+x.id;if(!bank||bank.type!=='bank'||!(amount>0)||!date||date>invLocalToday())return alert('Check the bank, amount and deposit date.');if(manualTransactions.some(t=>t._id===txId))return alert('This dividend was already transferred.');
+ var tx={_id:txId,account:bank.id,date,posting:date,description:'Dividend received • '+x.ticker,amount:invRound(amount),category:'Income',subcategory:'Investment Dividends',kind:'transfer',currency:'SAR',manual:true,investmentActionId:x.id,notes:'Broker dividend transferred to bank; actual SAR net amount'};
+ manualTransactions.push(tx);setTrackedBankBalance(bank.id,adjustedBankBalance(bank)+amount);x.actionStatus='transferred';x.bankAccountId=bank.id;x.bankAccountName=accountName(bank.id);x.bankAmountSAR=amount;x.settledDate=date;x.generatedTransactionId=txId;x.updatedAt=new Date().toISOString();localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));invSave('investment-dividend-transfer');if(typeof syncManualTransactionImmediate==='function')syncManualTransactionImmediate(tx);if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('investments_trades',x._cloudRecordId||x.id,x,'investment-dividend-transfer');d.remove();if(typeof rebuildTransactions==='function')rebuildTransactions();renderInvestments();if(typeof refreshAccountDependentUI==='function')refreshAccountDependentUI();else{renderDashboard();renderAccounts()}renderTransactions();};
+}
+function invDeleteAction(id){var x=invActionRows().find(a=>a.id===id);if(!x)return;if(!confirm('Delete '+x.type.toLowerCase()+' for '+x.ticker+'?'+(x.actionStatus==='transferred'?' This reverses the generated bank transfer.':'')))return;
+ if(x.actionStatus==='transferred'){var bank=account(x.bankAccountId),txId=x.generatedTransactionId;if(bank?.type==='bank')setTrackedBankBalance(bank.id,adjustedBankBalance(bank)-Number(x.bankAmountSAR||0));manualTransactions=manualTransactions.filter(t=>t._id!==txId);localStorage.setItem('pf_manual_transactions',JSON.stringify(manualTransactions));if(typeof recordImmediateDelete==='function')recordImmediateDelete('manual_transactions',txId,'investment-dividend-reverse');if(typeof rebuildTransactions==='function')rebuildTransactions()}
+ if(typeof recordImmediateDelete==='function')recordImmediateDelete('investments_trades',x._cloudRecordId||x.id,'investment-corporate-action-delete');invTrades=invTrades.filter(a=>a.id!==id);if(x.type==='BONUS'&&x.actionStatus==='confirmed')invRebuildHolding(x.ticker);invSave('investment-corporate-action-delete');renderInvestments();if(x.actionStatus==='transferred'){if(typeof refreshAccountDependentUI==='function')refreshAccountDependentUI();else{renderDashboard();renderAccounts()}renderTransactions()}
+}
+document.getElementById('invAddAction')?.addEventListener('click',()=>invOpenAction());
+document.getElementById('invRioDividend')?.addEventListener('click',()=>{if(!invHoldings.some(h=>h.ticker==='RIO'))return alert('RIO is not in this portfolio.');invOpenAction({ticker:'RIO',exDate:'2026-08-14',payDate:'2026-09-24',rate:2.11,sourceUrl:'https://www.sec.gov/Archives/edgar/data/863064/000162828026050377/rio-20260630_d2.htm'})});
