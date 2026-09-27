@@ -1483,12 +1483,6 @@ document.addEventListener('click',e=>{
 
 $('resetLocal').addEventListener('click',()=>{if(confirm('Reset custom categories, merchant rules and manual installment plans?')){localStorage.removeItem('pf_finance_settings');localStorage.removeItem('pf_categories');localStorage.removeItem('pf_installments');localStorage.removeItem('pf_merchant_rules');localStorage.removeItem('pf_tx_overrides');localStorage.removeItem('pf_income_plan');localStorage.removeItem('pf_manual_transactions');localStorage.removeItem('pf_imported_transactions');localStorage.removeItem('pf_import_history');localStorage.removeItem('pf_card_payment_plan');localStorage.removeItem('pf_duplicate_decisions');localStorage.removeItem('pf_statement_rule');localStorage.removeItem('pf_transaction_actions');location.reload()}});
 
-$('detailBack').addEventListener('click',()=>{
- renderAccounts();
- nav('accounts');
- window.scrollTo({top:0,behavior:'smooth'});
-});
-
 function runtimeSelfTest(){
  const issues=[];
  try{
