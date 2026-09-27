@@ -553,7 +553,7 @@ function legacyAdjustedBankBalance(a){
 }
 function bankTransferImpact(accountId){
  return (cashFlowLedger||[]).reduce((sum,row)=>{
-  if(row.type!=='bank-transfer'||row.status==='reversed')return sum;
+  if(!['bank-transfer','card-bank-transfer'].includes(row.type)||row.status==='reversed')return sum;
   const amount=Number(row.amount||0);
   return sum+(row.targetId===accountId?amount:0)-(row.sourceId===accountId?amount:0);
  },0);
