@@ -296,8 +296,8 @@ async function invScanAnnouncements(force){
   if(status)status.textContent='Announcement discovery is available in your own editable workspace.';
   return;
  }
- const symbols=[...new Set(invHoldings.filter(h=>Number(h.qty)>0).map(h=>h.market==='SA'?h.ticker+'.SR':h.ticker))].sort();
- if(!symbols.length){if(status)status.textContent='No owned shares to check.';return}
+ const symbols=[...new Set(invHoldings.filter(h=>h.market==='SA'&&Number(h.qty)>0).map(h=>h.ticker+'.SR'))].sort();
+ if(!symbols.length){if(status)status.textContent='No owned Saudi shares to check.';return}
  const key=invLocalToday()+'|'+symbols.join(',');
  if(!force&&(invDiscoveryAttemptKey===key||localStorage.getItem('pf_investment_discovery_checked')===key))return;
  invDiscoveryAttemptKey=key;
@@ -308,7 +308,7 @@ async function invScanAnnouncements(force){
   if(!response.ok)throw new Error(data.error||'Announcement feed unavailable');
   let added=0;
   for(const item of data.items||[]){
-   const h=invHoldings.find(x=>x.qty>0&&(x.market==='SA'?x.ticker+'.SR':x.ticker)===item.symbol);
+   const h=invHoldings.find(x=>x.market==='SA'&&x.qty>0&&x.ticker+'.SR'===item.symbol);
    if(!h||!(Number(item.amount)>0)||!item.exDate)continue;
    const exists=invActionRows().some(x=>x.type==='DIVIDEND'&&x.ticker===h.ticker&&x.exDate===item.exDate);
    if(exists)continue;
