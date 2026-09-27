@@ -327,7 +327,7 @@ async function recordPushAll(reason='edit'){
    // Keep the durable queue until a subsequent read confirms the tombstones.
   }
 
-  const conflicts=[];
+  const conflicts=[],mergedBankBalances=new Map();
   const upserts=current.filter(r=>{
    if(window.financeSectionPermission&&window.financeSectionPermission(r.section)!=='edit')return false;
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
@@ -339,10 +339,17 @@ async function recordPushAll(reason='edit'){
    // browser still holds an older baseline. Matching values are reconciled.
    if(syncRecordValue(cloud.data)===syncRecordValue(r.data))return false;
    const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
+   if(r.section==='bank_balance_overrides'&&old!==undefined){
+    const merged=mergeBankBalanceFields(JSON.parse(baseline[key]),r.data,cloud.data);
+    if(merged.conflicts.length){conflicts.push(key);return false;}
+    if(syncRecordValue(merged.data)===syncRecordValue(cloud.data))return false;
+    mergedBankBalances.set(key,merged.data);
+    return true;
+   }
    if(old===undefined || old===syncRecordValue(r.data)){conflicts.push(key);return false;}
    if(syncRecordValue(cloud.data)!==old){conflicts.push(key);return false;}
    return true;
-  }).map(r=>({...r,deleted_at:null}));
+  }).map(r=>({...r,data:mergedBankBalances.get(`${r.section}|${r.record_id}`)||r.data,deleted_at:null}));
   // A conflict in one section must not prevent independent account, transfer,
   // investment, or rental edits from reaching the other device.
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
@@ -350,6 +357,12 @@ async function recordPushAll(reason='edit'){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
     .upsert(upserts.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
    if(error)throw error;
+   const mergedRows=upserts.filter(r=>mergedBankBalances.has(`${r.section}|${r.record_id}`));
+   if(mergedRows.length){
+    applyRecordSyncDeltaRows(mergedRows,{render:true});
+    current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
+     window.financeSectionPermission(r.section)==='edit');
+   }
    rememberRemoteRecordBaseline(upserts);
   }
   if(conflicts.length){
@@ -428,6 +441,23 @@ async function recordPushAll(reason='edit'){
 }
 
 const RECORD_SYNC_BASELINE_KEY='pf_record_sync_baseline_v313';
+function mergeBankBalanceFields(base,local,remote){
+ const old=base&&typeof base==='object'?base:{};
+ const mine=local&&typeof local==='object'?local:{};
+ const theirs=remote&&typeof remote==='object'?remote:{};
+ const data={},conflicts=[];
+ for(const key of new Set([...Object.keys(old),...Object.keys(mine),...Object.keys(theirs)])){
+  const before=old[key],current=mine[key],cloud=theirs[key];
+  const same=(a,b)=>syncRecordValue(a)===syncRecordValue(b);
+  let chosen;
+  if(same(current,cloud))chosen=current;
+  else if(same(current,before))chosen=cloud;
+  else if(same(cloud,before))chosen=current;
+  else{conflicts.push(key);continue;}
+  if(chosen!==undefined)data[key]=chosen;
+ }
+ return {data,conflicts};
+}
 function recordSyncBaseline(){
  try{return JSON.parse(localStorage.getItem(RECORD_SYNC_BASELINE_KEY)||'{}')||{}}catch(_){return {}}
 }
