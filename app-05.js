@@ -782,6 +782,46 @@ function cardPaymentSourceRowsForDetail(cardId,visibleRows){
  ));
 }
 
+function accountPaymentActivityRows(accountId){
+ const a=account(accountId);
+ if(!a)return [];
+ const rows=(cashFlowLedger||[]).filter(x=>x.status!=='reversed' && Number(x.amount||0)>0 &&
+  (x.sourceId===accountId||x.targetId===accountId));
+ // Older card payments sometimes exist only in the planner history. Display
+ // them once without writing another transaction or changing the balance.
+ (cardPaymentPlan||[]).forEach(plan=>{
+  (Array.isArray(plan.paymentHistory)?plan.paymentHistory:[]).filter(h=>!h.mirrored&&Number(h.amount||0)>0).forEach(h=>{
+   if(h.sourceId!==accountId&&plan.accountId!==accountId)return;
+   const date=String(h.date||h.recordedAt||'').slice(0,10),amount=Number(h.amount||0);
+   if(rows.some(x=>x.type==='card-payment'&&x.sourceId===h.sourceId&&x.targetId===plan.accountId&&
+    String(x.date||'').slice(0,10)===date&&Math.abs(Number(x.amount||0)-amount)<0.005))return;
+   rows.push({id:`history:${plan.id}:${h.id||date}:${amount}`,type:'card-payment',date,amount,
+    sourceId:h.sourceId,targetId:plan.accountId,sourceName:h.sourceName||'',targetName:accountName(plan.accountId),
+    description:'Historical card payment',targetPaymentMonth:plan.month,month:plan.month,createdAt:h.recordedAt||''});
+  });
+ });
+ return rows.filter(x=>{
+  if(a.type!=='card')return true;
+  if(accountDetailTxFilter.physicalCard)return false;
+  const month=x.targetId===accountId&&x.type==='card-payment'
+   ?(x.targetPaymentMonth||x.month)
+   :(x.sourcePaymentMonth||paymentMonthForTransaction(accountId,x.date));
+  return !accountDetailTxFilter.month||month===accountDetailTxFilter.month;
+ }).filter(x=>!accountDetailTxFilter.fromDate||String(x.date||'').slice(0,10)>=accountDetailTxFilter.fromDate)
+  .filter(x=>!accountDetailTxFilter.toDate||String(x.date||'').slice(0,10)<=accountDetailTxFilter.toDate)
+  .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+}
+function accountPaymentActivityHTML(accountId){
+ const rows=accountPaymentActivityRows(accountId);
+ return `<div class="panel"><div class="sectionTitle">Payments & Transfers</div><div class="meta">Recorded money movements involving this account. These entries are for tracing and are not added again to the transaction totals or balance.</div>
+ <div style="overflow-x:auto;margin-top:12px"><table class="txTable"><thead><tr><th>Date</th><th>Direction</th><th>Details</th><th>Other account / payee</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(x=>{
+  const incoming=x.targetId===accountId;
+  const type=x.type==='card-payment'?'Card payment':x.type==='bank-transfer'?'Bank transfer':x.type==='outgoing-payment'?'Scheduled outgoing':x.type==='zakat-payment'?'Zakat payment':x.type==='installment-early-settlement'?'Installment settlement':'Payment';
+  const counterparty=incoming?(x.sourceName||accountName(x.sourceId)||'Source not recorded'):(x.targetName||accountName(x.targetId)||x.description||'Payee not recorded');
+  return `<tr><td>${escapeHtml(String(x.date||''))}</td><td><b class="${incoming?'green':'red'}">${incoming?'Received':'Paid'}</b></td><td><b>${escapeHtml(type)}</b><div class="meta">${escapeHtml(String(x.description||''))}</div></td><td>${escapeHtml(counterparty)}</td><td class="${incoming?'green':'red'}"><b>${incoming?'+':'−'}${money(Number(x.amount||0))}</b></td></tr>`;
+ }).join(''):'<tr><td colspan="5">No recorded payments or transfers for this account.</td></tr>'}</tbody></table></div></div>`;
+}
+
 
 function importedOfficialStatementMonths(cardId){
  const months=new Set();
@@ -1025,7 +1065,7 @@ function openAccount(id,returnPage){
   accountDetailTxFilter.toDate=tmp;
  }
  const rows=cardTransactionsForDetail(id);
- const sourcePaymentRows=cardPaymentSourceRowsForDetail(id,rows);
+ const paymentActivity=accountPaymentActivityHTML(id);
  if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Open Cycle (${cardMonthLabel(m.activeCycleMonth)})</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Prior Unreleased Cycle(s)</span><b class="amber">${money(m.priorOpenCycleTransactions||0)}</b></div>
@@ -1101,7 +1141,7 @@ function openAccount(id,returnPage){
  </div>
  <div class="meta" style="margin-top:8px">Statement and date filters work together. Reset Card Month still uses only the selected statement/payment month.</div>
 </div>
-${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionTitle">Payments received by this card</div><div class="meta">Recorded card payments are shown separately from purchases. They are already applied to the card balance.</div><div style="overflow-x:auto"><table class="txTable"><thead><tr><th>Date</th><th>From</th><th>Payment month</th><th>Amount received</th></tr></thead><tbody>${cardPaymentLedgerForDetail(id).map(x=>`<tr><td>${escapeHtml(String(x.date||''))}</td><td>${escapeHtml(x.sourceName||accountName(x.sourceId))}</td><td>${escapeHtml(x.targetPaymentMonth||x.month||'')}</td><td class="green">${money(x.amount)}</td></tr>`).join('')}</tbody></table></div></div>`:''}
+${paymentActivity}
 <div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
@@ -1112,7 +1152,7 @@ ${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionT
  </div>
  <div style="overflow-x:auto"><table class="txTable">
   <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${rows.map(txRow6).join('')}${sourcePaymentRows.map(x=>`<tr><td></td><td>${escapeHtml(String(x.date||''))}</td><td>—</td><td><b>Payment to ${escapeHtml(x.targetName||accountName(x.targetId))}</b><div class="meta">Recorded card transfer • source statement ${escapeHtml(paymentMonthForTransaction(id,x.date))} • target statement ${escapeHtml(x.targetPaymentMonth||'not recorded')} • edit or undo from the target card payment planner</div></td><td>Financial Obligations</td><td>Credit Card Payments</td><td>${escapeHtml(accountName(id))}</td><td class="red"><b>-${money(x.amount)}</b></td></tr>`).join('')}${!rows.length&&!sourcePaymentRows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
+  <tbody>${rows.map(txRow6).join('')}${!rows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
  </table></div>
  ${(()=>{
    const cards=accountPhysicalCards(id);
@@ -1122,10 +1162,9 @@ ${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionT
    }).filter(x=>x.count>0);
    const unassignedRows=rows.filter(t=>!cards.includes(transactionPhysicalCardEnding(t)));
    if(unassignedRows.length)grouped.push({ending:'',count:unassignedRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)});
-   if(sourcePaymentRows.length)grouped.push({ending:'',label:'Recorded card transfers',count:sourcePaymentRows.length,total:-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0)});
-   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0)-sourcePaymentRows.reduce((sum,x)=>sum+Number(x.amount||0),0);
+   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0);
    return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
-    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length+sourcePaymentRows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
+    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters. Payments and transfers appear above for tracing.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
     <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card')} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
    </div>`;
   })()}
@@ -1165,7 +1204,7 @@ ${cardPaymentLedgerForDetail(id).length?`<div class="panel"><div class="sectionT
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
  document.querySelectorAll('[data-detail-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.detailDeletePlan)));
  document.querySelectorAll('[data-open-installments-page]').forEach(b=>b.addEventListener('click',()=>{renderInstallments();nav('installments');window.scrollTo({top:0,behavior:'smooth'});}));}
- else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div></div><div class="sectionTitle">Transactions</div><div class="panel">
+ else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue green">${money(adjustedBankBalance(a))}</div><div class="meta">Live tracked balance • payments and manual transactions included</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div></div>${paymentActivity}<div class="sectionTitle">Transactions</div><div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
   <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
