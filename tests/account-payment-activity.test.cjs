@@ -10,6 +10,7 @@ const accounts=[{id:'bank-a',type:'bank'},{id:'bank-b',type:'bank'},{id:'card-a'
 const context={
  account:id=>accounts.find(a=>a.id===id),accountName:id=>id,
  accountDetailTxFilter:{month:'',fromDate:'',toDate:'',physicalCard:''},
+ cardMonthLabel:month=>month,
  paymentMonthForTransaction:()=> '2026-10',
  cardPaymentPlan:[{id:'old-plan',accountId:'card-a',month:'2026-08',paymentHistory:[{date:'2026-08-01',amount:12,sourceId:'bank-a'}]},
   {id:'modern-plan',accountId:'card-a',month:'2026-10',paymentHistory:[{date:'2026-09-24',amount:100,sourceId:'bank-a'}]}],
@@ -28,6 +29,13 @@ assert.equal(context.accountPaymentActivityRows('card-a').length,2);
 assert.match(context.accountPaymentActivityHTML('bank-a'),/Paid.*bank-b/s);
 assert.match(context.accountPaymentActivityHTML('bank-b'),/Received.*bank-a/s);
 assert.doesNotMatch(context.accountPaymentActivityHTML('bank-a'),/undone/);
+assert.match(context.accountPaymentActivityHTML('bank-a'),/<option value="">All months<\/option>/);
+context.accountPaymentActivitySelection.month='2026-09';
+assert.doesNotMatch(context.accountPaymentActivityHTML('bank-a'),/Historical card payment/);
+context.accountPaymentActivitySelection.month='2026-08';
+assert.match(context.accountPaymentActivityHTML('bank-a'),/Historical card payment/);
+assert.doesNotMatch(context.accountPaymentActivityHTML('bank-a'),/Father Car/);
+context.accountPaymentActivitySelection.month='';
 context.accountDetailTxFilter.month='2026-09';
 assert.equal(context.accountPaymentActivityRows('card-a').length,0);
 context.accountDetailTxFilter.month='2026-10';
