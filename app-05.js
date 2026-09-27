@@ -811,9 +811,14 @@ function accountPaymentActivityRows(accountId){
   .filter(x=>!accountDetailTxFilter.toDate||String(x.date||'').slice(0,10)<=accountDetailTxFilter.toDate)
   .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
+var accountPaymentActivitySelection={accountId:'',month:''};
 function accountPaymentActivityHTML(accountId){
- const rows=accountPaymentActivityRows(accountId);
- return `<div class="panel"><div class="sectionTitle">Payments & Transfers</div><div class="meta">Recorded money movements involving this account. These entries are for tracing and are not added again to the transaction totals or balance.</div>
+ if(accountPaymentActivitySelection.accountId!==accountId)accountPaymentActivitySelection={accountId,month:''};
+ const allRows=accountPaymentActivityRows(accountId);
+ const months=[...new Set(allRows.map(x=>String(x.date||'').slice(0,7)).filter(x=>/^\d{4}-\d{2}$/.test(x)))].sort().reverse();
+ if(accountPaymentActivitySelection.month&&!months.includes(accountPaymentActivitySelection.month))accountPaymentActivitySelection.month='';
+ const rows=accountPaymentActivitySelection.month?allRows.filter(x=>String(x.date||'').slice(0,7)===accountPaymentActivitySelection.month):allRows;
+ return `<div class="panel"><div class="splitHead"><div><div class="sectionTitle">Payments & Transfers</div><div class="meta">Recorded money movements involving this account. These entries are for tracing and are not added again to the transaction totals or balance.</div></div><div class="field" style="margin:0;min-width:170px"><label for="accountPaymentMonthFilter">Payment Date Month</label><select id="accountPaymentMonthFilter" class="input"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${accountPaymentActivitySelection.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}</select></div></div>
  <div style="overflow-x:auto;margin-top:12px"><table class="txTable"><thead><tr><th>Date</th><th>Direction</th><th>Details</th><th>Other account / payee</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(x=>{
   const incoming=x.targetId===accountId;
   const type=x.type==='card-payment'?'Card payment':x.type==='bank-transfer'?'Bank transfer':x.type==='outgoing-payment'?'Scheduled outgoing':x.type==='zakat-payment'?'Zakat payment':x.type==='installment-early-settlement'?'Installment settlement':'Payment';
@@ -1216,6 +1221,7 @@ ${paymentActivity}
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
+ const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.addEventListener('change',()=>{accountPaymentActivitySelection.month=activityMonth.value||'';openAccount(id,accountDetailReturnPage);});
  if($('detailAddTransaction'))$('detailAddTransaction').addEventListener('click',()=>openManualTransaction({account:id,date:new Date().toISOString().slice(0,10)}));
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
