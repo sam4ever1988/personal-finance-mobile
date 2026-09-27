@@ -8,6 +8,8 @@ vm.createContext(context);
 vm.runInContext('const BANK_LOGO_URLS={"Al Rajhi Bank":"https://official.example/logo.svg"};\n'+functions,context);
 
 assert.equal(context.bankLogoURL({bank:'STC Bank'}),'https://www.stcbank.com.sa/favicon.ico');
+assert.equal(context.bankLogoURL({bank:'SNB AlAhli',website:'https://www.alahli.com/ar/pages/personal-banking'}),'https://upload.wikimedia.org/wikipedia/commons/6/62/Saudi_National_Bank_Logo.svg');
+assert.equal(context.bankLogoURL({bank:'SNB AlAhli'}),'https://upload.wikimedia.org/wikipedia/commons/6/62/Saudi_National_Bank_Logo.svg');
 assert.equal(context.bankLogoURL({bank:'New Bank',website:'newbank.example/path'}),'https://newbank.example/favicon.ico');
 assert.equal(context.bankLogoURL({bank:'New Bank',logo:'https://newbank.example/brand/logo.png'}),'https://newbank.example/brand/logo.png');
 assert.equal(context.bankLogoURL({bank:'New Bank',website:'javascript:alert(1)'}),'');
