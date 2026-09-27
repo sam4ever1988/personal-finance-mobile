@@ -234,7 +234,7 @@ document.addEventListener('input',e=>{
 
 function V173SyncArchitectureAudit(){
  return {
-  version:window.APP_BUILD_VERSION||'3.53',
+  version:window.APP_BUILD_VERSION||'3.54',
   realtimePrimary:false,
   startupFullPull:false,
   periodicFallbackMs:30000,
@@ -304,21 +304,22 @@ function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'T
 function openBankTransfer(){
  const banks=accounts.filter(a=>a.type==='bank');
  const destinations=accounts.filter(a=>a.type==='bank'||a.type==='card');
- if(!banks.length||destinations.length<2){alert('Add a bank account and another account or credit card to make a transfer.');return;}
- const sourceOptions=banks.map(a=>({value:a.id,label:accountName(a.id)}));
+ if(!banks.length||destinations.length<2){alert('Add a bank account and another bank account or credit card to make a transfer.');return;}
+ const sourceOptions=destinations.map(a=>({value:a.id,label:accountName(a.id)+(a.type==='card'?' (Credit Card)':' (Bank Account)')}));
  const targetOptions=destinations.map(a=>({value:a.id,label:accountName(a.id)+(a.type==='card'?' (Credit Card)':' (Bank Account)')}));
- openUnifiedAction({title:'Transfer From Bank Account',subtitle:'Send money to another bank account or pay a credit card to restore its available credit.',save:'Continue',fields:[
-  {name:'sourceId',label:'From Bank Account',type:'select',value:banks[0].id,options:sourceOptions,required:true,full:false},
+ openUnifiedAction({title:'Transfer Between Accounts',subtitle:'Transfer from a bank account or credit card to another account. Card-to-bank transfers use the card’s available credit.',save:'Continue',fields:[
+  {name:'sourceId',label:'From Bank Account / Credit Card',type:'select',value:banks[0].id,options:sourceOptions,required:true,full:false},
   {name:'targetId',label:'To Bank Account / Credit Card',type:'select',value:destinations.find(a=>a.id!==banks[0].id)?.id,options:targetOptions,required:true,full:false},
   {name:'amount',label:'Amount (SAR)',type:'number',step:'0.01',min:'0.01',required:true,full:false},
   {name:'date',label:'Transfer Date',type:'date',value:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),required:true,full:false},
   {name:'note',label:'Note',placeholder:'Optional transfer reference',full:true}
  ],submit:v=>{
   const source=account(v.sourceId),target=account(v.targetId),amount=Number(v.amount);
-  if(!source||!target||source.type!=='bank'||!['bank','card'].includes(target.type)||source.id===target.id)return goldActionError('Select a bank source and a different bank account or credit card.');
+  if(!source||!target||!['bank','card'].includes(source.type)||!['bank','card'].includes(target.type)||source.id===target.id)return goldActionError('Select two different accounts or cards.');
   if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter an amount greater than zero with no more than two decimals.');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid transfer date.');
-  if(amount>adjustedBankBalance(source)+0.001)return goldActionError('Transfer amount exceeds the source account balance.');
+  if(source.type==='bank'&&amount>adjustedBankBalance(source)+0.001)return goldActionError('Transfer amount exceeds the source account balance.');
+  if(source.type==='card'&&amount>cardMetrics(source).available+0.001)return goldActionError('Transfer amount exceeds the source card’s available credit.');
   if(target.type==='card'){
    const month=paymentMonthForTransaction(target.id,v.date);
    ensureMonthlyPlannerRows(month);
@@ -339,7 +340,7 @@ function openBankTransfer(){
    return true;
   }
   const id='bank-transfer-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-  addCashFlowLedgerEntry({id,type:'bank-transfer',date:v.date,amount,sourceId:source.id,sourceName:accountName(source.id),targetId:target.id,targetName:accountName(target.id),description:String(v.note||'').trim()||'Bank account transfer',referenceId:id});
+  addCashFlowLedgerEntry({id,type:source.type==='card'?'card-bank-transfer':'bank-transfer',date:v.date,amount,sourceId:source.id,sourceName:accountName(source.id),targetId:target.id,targetName:accountName(target.id),description:String(v.note||'').trim()||(source.type==='card'?'Credit card to bank transfer':'Bank account transfer'),referenceId:id});
   saveLocal();syncCashFlowLedgerImmediate();refreshAccountDependentUI();renderIncomePlan();return true;
  }});
 }

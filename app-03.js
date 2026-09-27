@@ -109,8 +109,8 @@ function syncCanonicalShell(page){
   shellAvatar.title=locked?'Profile is available after sign in':'Open profile menu';
  }
  if(shellProfile&&locked){shellProfile.classList.remove('open');shellAvatar?.setAttribute('aria-expanded','false');}
- var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.53')+'</small>';}
- document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.53');
+ var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.54')+'</small>';}
+ document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.54');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
  var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
@@ -602,7 +602,7 @@ function cardFundedPaymentBreakdown(cardId){
  // may be removed while its ledger entry is still active; that must not erase
  // utilization on the funding card.
  return (cashFlowLedger||[])
-  .filter(h=>h.type==='card-payment' && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId)
+  .filter(h=>['card-payment','card-bank-transfer'].includes(h.type) && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId)
   .map(h=>{
    const amount=Math.max(0,Number(h.amount||0));
    const date=String(h.date||'').slice(0,10);
