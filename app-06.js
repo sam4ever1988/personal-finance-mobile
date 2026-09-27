@@ -1761,19 +1761,19 @@ function renderCurrentPageForSections(sections){
  return true;
 }
 function applyRecordSyncDeltaRows(rows,{render=true}={}){
- if(!Array.isArray(rows)||!rows.length)return {changed:false,sections:[]};
+ if(!Array.isArray(rows)||!rows.length)return {changed:false,sections:[],appliedRows:[]};
  recordSyncApplying=true;
  try{
-  const changedSections=[];
+  const changedSections=[],appliedRows=[];
   rows.forEach(row=>{
    noteCloudUpdatedAt(row.updated_at);
-   if(mergeOneRecordIntoSection(row))changedSections.push(row.section);
+   if(mergeOneRecordIntoSection(row)){changedSections.push(row.section);appliedRows.push(row);}
   });
   const sections=[...new Set(changedSections)];
-  if(!sections.length)return {changed:false,sections:[]};
+  if(!sections.length)return {changed:false,sections:[],appliedRows:[]};
   normalizeAfterRecordSections(sections);
   if(render)renderCurrentPageForSections(sections);
-  return {changed:true,sections};
+  return {changed:true,sections,appliedRows};
  }finally{
   recordSyncApplying=false;
  }

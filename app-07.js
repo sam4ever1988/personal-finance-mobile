@@ -585,8 +585,11 @@ async function handleRealtimeRecordPayload(payload){
   // Ignore the realtime echo of this device's own very recent write.
   if(isMutedRealtimeRecord(row.section,row.record_id))return;
 
+  // A live update must not replace an unsaved local edit on this device.
+  if(!safeIncomingRecordRows([row]).length)return;
   const result=applyRecordSyncDeltaRows([row],{render:true});
   if(result.changed){
+   rememberRemoteRecordBaseline(result.appliedRows);
    setCloudMeta({
     initialized:true,
     deviceTrusted:true,
@@ -646,6 +649,9 @@ async function startRealtimeRecordSync(){
  }
 
  schedulePeriodicCloudAutoSync();
+ // Catch changes published while this browser was closed, without waiting for
+ // the next realtime event. The guarded reconcile preserves pending local work.
+ if(recordSyncReady)setTimeout(()=>cloudAutoReconcile('startup'),500);
  if(recordSyncReady&&getCloudMeta().pending)setTimeout(()=>recordPushAll('resume-pending'),120);
  cloudSetStatus(`${verifiedCloudLoad?'Protected two-way sync':'Upload sync'} ready • ${new Date().toLocaleTimeString()}`);
  return true;
@@ -1679,8 +1685,8 @@ async function cloudAutoReconcile(reason='fallback'){
   const changed=await recordFetchChangedSince(currentCloudCursorIso());
   let recovered=[];
   if(changed.length){
-   const result=applyRecordSyncDeltaRows(changed,{render:true});
-   rememberRemoteRecordBaseline(changed);
+   const result=applyRecordSyncDeltaRows(safeIncomingRecordRows(changed),{render:true});
+   rememberRemoteRecordBaseline(result.appliedRows);
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
    recovered=await recoverCloudOnlyRecords();
    setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
@@ -1700,24 +1706,31 @@ async function cloudAutoReconcile(reason='fallback'){
  }
 }
 
-async function recoverCloudOnlyRecords(){
- // Delta timestamps cannot find rows written before this device's cursor.
- // A full key comparison adds missing cloud records without replacing local edits.
- const remote=(await recordFetchAll()).filter(r=>!r.deleted_at);
+function safeIncomingRecordRows(remote){
  const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
  const baseline=recordSyncBaseline();
  const queued=new Set(recordPendingDeletes.map(x=>`${x.section}|${x.record_id}`));
- const missing=remote.filter(r=>{
+ return remote.filter(r=>{
   if(r.section==='rental_blocks'&&/^\d+$/.test(String(r.record_id)))return false;
   const key=`${r.section}|${r.record_id}`,current=local.get(key);
   const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
-  return !queued.has(key) && Array.isArray(syncArrayForSection(r.section)) && (!current || (old===syncRecordValue(current.data) && old!==syncRecordValue(r.data)));
+  if(queued.has(key))return false;
+  if(r.deleted_at)return !!current && old!==undefined && old===syncRecordValue(current.data);
+  if(!current)return old===undefined; // A locally deleted row needs explicit reconciliation.
+  return old!==undefined && old===syncRecordValue(current.data) && old!==syncRecordValue(r.data);
  });
+}
+
+async function recoverCloudOnlyRecords(){
+ // A full key comparison also catches updates whose realtime notification was
+ // missed or whose timestamp was already passed by the delta cursor.
+ const remote=await recordFetchAll();
+ const missing=safeIncomingRecordRows(remote);
  if(!missing.length)return [];
  try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
  const result=applyRecordSyncDeltaRows(missing,{render:true});
  if(result.changed){
-  rememberRemoteRecordBaseline(missing);
+  rememberRemoteRecordBaseline(result.appliedRows);
   missing.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   return missing;
  }
