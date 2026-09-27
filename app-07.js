@@ -723,6 +723,15 @@ function bindFinanceAccessGate(){
   if(error)throw error;
   password.value='';if(status)status.textContent='Signed in. Loading your account…';
  });}
+ [email,password].forEach(field=>{
+  if(!field||field.dataset.signInEnterBound)return;
+  field.dataset.signInEnterBound='1';
+  field.addEventListener('keydown',event=>{
+   if(event.key!=='Enter'||event.isComposing)return;
+   event.preventDefault();
+   signIn?.click();
+  });
+ });
  const signUp=$('financeGateSignUp');
  if(signUp&&!signUp.dataset.bound){signUp.dataset.bound='1';signUp.onclick=()=>run(signUp,'Creating your account…',async()=>{
   if(!address()||password.value.length<8)throw new Error('Enter your email and a password with at least 8 characters.');
