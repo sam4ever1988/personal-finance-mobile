@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const src=fs.readFileSync('app-10.js','utf8');
+const snippet=src.slice(src.indexOf('function rentalCurrency('),src.indexOf('function rEsc('))+'\n'+src.slice(src.indexOf('function rDate('),src.indexOf('function rentalMonthDataFor('));
+const ctx={Date,Math,Number,String,console};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(snippet,ctx);
+const php={dailyRate:2000,currency:'PHP',fxRateSAR:0.064,checkin:'2026-09-20',checkout:'2026-09-23'};
+assert.equal(ctx.rentalRate(php),128);assert.equal(ctx.rentalGross(php),384);
+assert.equal(ctx.rentalGross({...php,fxRateSAR:0.07}),420,'override changes SAR gross and reports');
+assert.equal(ctx.rentalRate({dailyRate:200,checkin:'2026-09-20',checkout:'2026-09-23'}),200,'legacy SAR bookings remain stable');
+assert.equal(ctx.rentalGross({dailyRate:100,currency:'USD',fxRateSAR:3.75,checkin:'2026-09-20',checkout:'2026-09-22'}),750);
+console.log('PHP, USD, custom rate and legacy SAR rental calculations passed.');
