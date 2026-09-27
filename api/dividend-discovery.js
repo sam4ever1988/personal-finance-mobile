@@ -1,7 +1,7 @@
 // Read-only dividend discovery. No finance rows are written by this endpoint.
 const SUPABASE_URL='https://qxayaygycgqwrerhrrlq.supabase.co';
 const SUPABASE_KEY='sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2';
-const validSymbol=s=>/^[A-Z0-9.]{1,16}$/.test(s);
+const validSymbol=s=>/^\d{4,6}\.SR$/.test(s);
 export default async function handler(req,res){
  if(req.method!=='GET')return res.status(405).json({error:'GET only'});
  const token=String(req.headers.authorization||'').match(/^Bearer ([A-Za-z0-9._-]+)$/)?.[1];
@@ -11,7 +11,7 @@ export default async function handler(req,res){
   if(!auth.ok)return res.status(401).json({error:'Session expired'});
  }catch(_){return res.status(503).json({error:'Authentication unavailable'});}
  const symbols=[...new Set(String(req.query?.symbols||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean))];
- if(!symbols.length||symbols.length>30||symbols.some(s=>!validSymbol(s)))return res.status(400).json({error:'Choose up to 30 valid holding symbols'});
+ if(!symbols.length||symbols.length>30||symbols.some(s=>!validSymbol(s)))return res.status(400).json({error:'Choose up to 30 Saudi holding symbols'});
  const key=process.env.FMP_API_KEY;
  if(!key)return res.status(503).json({error:'Dividend feed is not connected',code:'FEED_NOT_CONFIGURED'});
  const start=new Date();start.setUTCDate(start.getUTCDate()-90);const end=new Date();end.setUTCFullYear(end.getUTCFullYear()+1);
