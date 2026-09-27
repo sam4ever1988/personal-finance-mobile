@@ -20,6 +20,7 @@ var INV_SEED=[
 var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||(window.financeActiveUserId&&!window.financeIsOwner?[]:JSON.parse(JSON.stringify(INV_SEED)));
 var invTrades=JSON.parse(localStorage.getItem("pf_investments_trades")||"[]");
 var invLastPriceUpdate=localStorage.getItem("pf_investments_price_time")||"";
+var invDiscoveryAttemptKey='';
 
 var INV_ANALYSIS_ASOF="2026-09-22";
 var INV_ANALYSIS={
@@ -162,6 +163,7 @@ function renderInvestments(){
  document.getElementById("invAllocation").innerHTML=invHoldings.filter(h=>h.qty>0).sort((a,b)=>b.qty*b.price*invFactor(b)-a.qty*a.price*invFactor(a)).slice(0,8).map(h=>{var v=h.qty*h.price*invFactor(h),p=t.value?v/t.value*100:0;return '<div class="invAlloc"><div><b>'+invEsc(h.ticker)+'</b><span>'+p.toFixed(1)+'%</span></div><div class="invBar"><i style="width:'+Math.max(1,p)+'%"></i></div></div>'}).join("");
  renderInvTrades();
  renderInvCorporateActions();
+ if(window.financeActiveUserId&&!window.financeSharedWorkspace)invScanAnnouncements(false);
  var st=document.getElementById("invStatus");if(st)st.innerHTML=invLastPriceUpdate?'Live prices last refreshed <b>'+new Date(invLastPriceUpdate).toLocaleString()+'</b>. Daily change compares the live price with the previous market close. U.S. holdings are converted at 3.75 SAR/USD.':'Saved prices are shown. Select <b>Refresh Live Prices</b> to update prices and daily changes.';
 }
 function renderInvTrades(){
@@ -242,9 +244,10 @@ function renderInvCorporateActions(){
  var today=invLocalToday(),rows=invActionRows().slice().sort((a,b)=>String(a.payDate||a.date).localeCompare(String(b.payDate||b.date)));
  el.innerHTML=rows.length?rows.map(x=>{
   var h=invTradeHolding(x),currency=x.currency||invCurrency(h),due=(x.payDate||x.date)<=today,status=x.actionStatus||'pending',amount=invRound(Number(x.qty||0)*Number(x.price||0)),label=x.type==='BONUS'?'Bonus shares':'Cash dividend';
-  return '<div class="invTradeCard"><div class="invTradeMain"><div><b>'+invEsc(x.ticker)+' • '+label+'</b><div class="meta">Eligibility '+invEsc(x.exDate||'—')+' • Pay / allocation '+invEsc(x.payDate||x.date)+' • '+(x.type==='DIVIDEND'?Number(x.qty||0)+' eligible shares × '+invNativeMoney(x.price,currency)+' = '+invNativeMoney(amount,currency):Number(x.qty||0)+' additional shares')+'</div></div><span class="invSettlementBadge '+(status==='pending'?'pending':'settled')+'">'+(status==='pending'?(due?'Due • check receipt':'Upcoming'):status==='received'?'Received at broker':status==='transferred'?'Transferred to '+invEsc(x.bankAccountName||'bank'):'Shares confirmed')+'</span></div><div class="invTradeFoot"><span class="meta">'+(/^https:\/\//i.test(x.sourceUrl||'')?'<a href="'+invEsc(x.sourceUrl)+'" target="_blank" rel="noopener noreferrer">Issuer announcement ↗</a>':'Manually recorded')+'</span><div class="invTradeActions">'+(status==='pending'&&due?'<button type="button" class="btn small primary" data-action-confirm="'+invEsc(x.id)+'">Confirm '+(x.type==='BONUS'?'Shares':'Received')+'</button>':'')+(status==='received'&&x.type==='DIVIDEND'?'<button type="button" class="btn small primary" data-action-transfer="'+invEsc(x.id)+'">Transfer to Bank</button>':'')+'<button type="button" class="btn small danger" data-action-delete="'+invEsc(x.id)+'">Delete</button></div></div></div>';
+  return '<div class="invTradeCard"><div class="invTradeMain"><div><b>'+invEsc(x.ticker)+' • '+label+'</b><div class="meta">Eligibility '+invEsc(x.exDate||'—')+' • Pay / allocation '+invEsc(x.payDate||'Date not announced')+' • '+(status==='discovered'?'Dividend per share '+invNativeMoney(x.price,currency)+' • confirm eligible shares and issuer notice':x.type==='DIVIDEND'?Number(x.qty||0)+' eligible shares × '+invNativeMoney(x.price,currency)+' = '+invNativeMoney(amount,currency):Number(x.qty||0)+' additional shares')+'</div></div><span class="invSettlementBadge '+(['pending','discovered'].includes(status)?'pending':'settled')+'">'+(status==='discovered'?'Discovered • review':status==='pending'?(due?'Due • check receipt':'Upcoming'):status==='received'?'Received at broker':status==='transferred'?'Transferred to '+invEsc(x.bankAccountName||'bank'):'Shares confirmed')+'</span></div><div class="invTradeFoot"><span class="meta">'+(/^https:\/\//i.test(x.sourceUrl||'')?'<a href="'+invEsc(x.sourceUrl)+'" target="_blank" rel="noopener noreferrer">'+(x.source==='FMP'?'Data source':'Issuer announcement')+' ↗</a>':x.source==='FMP'?'Provider discovery • verify issuer':'Manually recorded')+'</span><div class="invTradeActions">'+(status==='discovered'?'<button type="button" class="btn small primary" data-action-review="'+invEsc(x.id)+'">Review Announcement</button>':'')+(status==='pending'&&due?'<button type="button" class="btn small primary" data-action-confirm="'+invEsc(x.id)+'">Confirm '+(x.type==='BONUS'?'Shares':'Received')+'</button>':'')+(status==='received'&&x.type==='DIVIDEND'?'<button type="button" class="btn small primary" data-action-transfer="'+invEsc(x.id)+'">Transfer to Bank</button>':'')+'<button type="button" class="btn small danger" data-action-delete="'+invEsc(x.id)+'">Delete</button></div></div></div>';
  }).join(''):'<div class="meta">No dividends or bonus shares tracked yet. Add an announced event for any holding.</div>';
  el.querySelectorAll('[data-action-confirm]').forEach(b=>b.onclick=()=>invConfirmAction(b.dataset.actionConfirm));
+ el.querySelectorAll('[data-action-review]').forEach(b=>b.onclick=()=>{var x=invTrades.find(a=>a.id===b.dataset.actionReview);if(x)invOpenAction({id:x.id,ticker:x.ticker,exDate:x.exDate,payDate:x.payDate,rate:x.price,sourceUrl:x.sourceUrl||''})});
  el.querySelectorAll('[data-action-transfer]').forEach(b=>b.onclick=()=>invOpenDividendTransfer(b.dataset.actionTransfer));
  el.querySelectorAll('[data-action-delete]').forEach(b=>b.onclick=()=>invDeleteAction(b.dataset.actionDelete));
 }
@@ -260,8 +263,11 @@ function invOpenAction(prefill){
  d.querySelector('.closeBtn').onclick=d.querySelector('#invActionCancel').onclick=()=>d.remove();
  d.querySelector('#invActionForm').onsubmit=e=>{e.preventDefault();var type=d.querySelector('#invActionType').value,exDate=d.querySelector('#invActionEx').value,payDate=d.querySelector('#invActionPay').value,qty=Number(d.querySelector('#invActionQty').value),rate=Number(d.querySelector('#invActionRate').value),symbol=ticker.value,url=d.querySelector('#invActionSource').value.trim();
   if(!invHoldings.some(h=>h.ticker===symbol)||!exDate||!payDate||exDate>payDate||!(qty>0)||(type==='DIVIDEND'&&!(rate>0))||(url&&!/^https:\/\//i.test(url)))return alert('Check the holding, dates, shares, amount and HTTPS source URL.');
-  if(invActionRows().some(x=>x.ticker===symbol&&x.type===type&&x.exDate===exDate&&x.payDate===payDate))return alert('This corporate action is already recorded.');
-  var now=new Date().toISOString(),id='INV-ACTION-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),h=invHoldings.find(x=>x.ticker===symbol);invTrades.push({id,_cloudRecordId:id,type,ticker:symbol,qty,price:type==='DIVIDEND'?rate:0,fee:0,currency:invCurrency(h),date:payDate,exDate,payDate,sourceUrl:url,actionStatus:'pending',createdAt:now,updatedAt:now});invSave('investment-corporate-action-add');d.remove();renderInvestments();};
+  if(invActionRows().some(x=>x.id!==prefill?.id&&x.ticker===symbol&&x.type===type&&x.exDate===exDate&&x.payDate===payDate))return alert('This corporate action is already recorded.');
+  var now=new Date().toISOString(),id=prefill?.id||'INV-ACTION-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),h=invHoldings.find(x=>x.ticker===symbol),old=prefill?.id?invTrades.find(x=>x.id===prefill.id&&x.actionStatus==='discovered'):null;
+  if(prefill?.id&&!old)return alert('This announcement was already reviewed or removed.');
+  var row={...(old||{}),id,_cloudRecordId:old?._cloudRecordId||id,type,ticker:symbol,qty,price:type==='DIVIDEND'?rate:0,fee:0,currency:invCurrency(h),date:payDate,exDate,payDate,sourceUrl:url,actionStatus:'pending',createdAt:old?.createdAt||now,updatedAt:now};
+  if(old)Object.assign(old,row);else invTrades.push(row);invSave('investment-corporate-action-review');d.remove();renderInvestments();};
 }
 function invConfirmAction(id){var x=invActionRows().find(a=>a.id===id);if(!x||x.actionStatus!=='pending'||(x.payDate||x.date)>invLocalToday())return;
  if(x.type==='DIVIDEND'){if(!confirm('Confirm that the dividend arrived in your brokerage account? No bank balance changes yet.'))return;x.actionStatus='received'}
@@ -283,3 +289,35 @@ function invDeleteAction(id){var x=invActionRows().find(a=>a.id===id);if(!x)retu
 }
 document.getElementById('invAddAction')?.addEventListener('click',()=>invOpenAction());
 document.getElementById('invRioDividend')?.addEventListener('click',()=>{if(!invHoldings.some(h=>h.ticker==='RIO'))return alert('RIO is not in this portfolio.');invOpenAction({ticker:'RIO',exDate:'2026-08-14',payDate:'2026-09-24',rate:2.11,sourceUrl:'https://www.sec.gov/Archives/edgar/data/863064/000162828026050377/rio-20260630_d2.htm'})});
+
+async function invScanAnnouncements(force){
+ const status=document.getElementById('invDiscoveryStatus');
+ if(window.financeSharedWorkspace||window.financePagePermissions?.investments==='view'||window.financeSectionPermission?.('investments_trades')==='view'){
+  if(status)status.textContent='Announcement discovery is available in your own editable workspace.';
+  return;
+ }
+ const symbols=[...new Set(invHoldings.filter(h=>h.market==='SA'&&Number(h.qty)>0).map(h=>h.ticker+'.SR'))].sort();
+ if(!symbols.length){if(status)status.textContent='No owned Saudi shares to check.';return}
+ const key=invLocalToday()+'|'+symbols.join(',');
+ if(!force&&(invDiscoveryAttemptKey===key||localStorage.getItem('pf_investment_discovery_checked')===key))return;
+ invDiscoveryAttemptKey=key;
+ if(status)status.textContent='Checking announced dividends for '+symbols.length+' owned holding(s)…';
+ try{
+  const {data:{session}}=await cloudClient.auth.getSession();if(!session)throw new Error('Sign in to check announcements.');
+  const response=await fetch('/api/dividend-discovery?symbols='+encodeURIComponent(symbols.join(',')),{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),data=await response.json();
+  if(!response.ok)throw new Error(data.error||'Announcement feed unavailable');
+  let added=0;
+  for(const item of data.items||[]){
+   const h=invHoldings.find(x=>x.market==='SA'&&x.qty>0&&x.ticker+'.SR'===item.symbol);
+   if(!h||!(Number(item.amount)>0)||!item.exDate)continue;
+   const exists=invActionRows().some(x=>x.type==='DIVIDEND'&&x.ticker===h.ticker&&x.exDate===item.exDate);
+   if(exists)continue;
+   const now=new Date().toISOString(),id='INV-DISCOVERED-'+h.ticker+'-'+item.exDate;
+   invTrades.push({id,_cloudRecordId:id,type:'DIVIDEND',ticker:h.ticker,qty:0,price:Number(item.amount),fee:0,currency:invCurrency(h),date:item.payDate||item.exDate,exDate:item.exDate,payDate:item.payDate||'',recordDate:item.recordDate||'',declarationDate:item.declarationDate||'',source:'FMP',sourceUrl:'https://site.financialmodelingprep.com/developer/docs/stable/dividends-company',actionStatus:'discovered',createdAt:now,updatedAt:now});added++;
+  }
+  if(added){invSave('investment-dividend-discovery');renderInvCorporateActions()}
+  localStorage.setItem('pf_investment_discovery_checked',key);
+  if(status)status.textContent='Checked '+data.checked+' holding(s) via '+data.source+' • '+added+' new announcement(s) for review.'+(data.failures?.length?' Could not check: '+data.failures.join(', ')+'.':'')+' Verify every discovery against the issuer.';
+ }catch(e){if(status)status.textContent='Automatic discovery unavailable: '+e.message+' Your existing records were kept.'}
+}
+document.getElementById('invScanActions')?.addEventListener('click',()=>invScanAnnouncements(true));
