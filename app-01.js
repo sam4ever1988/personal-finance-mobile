@@ -4,7 +4,9 @@
 
 
 var financeDB={
- name:window.financeSharedWorkspace
+ name:window.financeAdditionalWorkspace
+  ?'PersonalFinanceDB-owned-'+window.financeActiveUserId+'-'+window.financeWorkspaceUserId
+  :window.financeSharedWorkspace
   ?'PersonalFinanceDB-shared-'+window.financeActiveUserId+'-'+window.financeWorkspaceUserId+'-'+window.financePageFingerprint+'-'+(localStorage.getItem('pf_permission_epoch')||'initial')
   :window.financeRestrictedOwnAccess
    ?'PersonalFinanceDB-restricted-'+window.financeActiveUserId+'-'+window.financePageFingerprint+'-'+(localStorage.getItem('pf_permission_epoch')||'initial')

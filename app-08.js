@@ -344,6 +344,60 @@ function openBankTransfer(){
   saveLocal();syncCashFlowLedgerImmediate();refreshAccountDependentUI();renderIncomePlan();return true;
  }});
 }
+function paymentActivityLedgerRow(id){
+ return (cashFlowLedger||[]).find(x=>x.id===id&&x.status!=='reversed');
+}
+function refreshPaymentActivityAccount(){
+ refreshAccountDependentUI();
+ if(currentAccountDetailId&&document.getElementById('accountDetail')?.classList.contains('active'))openAccount(currentAccountDetailId,accountDetailReturnPage);
+}
+function paymentActivityOutgoing(row){
+ const paymentId=String(row.referenceId||'').replace(/^outgoing:/,'');
+ const outgoing=outgoings.find(o=>o.id===row.targetId);
+ if(!outgoing||!paymentId||!String(row.referenceId||'').startsWith('outgoing:'))return null;
+ const month=row.month||String(row.date||'').slice(0,7);
+ const payment=outgoingPaymentEntries(outgoing,month).find(p=>p.id===paymentId);
+ return payment?{outgoing,month,payment}:null;
+}
+function editAccountPaymentActivity(id){
+ const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(row.type==='outgoing-payment'){
+  const item=paymentActivityOutgoing(row);
+  if(!item)return alert('This historical payment cannot be edited here.');
+  return openOutgoingPayment(item.outgoing.id,item.month,item.payment.id);
+ }
+ if(!['bank-transfer','card-bank-transfer'].includes(row.type))return;
+ const source=account(row.sourceId),target=account(row.targetId);
+ if(!source||!target)return alert('One of the accounts for this transfer is unavailable.');
+ openUnifiedAction({title:'Edit Transfer',subtitle:`${accountName(source.id)} → ${accountName(target.id)}`,save:'Save Transfer',fields:[
+  {name:'amount',label:'Amount (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(row.amount||0),required:true,full:false},
+  {name:'date',label:'Transfer Date',type:'date',value:row.date,required:true,full:false},
+  {name:'note',label:'Note',value:row.description||'',full:true}
+ ],submit:v=>{
+  const current=paymentActivityLedgerRow(id),amount=Number(v.amount);
+  if(!current)return goldActionError('This transfer changed. Reopen it.');
+  if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter a valid amount with no more than two decimals.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid date.');
+  const oldAmount=Number(current.amount||0);
+  if(source.type==='bank'&&amount>adjustedBankBalance(source)+oldAmount+0.001)return goldActionError('Transfer exceeds the source bank balance.');
+  if(source.type==='card'&&amount>cardMetrics(source).available+oldAmount+0.001)return goldActionError('Transfer exceeds the source card available credit.');
+  Object.assign(current,{amount,date:v.date,month:v.date.slice(0,7),description:String(v.note||'').trim()});
+  saveLocal();syncCashFlowLedgerImmediate();refreshPaymentActivityAccount();return true;
+ }});
+}
+function deleteAccountPaymentActivity(id){
+ const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(row.type==='outgoing-payment'){
+  const item=paymentActivityOutgoing(row);
+  if(!item)return alert('This historical payment cannot be deleted here.');
+  if(!confirm(`Undo ${item.outgoing.description} payment of ${money(row.amount)}? The outgoing will become unpaid and the bank balance will be restored.`))return;
+  return undoOutgoingPayment(item.outgoing.id,item.month,true,item.payment.id);
+ }
+ if(!['bank-transfer','card-bank-transfer'].includes(row.type))return;
+ if(!confirm(`Delete transfer of ${money(row.amount)} from ${accountName(row.sourceId)} to ${accountName(row.targetId)}? Account balances and card credit will update.`))return;
+ Object.assign(row,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Transfer deleted by user'});
+ saveLocal();syncCashFlowLedgerImmediate();refreshPaymentActivityAccount();
+}
 function bindCustomAccountButtons(){
  const bank=$('addCustomBank'),card=$('addCustomCreditCard');
  if(bank){bank.type='button';bank.onclick=e=>{e.preventDefault();addCustomBank();};bank.dataset.accountActionBound='1';}

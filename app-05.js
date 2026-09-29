@@ -819,12 +819,12 @@ function accountPaymentActivityHTML(accountId){
  if(accountPaymentActivitySelection.month&&!months.includes(accountPaymentActivitySelection.month))accountPaymentActivitySelection.month='';
  const rows=accountPaymentActivitySelection.month?allRows.filter(x=>String(x.date||'').slice(0,7)===accountPaymentActivitySelection.month):allRows;
  return `<div class="panel"><div class="splitHead"><div><div class="sectionTitle">Payments & Transfers</div><div class="meta">Recorded money movements involving this account. These entries are for tracing and are not added again to the transaction totals or balance.</div></div><div class="field" style="margin:0;min-width:170px"><label for="accountPaymentMonthFilter">Payment Date Month</label><select id="accountPaymentMonthFilter" class="input"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${accountPaymentActivitySelection.month===m?'selected':''}>${cardMonthLabel(m)}</option>`).join('')}</select></div></div>
- <div style="overflow-x:auto;margin-top:12px"><table class="txTable"><thead><tr><th>Date</th><th>Direction</th><th>Details</th><th>Other account / payee</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(x=>{
+ <div style="overflow-x:auto;margin-top:12px"><table class="txTable"><thead><tr><th>Date</th><th>Direction</th><th>Details</th><th>Other account / payee</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(x=>{
   const incoming=x.targetId===accountId;
   const type=x.type==='card-payment'?'Card payment':x.type==='card-bank-transfer'?'Card to bank transfer':x.type==='bank-transfer'?'Bank transfer':x.type==='outgoing-payment'?'Scheduled outgoing':x.type==='zakat-payment'?'Zakat payment':x.type==='installment-early-settlement'?'Installment settlement':'Payment';
   const counterparty=incoming?(x.sourceName||accountName(x.sourceId)||'Source not recorded'):(x.targetName||accountName(x.targetId)||x.description||'Payee not recorded');
-  return `<tr><td>${escapeHtml(String(x.date||''))}</td><td><b class="${incoming?'green':'red'}">${incoming?'Received':'Paid'}</b></td><td><b>${escapeHtml(type)}</b><div class="meta">${escapeHtml(String(x.description||''))}</div></td><td>${escapeHtml(counterparty)}</td><td class="${incoming?'green':'red'}"><b>${incoming?'+':'−'}${money(Number(x.amount||0))}</b></td></tr>`;
- }).join(''):'<tr><td colspan="5">No recorded payments or transfers for this account.</td></tr>'}</tbody></table></div></div>`;
+  return `<tr><td>${escapeHtml(String(x.date||''))}</td><td><b class="${incoming?'green':'red'}">${incoming?'Received':'Paid'}</b></td><td><b>${escapeHtml(type)}</b><div class="meta">${escapeHtml(String(x.description||''))}</div></td><td>${escapeHtml(counterparty)}</td><td class="${incoming?'green':'red'}"><b>${incoming?'+':'−'}${money(Number(x.amount||0))}</b></td><td>${!String(x.id||'').startsWith('history:')&&['bank-transfer','card-bank-transfer','outgoing-payment'].includes(x.type)?`<button class="btn small" type="button" data-edit-payment-activity="${escapeHtml(String(x.id))}">Edit</button> <button class="btn small danger" type="button" data-delete-payment-activity="${escapeHtml(String(x.id))}">Delete</button>`:''}</td></tr>`;
+ }).join(''):'<tr><td colspan="6">No recorded payments or transfers for this account.</td></tr>'}</tbody></table></div></div>`;
 }
 
 
@@ -1222,6 +1222,8 @@ ${paymentActivity}
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
  const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.addEventListener('change',()=>{accountPaymentActivitySelection.month=activityMonth.value||'';openAccount(id,accountDetailReturnPage);});
+ document.querySelectorAll('#accountDetailContent [data-edit-payment-activity]').forEach(b=>b.addEventListener('click',()=>editAccountPaymentActivity(b.dataset.editPaymentActivity)));
+ document.querySelectorAll('#accountDetailContent [data-delete-payment-activity]').forEach(b=>b.addEventListener('click',()=>deleteAccountPaymentActivity(b.dataset.deletePaymentActivity)));
  if($('detailAddTransaction'))$('detailAddTransaction').addEventListener('click',()=>openManualTransaction({account:id,date:new Date().toISOString().slice(0,10)}));
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));

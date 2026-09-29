@@ -217,6 +217,20 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   sessionStorage.setItem('finance_workspace_selected_'+window.financeActiveUserId,workspaceId);
   location.reload();
  };
+ document.getElementById('accountNewWorkspaceCreate')?.addEventListener('click',async e=>{
+  const button=e.currentTarget,input=document.getElementById('accountNewWorkspaceName');
+  const status=document.getElementById('accountNewWorkspaceStatus'),name=String(input?.value||'').trim();
+  if(!name||name.length>80){status.textContent='Use a name between 1 and 80 characters.';return;}
+  button.disabled=true;status.textContent='Creating database…';
+  try{
+   const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name});
+   if(error||!id)throw error||new Error('Database creation was not confirmed.');
+   window.financeWorkspaceChoices.push({id,name,own:true});
+   input.value='';status.textContent='Database created. Switching to '+name+'…';
+   await window.financeChooseWorkspace(id);
+  }catch(error){status.textContent='Could not create database: '+error.message;}
+  finally{button.disabled=false;}
+ });
  document.getElementById('financeWorkspaceNameSave')?.addEventListener('click',async()=>{
   const status=document.getElementById('financeWorkspaceNameStatus');
   const name=document.getElementById('financeWorkspaceName')?.value.trim();
@@ -252,6 +266,21 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(error)throw error;
   return data||[];
  }
+ const inviteButton=document.getElementById('adminInviteSend');
+ if(inviteButton)inviteButton.addEventListener('click',async()=>{
+  const input=document.getElementById('adminInviteEmail'),status=document.getElementById('adminInviteStatus');
+  const email=String(input?.value||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){status.textContent='Enter a valid email address.';return;}
+  inviteButton.disabled=true;status.textContent='Sending invitation…';
+  try{
+   const {data,error}=await client.functions.invoke('finance-invite-user',{body:{email}});
+   if(error||!data?.invited)throw new Error(data?.error||error?.message||'Invitation was not confirmed.');
+   status.textContent='Invitation sent to '+email+'. They can set their password from the email link.';
+   input.value='';
+   window.renderFinanceAdminAccess?.();
+  }catch(error){status.textContent='Could not send invitation: '+error.message;}
+  finally{inviteButton.disabled=false;}
+ });
  window.renderFinanceAdminAccess=async function(){
   const status=document.getElementById('adminAccessStatus'),box=document.getElementById('adminAccessUsers');
   if(!status||!box)return;
@@ -324,7 +353,26 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
       const selector=document.getElementById('ownAccessUser');if(!selector)return;
       selector.value=user.user_id;window.renderOwnAccessMatrix?.();
       document.getElementById('ownAccessMatrix')?.scrollIntoView({behavior:'smooth',block:'center'});
-     };card.append(edit)}
+     };card.append(edit);
+     const remove=el('button','btn danger','Delete user');remove.type='button';
+     remove.onclick=async()=>{
+      const label=user.user_email||user.user_id;
+      const typed=prompt('Permanently delete '+label+' and their private finance records? Type their full email to continue.');
+      if(typed===null)return;
+      if(typed.trim().toLowerCase()!==String(user.user_email||'').toLowerCase()){
+       status.textContent='Email did not match. No account was deleted.';return;
+      }
+      if(!confirm('Final confirmation: delete '+label+'? This removes their login, private finance data, and audit history. This cannot be undone.'))return;
+      remove.disabled=true;status.textContent='Deleting account…';
+      try{
+       const {data,error}=await client.functions.invoke('finance-delete-user',{
+        body:{userId:user.user_id,confirmEmail:typed.trim()}
+       });
+       if(error||!data?.deleted)throw new Error(data?.error||error?.message||'Deletion was not confirmed.');
+       await window.renderFinanceAdminAccess();
+       status.textContent=label+' was deleted.';
+      }catch(error){status.textContent='Could not delete user: '+error.message;remove.disabled=false;}
+     };card.append(remove)}
     const ownGrants=grants.filter(g=>g.owner_user_id===user.user_id);
     if(ownGrants.length)card.append(el('small','',ownGrants.length+' page grant(s) to other users'));
     box.append(card);
@@ -529,10 +577,40 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
     const item=el('div','prefsStatus');
     item.append(el('b','',emails.get(member)||'User '+member.slice(0,8)),
       el('span','',pages.map(p=>p.page+' ('+p.permission+')').join(' · ')));
+    for(const page of pages){
+     const revoke=el('button','btn small','Remove '+page.page+' access');revoke.type='button';
+     revoke.onclick=async()=>{
+      const email=emails.get(member);if(!email){alert('Member email is unavailable. Refresh and try again.');return;}
+      if(!confirm('Remove '+email+' from '+page.page+' in your workspace?'))return;
+      revoke.disabled=true;
+      const {error}=await client.rpc('finance_share_my_workspace',{
+       target_email:email,target_page:page.page,access_level:'off'
+      });
+      if(error){alert('Could not remove access: '+error.message);revoke.disabled=false;return;}
+      await window.renderFinanceSharedWith();
+     };item.append(revoke);
+    }
     box.append(item);
    }
   }catch(e){box.textContent='Sharing list unavailable: '+e.message}
  };
+ document.getElementById('accountShareSave')?.addEventListener('click',async()=>{
+  const email=document.getElementById('accountShareEmail')?.value.trim(),
+   page=document.getElementById('accountSharePage')?.value,
+   permission=document.getElementById('accountSharePermission')?.value,
+   status=document.getElementById('accountShareStatus');
+  if(!email||!page||!permission){status.textContent='Enter the registered user email, page, and permission.';return;}
+  if(window.financeSharedWorkspace){status.textContent='Switch to your own workspace before sharing it.';return;}
+  status.textContent='Saving your sharing choice…';
+  try{
+   const {error}=await client.rpc('finance_share_my_workspace',{
+    target_email:email,target_page:page,access_level:permission
+   });
+   if(error)throw error;
+   status.textContent='Access saved. The member can choose your workspace after signing in or refreshing.';
+   await window.renderFinanceSharedWith();
+  }catch(error){status.textContent='Could not share: '+error.message;}
+ });
  const sectionPage={
   investments_holdings:'Investments',investments_trades:'Investments',
   personal_assets_gold:'Personal Assets',personal_assets_market:'Personal Assets',

@@ -127,7 +127,7 @@ let transactions=[];let resetCardIds=new Set(JSON.parse(localStorage.getItem('pf
 let cardResetHistory=JSON.parse(localStorage.getItem('pf_card_reset_history')||'[]')||[];
 
 rebuildTransactions();
-if(window.financeActiveUserId&&!window.financeIsOwner)BASE.accounts=[];
+if(window.financeActiveUserId&&(!window.financeIsOwner||window.financeAdditionalWorkspace))BASE.accounts=[];
 const accounts=BASE.accounts;
 let customCreditCards=JSON.parse(localStorage.getItem('pf_custom_credit_cards')||'[]');
 if(!Array.isArray(customCreditCards))customCreditCards=[];
