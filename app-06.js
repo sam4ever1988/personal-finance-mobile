@@ -1132,11 +1132,8 @@ function addExtraIncomeFromInput(){
 }
 
 function financeSettingCards(){
- const labels={'ar-0955':{bank:'Al Rajhi Bank',name:'Visa Infinite',ending:'0955'},'ar-5867':{bank:'Al Rajhi Bank',name:'Visa Platinum',ending:'5867'},'sab-440880':{bank:'SAB',name:'Cashback Credit Card',ending:'440880'},'nbd-infinite-4411':{bank:'Emirates NBD',name:'Infinite Visa',ending:'4411'},'nbd-mazeed-8652':{bank:'Emirates NBD',name:'Mazeed Platinum Visa',ending:'8652'},'meem-7102':{bank:'meem / GIB Saudi',name:'Visa Platinum',ending:'7102'}};
- const liveCards=(Array.isArray(accounts)?accounts:[]).filter(a=>a?.type==='card');
- const byId=new Map(liveCards.map(a=>[a.id,a]));
- Object.keys(DEFAULT_CARD_CYCLE_SETTINGS).forEach(id=>{if(!byId.has(id))byId.set(id,{id,type:'card',...(labels[id]||{bank:'Credit Card',name:id,ending:''})});});
- return [...byId.values()];
+ // Match the saved-card editor; cycle defaults must never create accounts.
+ return editableFinanceCards();
 }
 function loanMonthIndex(ym){
  const m=String(ym||'').match(/^(\d{4})-(\d{2})$/);
@@ -1234,7 +1231,7 @@ function renderFinanceSettings(force=false){
  const cycleBox=$('cardCycleSettingsRows');
  if(cycleBox){
   const cards=financeSettingCards();
-  if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=`${cards.length} credit cards configured`;
+  if($('cardCycleSettingsStatus'))$('cardCycleSettingsStatus').textContent=cards.length?`${cards.length} credit cards configured`:'No credit cards saved yet. Add a credit card above to configure its statement and due dates.';
   cycleBox.innerHTML=cards.map(a=>{const c=cardCycleSetting(a.id);return `<div class="panel" style="padding:12px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">${bankLogoHTML(a)}<div><b>${escapeHtml(`${a.bank||'Credit Card'} • ${a.name||a.id}${a.ending?` •${a.ending}`:''}`)}</b><div class="meta">Statement and payment cycle</div></div></div><div class="formGrid" style="margin-top:10px"><div class="field"><label>Statement Cutoff Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="statementDay" value="${Number(c.statementDay||1)}"></div><div class="field"><label>Payment Due Day</label><input type="number" min="1" max="31" data-cycle-card="${a.id}" data-cycle-field="dueDay" value="${Number(c.dueDay||25)}"></div></div></div>`;}).join('');
   cycleBox.querySelectorAll('[data-cycle-card]').forEach(el=>{
    el.onfocus=()=>{financeSettingsEditing=true};
