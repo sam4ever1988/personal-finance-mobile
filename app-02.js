@@ -696,12 +696,12 @@ function paymentRemainingAmount(p){
  return Number.isFinite(due)?Math.max(0,Math.round((due-paymentPaidAmount(p))*100)/100):null;
 }
 function recordPartialPayment(id){openRecordPayment(id)}
-function undoLastPartialPayment(id){
+function undoLastPartialPayment(id,ledgerReferenceId=''){
  const p=cardPaymentPlan.find(x=>x.id===id);
  if(!p||!Array.isArray(p.paymentHistory)||!p.paymentHistory.length)return;
 
- let idx=p.paymentHistory.length-1;
- while(idx>=0 && p.paymentHistory[idx]?.mirrored===true)idx--;
+ let idx=ledgerReferenceId?p.paymentHistory.findIndex(h=>h.mirrored!==true&&h.ledgerReferenceId===ledgerReferenceId):p.paymentHistory.length-1;
+ if(!ledgerReferenceId)while(idx>=0 && p.paymentHistory[idx]?.mirrored===true)idx--;
  if(idx<0)return;
 
  const last=p.paymentHistory[idx];
