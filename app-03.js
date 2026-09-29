@@ -1,8 +1,6 @@
 function financePageVisible(page){
- if(page==='bankconnections'){
-  try{if(JSON.parse(localStorage.getItem('pf_preferences_v283')||'{}').showBankConnections!==true)return false;}
-  catch(e){return false;}
- }
+ if(page==='bankconnections')return window.financeIsOwner===true||
+  ['view','edit'].includes(window.financeBankTestingPermission);
  return !window.financeCanViewPage||window.financeCanViewPage(page);
 }
 
