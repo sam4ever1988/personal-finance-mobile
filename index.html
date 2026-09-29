@@ -530,7 +530,7 @@
  <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">Your verified email controls access to this private finance workspace. Use the profile menu to sign out on this device.</p><div class="prefsStatus"><span>Authentication</span><b>Email and password available</b></div><button class="btn" type="button" data-page-jump="auditTrail">My Audit Trail</button> <button class="btn" type="button" data-page-jump="accessLab">Access Test</button></div>
  <div class="panel prefsCard"><div class="panelTitle">Shared with</div><p class="meta">People you have authorized to access your workspace.</p><div id="accountSharedWith">No one has access to your workspace.</div><div class="prefsForm" style="margin-top:12px"><label>Registered user email<input id="accountShareEmail" type="email" autocomplete="off" placeholder="person@example.com"></label><label>Page<select id="accountSharePage"><option value="rental">Airbnb / Rental</option><option value="transactions">Transactions</option><option value="accounts">Cash & Credit</option><option value="investments">Investments</option><option value="assets">Personal Assets</option><option value="outgoings">Cash & Other Outgoings</option><option value="incomeplan">Income & Payment Plan</option><option value="installments">Installments</option><option value="importstatements">Import Statements</option><option value="financeSettings">Settings</option></select></label><label>Permission<select id="accountSharePermission"><option value="view">View only</option><option value="edit">View and edit</option></select></label><button type="button" class="btn primary" id="accountShareSave">Share My Workspace</button><div id="accountShareStatus" class="meta" role="status"></div></div></div>
  <div class="panel prefsCard" id="accountOwnAccessCard" hidden><div class="panelTitle">My Page Access</div><div id="accountOwnAccessSummary" class="meta"></div></div>
- <div class="panel prefsCard" id="accountWorkspaceCard"><div class="panelTitle">Switch Workspace</div><p class="meta">Your own workspace and any shared with you.</p><select id="accountWorkspaceSwitch" class="control"></select></div>
+ <div class="panel prefsCard" id="accountWorkspaceCard"><div class="panelTitle">Switch Workspace</div><p class="meta">Your own workspace and any shared with you.</p><select id="accountWorkspaceSwitch" class="control"></select><div class="auditFilters" style="margin-top:12px"><label>New database name<input id="accountNewWorkspaceName" maxlength="80" placeholder="Family budget"></label><button class="btn primary" id="accountNewWorkspaceCreate" type="button">Create Database</button></div><div id="accountNewWorkspaceStatus" class="meta" role="status"></div></div>
  <div class="panel prefsCard" id="adminAccessCard" hidden><div class="panelTitle">Administration</div><p class="meta">Review registered users and the current access configuration.</p><button class="btn primary" type="button" data-page-jump="adminAccess">Open Admin Access</button></div></div></div>
 </section>
 <section class="view" id="adminAccess">
@@ -875,7 +875,8 @@
       const slot=target?(workspace===target?target:target+'|'+workspace):'';
       const current=localStorage.getItem('pf_active_user_id')||'legacy-owner';
       window.financeCacheSlotId=slot;
-      window.financeSharedWorkspace=!!target&&workspace!==target;
+      window.financeAdditionalWorkspace=!!target&&workspace!==target&&!!window.financeWorkspaceChoices?.find(w=>w.id===workspace)?.own;
+      window.financeSharedWorkspace=!!target&&workspace!==target&&!window.financeAdditionalWorkspace;
       if(window.financeSharedWorkspace){
         if(sessionStorage.getItem('finance_shared_ephemeral_v346')!==slot){
           Object.keys(sessionStorage).filter(k=>k.startsWith('pf_')).forEach(k=>sessionStorage.removeItem(k));
@@ -930,25 +931,29 @@
     window.financeUserEmail=session?.user?.email||'';
     if(session){
       const actor=session.user.id;
-      const [{data:grants,error:grantError},{data:names,error:nameError},users]=await Promise.all([
+      const primary=await scoped.rpc('finance_ensure_primary_workspace');
+      if(primary.error)throw primary.error;
+      const [{data:grants,error:grantError},{data:names,error:nameError},users,{data:owned,error:ownedError}]=await Promise.all([
         scoped.from('finance_workspace_grants').select('owner_user_id,page,permission').eq('member_user_id',actor),
         scoped.from('finance_workspace_profiles').select('owner_user_id,display_name'),
-        scoped.rpc('finance_access_directory')
+        scoped.rpc('finance_access_directory'),
+        scoped.from('finance_workspaces').select('id,display_name').eq('owner_user_id',actor)
       ]);
-      if(grantError||nameError||users.error)throw grantError||nameError||users.error;
+      if(grantError||nameError||users.error||ownedError)throw grantError||nameError||users.error||ownedError;
       const labels=new Map((names||[]).map(row=>[row.owner_user_id,row.display_name]));
       const emails=new Map((users.data||[]).map(row=>[row.user_id,row.user_email]));
       const owners=[...new Set((grants||[]).map(g=>g.owner_user_id))].filter(id=>id!==actor);
       window.financeWorkspaceChoices=[{id:actor,name:labels.get(actor)||'My Workspace',own:true},
+        ...(owned||[]).filter(w=>w.id!==actor).map(w=>({id:w.id,name:w.display_name,own:true})),
         ...owners.map(id=>({id,name:labels.get(id)||emails.get(id)||'Shared Workspace',own:false}))];
       const selectionKey='finance_workspace_selected_'+actor;
       let selected=sessionStorage.getItem(selectionKey);
       if(!window.financeWorkspaceChoices.some(x=>x.id===selected))selected=null;
-      if(owners.length&&!selected){
+      if(window.financeWorkspaceChoices.length>1&&!selected){
         selected=await new Promise(resolve=>{
           const chooser=document.createElement('div');chooser.className='financeWorkspaceChooser';
           const title=document.createElement('h2');title.textContent='Choose a finance workspace';chooser.append(title);
-          const note=document.createElement('p');note.textContent='Choose your own data or a workspace explicitly shared with you.';chooser.append(note);
+          const note=document.createElement('p');note.textContent='Choose the database you want to use. You can switch later from Account.';chooser.append(note);
           window.financeWorkspaceChoices.forEach(option=>{
             const button=document.createElement('button');button.type='button';button.className='financeGatePrimary';
             button.textContent=option.name+(option.own?' · Mine':' · Shared');
