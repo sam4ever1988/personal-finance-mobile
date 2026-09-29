@@ -532,7 +532,7 @@ addCustomCreditCard=function(){openUnifiedAction({title:'Add Credit Card',subtit
 
 function editableFinanceCards(){
  const seen=new Set();
- return accounts.filter(a=>a?.type==='card'&&!seen.has(a.id)&&seen.add(a.id));
+ return accounts.filter(a=>a?.type==='card'&&(a.bank||a.name||a.ending)&&!seen.has(a.id)&&seen.add(a.id));
 }
 function editFinanceCreditCard(id){
  const current=account(id);if(!current||current.type!=='card')return;
@@ -826,7 +826,7 @@ function statementFormatExcelTemplate(){
   ['Amount','E','NO','-125.50','Use instead of Debit/Credit when statement has one signed amount column','','','',''],
   ['Balance','F','NO','8425.35','Optional running/available balance','','','',''],
   ['Reference','G','NO','REF12345','Optional transaction reference','','','',''],
-  ['Card Last 4','H','NO','0955','Optional physical-card identifier','','','',''],
+  ['Card Last 4','H','NO','1234','Optional physical-card identifier','','','',''],
   ['Type','I','NO','Purchase','Optional bank transaction type','','','','']
  ];
  const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
@@ -905,13 +905,62 @@ function statementFormatMappingSummary(f){
  const bits=[m.date&&('Date='+m.date),m.description&&('Description='+m.description),m.amount&&('Amount='+m.amount),m.debit&&('Debit='+m.debit),m.credit&&('Credit='+m.credit),m.balance&&('Balance='+m.balance)].filter(Boolean);
  return bits.join(' · ')||'Excel column mapping';
 }
+let sharedStatementTemplates=[];
+let sharedTemplateLoading=false;
+function allStatementFormats(){
+ statementFormats=sanitizeBuiltinStatementTemplates(statementFormats);
+ return [...statementFormats,...sharedStatementTemplates];
+}
+function statementTemplateIsNew(f,now=Date.now()){
+ const created=Date.parse(f.createdAt),until=Date.parse(f.newUntil);
+ return f.shared===true&&Number.isFinite(created)&&Number.isFinite(until)&&now>=created&&now<until;
+}
+async function refreshSharedStatementTemplates(){
+ if(sharedTemplateLoading||!window.financeSupabaseClient)return;
+ sharedTemplateLoading=true;
+ const status=$('statementTemplatesStatus');
+ try{
+  const {data,error}=await window.financeSupabaseClient.from('finance_statement_templates')
+   .select('id,name,file_type,mapping_config,created_at,new_until').order('created_at',{ascending:false});
+  if(error)throw error;
+  sharedStatementTemplates=(data||[]).map(f=>({id:f.id,name:f.name,fileType:f.file_type,mappingConfig:f.mapping_config,accountId:'',active:true,shared:true,createdAt:f.created_at,newUntil:f.new_until}));
+  if(status)status.textContent='Shared templates are up to date.';
+  renderStatementFormatsV268();
+ }catch(e){if(status)status.textContent='Shared templates could not load. Use Refresh Templates to retry.';console.warn('Shared template load',e);}
+ finally{sharedTemplateLoading=false;}
+}
+async function publishSharedStatementTemplate(id,f){
+ if(!window.financeIsOwner)throw new Error('Only the administrator can publish shared templates.');
+ if(/[0-9]{4,}/.test(f.name))throw new Error('Use a generic template name without card or account numbers.');
+ const client=window.financeSupabaseClient;
+ if(!client)throw new Error('Cloud connection is unavailable.');
+ const row={name:f.name,file_type:f.fileType,mapping_config:f.mappingConfig};
+ const result=id?await client.from('finance_statement_templates').update(row).eq('id',id).select('id').single()
+  :await client.from('finance_statement_templates').insert(row).select('id').single();
+ if(result.error)throw result.error;
+ await refreshSharedStatementTemplates();
+}
+function renderStatementFormatsV268(){
+ const b=$('statementFormatsBody');if(!b)return;
+ b.innerHTML=allStatementFormats().map(f=>`<tr>
+  <td><b>${escapeHtml(f.name)}</b> ${statementTemplateIsNew(f)?'<span class="badge active">New</span>':''}${f.shared?'<div class="meta">Shared template</div>':''}</td>
+  <td>${f.shared||f.builtIn?'Any saved account':escapeHtml(f.accountId?(accountName(f.accountId)||f.accountId):'Any saved account')}</td>
+  <td>${escapeHtml(f.fileType||'')}</td>
+  <td>${escapeHtml(statementFormatMappingSummary(f))}</td>
+  <td><span class="badge ${f.active!==false?'active':''}">${f.active!==false?'Active':'Inactive'}</span></td>
+  <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+   <button class="btn small" type="button" data-edit-format="${escapeHtml(f.id)}">${f.shared&&!window.financeIsOwner?'Make private copy':f.mappingConfig?'Edit / Remap':'Remap'}</button>
+   ${!f.shared||window.financeIsOwner?`<button class="btn small danger" type="button" data-delete-format-v268="${escapeHtml(f.id)}">Delete</button>`:''}
+  </div></td></tr>`).join('');
+}
 function openStatementFormatBuilderV268(existing=null){
  const m=existing?.mappingConfig||{};
  openUnifiedAction({
   title:existing?'Edit / Remap Statement Format':'Add Statement Format',
-  subtitle:'Map the exact Excel/CSV columns. Changing a mapping affects future imports only.',
+  subtitle:'Map Excel/CSV columns. Shared templates contain only a generic name and column mapping; account links remain private.',
   save:existing?'Save Remapping':'Save Format',
   fields:[
+   ...(window.financeIsOwner?[{name:'visibility',label:'Template visibility',type:'select',value:existing?(existing.shared?'shared':'private'):'shared',options:existing?.shared?[{value:'shared',label:'Everyone — shared template'}]:[{value:'shared',label:'Everyone — shared template'},{value:'private',label:'Only this database'}]}]:[]),
    {name:'name',label:'Format Name',required:true,value:existing?.name||'',placeholder:'Example: Al Rajhi Current Account Excel'},
    {name:'accountId',label:'Account / Card ID',value:existing?.accountId||'',placeholder:'Optional — blank means any account'},
    {name:'fileType',label:'Statement File Type',type:'select',value:(existing?.fileType||'XLSX').includes('CSV')?'CSV':'XLSX',options:[
@@ -940,27 +989,22 @@ function openStatementFormatBuilderV268(existing=null){
     debit:clean(v.debitColumn),credit:clean(v.creditColumn),balance:clean(v.balanceColumn),
     reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column)
    };
-   const target=existing||{id:'fmt-'+Date.now(),active:true,builtIn:false};
+   const target=existing?{...existing}:{id:'fmt-'+Date.now(),active:true,builtIn:false};
    target.name=String(v.name).trim();target.accountId=String(v.accountId||'').trim();
    target.fileType=v.fileType||'XLSX';target.mapping='Excel column mapping';target.mappingConfig=obj;
    target.builtIn=false;target.active=target.active!==false;
-   if(!existing)statementFormats.push(target);
+   if(v.visibility==='shared'||existing?.shared){
+    if(!window.financeIsOwner)return goldActionError('Only the administrator can change shared templates.');
+    const saveButton=$('unifiedActionSave');if(saveButton.disabled)return false;saveButton.disabled=true;
+    publishSharedStatementTemplate(existing?.shared?existing.id:null,target).then(()=>{
+     const modal=$('unifiedActionModal');modal.classList.remove('open');modal.style.display='';
+    }).catch(e=>goldActionError(e.message)).finally(()=>{saveButton.disabled=false;});
+    return false;
+   }
+   if(!existing||existing.privateCopy)statementFormats.push(target);else statementFormats=statementFormats.map(f=>f.id===existing.id?target:f);
    saveV194Data();renderStatementFormatsV268();return true;
   }
  });
-}
-function renderStatementFormatsV268(){
- const b=$('statementFormatsBody');if(!b)return;
- b.innerHTML=statementFormats.map(f=>`<tr>
-  <td><b>${escapeHtml(f.name)}</b></td>
-  <td>${escapeHtml(accountName(f.accountId)||f.accountId||'Any')}</td>
-  <td>${escapeHtml(f.fileType||'')}</td>
-  <td>${escapeHtml(statementFormatMappingSummary(f))}</td>
-  <td><span class="badge ${f.active!==false?'active':''}">${f.active!==false?'Active':'Inactive'}</span></td>
-  <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-   <button class="btn small" type="button" data-edit-format="${f.id}">${f.mappingConfig?'Edit / Remap':'Remap'}</button>
-   <button class="btn small danger" type="button" data-delete-format-v268="${f.id}">Delete</button>
-  </div></td></tr>`).join('');
 }
 const _renderStatementFormatsV268Legacy=renderStatementFormats;
 renderStatementFormats=renderStatementFormatsV268;
@@ -970,16 +1014,21 @@ document.addEventListener('click',e=>{
  if(!edit&&!del)return;
  e.preventDefault();e.stopPropagation();
  if(edit){
-  const f=statementFormats.find(x=>x.id===edit.dataset.editFormat);
-  if(f)openStatementFormatBuilderV268(f);
+  const f=allStatementFormats().find(x=>x.id===edit.dataset.editFormat);
+  if(f)openStatementFormatBuilderV268(f.shared&&!window.financeIsOwner?{...f,id:'fmt-'+Date.now(),shared:false,privateCopy:true}:f);
   return;
  }
- const f=statementFormats.find(x=>x.id===del.dataset.deleteFormatV268);
+ const f=allStatementFormats().find(x=>x.id===del.dataset.deleteFormatV268);
  if(!f)return;
  if(confirm(`Delete statement format "${f.name}"? This removes the format definition only; imported transactions are not deleted.`)){
-  statementFormats=statementFormats.filter(x=>x.id!==f.id);
-  saveV194Data();renderStatementFormatsV268();
+  if(f.shared){
+   if(!window.financeIsOwner)return;
+   window.financeSupabaseClient.from('finance_statement_templates').delete().eq('id',f.id).then(({error})=>{if(error)alert(error.message);else refreshSharedStatementTemplates();});
+  }else{statementFormats=statementFormats.filter(x=>x.id!==f.id);saveV194Data();renderStatementFormatsV268();}
  }
 },true);
 openStatementFormatBuilder=openStatementFormatBuilderV268;
+document.addEventListener('click',e=>{if(e.target.closest?.('#refreshStatementTemplates'))refreshSharedStatementTemplates();});
+setTimeout(refreshSharedStatementTemplates,0);
+setInterval(()=>{if(document.querySelector('#importstatements.active'))refreshSharedStatementTemplates();},60000);
 setTimeout(()=>{try{renderStatementFormatsV268();}catch(e){console.warn('V268 statement format render',e)}},0);
