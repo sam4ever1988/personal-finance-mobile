@@ -2766,3 +2766,46 @@ body.investmentsMode #investments .invRowActions .invTradeBtn[data-type="SELL"]{
 .accountAccessNotice p{line-height:1.5;margin:9px 0 0}
 html[data-finance-theme="light"] .accountAccessNotice{background:#eaf6fa!important;color:#163242!important}
 html[data-finance-theme="light"] #accountprofile input,html[data-finance-theme="light"] #accountprofile select{background:#fff;color:#163242;border:1px solid #b8d4e1}
+
+/* Account uses the normal dark palette even before navigation adds a page mode. */
+html:not([data-finance-theme="light"]) body:has(#accountprofile.view.active),
+html:not([data-finance-theme="light"]) body:has(#preferences.view.active){
+ background:radial-gradient(circle at 55% 0,#07324c 0,#031b2b 42%,#021521 100%)!important;
+ color:#eaf5ff!important;
+}
+html:not([data-finance-theme="light"]) body:has(#accountprofile.view.active) .main,
+html:not([data-finance-theme="light"]) body:has(#accountprofile.view.active) .content,
+html:not([data-finance-theme="light"]) body:has(#preferences.view.active) .main,
+html:not([data-finance-theme="light"]) body:has(#preferences.view.active) .content{
+ background:transparent!important;
+}
+html:not([data-finance-theme="light"]) #accountprofile,
+html:not([data-finance-theme="light"]) #preferences{color:#eaf5ff!important;color-scheme:dark}
+html:not([data-finance-theme="light"]) #accountprofile .panel,
+html:not([data-finance-theme="light"]) #preferences .panel{
+ background:linear-gradient(145deg,#082d43,#061f32)!important;
+ color:#eaf5ff!important;border-color:#155273!important;box-shadow:none!important;
+}
+html:not([data-finance-theme="light"]) #accountprofile h1,
+html:not([data-finance-theme="light"]) #accountprofile h2,
+html:not([data-finance-theme="light"]) #accountprofile .panelTitle,
+html:not([data-finance-theme="light"]) #preferences h1,
+html:not([data-finance-theme="light"]) #preferences .panelTitle{color:#fff!important}
+html:not([data-finance-theme="light"]) #accountprofile .meta,
+html:not([data-finance-theme="light"]) #accountprofile .prefsLead,
+html:not([data-finance-theme="light"]) #preferences .meta,
+html:not([data-finance-theme="light"]) #preferences .prefsLead{color:#9fb7c8!important}
+html:not([data-finance-theme="light"]) #accountprofile input,
+html:not([data-finance-theme="light"]) #accountprofile select,
+html:not([data-finance-theme="light"]) #preferences input,
+html:not([data-finance-theme="light"]) #preferences select{
+ background:#06283c!important;color:#eaf5ff!important;border:1px solid #1a5875!important;
+ border-radius:8px;padding:9px 11px;
+}
+html:not([data-finance-theme="light"]) #accountprofile .btn:not(.primary),
+html:not([data-finance-theme="light"]) #preferences .btn:not(.primary){
+ background:#082d43!important;color:#eaf5ff!important;border-color:#1a5875!important;
+}
+html:not([data-finance-theme="light"]) #accountprofile .accountAccessNotice{
+ background:#073447!important;color:#eaf5ff!important;border-color:#28caff!important;
+}
