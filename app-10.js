@@ -201,7 +201,11 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    const entries=Object.entries(window.financePagePermissions||{}).filter(([,v])=>v==='view'||v==='edit');
    summary.textContent=entries.length
     ?entries.map(([page,permission])=>page.replaceAll('_',' ')+' ('+permission+')').join(' · ')
-    :'No finance pages assigned yet. Your administrator can enable pages for your own account.';
+    :'Waiting for the administrator to enable finance pages for this account.';
+   const notice=document.getElementById('accountAccessNotice');
+   if(notice)notice.hidden=!!window.financeIsOwner||entries.length>0;
+   const share=document.getElementById('accountShareSave');
+   if(share)share.disabled=!window.financeIsOwner&&!entries.some(([,permission])=>permission==='edit');
   }
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
