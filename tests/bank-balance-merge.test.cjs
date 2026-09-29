@@ -17,7 +17,7 @@ const added=ctx.mergeBankBalanceFields({alrajhi:100},{alrajhi:100,tiqmo:-3000},{
 assert.deepEqual(JSON.parse(JSON.stringify(added)),{data:{alrajhi:100,tiqmo:-3000,stc:20},conflicts:[]});
 console.log('Independent account balances merge; simultaneous edits to the same account remain flagged.');
 
-const pushCode=source.slice(source.indexOf("async function recordPushAll(reason='edit'){"),source.indexOf('const RECORD_SYNC_BASELINE_KEY='))+code;
+const pushCode=source.slice(source.indexOf("async function recordPushAll(reason='edit'){"),source.indexOf('const RECORD_SYNC_BASELINE_KEY='))+source.slice(source.indexOf('const recentOwnBankBalanceWrites='),source.indexOf('function recordSyncBaseline(){'))+code;
 let local={alrajhi:90,tiqmo:0},remote={alrajhi:100,tiqmo:50},published=[];
 const cloudRow=()=>({section:'bank_balance_overrides',record_id:'singleton',data:remote});
 const pushCtx={
@@ -40,3 +40,25 @@ pushCtx.recordPushAll('balance-merge-test').then(ok=>{
  assert.equal(published.length,1);
  console.log('Protected push publishes the merged balances and applies them locally.');
 }).catch(e=>{console.error(e);process.exitCode=1});
+
+// The first payment may be on the server while the device baseline still
+// predates it. The next payment must not be rejected as a cross-device conflict.
+const rapidCtx={...pushCtx};
+rapidCtx.recordSyncPushBusy=false;
+rapidCtx.clearTimeout=clearTimeout;
+rapidCtx.setTimeout=setTimeout;
+let rapidLocal={tiqmo:-3805},rapidRemote={tiqmo:-3000},rapidWrites=0;
+rapidCtx.cloudClient={auth:{getSession:async()=>({data:{session:{user:{id:'owner'}}}})},from:()=>({upsert:async rows=>{rapidWrites++;rapidRemote=rows[0].data;return {error:null}}})};
+rapidCtx.recordFetchAll=async()=>[{section:'bank_balance_overrides',record_id:'singleton',data:rapidRemote}];
+rapidCtx.recordSyncBaseline=()=>({'bank_balance_overrides|singleton':JSON.stringify({tiqmo:-3000})});
+rapidCtx.buildRecordSyncRowsFromState=()=>[{section:'bank_balance_overrides',record_id:'singleton',data:rapidLocal}];
+rapidCtx.applyRecordSyncDeltaRows=rows=>{rapidLocal=rows[0].data;return {changed:true}};
+vm.createContext(rapidCtx);vm.runInContext(pushCode,rapidCtx);
+(async()=>{
+ assert.equal(await rapidCtx.recordPushAll('first-payment'),true);
+ rapidLocal={tiqmo:-4667.5};
+ assert.equal(await rapidCtx.recordPushAll('second-payment'),true);
+ assert.equal(rapidRemote.tiqmo,-4667.5);
+ assert.equal(rapidWrites,2);
+ console.log('Consecutive payments sync even when the baseline trails this device.');
+})().catch(e=>{console.error(e);process.exitCode=1});
