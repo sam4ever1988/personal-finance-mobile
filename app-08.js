@@ -359,8 +359,47 @@ function paymentActivityOutgoing(row){
  const payment=outgoingPaymentEntries(outgoing,month).find(p=>p.id===paymentId);
  return payment?{outgoing,month,payment}:null;
 }
+function paymentActivityCardHistory(row){
+ if(row.type!=='card-payment'||!row.referenceId)return null;
+ for(const plan of cardPaymentPlan||[]){
+  const history=Array.isArray(plan.paymentHistory)?plan.paymentHistory:[];
+  const entry=history.find(h=>h.mirrored!==true&&h.ledgerReferenceId===row.referenceId);
+  if(entry)return {plan,entry};
+ }
+ return null;
+}
 function editAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(row.type==='card-payment'){
+  const match=paymentActivityCardHistory(row);
+  if(!match)return alert('This historical card payment must be managed in the payment planner.');
+  const {plan,entry}=match,source=entry.sourceId==='cash-source'?null:account(entry.sourceId);
+  openUnifiedAction({title:'Edit Card Payment',subtitle:accountName(plan.accountId)+' • Paid from '+(entry.sourceName||accountName(entry.sourceId)),save:'Save Payment',fields:[
+   {name:'amount',label:'Amount (SAR)',type:'number',step:'0.01',min:'0.01',value:Number(entry.amount||0),required:true,full:false},
+   {name:'date',label:'Payment Date',type:'date',value:entry.date||row.date,required:true,full:false}
+  ],submit:v=>{
+   const current=paymentActivityLedgerRow(id),linked=current&&paymentActivityCardHistory(current),amount=Number(v.amount);
+   if(!linked||linked.entry!==entry)return goldActionError('This card payment changed. Reopen it.');
+   if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter a valid amount with no more than two decimals.');
+   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid payment date.');
+   const previous=Number(entry.amount||0),difference=amount-previous;
+   if(source?.type==='bank'&&difference>adjustedBankBalance(source)+0.001)return goldActionError('Payment exceeds the source bank balance.');
+   const remaining=Math.max(0,Number(paymentRemainingAmount(plan)||0));
+   const duePortion=Math.min(amount,remaining+Number(entry.duePortion??previous));
+   const extraCredit=Math.max(0,amount-duePortion);
+   Object.assign(entry,{amount,date:v.date,budgetMonth:v.date.slice(0,7),duePortion,extraCredit});
+   Object.assign(current,{amount,date:v.date,month:v.date.slice(0,7),duePortion,extraCredit});
+   if(source?.type==='bank')setTrackedBankBalance(source.id,adjustedBankBalance(source)-difference);
+   plan.paidAmount=Math.round(plan.paymentHistory.filter(h=>!h.mirrored).reduce((sum,h)=>sum+Number(h.duePortion??h.amount??0),0)*100)/100;
+   plan.paid=paymentRemainingAmount(plan)<=0.005;
+   cardPaymentPlan.forEach(other=>{
+    if(other===plan||!Array.isArray(other.paymentHistory))return;
+    other.paymentHistory.forEach(h=>{if(h.mirrored&&h.recordedAt===entry.recordedAt)Object.assign(h,{amount,date:v.date,budgetMonth:v.date.slice(0,7),duePortion,extraCredit});});
+   });
+   saveCardPaymentPlan();saveLocal();syncCardPaymentPlanImmediate();syncCashFlowLedgerImmediate();refreshPaymentActivityAccount();return true;
+  }});
+  return;
+ }
  if(row.type==='outgoing-payment'){
   const item=paymentActivityOutgoing(row);
   if(!item)return alert('This historical payment cannot be edited here.');
@@ -387,6 +426,13 @@ function editAccountPaymentActivity(id){
 }
 function deleteAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(row.type==='card-payment'){
+  const match=paymentActivityCardHistory(row);
+  if(!match)return alert('This historical card payment must be managed in the payment planner.');
+  undoLastPartialPayment(match.plan.id,row.referenceId);
+  refreshPaymentActivityAccount();
+  return;
+ }
  if(row.type==='outgoing-payment'){
   const item=paymentActivityOutgoing(row);
   if(!item)return alert('This historical payment cannot be deleted here.');
