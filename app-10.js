@@ -175,7 +175,6 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(document.body)document.body.classList.toggle('compactFinanceNav',!!p.compactNav);
   const st=document.getElementById('prefThemeStatus');if(st)st.textContent=theme[0].toUpperCase()+theme.slice(1);
   const ck=document.getElementById('prefCompactNav');if(ck)ck.checked=!!p.compactNav;
-  const bankToggle=document.getElementById('prefBankConnections');if(bankToggle)bankToggle.checked=p.showBankConnections===true;
   document.querySelectorAll('[data-theme-choice]').forEach(b=>{const on=b.dataset.themeChoice===theme;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',on?'true':'false')});
   try{if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'preferences'):'preferences')}catch(e){}
  };
@@ -211,11 +210,10 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{
-  const key={prefCompactNav:'compactNav',prefBankConnections:'showBankConnections'}[e.target.id];
+  const key={prefCompactNav:'compactNav'}[e.target.id];
   if(!key)return;
   const p=getPrefs();p[key]=!!e.target.checked;
   localStorage.setItem(PREF_KEY,JSON.stringify(p));
-  if(key==='showBankConnections'&&!p[key]&&activeViewId()==='bankconnections')nav('preferences');
   applyFinancePreferences();
  });
  document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
@@ -398,7 +396,8 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   ['outgoings','Cash & Other Outgoings'],['installments','Installments'],
   ['importstatements','Import Statements'],['investments','Investments'],
   ['assets','Personal Assets'],['rental','Airbnb / Rental'],
-  ['reports','Reports'],['financeSettings','Finance Settings']
+  ['reports','Reports'],['financeSettings','Finance Settings'],
+  ['bankconnections','Bank Connections (testing — admin approval)']
  ];
  window.renderOwnAccessMatrix=function(){
   const user=document.getElementById('ownAccessUser')?.value,
@@ -422,7 +421,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   document.querySelectorAll('[data-own-page]').forEach(s=>s.value=s.dataset.ownPage==='rental'?'edit':'off');
  });
  document.getElementById('ownAccessAll')?.addEventListener('click',()=>{
-  document.querySelectorAll('[data-own-page]').forEach(s=>s.value='edit');
+  document.querySelectorAll('[data-own-page]').forEach(s=>{if(s.dataset.ownPage!=='bankconnections')s.value='edit';});
  });
  document.getElementById('ownAccessSave')?.addEventListener('click',async()=>{
   const user=document.getElementById('ownAccessUser')?.value,status=document.getElementById('ownAccessStatus');
@@ -693,13 +692,21 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
       ?await client.from('finance_workspace_grants').select('page,permission').eq('owner_user_id',workspace).eq('member_user_id',user)
       :await client.from('finance_page_access').select('page,permission').eq('user_id',user);
     if(error)return;
+    let testingPermission=window.financeIsOwner?'edit':'off';
+    if(!window.financeIsOwner){
+     const testing=shared?await client.from('finance_page_access').select('permission').eq('user_id',user).eq('page','bankconnections'):null;
+     if(testing?.error)return;
+     testingPermission=shared?(testing.data?.[0]?.permission||'off'):((data||[]).find(r=>r.page==='bankconnections')?.permission||'off');
+    }
     const current=new Map((data||[]).map(r=>[r.page,r.permission]));
     const ordered=['executive','accounts','financialposition','strategy','transactions',
      'incomeplan','outgoings','installments','importstatements','investments',
      'assets','rental','reports','financeSettings'];
-    if(JSON.stringify([workspace,...ordered.map(p=>current.get(p)||'off')])!==window.financePageFingerprint){
+    if(JSON.stringify([workspace,...ordered.map(p=>current.get(p)||'off'),testingPermission])!==window.financePageFingerprint){
      document.body.classList.add('financeAccessLocked');
-     await window.financeScopeWipe?.();
+     const previousDataFingerprint=JSON.stringify(JSON.parse(window.financePageFingerprint).slice(0,ordered.length+1));
+     const dataFingerprint=JSON.stringify([workspace,...ordered.map(p=>current.get(p)||'off')]);
+     if(previousDataFingerprint!==dataFingerprint)await window.financeScopeWipe?.();
      location.reload();
     }
    }catch(e){console.warn('Page access refresh pending',e);}
