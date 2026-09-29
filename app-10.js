@@ -175,6 +175,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(document.body)document.body.classList.toggle('compactFinanceNav',!!p.compactNav);
   const st=document.getElementById('prefThemeStatus');if(st)st.textContent=theme[0].toUpperCase()+theme.slice(1);
   const ck=document.getElementById('prefCompactNav');if(ck)ck.checked=!!p.compactNav;
+  const bankToggle=document.getElementById('prefBankConnections');if(bankToggle)bankToggle.checked=p.showBankConnections===true;
   document.querySelectorAll('[data-theme-choice]').forEach(b=>{const on=b.dataset.themeChoice===theme;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',on?'true':'false')});
   try{if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'preferences'):'preferences')}catch(e){}
  };
@@ -209,7 +210,14 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   }
  };
  document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
- document.addEventListener('change',e=>{if(e.target.id!=='prefCompactNav')return;const p=getPrefs();p.compactNav=!!e.target.checked;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
+ document.addEventListener('change',e=>{
+  const key={prefCompactNav:'compactNav',prefBankConnections:'showBankConnections'}[e.target.id];
+  if(!key)return;
+  const p=getPrefs();p[key]=!!e.target.checked;
+  localStorage.setItem(PREF_KEY,JSON.stringify(p));
+  if(key==='showBankConnections'&&!p[key]&&activeViewId()==='bankconnections')nav('preferences');
+  applyFinancePreferences();
+ });
  document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
  window.financeChooseWorkspace=async function(workspaceId){
   if(workspaceId===window.financeWorkspaceUserId)return;
