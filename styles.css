@@ -2759,3 +2759,10 @@ body.investmentsMode #investments .invRowActions .invTradeBtn[data-type="SELL"]{
 .ownAccessMatrix{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:10px;margin-top:14px}
 .ownAccessMatrix label{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border,#24526a);border-radius:10px;background:rgba(5,31,46,.35)}
 .ownAccessMatrix select{min-width:112px;max-width:135px}
+
+/* Keep Account cards at their content height, including the first-login access state. */
+.prefsGrid{align-items:start}
+.accountAccessNotice{margin:0 0 14px;border-color:#28caff;background:#073447}
+.accountAccessNotice p{line-height:1.5;margin:9px 0 0}
+html[data-finance-theme="light"] .accountAccessNotice{background:#eaf6fa!important;color:#163242!important}
+html[data-finance-theme="light"] #accountprofile input,html[data-finance-theme="light"] #accountprofile select{background:#fff;color:#163242;border:1px solid #b8d4e1}
