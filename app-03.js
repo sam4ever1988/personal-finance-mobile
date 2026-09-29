@@ -1,3 +1,10 @@
+function financePageVisible(page){
+ if(page==='bankconnections'){
+  try{if(JSON.parse(localStorage.getItem('pf_preferences_v283')||'{}').showBankConnections!==true)return false;}
+  catch(e){return false;}
+ }
+ return !window.financeCanViewPage||window.financeCanViewPage(page);
+}
 
 /* V283 single-source application shell */
 function navIcon(name){
@@ -20,13 +27,13 @@ function navIcon(name){
  return '<svg class="navSvg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+paths[name]+'</svg>';
 }
 function shellButton(page,icon,label){
- if(window.financeCanViewPage&&!window.financeCanViewPage(page))return '';
+ if(!financePageVisible(page))return '';
  return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>';
 }
 function canonicalTopHTML(){
  function safeName(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function menu(label,icon,mainPage,items){
-  const visible=items.filter(x=>!window.financeCanViewPage||window.financeCanViewPage(x[0]));
+  const visible=items.filter(x=>financePageVisible(x[0]));
   if(!visible.length)return '';
   const destination=visible.some(x=>x[0]===mainPage)?mainPage:visible[0][0];
   return '<div class="canonicalMenu" data-nav-menu><button class="canonicalMenuTrigger" type="button" data-main-page="'+destination+'" aria-expanded="false">'+navIcon(icon)+'<span>'+label+'</span><span class="navChevron">⌄</span></button><div class="canonicalDropdown">'+visible.map(x=>shellButton(x[0],x[1],x[2])).join('')+'</div></div>';
@@ -1136,9 +1143,9 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
  restoreReviewControls(state);
 
  const page=state.page||'dashboard';
- if(window.financeCanViewPage&&!window.financeCanViewPage(page)){
+ if(!financePageVisible(page)){
   nav(['executive','rental','investments','transactions','accounts','assets','accountprofile']
-    .find(p=>window.financeCanViewPage(p))||'accountprofile');
+    .find(p=>financePageVisible(p))||'accountprofile');
   return;
  }
 
@@ -1215,9 +1222,9 @@ function loadSavedReviewState(){
 
 function nav(page){
  if(page==='adminAccess'&&!window.financeIsOwner)return nav('accountprofile');
- if(window.financeCanViewPage&&!window.financeCanViewPage(page)){
+ if(!financePageVisible(page)){
   const first=['executive','rental','investments','transactions','accounts','assets','outgoings','installments','incomeplan','reports','accountprofile']
-   .find(p=>window.financeCanViewPage(p))||'accountprofile';
+   .find(p=>financePageVisible(p))||'accountprofile';
   if(page!==first)return nav(first);
   return;
  }
@@ -1742,12 +1749,23 @@ function dedupeDashboardErrorAlerts(){
 
 // V194 FEATURE UPGRADE — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
-let statementFormats=JSON.parse(localStorage.getItem('pf_statement_formats')||'null')||[
- {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'ar-current-2989',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
- {id:'fmt-ar-0955',name:'Al Rajhi Visa Infinite •0955',accountId:'ar-0955',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
- {id:'fmt-ar-5867',name:'Al Rajhi Visa Platinum •5867',accountId:'ar-5867',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
- {id:'fmt-sab-440880',name:'SAB Cashback •440880',accountId:'sab-440880',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true}
+const BUILTIN_STATEMENT_TEMPLATES=[
+ {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-ar-infinite',name:'Al Rajhi Visa Infinite',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-ar-platinum',name:'Al Rajhi Visa Platinum',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
+ {id:'fmt-sab-cashback',name:'SAB Cashback',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true}
 ];
+function sanitizeBuiltinStatementTemplates(formats){
+ const legacy={'fmt-ar-current':'fmt-ar-current','fmt-ar-0955':'fmt-ar-infinite','fmt-ar-5867':'fmt-ar-platinum','fmt-sab-440880':'fmt-sab-cashback'};
+ const result=new Map();
+ (Array.isArray(formats)?formats:BUILTIN_STATEMENT_TEMPLATES).forEach(f=>{
+  const generic=BUILTIN_STATEMENT_TEMPLATES.find(t=>t.id===(legacy[f.id]||f.id));
+  const safe=generic?{...f,id:generic.id,name:generic.name,accountId:'',builtIn:!f.mappingConfig}:f;
+  result.set(safe.id,safe);
+ });
+ return [...result.values()];
+}
+let statementFormats=sanitizeBuiltinStatementTemplates(JSON.parse(localStorage.getItem('pf_statement_formats')||'null'));
 let goldAssets=JSON.parse(localStorage.getItem('pf_gold_assets')||'[]'); if(!Array.isArray(goldAssets))goldAssets=[];
 let goldZakatHistory=JSON.parse(localStorage.getItem('pf_gold_zakat_history')||'[]'); if(!Array.isArray(goldZakatHistory))goldZakatHistory=[];
 let goldSaleHistory=JSON.parse(localStorage.getItem('pf_gold_sale_history')||'[]'); if(!Array.isArray(goldSaleHistory))goldSaleHistory=[];
