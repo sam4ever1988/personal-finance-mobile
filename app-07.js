@@ -340,7 +340,15 @@ async function recordPushAll(reason='edit'){
    if(syncRecordValue(cloud.data)===syncRecordValue(r.data))return false;
    const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
    if(r.section==='bank_balance_overrides'&&old!==undefined){
-    const merged=mergeBankBalanceFields(JSON.parse(baseline[key]),r.data,cloud.data);
+    let merged=mergeBankBalanceFields(JSON.parse(baseline[key]),r.data,cloud.data);
+    // A rapid second payment can reach this push before the previous push has
+    // advanced the baseline. Accept that intermediate cloud value only when
+    // this browser itself successfully published it. Never bypass a change
+    // made by a different device.
+    const own=recentOwnBankBalanceWrites.get(r.record_id);
+    if(merged.conflicts.length&&own&&Date.now()-own.at<120000&&own.value===syncRecordValue(cloud.data)){
+     merged=mergeBankBalanceFields(cloud.data,r.data,cloud.data);
+    }
     if(merged.conflicts.length){conflicts.push(key);return false;}
     if(syncRecordValue(merged.data)===syncRecordValue(cloud.data))return false;
     mergedBankBalances.set(key,merged.data);
@@ -357,6 +365,7 @@ async function recordPushAll(reason='edit'){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
     .upsert(upserts.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
    if(error)throw error;
+   upserts.forEach(rememberOwnBankBalanceWrite);
    const mergedRows=upserts.filter(r=>mergedBankBalances.has(`${r.section}|${r.record_id}`));
    if(mergedRows.length){
     applyRecordSyncDeltaRows(mergedRows,{render:true});
@@ -440,6 +449,11 @@ async function recordPushAll(reason='edit'){
  }
 }
 
+const recentOwnBankBalanceWrites=new Map();
+function rememberOwnBankBalanceWrite(row){
+ if(row.section!=='bank_balance_overrides')return;
+ recentOwnBankBalanceWrites.set(row.record_id,{value:syncRecordValue(row.data),at:Date.now()});
+}
 const RECORD_SYNC_BASELINE_KEY='pf_record_sync_baseline_v313';
 function mergeBankBalanceFields(base,local,remote){
  const old=base&&typeof base==='object'?base:{};
