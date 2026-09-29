@@ -217,6 +217,20 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   sessionStorage.setItem('finance_workspace_selected_'+window.financeActiveUserId,workspaceId);
   location.reload();
  };
+ document.getElementById('accountNewWorkspaceCreate')?.addEventListener('click',async e=>{
+  const button=e.currentTarget,input=document.getElementById('accountNewWorkspaceName');
+  const status=document.getElementById('accountNewWorkspaceStatus'),name=String(input?.value||'').trim();
+  if(!name||name.length>80){status.textContent='Use a name between 1 and 80 characters.';return;}
+  button.disabled=true;status.textContent='Creating database…';
+  try{
+   const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name});
+   if(error||!id)throw error||new Error('Database creation was not confirmed.');
+   window.financeWorkspaceChoices.push({id,name,own:true});
+   input.value='';status.textContent='Database created. Switching to '+name+'…';
+   await window.financeChooseWorkspace(id);
+  }catch(error){status.textContent='Could not create database: '+error.message;}
+  finally{button.disabled=false;}
+ });
  document.getElementById('financeWorkspaceNameSave')?.addEventListener('click',async()=>{
   const status=document.getElementById('financeWorkspaceNameStatus');
   const name=document.getElementById('financeWorkspaceName')?.value.trim();
