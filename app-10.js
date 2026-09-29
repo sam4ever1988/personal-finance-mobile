@@ -252,6 +252,21 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(error)throw error;
   return data||[];
  }
+ const inviteButton=document.getElementById('adminInviteSend');
+ if(inviteButton)inviteButton.addEventListener('click',async()=>{
+  const input=document.getElementById('adminInviteEmail'),status=document.getElementById('adminInviteStatus');
+  const email=String(input?.value||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){status.textContent='Enter a valid email address.';return;}
+  inviteButton.disabled=true;status.textContent='Sending invitation…';
+  try{
+   const {data,error}=await client.functions.invoke('finance-invite-user',{body:{email}});
+   if(error||!data?.invited)throw new Error(data?.error||error?.message||'Invitation was not confirmed.');
+   status.textContent='Invitation sent to '+email+'. They can set their password from the email link.';
+   input.value='';
+   window.renderFinanceAdminAccess?.();
+  }catch(error){status.textContent='Could not send invitation: '+error.message;}
+  finally{inviteButton.disabled=false;}
+ });
  window.renderFinanceAdminAccess=async function(){
   const status=document.getElementById('adminAccessStatus'),box=document.getElementById('adminAccessUsers');
   if(!status||!box)return;
