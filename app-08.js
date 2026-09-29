@@ -992,7 +992,7 @@ function openStatementFormatBuilderV268(existing=null){
    const target=existing?{...existing}:{id:'fmt-'+Date.now(),active:true,builtIn:false};
    target.name=String(v.name).trim();target.accountId=String(v.accountId||'').trim();
    target.fileType=v.fileType||'XLSX';target.mapping='Excel column mapping';target.mappingConfig=obj;
-   target.builtIn=false;target.active=target.active!==false;
+   target.builtIn=false;target.active=target.active!==false;delete target.privateCopy;
    if(v.visibility==='shared'||existing?.shared){
     if(!window.financeIsOwner)return goldActionError('Only the administrator can change shared templates.');
     const saveButton=$('unifiedActionSave');if(saveButton.disabled)return false;saveButton.disabled=true;
