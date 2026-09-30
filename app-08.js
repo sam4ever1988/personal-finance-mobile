@@ -277,8 +277,21 @@ function openUnifiedAction(cfg){
  $('unifiedActionSub').textContent=cfg.subtitle||'';
  $('unifiedActionSub').style.color='';
  $('unifiedActionSave').textContent=cfg.save||'Save';
+ $('unifiedActionSave').disabled=false;
+ const error=$('unifiedActionError');if(error){error.textContent='';error.hidden=true;}
  $('unifiedActionFields').innerHTML=cfg.fields.map(uaField).join('');
- $('unifiedActionForm').onsubmit=e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());if(cfg.submit(v)!==false){modal.classList.remove('open');modal.style.display='';}};
+ const form=$('unifiedActionForm');
+ form.oninput=e=>{if(error){error.textContent='';error.hidden=true;}e.target.removeAttribute?.('aria-invalid');if(e.target.style)e.target.style.outline='';};
+ if(form.financeInvalidHandler)form.removeEventListener('invalid',form.financeInvalidHandler,true);
+ form.financeInvalidHandler=e=>{const label=e.target.closest('.field')?.querySelector('label')?.textContent||'required field';goldActionError('Check '+label+': '+e.target.validationMessage);};
+ form.addEventListener('invalid',form.financeInvalidHandler,true);
+ form.onsubmit=e=>{
+  e.preventDefault();if($('unifiedActionSave').disabled)return;
+  if(error){error.textContent='';error.hidden=true;}
+  const v=Object.fromEntries(new FormData(e.currentTarget).entries());
+  try{if(cfg.submit(v)!==false){modal.classList.remove('open');modal.style.display='';}}
+  catch(err){goldActionError('Could not save: '+(err.message||String(err)));}
+ };
  modal.querySelectorAll('[data-close="unifiedActionModal"]').forEach(btn=>{btn.onclick=e=>{e.preventDefault();e.stopPropagation();modal.classList.remove('open');modal.style.display='';};});
  modal.onclick=e=>{if(e.target===modal){modal.classList.remove('open');modal.style.display='';}};
  modal.classList.add('open');
@@ -450,7 +463,14 @@ function bindCustomAccountButtons(){
  if(card){card.type='button';card.onclick=e=>{e.preventDefault();addCustomCreditCard();};card.dataset.accountActionBound='1';}
  const transfer=$('openBankTransfer');if(transfer){transfer.type='button';transfer.onclick=e=>{e.preventDefault();openBankTransfer();};}
 }
-function goldActionError(message){$('unifiedActionSub').textContent=message;$('unifiedActionSub').style.color='var(--red)';return false;}
+function goldActionError(message,fields=[]){
+ const error=$('unifiedActionError')||$('unifiedActionSub');
+ error.textContent=message;error.hidden=false;error.style.color='var(--red)';
+ const form=$('unifiedActionForm');
+ fields.forEach(name=>{const input=form?.querySelector('[name="'+name+'"]');if(input){input.setAttribute('aria-invalid','true');input.style.outline='2px solid var(--red)';}});
+ error.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+ return false;
+}
 function goldActionSources(label='Monthly Planned Income'){return [{value:'cash-source',label},...accounts.filter(x=>x.type==='bank').map(x=>({value:x.id,label:accountName(x.id)}))];}
 addGoldAsset=function(){openUnifiedAction({title:'Add Gold Asset',subtitle:'Use a unique asset name. Reusing an existing name updates that asset instead of counting it twice.',save:'Save Gold',fields:[{name:'name',label:'Asset Name',placeholder:'Gold Bar 1',required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Weight (grams)',type:'number',step:'0.001',min:'0.001',required:true,full:false},{name:'purchasePrice',label:'Total Bought Price (SAR)',type:'number',step:'0.01',min:'0',required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:new Date().toISOString().slice(0,10),required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');const existing=goldAssets.find(a=>normalizedGoldAssetName(a.name)===normalizedGoldAssetName(name));if(existing){existing.name=name;existing.goldType=v.goldType;existing.purity=v.purity;existing.weight=w;existing.purchasePrice=p;existing.purchaseDate=v.purchaseDate;existing.updatedAt=new Date().toISOString();}else{const seq=String((Math.max(0,...goldAssets.map(a=>Number(String(a.id||'').replace(/\D/g,''))||0))+1)).padStart(4,'0');goldAssets.push({id:'GLD-'+seq,name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,notes:'',createdAt:new Date().toISOString()});}saveV194Data();renderGoldAssets();renderDashboard();return true}})}
 editGoldAsset=function(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;openUnifiedAction({title:'Edit Gold Asset',subtitle:`${a.name} • ${a.id}`,save:'Save Changes',fields:[{name:'name',label:'Asset Name',value:a.name,required:true,full:false},{name:'goldType',label:'Gold Type',type:'select',value:a.goldType||'Bar',options:['Bar','Coin','Jewelry','Other'].map(x=>({value:x,label:x})),full:false},{name:'purity',label:'Purity',type:'select',value:a.purity||'24K',options:['24K','22K','21K','18K'].map(x=>({value:x,label:x})),full:false},{name:'weight',label:'Original Weight (grams)',type:'number',step:'0.001',min:'0.001',value:a.weight,required:true,full:false},{name:'purchasePrice',label:'Purchase Price (SAR)',type:'number',step:'0.01',min:'0',value:a.purchasePrice,required:true,full:false},{name:'purchaseDate',label:'Bought Date',type:'date',value:a.purchaseDate,required:true,full:false}],submit:v=>{const name=String(v.name||'').trim(),w=Number(v.weight),p=Number(v.purchasePrice),sameName=goldAssets.find(x=>x.id!==id&&normalizedGoldAssetName(x.name)===normalizedGoldAssetName(name));if(sameName)return goldActionError(`Asset name already belongs to ${sameName.id}. Use a unique name.`);if(!name||!(w>0)||!(p>=0)||!v.purchaseDate)return goldActionError('Complete all fields with valid values.');Object.assign(a,{name,goldType:v.goldType,purity:v.purity,weight:w,purchasePrice:p,purchaseDate:v.purchaseDate,updatedAt:new Date().toISOString()});saveV194Data();renderGoldAssets();renderDashboard();return true}})};
@@ -970,9 +990,9 @@ function openStatementFormatBuilderV268(existing=null){
    {name:'dataStartRow',label:'Data Starts Row',type:'number',value:String(m.dataStartRow||2),min:1,required:true},
    {name:'dateColumn',label:'Date Column',value:m.date||'A',required:true,placeholder:'A'},
    {name:'descriptionColumn',label:'Description Column',value:m.description||'B',required:true,placeholder:'B'},
-   {name:'amountColumn',label:'Amount Column',value:m.amount||'',placeholder:'E — use this OR Debit/Credit'},
-   {name:'debitColumn',label:'Debit Column',value:m.debit||'',placeholder:'C — optional'},
-   {name:'creditColumn',label:'Credit Column',value:m.credit||'',placeholder:'D — optional'},
+   {name:'amountColumn',label:'Amount Column (or map Debit / Credit instead)',value:m.amount||'',placeholder:'Enter a column letter, e.g. E'},
+   {name:'debitColumn',label:'Debit Column',value:m.debit||'',placeholder:'Enter a column letter, e.g. C'},
+   {name:'creditColumn',label:'Credit Column',value:m.credit||'',placeholder:'Enter a column letter, e.g. D'},
    {name:'balanceColumn',label:'Balance Column',value:m.balance||'',placeholder:'F — optional'},
    {name:'referenceColumn',label:'Reference Column',value:m.reference||'',placeholder:'G — optional'},
    {name:'cardLast4Column',label:'Card Last 4 Column',value:m.cardLast4||'',placeholder:'H — optional'}
@@ -980,9 +1000,14 @@ function openStatementFormatBuilderV268(existing=null){
   submit:v=>{
    const clean=x=>String(x||'').trim().toUpperCase();
    if(!clean(v.amountColumn)&&!clean(v.debitColumn)&&!clean(v.creditColumn)){
-    $('unifiedActionSub').textContent='Map Amount, or map Debit/Credit columns.';
-    $('unifiedActionSub').style.color='#ff6474';return false;
+    return goldActionError('Enter the Amount column letter, or enter Debit and/or Credit column letters. The example text is not a saved value.',['amountColumn','debitColumn','creditColumn']);
    }
+   const columnFields=['dateColumn','descriptionColumn','amountColumn','debitColumn','creditColumn','balanceColumn','referenceColumn','cardLast4Column'];
+   const invalidColumns=columnFields.filter(k=>clean(v[k])&&!/^[A-Z]{1,3}$/.test(clean(v[k])));
+   if(invalidColumns.length)return goldActionError('Use column letters such as A, B or AA, not amounts or card numbers.',invalidColumns);
+   if(!clean(v.dateColumn)||!clean(v.descriptionColumn))return goldActionError('Enter the Date and Description column letters.',['dateColumn','descriptionColumn']);
+   if(!String(v.name||'').trim())return goldActionError('Enter a format name.',['name']);
+   if(![v.headerRow,v.dataStartRow].every(x=>Number.isInteger(Number(x))&&Number(x)>=1&&Number(x)<=999999))return goldActionError('Enter whole row numbers from 1 to 999999.',['headerRow','dataStartRow']);
    const obj={
     headerRow:Number(v.headerRow||1),dataStartRow:Number(v.dataStartRow||2),
     date:clean(v.dateColumn),description:clean(v.descriptionColumn),amount:clean(v.amountColumn),
@@ -996,9 +1021,11 @@ function openStatementFormatBuilderV268(existing=null){
    if(v.visibility==='shared'||existing?.shared){
     if(!window.financeIsOwner)return goldActionError('Only the administrator can change shared templates.');
     const saveButton=$('unifiedActionSave');if(saveButton.disabled)return false;saveButton.disabled=true;
+    const saveLabel=saveButton.textContent;saveButton.textContent='Saving…';
+    const error=$('unifiedActionError');if(error){error.textContent='Saving shared template…';error.style.color='';error.hidden=false;}
     publishSharedStatementTemplate(existing?.shared?existing.id:null,target).then(()=>{
      const modal=$('unifiedActionModal');modal.classList.remove('open');modal.style.display='';
-    }).catch(e=>goldActionError(e.message)).finally(()=>{saveButton.disabled=false;});
+    }).catch(e=>goldActionError(e.message)).finally(()=>{saveButton.disabled=false;saveButton.textContent=saveLabel;});
     return false;
    }
    if(!existing||existing.privateCopy)statementFormats.push(target);else statementFormats=statementFormats.map(f=>f.id===existing.id?target:f);
