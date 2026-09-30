@@ -5,7 +5,7 @@ function saveFinanceSettings(showMessage=true){
  persistFinanceSettingsDraft();
  renderSavedLoanSummary();
  renderIncomeLoanGrid();
- if(showMessage)alert('Finance settings saved. Loan balances will roll forward once when a new month begins.');
+ if(showMessage)alert('Finance settings saved. Loan balances change only when a payment is confirmed.');
 }
 const FIXED_PLAN={get loans(){return financeSettings.loans||[]},get cardCycles(){return financeSettings.cardCycles||{}}};
 let incomePlan=JSON.parse(localStorage.getItem('pf_income_plan')||'null')||{
