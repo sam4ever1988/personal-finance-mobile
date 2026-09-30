@@ -8,7 +8,7 @@ function queueRecordDelete(section,recordId){
  saveRecordDeleteQueue();setCloudMeta({pending:true});
 }
 
-function applyRecordSyncRows(rows){
+function applyRecordSyncRows(rows,options={}){
  if(!Array.isArray(rows))return false;
  recordSyncApplying=true;
  try{
@@ -20,7 +20,7 @@ function applyRecordSyncRows(rows){
   const list=section=>active.filter(x=>x.section===section).map(x=>x.data);
 
   const cloudFinanceSettings=singleton('finance_settings',financeSettings);
-  if(!financeSettingsDirty){financeSettings=cloudFinanceSettings||financeSettings;if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};});}
+  if(!financeSettingsDirty||options.authoritative){financeSettings=cloudFinanceSettings||financeSettings;if(!Array.isArray(financeSettings.loans))financeSettings.loans=[];if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')financeSettings.cardCycles={};Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};});}
   categories=singleton('categories',categories);
   merchantRules=singleton('merchant_rules',merchantRules);
   txOverrides=singleton('tx_overrides',txOverrides);
@@ -61,6 +61,7 @@ function applyRecordSyncRows(rows){
    invTrades=active.filter(r=>r.section==='investments_trades').map(r=>({...r.data,_cloudRecordId:r.data?._cloudRecordId??String(r.record_id)}));localStorage.setItem('pf_investments_trades',JSON.stringify(invTrades));
    if(typeof invEnsureLedgerV296==='function')invEnsureLedgerV296();
   }
+  if(!options.authoritative){
   purgeLegacyAr0955StatementRows();
   purgeLegacySeedPaymentPlans();
 
@@ -72,6 +73,11 @@ function applyRecordSyncRows(rows){
   ensurePartialPaymentFields();
   ensureLedgerBackedPlannerRows();
   rebuildAllPlannerPaymentsFromLedger();
+  }else{
+   // Verify canonical rows before any legacy cleanup or planner reconstruction
+   // can alter their counts. A cloud load never publishes cleanup.
+   rebuildTransactions();
+  }
 
   persistRecoveredState();
   financeDB.save();
@@ -749,6 +755,7 @@ async function startRealtimeRecordSync(){
 
 function financeProtectedAccountCatalogReady(){
  if(window.financeSharedWorkspace||(window.financeActiveUserId&&!window.financeIsOwner))return true;
+ if(window.financeAdditionalWorkspace)return localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1'&&Array.isArray(customBanks)&&Array.isArray(customCreditCards);
  return typeof customBanks!=='undefined'&&Array.isArray(customBanks)&&customBanks.length>0&&
         typeof customCreditCards!=='undefined'&&Array.isArray(customCreditCards)&&customCreditCards.length>0;
 }
@@ -866,7 +873,7 @@ function bindFinanceAccessGate(){
   try{
    await cloudDownloadAll();
    const {data:{session}}=await cloudClient.auth.getSession();
-   if(financeDeviceCloudVerified()){if(status)status.textContent='Protected cloud data loaded and verified.';setFinanceAccessGate(session);}
+   if(financeDeviceCloudVerified()){if(status)status.textContent='Protected cloud data loaded and verified.';setFinanceAccessGate(session);await startRealtimeRecordSync();}
    else if(status)status.textContent='Cloud load did not complete. Your local data was not published.';
   }catch(e){if(status)status.textContent='Cloud load failed: '+e.message;}
   finally{load.disabled=false;}
@@ -1113,6 +1120,8 @@ function updateCloudSyncPanel(remoteInitialized=null){
  setTimeout(()=>renderCloudReconciliation(),0);
 }
 async function cloudInspectState(){
+ // The old settings snapshot belongs to the primary database only.
+ if(window.financeAdditionalWorkspace)return {initialized:false,value:null,updatedAt:''};
  if(window.financeSharedWorkspace||(window.financeActiveUserId&&!window.financeIsOwner))return {initialized:false,value:null,updatedAt:''};
  if(!cloudClient)return {initialized:false,value:null,updatedAt:''};
  const {data:{session}}=await cloudClient.auth.getSession();
@@ -2015,6 +2024,23 @@ function v185ActiveCloudCounts(rows){
   cashFlowRows:count('cash_flow_ledger'), outgoings:count('outgoings')
  };
 }
+async function initializeEmptyOwnedWorkspace(session,rows){
+ if(rows.length||!window.financeAdditionalWorkspace||recoveryCloudLockActive())return false;
+ const workspace=window.financeWorkspaceUserId;
+ if(!session||session.user.id!==window.financeActiveUserId||workspace===session.user.id)throw new Error('The workspace session changed. Refresh and select it again.');
+ const {data,error}=await cloudClient.from('finance_workspaces').select('id,owner_user_id').eq('id',workspace).eq('owner_user_id',session.user.id).limit(1);
+ if(error)throw error;
+ if(data?.length!==1)throw new Error('Workspace ownership could not be verified. Nothing was uploaded.');
+ // Empty is legitimate only after a live ownership check. Keep any local edits
+ // in this scoped workspace; initialization performs no data write.
+ rememberRecordSyncBaseline([]);
+ localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');
+ setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending===true});
+ recordSyncReady=true;
+ setFinanceAccessGate(session);
+ cloudSetStatus('New workspace ready • add your first bank account or credit card');
+ return true;
+}
 async function cloudDownloadAll(){
  if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  const btn=$('cloudDownload');
@@ -2033,6 +2059,7 @@ async function cloudDownloadAll(){
 
   // Full authoritative read. Never use app_state, a delta cursor, or a local snapshot here.
   const rows=await recordFetchAll();
+  if(await initializeEmptyOwnedWorkspace(session,rows))return true;
   if(!rows.length)throw new Error('Supabase finance_sync_records is empty. Local data was not changed.');
   const cloud=v185ActiveCloudCounts(rows);
   if(!cloud.activeRows)throw new Error(`Supabase returned ${cloud.totalRows} row(s), but none are active. Local data was not changed.`);
@@ -2040,7 +2067,7 @@ async function cloudDownloadAll(){
   rollback=saveRecoverySnapshot('before-manual-cloud-load-v185');
   recordSyncPullBusy=true;
   recordSyncReady=false; // block local upload until verification finishes
-  applyRecordSyncRows(rows);
+  applyRecordSyncRows(rows,{authoritative:true});
   await financeDB.save();
 
   // Verify the raw record sections became the same local arrays.
@@ -2064,10 +2091,12 @@ async function cloudDownloadAll(){
   if(result){result.className='notice success';result.textContent=`CLOUD LOAD VERIFIED • Cloud: ${cloud.activeRows} active rows • ${cloud.manual+cloud.imported} stored transaction rows • ${cloud.installments} installments • ${cloud.paymentRows} payment rows • ${cloud.cashFlowRows} cash-flow rows. Device: ${summary.transactions} active transactions • ${summary.installments} installments • ${summary.paymentRows} payment rows • ${summary.cashFlowRows} cash-flow rows.`;}
   cloudSetStatus(`Authoritative cloud load verified • ${new Date().toLocaleTimeString()}`);
   await renderCloudReconciliation();
+  return true;
  }catch(e){
   recordSyncReady=false;
   console.error('Manual cloud load failed',e);
   if(result){result.className='notice danger';result.textContent='CLOUD LOAD BLOCKED/FAILED • '+e.message+' • Automatic upload remains disabled on this device.';}
+  throw e; // The access gate must show the actual load error instead of a generic failure.
  }finally{
   recordSyncPullBusy=false;
   if(btn){btn.disabled=false;btn.textContent=originalLabel;}
@@ -2082,6 +2111,9 @@ async function refreshCloudSafetyState(){
  let cloudRows=[];
  try{cloudRows=await recordFetchAll();}catch(e){console.warn('Canonical cloud check failed',e);cloudSetStatus('Cloud verification failed • retry before editing');return;}
  const activeCloudRows=cloudRows.filter(r=>!r.deleted_at).length;
+ if(await initializeEmptyOwnedWorkspace(session,cloudRows)){
+  await startRealtimeRecordSync();updateCloudSyncPanel(false);return;
+ }
  // A restricted account has just had its old browser cache cleared on a
  // permission change. Load only RLS-authorized rows before unlocking it.
  if(window.financeRestrictedOwnAccess && activeCloudRows>0 &&
