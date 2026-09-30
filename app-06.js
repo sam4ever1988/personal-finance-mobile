@@ -1839,6 +1839,7 @@ function applyRecordSyncDeltaRows(rows,{render=true}={}){
  if(!Array.isArray(rows)||!rows.length)return {changed:false,sections:[],appliedRows:[]};
  recordSyncApplying=true;
  try{
+  alignInvestmentHoldingIdsWithCloud(rows);
   const changedSections=[],appliedRows=[];
   rows.forEach(row=>{
    noteCloudUpdatedAt(row.updated_at);
@@ -1854,7 +1855,26 @@ function applyRecordSyncDeltaRows(rows,{render=true}={}){
  }
 }
 
+var investmentHoldingRecordIds=(()=>{try{return JSON.parse(localStorage.getItem('pf_investments_record_ids')||'{}')||{};}catch(_){return {};}})();
+function investmentHoldingKey(holding){return String(holding?.market||'')+'|'+String(holding?.ticker||'').toUpperCase();}
+function alignInvestmentHoldingIdsWithCloud(rows){
+ let changed=false;
+ for(const row of rows||[]){
+  if(row.section!=='investments_holdings'||!row.data?.ticker)continue;
+  const key=investmentHoldingKey(row.data),id=String(row.record_id);
+  // Preserve explicit new IDs; a tombstone must not replace a newer live holding.
+  if(row.deleted_at&&rows.some(r=>r.section===row.section&&!r.deleted_at&&investmentHoldingKey(r.data)===key))continue;
+  if(investmentHoldingRecordIds[key]!==id){investmentHoldingRecordIds[key]=id;changed=true;}
+ }
+ if(changed)localStorage.setItem('pf_investments_record_ids',JSON.stringify(investmentHoldingRecordIds));
+ return changed;
+}
 function syncStableId(section,x,i=0){
+ if(section==='investments_holdings'){
+  if(x?.id!=null||x?._id!=null)return String(x._id??x.id);
+  return investmentHoldingRecordIds[investmentHoldingKey(x)]||('holding:'+investmentHoldingKey(x));
+ }
+
  if(section==='investments_trades'&&x?._cloudRecordId!=null)return String(x._cloudRecordId);
  if(section==='rental_blocks'&&x?.date)return `rental-block:${x.unitId&&x.unitId!=='default'?x.unitId+':':''}${x.date}`;
  if(x && (x._id!=null || x.id!=null))return String(x._id??x.id);

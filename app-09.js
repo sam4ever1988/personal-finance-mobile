@@ -181,7 +181,7 @@ function invSubmitForm(e){
  if(mode==='SELL'&&fee>qty*price)return alert('Transaction fee cannot exceed the gross sale amount.');
  if(mode==="ADD"){
   if(invHoldings.some(h=>h.ticker===ticker))return alert("Ticker already exists.");
-  invHoldings.push({ticker,company:document.getElementById("invCompany").value.trim()||ticker,market:document.getElementById("invMarketInput").value,qty,avg:price,price,ledgerBaseQty:qty,ledgerBaseAvg:price});
+  invHoldings.push({id:'HOLDING-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),ticker,company:document.getElementById("invCompany").value.trim()||ticker,market:document.getElementById("invMarketInput").value,qty,avg:price,price,ledgerBaseQty:qty,ledgerBaseAvg:price});
  }else{
   var h=invHoldings.find(x=>x.ticker===ticker);if(!h)return;
   var old=editId?invTrades.find(x=>x.id===editId):null,now=new Date().toISOString(),newId='INV-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),trade=old?{...old}:{id:newId,_cloudRecordId:newId,createdAt:now};

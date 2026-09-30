@@ -12,6 +12,7 @@ function applyRecordSyncRows(rows,options={}){
  if(!Array.isArray(rows))return false;
  recordSyncApplying=true;
  try{
+  if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(rows);
   const active=rows.filter(r=>!r.deleted_at);
   const singleton=(section,fallback)=>{
    const r=active.find(x=>x.section===section&&x.record_id===RECORD_SYNC_SINGLETON);
@@ -317,6 +318,7 @@ async function recordPushAll(reason='edit'){
   const before=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
   alignOutgoingLedgerIdsWithCloud(before);
+  if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(before);
   recoverStaleLoanCache(before);
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
   const baseline=recordSyncBaseline();
@@ -1901,6 +1903,7 @@ function recoverStaleLoanCache(remote){
  return true;
 }
 function safeIncomingRecordRows(remote){
+ if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(remote);
  const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
  const baseline=recordSyncBaseline();
  const queued=new Set(recordPendingDeletes.map(x=>`${x.section}|${x.record_id}`));
@@ -1909,7 +1912,10 @@ function safeIncomingRecordRows(remote){
   const key=`${r.section}|${r.record_id}`,current=local.get(key);
   const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
   if(queued.has(key))return false;
-  if(r.deleted_at)return !!current && old!==undefined && old===syncRecordValue(current.data);
+  if(r.deleted_at){
+   if(r.section==='investments_holdings'&&current&&syncRecordValue(current.data)===syncRecordValue(r.data))return true;
+   return !!current && old!==undefined && old===syncRecordValue(current.data);
+  }
   if(!current)return old===undefined; // A locally deleted row needs explicit reconciliation.
   return old!==undefined && old===syncRecordValue(current.data) && old!==syncRecordValue(r.data);
  });
