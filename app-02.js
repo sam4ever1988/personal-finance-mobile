@@ -281,8 +281,11 @@ function cashFlowLedgerKey(x){
  ].join('|');
 }
 function addCashFlowLedgerEntry(entry,persist=true){
+ const paymentReference=entry.type==='outgoing-payment'&&String(entry.referenceId||'').startsWith('outgoing:outpay-');
+ const existing=paymentReference&&cashFlowLedger.find(x=>x.referenceId===entry.referenceId&&x.type==='outgoing-payment');
+ if(existing)return existing;
  const row={
-  id:entry.id||`cfl-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+  id:paymentReference?`cfl-outgoing-${entry.referenceId.slice('outgoing:'.length)}`:(entry.id||`cfl-${Date.now()}-${Math.random().toString(36).slice(2,8)}`),
   type:entry.type||'other',
   date:entry.date||new Date().toISOString().slice(0,10),
   month:entry.month||incomeMonthKey(entry.date||new Date()),
@@ -302,7 +305,9 @@ function addCashFlowLedgerEntry(entry,persist=true){
   createdAt:entry.createdAt||new Date().toISOString()
  };
  const key=cashFlowLedgerKey(row);
- if(!cashFlowLedger.some(x=>cashFlowLedgerKey(x)===key))cashFlowLedger.push(row);
+ const duplicate=cashFlowLedger.find(x=>cashFlowLedgerKey(x)===key);
+ if(duplicate)return duplicate;
+ cashFlowLedger.push(row);
  if(persist)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(e){}
  return row;
 }
@@ -376,9 +381,10 @@ function migrateCashFlowLedger(){
  // Rebuild outgoing payments as well.
  outgoings.forEach(o=>{
   Object.keys(o.payments||{}).forEach(month=>outgoingPaymentEntries(o,month).forEach(p=>{
-   if(cashFlowLedger.some(x=>x.referenceId===`outgoing:${o.id}:${month}` && x.status!=='reversed' && x.sourceId===p.sourceId && x.date===p.date && Math.abs(Number(x.amount||0)-Number(p.amount||0))<0.01))return;
+   if(cashFlowLedger.some(x=>(x.referenceId===`outgoing:${p.id}`||x.referenceId===`outgoing:${o.id}:${month}`) && x.status!=='reversed' && x.sourceId===p.sourceId && x.date===p.date && Math.abs(Number(x.amount||0)-Number(p.amount||0))<0.01))return;
    const before=cashFlowLedger.length;
    addCashFlowLedgerEntry({
+    id:`cfl-outgoing-${p.id}`,
     type:'outgoing-payment',
     date:p.date||`${month}-01`,
     month,
