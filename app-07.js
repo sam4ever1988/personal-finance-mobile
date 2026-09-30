@@ -254,6 +254,29 @@ async function recordPullAll(reason='manual-full-pull'){
  }
 }
 
+function alignOutgoingLedgerIdsWithCloud(remote){
+ // Rebuilt payment history is the same event, even if an old browser assigned a
+ // fresh random ID. Reuse only an exact cloud payload; never merge edited values.
+ const sameEvent=row=>row?.type==='outgoing-payment'&&String(row.referenceId||'').startsWith('outgoing:outpay-');
+ const payload=row=>{const copy={...row};delete copy.id;return syncRecordValue(copy);};
+ const candidates=new Map();
+ (remote||[]).filter(r=>r.section==='cash_flow_ledger'&&!r.deleted_at&&sameEvent(r.data))
+  .sort((a,b)=>String(a.record_id).localeCompare(String(b.record_id)))
+  .forEach(r=>{const key=payload(r.data);if(!candidates.has(key))candidates.set(key,r.data);});
+ let changed=false;
+ const seen=new Set(),aligned=[];
+ (cashFlowLedger||[]).forEach(row=>{
+  const canonical=sameEvent(row)?candidates.get(payload(row)):null;
+  const next=canonical?{...canonical}:row;
+  if(canonical&&canonical.id!==row.id)changed=true;
+  if(next.id&&seen.has(next.id)){changed=true;return;}
+  if(next.id)seen.add(next.id);
+  aligned.push(next);
+ });
+ if(changed){cashFlowLedger=aligned;localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}
+ return changed;
+}
+
 async function recordPushAll(reason='edit'){
  if(recordSyncApplying)return false;
  if(!recordSyncReady||!cloudClient){
@@ -282,6 +305,7 @@ async function recordPushAll(reason='edit'){
 
   const before=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
+  alignOutgoingLedgerIdsWithCloud(before);
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
   const baseline=recordSyncBaseline();
   let current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
@@ -292,13 +316,7 @@ async function recordPushAll(reason='edit'){
   }
   // Pull cloud edits only where this browser has not changed that record since
   // its baseline. This includes cloud-side reconciliation and other devices.
-  const safeRemote=before.filter(r=>{
-   const key=`${r.section}|${r.record_id}`;
-   const local=current.find(x=>`${x.section}|${x.record_id}`===key);
-   if(!local||baseline[key]===undefined)return false;
-   const old=syncRecordValue(JSON.parse(baseline[key]));
-   return old===syncRecordValue(local.data)&&(!!r.deleted_at||old!==syncRecordValue(r.data));
-  });
+  const safeRemote=safeIncomingRecordRows(before);
   if(safeRemote.length){
    applyRecordSyncDeltaRows(safeRemote,{render:true});
    current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
@@ -331,7 +349,14 @@ async function recordPushAll(reason='edit'){
   const upserts=current.filter(r=>{
    if(window.financeSectionPermission&&window.financeSectionPermission(r.section)!=='edit')return false;
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
-   if(!cloud)return true;
+   if(!cloud){
+    // Same payment with differing values needs review, never a second row.
+    if(r.section==='cash_flow_ledger'&&String(r.data?.referenceId||'').startsWith('outgoing:outpay-')&&
+       before.some(x=>x.section===r.section&&!x.deleted_at&&x.data?.referenceId===r.data.referenceId)){
+     conflicts.push(key);return false;
+    }
+    return true;
+   }
    // Deletion is authoritative until the user explicitly creates a new ID.
    // A stale device must never resurrect a tombstoned record through a bulk push.
    if(cloud.deleted_at)return false;
@@ -602,7 +627,8 @@ function syncCardPaymentPlanImmediate(){
  recordImmediateBatch('card_payment_plan',cardPaymentPlan,'card-payment-plan');
 }
 function syncCashFlowLedgerImmediate(){
- recordImmediateBatch('cash_flow_ledger',cashFlowLedger,'cash-flow-ledger');
+ // Use the baseline/tombstone checks before publishing regenerated history.
+ scheduleRecordPush('cash-flow-ledger');
 }
 
 
@@ -640,7 +666,7 @@ async function handleRealtimeRecordPayload(payload){
    setCloudMeta({
     initialized:true,
     deviceTrusted:true,
-    pending:false,
+    pending:getCloudMeta().pending===true,
     lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),
     lastAutoSyncAt:new Date().toISOString(),
     lastAutoSyncReason:'realtime-delta'
@@ -669,9 +695,8 @@ async function startRealtimeRecordSync(){
   return false;
  }
 
- // V187: NEVER download/apply cloud records automatically on startup or page refresh.
- // Local screen state remains untouched until the user explicitly presses Load Latest Cloud Data.
- // This prevents a stale/partial cloud dataset from clearing newly entered transactions.
+ // Trusted devices refresh individual unchanged records on startup. Pending
+ // edits stay local until the baseline comparison confirms a safe merge.
  const meta=getCloudMeta();
  const verifiedCloudLoad=localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
  // V225: an already-initialized trusted source device must keep publishing after an
@@ -698,9 +723,9 @@ async function startRealtimeRecordSync(){
  schedulePeriodicCloudAutoSync();
  // Catch changes published while this browser was closed, without waiting for
  // the next realtime event. The guarded reconcile preserves pending local work.
- if(recordSyncReady)setTimeout(()=>cloudAutoReconcile('startup'),500);
+ if(recordSyncReady){cloudSetStatus('Checking latest cloud values…');setTimeout(()=>cloudAutoReconcile('startup'),0);}
  if(recordSyncReady&&getCloudMeta().pending)setTimeout(()=>recordPushAll('resume-pending'),120);
- cloudSetStatus(`${verifiedCloudLoad?'Protected two-way sync':'Upload sync'} ready • ${new Date().toLocaleTimeString()}`);
+ if(!recordSyncReady)cloudSetStatus('Protected • load cloud data to initialize this device');
  return true;
 }
 // ===================================================================
@@ -1022,7 +1047,7 @@ async function renderCloudReconciliation(){
    const bySection={};unexpected.forEach(k=>{const section=k.split('|')[0];bySection[section]=(bySection[section]||0)+1});
    const sectionSummary=Object.entries(bySection).sort((a,b)=>b[1]-a[1]).map(([section,count])=>`${esc(section)}: ${count}`).join(' • ');
    el.className='notice danger';
-   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>MacBook / Local</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
+   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>This device</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
    const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
   }
  }catch(e){
@@ -1711,8 +1736,10 @@ function cloudLocalLastSavedAt(){
  return meta.lastLocalSavedAt||meta.lastSyncedAt||'';
 }
 
+var cloudProtectedRefreshBusy=false;
 async function cloudAutoReconcile(reason='fallback'){
- if(!cloudClient||window.__financeStateInitialized!==true)return false;
+ if(!cloudClient||window.__financeStateInitialized!==true||cloudProtectedRefreshBusy)return false;
+ cloudProtectedRefreshBusy=true;
  try{
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)return false;
@@ -1729,19 +1756,22 @@ async function cloudAutoReconcile(reason='fallback'){
   // local baseline before accepting remote edits, including tombstones.
   if(meta.pending)return await recordPushAll(`pending-${reason}`);
   if(!verified)return false;
-  const changed=await recordFetchChangedSince(currentCloudCursorIso());
+  // Reopening a trusted device verifies its cache with one full read. Ordinary
+  // polling remains incremental; overlapping focus/realtime checks are coalesced.
+  const refreshCache=['startup','visible','online'].includes(reason);
+  const changed=refreshCache?await recordFetchAll():await recordFetchChangedSince(currentCloudCursorIso());
   let recovered=[];
   if(changed.length){
    const result=applyRecordSyncDeltaRows(safeIncomingRecordRows(changed),{render:true});
    rememberRemoteRecordBaseline(result.appliedRows);
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
-   recovered=await recoverCloudOnlyRecords();
+   if(!refreshCache)recovered=await recoverCloudOnlyRecords();
    setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
    if(activeViewId()==='cloudSync')await renderCloudReconciliation();
    cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
    return result.changed||recovered.length>0;
   }
-  recovered=await recoverCloudOnlyRecords();
+  if(!refreshCache)recovered=await recoverCloudOnlyRecords();
   cloudLastAutoCheckAt=Date.now();
   if(activeViewId()==='cloudSync')await renderCloudReconciliation();
   cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
@@ -1750,7 +1780,7 @@ async function cloudAutoReconcile(reason='fallback'){
   console.warn('Protected cloud refresh failed',e);
   cloudSetStatus('Cloud check retry pending • '+e.message);
   return false;
- }
+ }finally{cloudProtectedRefreshBusy=false;}
 }
 
 function safeIncomingRecordRows(remote){
@@ -1808,6 +1838,7 @@ function startCloudAutoSyncWatchers(){
   cloudSetStatus('Online • checking protected cloud changes');
   cloudAutoReconcile('online');
  });
+ window.addEventListener('offline',()=>cloudSetStatus('Offline • showing saved device data'));
 
  document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&navigator.onLine!==false)cloudAutoReconcile('visible');
