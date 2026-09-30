@@ -108,3 +108,38 @@ html body .layoutGoldSide .goldPriceMeta{font-size:12px}.layoutGoldSide .splitHe
 }
 #invitations{padding:20px;max-width:1400px;margin:auto}#invitations .panel{margin-bottom:18px}.invitationTableScroll{overflow:auto}.invitationTableScroll table{width:100%;border-collapse:collapse}.invitationTableScroll th,.invitationTableScroll td{padding:12px;text-align:left;border-bottom:1px solid #225166}.invitationForm{display:flex;flex-wrap:wrap;gap:12px}.invitationForm input{min-width:240px;flex:1}.pageHead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .layoutGoldGrid>.layoutGoldWatch{align-self:stretch!important;display:flex;flex-direction:column}.layoutGoldWatch #goldHistoryChart{flex:1;display:flex;align-items:center;justify-content:center}.layoutGoldWatch #goldHistoryChart svg{height:100%!important;min-height:260px}
+/* V374: approved compact left navigation and consistent dark page surroundings. */
+html body:not(.financeAccessLocked),html[data-finance-theme="light"] body:not(.financeAccessLocked){background:#021a28!important}
+html body:not(.financeAccessLocked)>.app,html body:not(.financeAccessLocked)>.app>.main,html body:not(.financeAccessLocked)>.app>.main>.content{background:#021a28!important}
+.canonicalSearch{display:none}
+@media(min-width:901px){
+ html body #canonicalAppTop,html body #canonicalAppTop.hasWorkspace{justify-content:flex-start!important;gap:12px!important;padding:0 24px!important}
+ html body #canonicalAppTop .canonicalTopNav{gap:4px!important}
+ html body #canonicalAppTop .canonicalMenuTrigger,html body #canonicalAppTop .canonicalTopNav>button{font-size:13px!important;padding:0 8px!important;gap:7px!important}
+ html body #canonicalAppTop .canonicalSearch{order:1;display:flex;align-items:center;gap:8px;margin-left:auto;min-width:150px;max-width:300px;flex:1 1 220px;height:38px;padding:0 10px;border:1px solid #285168;border-radius:7px;background:#052335;box-sizing:border-box}
+ html body #canonicalAppTop .canonicalSearch input{width:100%;min-width:0;background:transparent!important;color:#d5e9f2!important;border:0!important;outline:none;font-size:13px!important;height:34px}
+ html body #canonicalAppTop .canonicalSearch button{display:flex;align-items:center;justify-content:center;border:0;background:transparent!important;color:#9fc4d8!important;padding:0;min-width:20px;height:32px;cursor:pointer}
+ html body #canonicalAppTop .canonicalSearch .navSvg{width:18px!important;height:18px!important;min-width:18px!important}
+ html body #canonicalAppTop .canonicalWorkspace{order:2;flex:0 1 240px!important;width:240px!important;max-width:240px!important;min-width:160px!important;margin:0!important;padding-left:14px!important;border-left:1px solid #285168}
+ html body #canonicalAppTop .canonicalWorkspaceLabel{display:none!important}
+ html body #canonicalAppTop .canonicalWorkspace select{font-size:13px!important}
+ html body #canonicalAppTop .canonicalProfile{order:3;border:0!important;padding-left:0!important}
+ html body #canonicalAppTop .canonicalProfileMenu{left:auto!important;right:0!important}
+}
+@media(min-width:901px) and (max-width:1450px){
+ html body #canonicalAppTop,html body #canonicalAppTop.hasWorkspace{padding:0 14px!important;gap:8px!important}
+ html body #canonicalAppTop .canonicalSearch{flex:0 0 34px;min-width:34px;max-width:34px;padding:0 6px;position:relative}
+ html body #canonicalAppTop .canonicalSearch input{display:none}
+ html body #canonicalAppTop .canonicalSearch.searchOpen input{display:block;position:absolute;right:0;top:46px;width:300px;height:42px;background:#052335!important;border:1px solid #285168!important;border-radius:7px;padding:0 12px;z-index:1002}
+ html body #canonicalAppTop .canonicalWorkspace{flex-basis:200px!important;width:200px!important;max-width:200px!important}
+}
+@media(min-width:901px) and (max-width:1150px){
+ html body #canonicalAppTop .canonicalMenuTrigger,html body #canonicalAppTop .canonicalTopNav>button{font-size:11px!important;padding:0 4px!important;gap:4px!important}
+ html body #canonicalAppTop .canonicalTopNav{gap:1px!important}
+ html body #canonicalAppTop .navSvg{width:18px!important;height:18px!important;min-width:18px!important}
+ html body #canonicalAppTop .canonicalWorkspace{flex-basis:180px!important;width:180px!important;max-width:180px!important;min-width:130px!important;padding-left:8px!important}
+}
+html body #financeDataFreshness[data-state="review"] .btn{background:#543b1e!important;color:#ffdf9e!important;border:1px solid #ad813b!important}
+@media(min-width:901px) and (max-width:1000px){html body #canonicalAppTop .canonicalWorkspace{flex-basis:130px!important;width:130px!important;max-width:130px!important;min-width:110px!important}html body #canonicalAppTop,html body #canonicalAppTop.hasWorkspace{gap:6px!important;padding:0 10px!important}}
+@media(min-width:901px){html body #canonicalAppTop .canonicalMenu:last-child .canonicalDropdown{left:auto!important;right:0!important}}
+@media(min-width:901px) and (max-width:1000px){html body #canonicalAppTop .canonicalMenuTrigger,html body #canonicalAppTop .canonicalTopNav>button{padding:0 3px!important;gap:3px!important;font-size:10.5px!important}html body #canonicalAppTop .navSvg{width:16px!important;height:16px!important;min-width:16px!important}}

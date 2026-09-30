@@ -317,14 +317,13 @@ async function recordPushAll(reason='edit'){
   const before=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
   alignOutgoingLedgerIdsWithCloud(before);
+  recoverStaleLoanCache(before);
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
   const baseline=recordSyncBaseline();
   let current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
-  if(!Object.keys(baseline).length){
-   // Upgrading an existing device must not treat all cached rows as new edits.
-   rememberRecordSyncBaseline(current);
-  }
+  // A missing baseline is unknown provenance, not proof that cached data is
+  // unchanged. Only verified cloud reads may establish an existing row baseline.
   // Pull cloud edits only where this browser has not changed that record since
   // its baseline. This includes cloud-side reconciliation and other devices.
   const safeRemote=safeIncomingRecordRows(before);
@@ -1814,6 +1813,7 @@ async function cloudAutoReconcile(reason='fallback'){
   // polling remains incremental; overlapping focus/realtime checks are coalesced.
   const refreshCache=['startup','visible','online'].includes(reason);
   const changed=refreshCache?await recordFetchAll():await recordFetchChangedSince(currentCloudCursorIso());
+  if(refreshCache&&recoverStaleLoanCache(changed))return await recordPushAll('verify-cloud-loan-cache');
   let recovered=[];
   if(changed.length){
    const result=applyRecordSyncDeltaRows(safeIncomingRecordRows(changed),{render:true});
@@ -1837,6 +1837,69 @@ async function cloudAutoReconcile(reason='fallback'){
  }finally{cloudProtectedRefreshBusy=false;}
 }
 
+function cloudLoanHistoryExplainsCache(localSettings,cloudSettings){
+ if(!localSettings||!cloudSettings)return false;
+ const withoutLoans=value=>{const copy={...value};delete copy.loans;return copy;};
+ if(syncRecordValue(withoutLoans(localSettings))!==syncRecordValue(withoutLoans(cloudSettings)))return false;
+ const mine=localSettings.loans,theirs=cloudSettings.loans;
+ if(!Array.isArray(mine)||!Array.isArray(theirs)||!mine.length||mine.length!==theirs.length)return false;
+ if(new Set(mine.map(l=>l.id)).size!==mine.length||new Set(theirs.map(l=>l.id)).size!==theirs.length)return false;
+ let advanced=false;
+ for(const loan of mine){
+  const remote=theirs.find(l=>l.id===loan.id);if(!loan.id||!remote)return false;
+  if(syncRecordValue(loan)===syncRecordValue(remote))continue;
+  const oldAt=Date.parse(loan.updatedAt||loan.createdAt),newAt=Date.parse(remote.updatedAt);
+  if(!Number.isFinite(oldAt)||!Number.isFinite(newAt)||newAt<=oldAt)return false;
+  const before=Array.isArray(loan.paymentHistory)?loan.paymentHistory:[],after=remote.paymentHistory;
+  if(!Array.isArray(after)||!after.length||new Set(after.map(p=>p.id)).size!==after.length)return false;
+  const valid=p=>p.id&&['active','reversed'].includes(p.status)&&Number.isFinite(Number(p.amount))&&Number(p.amount)>0&&Number.isInteger(Number(p.monthsReduced))&&Number(p.monthsReduced)>=0;
+  if(!before.every(valid)||!after.every(valid))return false;
+  const immutable=p=>{const copy={...p};delete copy.status;delete copy.reversedAt;return copy;};
+  if(before.some(p=>{const r=after.find(x=>x.id===p.id);return !r||syncRecordValue(immutable(p))!==syncRecordValue(immutable(r))||p.status==='reversed'&&r.status!=='reversed';}))return false;
+  const sum=(history,key)=>history.filter(p=>p.status!=='reversed').reduce((n,p)=>n+Number(p[key]),0);
+  const delta=sum(after,'amount')-sum(before,'amount'),months=sum(after,'monthsReduced')-sum(before,'monthsReduced');
+  if(![loan.remainingAmount,remote.remainingAmount,loan.remainingMonths,remote.remainingMonths].every(x=>Number.isFinite(Number(x))))return false;
+  if(Math.abs(Number(loan.remainingAmount)-Number(remote.remainingAmount)-delta)>.005||Number(loan.remainingMonths)-Number(remote.remainingMonths)!==months)return false;
+  const config=value=>{const copy={...value};for(const key of ['paymentHistory','remainingAmount','remainingMonths','updatedAt','status'])delete copy[key];copy.repaymentMode=copy.repaymentMode||'confirmed';if(!loan.defaultPaymentAccountId)delete copy.defaultPaymentAccountId;return copy;};
+  if(syncRecordValue(config(loan))!==syncRecordValue(config(remote)))return false;
+  if(remote.status!==(Number(remote.remainingAmount)<=.005?'closed':'active'))return false;
+  advanced=true;
+ }
+ return advanced;
+}
+function recoverStaleLoanCache(remote){
+ // Accept a newer cloud payment history only when every balance/month change
+ // is explained and no unrelated local financial edit would be overwritten.
+ if(typeof financeSettingsEditing!=='undefined'&&financeSettingsEditing)return false;
+ if(typeof document!=='undefined'&&(document.activeElement?.matches?.('input,select,textarea,[contenteditable="true"]')||document.querySelector('.modalBack.open,dialog[open]')))return false;
+ const local=buildRecordSyncRowsFromState(),settings=local.find(r=>r.section==='finance_settings'),cloud=remote.find(r=>r.section==='finance_settings'&&!r.deleted_at);
+ if(!settings||!cloud||!cloudLoanHistoryExplainsCache(settings.data,cloud.data))return false;
+ for(const loan of cloud.data.loans){
+  for(const payment of loan.paymentHistory||[]){
+   const ledger=remote.find(r=>r.section==='cash_flow_ledger'&&!r.deleted_at&&r.data?.referenceId==='loan:'+payment.id);
+   if(!ledger||Number(ledger.data.amount)!==Number(payment.amount)||ledger.data.sourceId!==payment.sourceId||
+      (ledger.data.status==='reversed')!==(payment.status==='reversed'))return false;
+  }
+ }
+ const sections=new Set(['finance_settings','bank_balance_overrides','cash_flow_ledger','outgoings','card_payment_plan','manual_transactions','income_plan']);
+ if(recordPendingDeletes.some(r=>sections.has(r.section)))return false;
+ const baseline=recordSyncBaseline(),byKey=new Map(remote.map(r=>[`${r.section}|${r.record_id}`,r]));
+ for(const row of local){
+  if(!sections.has(row.section)||row.section==='finance_settings')continue;
+  const key=`${row.section}|${row.record_id}`,other=byKey.get(key);
+  if(other&&!other.deleted_at&&syncRecordValue(row.data)===syncRecordValue(other.data))continue;
+  if(!other||baseline[key]===undefined||syncRecordValue(JSON.parse(baseline[key]))!==syncRecordValue(row.data))return false;
+ }
+ saveRecoverySnapshot('before-verified-loan-cache-recovery');
+ const dirty=financeSettingsDirty;financeSettingsDirty=false;
+ const result=applyRecordSyncDeltaRows(remote.filter(r=>sections.has(r.section)),{render:true});
+ const latest=buildRecordSyncRowsFromState();
+ const matches=syncRecordValue(latest.find(r=>r.section==='finance_settings')?.data)===syncRecordValue(cloud.data);
+ if(!matches){financeSettingsDirty=dirty;return false;}
+ rememberRemoteRecordBaseline(result.appliedRows);
+ window.financeLoanCacheRecoveredAt=new Date().toISOString();
+ return true;
+}
 function safeIncomingRecordRows(remote){
  const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
  const baseline=recordSyncBaseline();

@@ -7,6 +7,7 @@ function financePageVisible(page){
 /* V283 single-source application shell */
 function navIcon(name){
  var paths={
+  search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
   dashboard:'<path d="M3 11l9-8 9 8M5 10v10h14V10M9 20v-7h6v7"/>',
   transactions:'<circle cx="4" cy="5" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="19" r="1"/><path d="M9 5h12M9 12h12M9 19h12"/>',
   outgoings:'<path d="M5 19L19 5"/><path d="M10 5h9v9"/>',
@@ -44,7 +45,7 @@ function canonicalTopHTML(){
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
- +'</nav>'+(window.financeWorkspaceChoices?.length>0?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
+ +'</nav>'+(financePageVisible('transactions')?'<form class="canonicalSearch" id="canonicalSearchForm" role="search"><button type="button" id="canonicalSearchToggle" aria-label="Search transactions">'+navIcon('search')+'</button><input id="canonicalSearchInput" type="search" placeholder="Search transactions…" aria-label="Search transactions"></form>':'')+(window.financeWorkspaceChoices?.length>0?'<label class="canonicalWorkspace"><span class="canonicalWorkspaceLabel">Workspace</span> <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){
  var sheet=document.getElementById('canonicalMobileNavSheet');if(sheet)sheet.remove();
@@ -89,6 +90,10 @@ function ensureCanonicalShell(){
  if(workspaceSelect)workspaceSelect.title=window.financeWorkspaceName||workspaceSelect.selectedOptions?.[0]?.textContent||'';
  top.querySelector('#financeWorkspaceSwitch')?.addEventListener('change',e=>window.financeChooseWorkspace?.(e.target.value));
  if(typeof renderAccountProfile==='function')renderAccountProfile();
+ const searchForm=top.querySelector('#canonicalSearchForm'),searchInput=top.querySelector('#canonicalSearchInput');
+ if(searchForm)searchForm.onsubmit=e=>{e.preventDefault();const query=searchInput.value.trim();nav('transactions');if(!document.getElementById('transactions')?.classList.contains('active'))return;const field=document.getElementById('txSearch');if(field){field.value=query;renderTransactions();}};
+ top.querySelector('#canonicalSearchToggle')?.addEventListener('click',()=>{searchForm.classList.toggle('searchOpen');searchInput.focus();});
+
  top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();closeCanonicalMobileSheet(top);top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
  top.querySelectorAll('.canonicalMenuTrigger').forEach(b=>{
   var m=b.closest('[data-nav-menu]');
