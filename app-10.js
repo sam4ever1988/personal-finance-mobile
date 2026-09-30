@@ -190,7 +190,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   const workspaceName=document.getElementById('financeWorkspaceName');if(workspaceName)workspaceName.value=ownWorkspace?.name||'My Workspace';
   const switcher=document.getElementById('accountWorkspaceSwitch');if(switcher){
    switcher.replaceChildren();(window.financeWorkspaceChoices||[]).forEach(w=>{
-    const option=document.createElement('option');option.value=w.id;option.textContent=w.name+(w.own?' · Mine':' · Shared');switcher.append(option);
+    const option=document.createElement('option');option.value=w.id;option.textContent=(window.financeWorkspaceLabel?.(w)||w.name)+(w.own?' · Mine':' · Shared');switcher.append(option);
    });switcher.value=window.financeWorkspaceUserId||'';
    switcher.onchange=()=>window.financeChooseWorkspace?.(switcher.value);
   }
@@ -239,7 +239,8 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    }
    const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name});
    if(error||!id)throw error||new Error('Database creation was not confirmed.');
-   window.financeWorkspaceChoices.push({id,name,own:true});
+   const sharedIndex=window.financeWorkspaceChoices.findIndex(w=>!w.own);
+   window.financeWorkspaceChoices.splice(sharedIndex<0?window.financeWorkspaceChoices.length:sharedIndex,0,{id,name,own:true});
    input.value='';
    if(typeof syncCanonicalShell==='function')syncCanonicalShell(activeViewId());
    renderAccountProfile();
