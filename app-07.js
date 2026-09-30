@@ -260,12 +260,17 @@ function alignOutgoingLedgerIdsWithCloud(remote){
  const sameEvent=row=>row?.type==='outgoing-payment'&&String(row.referenceId||'').startsWith('outgoing:outpay-');
  const payload=row=>{const copy={...row};delete copy.id;return syncRecordValue(copy);};
  const candidates=new Map();
+ const canonicalReferences=new Set((remote||[]).filter(r=>r.section==='cash_flow_ledger'&&!r.deleted_at&&sameEvent(r.data)).map(r=>r.data.referenceId));
+ const retiredCopies=new Map((remote||[]).filter(r=>r.section==='cash_flow_ledger'&&r.deleted_at&&sameEvent(r.data)&&canonicalReferences.has(r.data.referenceId)).map(r=>[r.record_id,payload(r.data)]));
  (remote||[]).filter(r=>r.section==='cash_flow_ledger'&&!r.deleted_at&&sameEvent(r.data))
   .sort((a,b)=>String(a.record_id).localeCompare(String(b.record_id)))
   .forEach(r=>{const key=payload(r.data);if(!candidates.has(key))candidates.set(key,r.data);});
  let changed=false;
  const seen=new Set(),aligned=[];
  (cashFlowLedger||[]).forEach(row=>{
+  // A retained duplicate tombstone proves this exact copy was removed. Its
+  // original may since have been undone, so do not require equal status.
+  if(sameEvent(row)&&retiredCopies.get(row.id)===payload(row)){changed=true;return;}
   const canonical=sameEvent(row)?candidates.get(payload(row)):null;
   const next=canonical?{...canonical}:row;
   if(canonical&&canonical.id!==row.id)changed=true;
@@ -346,7 +351,7 @@ async function recordPushAll(reason='edit'){
   }
 
   const conflicts=[],mergedBankBalances=new Map();
-  const upserts=current.filter(r=>{
+  let upserts=current.filter(r=>{
    if(window.financeSectionPermission&&window.financeSectionPermission(r.section)!=='edit')return false;
    const key=`${r.section}|${r.record_id}`,cloud=cloudMap.get(key);
    if(!cloud){
@@ -383,8 +388,12 @@ async function recordPushAll(reason='edit'){
    if(syncRecordValue(cloud.data)!==old){conflicts.push(key);return false;}
    return true;
   }).map(r=>({...r,data:mergedBankBalances.get(`${r.section}|${r.record_id}`)||r.data,deleted_at:null}));
-  // A conflict in one section must not prevent independent account, transfer,
-  // investment, or rental edits from reaching the other device.
+  // Payments, undo history and balance adjustments form one operation. Never
+  // publish its history while holding back its conflicting balance (or reverse).
+  const paymentSections=new Set(['bank_balance_overrides','cash_flow_ledger','outgoings','card_payment_plan','manual_transactions','income_plan']);
+  const paymentConflict=conflicts.some(key=>paymentSections.has(key.split('|')[0]));
+  if(paymentConflict)upserts=upserts.filter(row=>!paymentSections.has(row.section));
+  // Unrelated investment and rental edits can still be published.
   upserts.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
   if(upserts.length){
    const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
@@ -401,7 +410,7 @@ async function recordPushAll(reason='edit'){
   }
   if(conflicts.length){
    setCloudMeta({pending:true,reconciliationMismatch:true});
-   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. Other safe changes published; review differences.`);
+   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. ${paymentConflict?'Linked payment and balance changes kept on this device':'Other safe changes published'}; review differences.`);
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
@@ -997,6 +1006,26 @@ function renderLocalSyncSummary(){
  el.innerHTML=`<b>Local data on this device:</b> ${x.accounts} accounts • <b>${x.transactions} active transactions</b> (${x.manual} manual / ${x.imported} imported) • ${x.deletedAuditRows} deleted audit row${x.deletedAuditRows===1?'':'s'} • ${x.excludedDuplicateRows} duplicate-excluded row${x.excludedDuplicateRows===1?'':'s'} • ${x.installments} installments • ${x.paymentRows} payment-plan rows • ${x.cashFlowRows} cash-flow rows • ${x.outgoings} outgoings • ${x.categories} category groups.<div class="meta" style="margin-top:5px">Cloud transport may contain ${x.transportRows} transaction rows because deleted/audit records are preserved for history. Only ${x.transactions} are active.</div>`;
 }
 
+async function useCloudBankBalanceValue(accountId,expectedLocal,expectedCloud){
+ if(recordSyncPushBusy||recordSyncApplying)throw new Error('A sync is running. Please try again shortly.');
+ if(window.financeSectionPermission&&window.financeSectionPermission('bank_balance_overrides')!=='edit')throw new Error('Balance editing permission is required.');
+ const remote=(await recordFetchAll()).find(r=>r.section==='bank_balance_overrides'&&r.record_id===RECORD_SYNC_SINGLETON&&!r.deleted_at);
+ if(recordSyncPushBusy||recordSyncApplying)throw new Error('A sync is running. Please try again shortly.');
+ if(!remote||syncRecordValue(bankBalanceOverrides[accountId])!==syncRecordValue(expectedLocal)||syncRecordValue(remote.data[accountId])!==syncRecordValue(expectedCloud))throw new Error('This balance changed. Refresh the differences before choosing.');
+ saveRecoverySnapshot('before-use-cloud-bank-balance');
+ const baseline=recordSyncBaseline(),key=`bank_balance_overrides|${RECORD_SYNC_SINGLETON}`;
+ const old=baseline[key]?JSON.parse(baseline[key]):{...remote.data};
+ if(expectedCloud===undefined){delete bankBalanceOverrides[accountId];delete old[accountId];}
+ else{bankBalanceOverrides[accountId]=expectedCloud;old[accountId]=expectedCloud;}
+ baseline[key]=syncRecordValue(old);
+ localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
+ localStorage.setItem('pf_bank_balance_overrides',JSON.stringify(bankBalanceOverrides));
+ if(typeof renderAccounts==='function')renderAccounts();
+ if(typeof renderDashboard==='function')renderDashboard();
+ scheduleRecordPush('chosen-cloud-bank-balance');
+ await renderCloudReconciliation();
+ return true;
+}
 async function renderCloudReconciliation(){
  const el=$('cloudReconciliation');
  if(!el||!cloudClient)return;
@@ -1040,7 +1069,13 @@ async function renderCloudReconciliation(){
    el.innerHTML=`<b>Local vs Cloud: EXACT MATCH</b> • ${active.length} canonical records • ${local.transactions} active transactions • ${local.installments} installments • ${local.paymentRows} payment-plan rows • ${local.cashFlowRows} active cash-flow rows.<div class="meta" style="margin-top:5px">Every local record key and value matches the live cloud database.</div>`;
   }else{
    const esc=v=>String(v==null?'':(typeof v==='object'?JSON.stringify(v):v)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-   const rows=detail.flatMap(x=>x.diffs.map(d=>`<tr><td>${esc(x.section)}</td><td>${esc(x.recordId)}</td><td>${esc(d.field)}</td><td><code>${esc(d.local)}</code></td><td><code>${esc(d.cloud)}</code></td></tr>`)).slice(0,500).join('');
+   const balanceChoices=[];
+   const rows=detail.flatMap(x=>x.diffs.map(d=>{
+    const balance=x.section==='bank_balance_overrides'&&!d.field.includes('.')&&(!window.financeSectionPermission||window.financeSectionPermission(x.section)==='edit');
+    const choice=balance?balanceChoices.push(d)-1:-1;
+    const label=balance?`${accountName(d.field)} • saved balance adjustment`:d.field;
+    return `<tr><td>${esc(x.section)}</td><td>${esc(x.recordId)}</td><td>${esc(label)}</td><td><code>${esc(d.local)}</code></td><td><code>${esc(d.cloud)}</code></td><td>${balance?`<button type="button" class="btn small" data-use-cloud-bank="${choice}">Use cloud value</button>`:'—'}</td></tr>`;
+   })).slice(0,500).join('');
    const missingRows=missing.slice(0,50).map(k=>`<li>Missing in cloud: <code>${esc(k)}</code></li>`).join('');
    const unexpectedRows=unexpected.slice(0,100).map(k=>`<li>Cloud only: <code>${esc(k)}</code></li>`).join('');
    const cloudActions=cloudMap.get(`transaction_actions|${RECORD_SYNC_SINGLETON}`)?.data||{};
@@ -1055,7 +1090,8 @@ async function renderCloudReconciliation(){
    const bySection={};unexpected.forEach(k=>{const section=k.split('|')[0];bySection[section]=(bySection[section]||0)+1});
    const sectionSummary=Object.entries(bySection).sort((a,b)=>b[1]-a[1]).map(([section,count])=>`${esc(section)}: ${count}`).join(' • ');
    el.className='notice danger';
-   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>This device</th><th>Cloud</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Read-only diagnostic. No local or cloud records are changed. Showing up to 500 field differences.</div></div>`;
+   el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>This device</th><th>Cloud</th><th>Resolve</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Balance adjustments are used to calculate the displayed account balance. Use cloud value replaces only the selected device adjustment; other local edits are kept. Showing up to 500 field differences.</div></div>`;
+   el.querySelectorAll('[data-use-cloud-bank]').forEach(button=>{button.onclick=async()=>{button.disabled=true;try{const d=balanceChoices[Number(button.dataset.useCloudBank)];await useCloudBankBalanceValue(d.field,d.local,d.cloud);}catch(error){cloudSetStatus(error.message);button.disabled=false;}};});
    const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
   }
  }catch(e){
