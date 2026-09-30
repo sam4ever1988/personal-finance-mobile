@@ -435,6 +435,14 @@ async function recordPushAll(reason='edit'){
   }
   const localVerified=new Map(buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit').map(r=>[`${r.section}|${r.record_id}`,r]));
+  const unconfirmed=[...localVerified.keys()].filter(key=>!activeKeys.has(key));
+  if(unconfirmed.length){
+   setCloudMeta({pending:true});
+   cloudSetStatus('New edits saved on this device • cloud confirmation pending');
+   clearTimeout(recordSyncPushTimer);
+   recordSyncPushTimer=setTimeout(()=>recordPushAll('unconfirmed-local-edits'),400);
+   return false;
+  }
   const differing=verified.filter(r=>!r.deleted_at&&localVerified.has(`${r.section}|${r.record_id}`)
    &&syncRecordValue(r.data)!==syncRecordValue(localVerified.get(`${r.section}|${r.record_id}`).data));
   if(differing.length){
@@ -1766,7 +1774,7 @@ async function cloudAutoReconcile(reason='fallback'){
    rememberRemoteRecordBaseline(result.appliedRows);
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
    if(!refreshCache)recovered=await recoverCloudOnlyRecords();
-   setCloudMeta({initialized:true,deviceTrusted:true,pending:false,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
+   setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending===true,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
    if(activeViewId()==='cloudSync')await renderCloudReconciliation();
    cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
    return result.changed||recovered.length>0;
