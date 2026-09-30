@@ -1,0 +1,38 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const html=fs.readFileSync(__dirname+'/index.html','utf8'),app=fs.readFileSync(__dirname+'/app-07.js','utf8');
+function storage(initial={}){const s={...initial};Object.defineProperties(s,{getItem:{value:k=>s[k]??null},setItem:{value:(k,v)=>s[k]=String(v)},removeItem:{value:k=>delete s[k]}});return s;}
+function fn(name){const start=app.indexOf('function '+name+'(');assert(start>=0);const end=app.slice(start+1).search(/\n(?:async )?function |\n(?:const|var) /);return app.slice(app.slice(0,start).endsWith('async ')?start-6:start,end<0?app.length:start+1+end);}
+async function cacheTests(){
+ const caches=new Map(),c={window:{financeWorkspaceChoices:[{id:'actor',own:true},{id:'extra',own:true},{id:'shared',own:false}],financeWorkspaceUserId:'extra',financeActiveUserId:'actor'},localStorage:storage({pf_active_user_id:'actor',pf_bank_balance_overrides:'primary balance',pf_cloud_sync_meta:'primary pending'}),sessionStorage:storage(),cacheSlot:async(k,v)=>{if(v!==undefined)caches.set(k,JSON.parse(JSON.stringify(v)));return caches.get(k);},scoped:{from:()=>({select:()=>({limit:async()=>({data:[{id:'actor'}]})})})}};
+ vm.createContext(c);
+ vm.runInContext(html.slice(html.indexOf('    function financeOwnedCacheSlot('),html.indexOf('    async function removeOldSharedSnapshots(')),c);
+ vm.runInContext(html.slice(html.indexOf('    window.financeScopeSwitch='),html.indexOf('    window.financeScopeWipe=')),c);
+ await c.window.financeScopeSwitch({user:{id:'actor'}});assert.equal(caches.get('actor').pf_bank_balance_overrides,'primary balance');assert.equal(c.localStorage.getItem('pf_bank_balance_overrides'),null);assert.equal(c.window.financeAdditionalWorkspace,true);assert.equal(c.window.financeSharedWorkspace,false);
+ c.localStorage.setItem('pf_bank_balance_overrides','extra balance');c.localStorage.setItem('pf_cloud_sync_meta','extra pending');c.window.financeWorkspaceUserId='actor';
+ await c.window.financeScopeSwitch({user:{id:'actor'}});assert.equal(c.localStorage.getItem('pf_bank_balance_overrides'),'primary balance');assert.equal(caches.get('actor|extra').pf_cloud_sync_meta,'extra pending');
+ c.window.financeWorkspaceUserId='extra';await c.window.financeScopeSwitch({user:{id:'actor'}});assert.equal(c.localStorage.getItem('pf_bank_balance_overrides'),'extra balance');assert.equal(c.localStorage.getItem('pf_cloud_sync_meta'),'extra pending');
+ assert.equal(c.financeOwnedCacheSlot('actor|shared','actor'),false);assert.equal(c.financeOwnedCacheSlot('actor|extra','actor'),true);
+ c.window.financeWorkspaceUserId='shared';await c.window.financeScopeSwitch({user:{id:'actor'}});c.sessionStorage.setItem('pf_private_data','shared data');c.window.financeWorkspaceUserId='actor';await c.window.financeScopeSwitch({user:{id:'actor'}});assert(!caches.has('actor|shared')||Object.keys(caches.get('actor|shared')).length===0);assert.equal(c.sessionStorage.getItem('pf_private_data'),null);
+}
+function fixture(){
+ const meta={pending:false};let authorized=true,writes=0;
+ const c={console,Date,Map,Set,JSON,Math,setTimeout:()=>0,window:{financeActiveUserId:'actor',financeWorkspaceUserId:'extra',financeAdditionalWorkspace:true,financeIsOwner:true},localStorage:storage(),recordSyncApplying:false,recordSyncReady:false,recordSyncPullBusy:false,recordSyncPushBusy:false,recordSyncLastCloudUpdatedAt:0,financeSettings:{loans:[],cardCycles:{}},financeSettingsDirty:false,DEFAULT_CARD_CYCLE_SETTINGS:{},categories:{},merchantRules:{},txOverrides:{},incomePlan:{},duplicateDecisions:{},statementRule:{},transactionActions:{},bankBalanceOverrides:{},customBanks:[],customCreditCards:[],resetCardIds:new Set(),cardResetHistory:[],deletedInstallmentIds:new Set(),manualTransactions:[],importedTransactions:[],importHistory:[],cashFlowLedger:[],outgoings:[],installments:[],cardPaymentPlan:[],financeDB:{save:async()=>{}},recordFetchAll:async()=>[],recordPendingDeletes:[],getCloudMeta:()=>meta,setCloudMeta:patch=>Object.assign(meta,patch),recoveryCloudLockActive:()=>false,rememberRecordSyncBaseline:()=>{},setFinanceAccessGate:()=>{},cloudSetStatus:()=>{},$:()=>null,saveRecoverySnapshot:()=>({}),localSyncSummary:()=>({}),renderCurrentPageForSections:()=>{},noteCloudUpdatedAt:()=>{},renderCloudReconciliation:async()=>{},buildRecordSyncRowsFromState:()=>[],persistRecoveredState:()=>{}};
+ for(const name of ['purgeLegacySeedPaymentPlans','purgeLegacyAr5867SeedRows','purgeLegacySabAnchorRows','normalizeCardPaymentPlan','rebuildTransactions','normalizeBalanceOffers','ensurePartialPaymentFields','ensureLedgerBackedPlannerRows','rebuildAllPlannerPaymentsFromLedger'])c[name]=()=>{};
+ c.purgeLegacyAr0955StatementRows=()=>c.cardPaymentPlan.pop();
+ c.cloudClient={auth:{getSession:async()=>({data:{session:{user:{id:'actor'}}}})},from:()=>({select:()=>({eq:()=>({eq:()=>({limit:async()=>({data:authorized?[{id:'extra',owner_user_id:'actor'}]:[]})})})}),upsert:async()=>{writes++;}})};
+ vm.createContext(c);for(const name of ['applyRecordSyncRows','financeProtectedAccountCatalogReady','financeDeviceCloudVerified','v185ActiveCloudCounts','initializeEmptyOwnedWorkspace','cloudDownloadAll'])vm.runInContext(fn(name),c);
+ return {c,meta,deny:()=>authorized=false,writes:()=>writes};
+}
+(async()=>{
+ await cacheTests();const a=fixture();assert(await a.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]));assert.equal(a.c.financeDeviceCloudVerified(),true);assert.equal(a.writes(),0);
+ const b=fixture();b.deny();await assert.rejects(()=>b.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]),/ownership/);assert.equal(b.c.recordSyncReady,false);
+ const d=fixture();d.c.window.financeAdditionalWorkspace=false;assert.equal(await d.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]),false);assert.equal(d.c.financeDeviceCloudVerified(),false);
+ const e=fixture();e.c.recordFetchAll=async()=>[{section:'card_payment_plan',record_id:'one',data:{id:'one'}},{section:'card_payment_plan',record_id:'two',data:{id:'two'}}];
+ assert.equal(await e.c.cloudDownloadAll(),true);assert.equal(e.c.cardPaymentPlan.length,2);assert.equal(e.c.recordSyncReady,true);assert.equal(e.writes(),0);
+ const f=fixture();f.c.window.financeAdditionalWorkspace=false;await assert.rejects(()=>f.c.cloudDownloadAll(),/empty/);assert.equal(f.c.recordSyncReady,false);
+ const creator=fs.readFileSync(__dirname+'/app-10.js','utf8');const start=creator.indexOf(" document.getElementById('accountNewWorkspaceCreate')"),end=creator.indexOf(" document.getElementById('financeWorkspaceNameSave')",start);let handler,calls=0,reloads=0;
+ const nodes={accountNewWorkspaceCreate:{addEventListener:(_n,h)=>handler=h},accountNewWorkspaceName:{value:'Family'},accountNewWorkspaceStatus:{}};
+ const env={document:{getElementById:id=>nodes[id]},window:{financeSupabaseClient:{rpc:async()=>{calls++;return {data:'new-extra'};}},financeWorkspaceChoices:[],financeChooseWorkspace:()=>reloads++},getCloudMeta:()=>({pending:true}),recordPushAll:async()=>false,renderAccountProfile:()=>{}};vm.createContext(env);vm.runInContext(creator.slice(start,end),env);await handler({currentTarget:nodes.accountNewWorkspaceCreate});assert.equal(calls,0);
+ env.getCloudMeta=()=>({pending:false});await handler({currentTarget:nodes.accountNewWorkspaceCreate});assert.equal(calls,1);assert.equal(reloads,0);assert.match(nodes.accountNewWorkspaceStatus.textContent,/created/);
+ console.log('PASS: owned cache round-trip and pending preservation, shared isolation, verified empty workspace, unauthorized/primary empty rejection, canonical load before normalization, no upload during load, pending-create guard and no forced reload');
+})().catch(e=>{console.error(e);process.exitCode=1;});
