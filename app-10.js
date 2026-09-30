@@ -233,11 +233,17 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   if(!name||name.length>80){status.textContent='Use a name between 1 and 80 characters.';return;}
   button.disabled=true;status.textContent='Creating database…';
   try{
+   if(typeof getCloudMeta==='function'&&getCloudMeta().pending){
+    status.textContent='Saving the current workspace before creating a database…';
+    if(!await recordPushAll('before-workspace-create'))throw new Error('Current workspace changes are still pending. Resolve the sync before creating a database.');
+   }
    const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name});
    if(error||!id)throw error||new Error('Database creation was not confirmed.');
    window.financeWorkspaceChoices.push({id,name,own:true});
-   input.value='';status.textContent='Database created. Switching to '+name+'…';
-   await window.financeChooseWorkspace(id);
+   input.value='';
+   if(typeof syncCanonicalShell==='function')syncCanonicalShell(activeViewId());
+   renderAccountProfile();
+   status.textContent='Database created: '+name+'. Select it from the Workspace menu when ready.';
   }catch(error){status.textContent='Could not create database: '+error.message;}
   finally{button.disabled=false;}
  });
