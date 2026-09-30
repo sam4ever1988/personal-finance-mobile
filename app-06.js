@@ -1502,7 +1502,14 @@ function runtimeSelfTest(){
 
 const SUPABASE_URL='https://qxayaygycgqwrerhrrlq.supabase.co', SUPABASE_PUBLISHABLE_KEY='sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2';
 const cloudClient=window.financeSupabaseClient||(window.supabase?.createClient?window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null);
-function cloudSetStatus(x){if($('cloudStatus'))$('cloudStatus').textContent=x;}
+function cloudSetStatus(x){
+ if($('cloudStatus'))$('cloudStatus').textContent=x;
+ const indicator=$('financeDataFreshness');
+ if(indicator){
+  const pending=typeof getCloudMeta==='function'&&getCloudMeta().pending;
+  indicator.textContent=x+(pending?' • Unsynced changes kept on this device':'');
+ }
+}
 
 // ===================== V145 REALTIME RECORD SYNC =====================
 // Supabase is the canonical database. Browser storage is a cache/recovery layer.
