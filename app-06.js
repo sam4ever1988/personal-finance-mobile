@@ -1662,7 +1662,7 @@ function setSyncArrayForSection(section,value){
  }
 }
 function syncRecordValue(value){
- return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)
+ return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)&&'price24k' in v&&v.manual!==true?{manual:false}:v&&typeof v==='object'&&!Array.isArray(v)
   ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 }
 function mergeOneRecordIntoSection(row){

@@ -414,9 +414,10 @@ async function recordPushAll(reason='edit'){
    }
    rememberRemoteRecordBaseline(upserts);
   }
+  window.financeSyncConflictKeys=conflicts;
   if(conflicts.length){
    setCloudMeta({pending:true,reconciliationMismatch:true});
-   cloudSetStatus(`Sync conflict • ${conflicts.length} record(s) changed on two devices. ${paymentConflict?'Linked payment and balance changes kept on this device':'Other safe changes published'}; review differences.`);
+   cloudSetStatus(`Sync conflict needs review • ${conflicts.length} records differ between this device and cloud. ${paymentConflict?'Linked payment and balance changes kept on this device':'Other safe changes published'}; review differences.`);
    if(activeViewId()==='cloudSync')renderCloudReconciliation();
    return false;
   }
@@ -1055,7 +1056,7 @@ async function renderCloudReconciliation(){
    }
    return v;
   };
-  const same=(a,b)=>JSON.stringify(stable(a))===JSON.stringify(stable(b));
+  const same=(a,b)=>syncRecordValue(a)===syncRecordValue(b);
   const fieldDiffs=(a,b,path='')=>{
    const out=[],aa=(a&&typeof a==='object')?a:{},bb=(b&&typeof b==='object')?b:{};
    [...new Set([...Object.keys(aa),...Object.keys(bb)])].sort().forEach(k=>{

@@ -34,7 +34,8 @@
    const rect=(value,c,offset,width)=>'<rect x="'+(x+offset)+'" y="'+(T+high-value/max*high)+'" width="'+width+'" height="'+(value/max*high)+'" rx="2" fill="'+c+'"><title>'+esc(p.from+(p.to!==p.from?' – '+p.to:''))+': '+money(value)+'</title></rect>';
    svg+=paired?rect(p.income,'#25cda0',-bw*.6,bw*.5)+rect(p.spend,'#ef5665',bw*.1,bw*.5):rect(p.spend,'#ef5665',-bw/2,bw);
    points.push(x+','+(T+high-sums[i]/cm*high));
-   if(i%Math.max(1,Math.ceil(series.length/10))===0||i===series.length-1){const label=p.key.length===7?p.key:series.length>40?p.from.slice(5):p.from.slice(8)+(p.to!==p.from?'–'+p.to.slice(8):'');svg+='<text x="'+x+'" y="'+(H-18)+'" text-anchor="middle">'+esc(label)+'</text>';}
+   const stride=Math.max(1,Math.ceil(series.length/8)),last=series.length-1;
+   if(i===last||(i%stride===0&&last-i>=stride)){const date=day(p.from),label=p.key.length===7?date.toLocaleDateString('en-GB',{month:'short',year:'2-digit',timeZone:'UTC'}):date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});svg+='<text x="'+(i===last?W-R:x)+'" y="'+(H-18)+'" text-anchor="'+(i===last?'end':i===0?'start':'middle')+'">'+esc(label)+'</text>';}
   });
   if(!paired)svg+='<polyline points="'+points.join(' ')+'" fill="none" stroke="#25cda0" stroke-width="3" stroke-linejoin="round"/>';
   svg+='</svg><div class="chartLegend"><span><i style="background:'+(paired?'#25cda0':'#ef5665')+'"></i>'+(paired?'Money in':'Spending')+'</span><span><i style="background:'+(paired?'#ef5665':'#25cda0')+'"></i>'+(paired?'Spending & fees':'Cumulative spend · right axis')+'</span><small>SAR • '+esc(series[0].from)+' → '+esc(series[series.length-1].to)+'</small></div>';
@@ -50,7 +51,8 @@
   if(mix){mix.hidden=true;move(mix,root);}
   const head=root.querySelector('.reportTrendPanel .reportPanelHead');head?.insertAdjacentHTML('beforeend',modeButtons('reportPeriodControls',[['daily','Daily'],['weekly','Weekly'],['monthly','Monthly']],'daily'));
   if(second){const compare=node('div','reportPanel','<div class="reportPanelHead"><div><h2>Compare Periods</h2><p>Same filters, previous period of equal length</p></div><label class="layoutCheck"><input type="checkbox" id="reportCompareToggle"> Compare</label></div><div id="reportCompareResult" class="layoutEmpty">Enable comparison to see how your spending changed.</div>');second.prepend(compare);}
-  const explore=node('div','reportPanel layoutExplore','<div class="reportPanelHead"><div><h2>Explore Spending</h2><p>Find the merchants and subcategories behind your spending</p></div></div>'+modeButtons('reportExploreControls',[['merchant','By merchant'],['subcategory','By subcategory']],'merchant')+'<div id="reportExploreRows"></div>');second?.after(explore);
+  const left=node('div','layoutReportColumn'),right=node('div','layoutReportColumn');move(root.querySelector('.reportTrendPanel'),left);move(second?.firstElementChild,left);move(rank,right);move(second?.firstElementChild,right);main.append(left,right);second?.remove();
+  const explore=node('div','reportPanel layoutExplore','<div class="reportPanelHead"><div><h2>Explore Spending</h2><p>Find the merchants and subcategories behind your spending</p></div></div>'+modeButtons('reportExploreControls',[['merchant','By merchant'],['subcategory','By subcategory']],'merchant')+'<div id="reportExploreRows"></div>');main?.after(explore);
   el('reportCompareToggle').onchange=()=>renderReports();
   el('reportPeriodControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){reportMode=b.dataset.mode;renderReports();}};
   el('reportExploreControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){reportExplore=b.dataset.mode;renderReports();}};
@@ -116,7 +118,7 @@
   const next=node('div','execPanel','<div class="execTitle">Next 30 Days</div><div id="execNext30"></div>');right.append(next);
   // Existing gold, utilization, bank and Zakat panels remain available below the primary overview.
   const extra=node('div','layoutDashboardDetails');for(const sel of ['.execGoldPanel','.execUtilPanel','.execBankPanel','.execZakatPanel'])move(main.querySelector(sel),extra);
-  narrow?.remove();bottom.after(extra);const title=main.querySelector('.execHero h2');if(title)title.textContent='Executive Overview';
+  narrow?.remove();const position=main.querySelector('.execPositionPanel'),quick=main.querySelector('.execQuickPanel'),positionColumn=node('div','layoutDashboardColumn');bottom.prepend(positionColumn);move(position,positionColumn);move(quick,positionColumn);const remaining=[...bottom.children].filter(p=>p!==positionColumn);const assetsColumn=node('div','layoutDashboardColumn'),liabilitiesColumn=node('div','layoutDashboardColumn');bottom.append(assetsColumn,liabilitiesColumn);move(remaining[0],assetsColumn);move(remaining[1],liabilitiesColumn);move(extra.querySelector('.execBankPanel'),positionColumn);move(extra.querySelector('.execGoldPanel'),assetsColumn);move(extra.querySelector('.execUtilPanel'),liabilitiesColumn);move(extra.querySelector('.execZakatPanel'),liabilitiesColumn);const title=main.querySelector('.execHero h2');if(title)title.textContent='Executive Overview';
   main.querySelector('.execPositionPanel [data-page-jump]')?.setAttribute('data-page-jump','financialposition');
  }
  function applyRentalLayout(){const root=el('rental');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';const layout=root.querySelector('.rentalLayout'),bottom=root.querySelector('.rentalBottom'),right=root.querySelector('.rentalRight');
@@ -132,19 +134,19 @@
   cards.forEach((c,i)=>move(c,[0,2].includes(i)||['accountWorkspaceCard','adminAccessCard','accountOwnAccessCard'].includes(c.id)?left:right));
   const profile=el('accountProfileForm')?.closest('.panel'),label=el('financeWorkspaceName')?.closest('label'),button=el('financeWorkspaceNameSave'),status=el('financeWorkspaceNameStatus');
   if(profile&&label){const p=node('div','panel prefsCard','<div class="panelTitle">Workspace Settings</div>');right.insertBefore(p,profile.nextSibling);move(label,p);move(button,p);move(status,p);}
-  const invitation=node('div','panel prefsCard','<div class="panelTitle">Invite a New User</div><p class="meta">Send a secure invitation email. Your workspace stays private unless you explicitly share it.</p><button class="btn primary" type="button" id="accountInviteOpen">Open Invitations</button>');invitation.hidden=!window.financeIsOwner;right.append(invitation);el('accountInviteOpen').onclick=()=>{nav('adminAccess');el('adminInviteEmail')?.focus();};
+  const invitation=node('div','panel prefsCard','<div class="panelTitle">Invite a New User</div><p class="meta">Send a secure invitation email. Your workspace stays private unless you explicitly share it.</p><button class="btn primary" type="button" id="accountInviteOpen">Open Invitations</button>');invitation.hidden=!!window.financeSharedWorkspace;right.append(invitation);el('accountInviteOpen').onclick=()=>nav('invitations');
  }
  function applyGoldLayout(){const root=el('assets');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';
   const pricing=el('goldPriceGrid')?.closest('.panel'),layout=node('div','layoutGoldGrid'),watch=node('div','panel goldMarketWatch','<div class="splitHead"><div><div class="panelTitle">Gold Market Watch</div><small class="meta">Spot price estimate • SAR/USD 3.75 • excludes retail fees</small></div>'+modeButtons('goldRangeControls',[['24h','1D'],['7d','1W'],['1m','1M'],['1y','1Y']],goldRange)+'</div><div class="goldChartControls"><label>Unit <select id="goldChartUnit"><option value="gram">SAR / gram</option><option value="ounce">USD / troy ounce</option></select></label>'+modeButtons('goldPurityControls',[[24,'24K'],[22,'22K'],[21,'21K'],[18,'18K']],goldPurity)+'</div><div id="goldHistoryChart" class="layoutChart"></div><div class="meta goldAttribution">History: <a href="https://standardbullion.com/spot-gold-price" target="_blank" rel="noopener">Data by Standard Bullion</a></div>');
-  pricing.before(layout);layout.append(watch,pricing);pricing.classList.add('goldSavedPrices');pricing.querySelector('.panelTitle').textContent='Gold Prices / Gram';
+  pricing.before(layout);const side=node('div','layoutGoldSide');layout.append(watch,side);side.append(pricing);pricing.classList.add('goldSavedPrices');pricing.querySelector('.panelTitle').textContent='Gold Prices / Gram';
   const tabArea=node('div','layoutGoldHistory');layout.after(tabArea);tabArea.append(node('div','splitHead','<div class="panelTitle">Gold Assets & History</div>'+modeButtons('goldAssetTabs',[['active','Active'],['sales','Sold'],['zakat','Zakat History']],goldTab)));
   ['goldAssetsBody','goldSaleHistoryBody','goldZakatHistoryBody'].forEach((id,i)=>{const table=el(id)?.closest('.panel'),title=table?.previousElementSibling,part=node('div','goldHistoryPart');part.dataset.goldTab=['active','sales','zakat'][i];if(title?.classList.contains('sectionTitle'))move(title,part);move(table,part);tabArea.append(part);});
-  const holding=node('div','panel goldHoldings','<div class="panelTitle">Your Holdings</div><div id="goldHoldingsSummary"></div><button type="button" class="btn primary" onclick="addGoldAsset()">+ Add Gold</button>');layout.append(holding);
+  const holding=node('div','panel goldHoldings','<div class="panelTitle">Your Holdings</div><div id="goldHoldingsSummary"></div><button type="button" class="btn primary" onclick="addGoldAsset()">+ Add Gold</button>');side.append(holding);
   el('goldRangeControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldRange=b.dataset.mode;loadGoldHistory();}};
   el('goldPurityControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldPurity=Number(b.dataset.mode);renderGoldHistory();}};
   el('goldChartUnit').onchange=e=>{goldUnit=e.target.value;renderGoldHistory();};
   el('goldAssetTabs').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldTab=b.dataset.mode;renderGoldTabs();}};
-  pricing.append(node('button','btn','Use Live Price'));const live=pricing.lastElementChild;live.type='button';live.id='goldUseLive';live.onclick=async()=>{live.disabled=true;try{await refreshGoldMarketPrice();const d=window.financeLiveGoldQuote;if(d&&!goldError){goldMarket={...d,manual:false};localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));renderGoldAssets();}}finally{live.disabled=false;}};
+
   renderGoldTabs();
  }
  function renderGoldTabs(){document.querySelectorAll('[data-gold-tab]').forEach(p=>p.hidden=p.dataset.goldTab!==goldTab);el('goldAssetTabs')?.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.mode===goldTab));}
@@ -153,16 +155,17 @@
  renderGoldAssets=function(){originalGold();applyGoldLayout();const active=goldAssets.filter(a=>activeGoldWeight(a)>.0001),value=active.reduce((s,a)=>s+goldAssetValue(a),0),cost=active.reduce((s,a)=>s+Number(a.purchasePrice||0)*activeGoldWeight(a)/Math.max(.0001,Number(a.weight||0)),0),due=active.filter(goldZakatDue).reduce((s,a)=>s+goldAssetValue(a)*.025,0),next=active.map(goldNextDue).filter(Boolean).sort()[0];
   el('goldKpis').innerHTML=[kpiHTML('Total Gold Weight',MONEY.format(active.reduce((s,a)=>s+activeGoldWeight(a),0))+' g',active.length+' active assets'),kpiHTML('Current Market Value',money(value),'Spot-value estimate','green'),kpiHTML('Unrealized Gain / Loss',money(value-cost),'Current value less remaining purchase cost',value-cost>=0?'green':'red'),kpiHTML('Next Zakat Due',next||'—','Due now: '+money(due),due>0?'amber':'green')].join('');
   el('goldPriceGrid').innerHTML=[24,22,21,18].map(k=>kpiHTML(k+'K / gram',Number(goldMarket.price24k)>0?money(goldPricePerGram(k)):'—',goldMarket.manual?'Manual price':k===24?'Spot reference':'Derived by purity')).join('');
+  el('refreshGoldPrice').textContent=goldMarket.manual?'Use Live Price':'Refresh Price';
   el('goldPriceMeta').textContent=marketStatus()+' • '+(goldMarket.updatedAt?new Date(goldMarket.updatedAt).toLocaleString():'No quote yet')+' • Source: '+(goldMarket.source||'—');
   el('goldHoldingsSummary').innerHTML=active.length?'<div class="layoutCompare"><div><small>Purchase cost</small><b>'+money(cost)+'</b></div><div><small>Market value</small><b>'+money(value)+'</b></div></div>':'<p class="meta">Add gold to track its value against purchase cost.</p>';
   renderGoldTabs();renderGoldHistory();
  };
  async function fetchJSON(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('Market data unavailable');return r.json();}
- refreshGoldMarketPrice=function(options={}){if(goldBusy)return goldBusy;lastGoldAttempt=Date.now();goldBusy=(async()=>{try{
+ refreshGoldMarketPrice=function(options={}){if(goldBusy)return goldBusy;const force=!!options.force||(!options.automatic&&!!goldMarket.manual);lastGoldAttempt=Date.now();goldBusy=(async()=>{try{
    const d=await fetchJSON('/api/gold');if(!(Number(d.price24k)>0)||!Number.isFinite(Date.parse(d.updatedAt)))throw Error('Invalid market quote');
    window.financeLiveGoldQuote=d;goldError='';
    // Background updates do not overwrite an explicitly selected manual valuation.
-   if(!goldMarket.manual||options.force){goldMarket={price24k:Number(d.price24k),updatedAt:d.updatedAt,fetchedAt:d.fetchedAt,source:d.source,attribution:d.attribution,manual:false};localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));}
+   if(!goldMarket.manual||force){goldMarket={price24k:Number(d.price24k),updatedAt:d.updatedAt,fetchedAt:d.fetchedAt,source:d.source,attribution:d.attribution,manual:false};localStorage.setItem('pf_gold_market',JSON.stringify(goldMarket));if(force&&typeof scheduleRecordPush==='function')scheduleRecordPush('gold-live-mode');}
    renderGoldAssets();if(el('executive')?.classList.contains('active'))renderExecutiveDashboard();return true;
   }catch(e){goldError=e.message;renderGoldAssets();return false;}finally{goldBusy=null;}})();return goldBusy;};
  async function loadGoldHistory(){const cached=goldHistories.get(goldRange);if(cached&&Date.now()-cached.loaded<300000){renderGoldHistory();return;}const range=goldRange;el('goldHistoryChart').innerHTML='<div class="layoutEmpty">Loading market history…</div>';if(historyBusy?.range===range)return historyBusy.promise;
@@ -178,7 +181,7 @@
   for(let i=0;i<points.length;i+=Math.max(1,Math.floor(points.length/6))){svg+='<text x="'+coords[i][0]+'" y="'+(H-12)+'" text-anchor="middle">'+esc(new Date(points[i].t).toLocaleDateString('en',{month:'short',day:'numeric'}))+'</text>';}
   svg+='</svg><div class="chartLegend"><small>'+(goldUnit==='ounce'?'USD / troy ounce':goldPurity+'K · SAR / gram')+' • Market history; not your portfolio balance</small></div>';el('goldHistoryChart').innerHTML=svg;
  }
- function startGold(){const assets=el('assets')?.classList.contains('active');if(!assets&&!el('executive')?.classList.contains('active'))return;if(Date.now()-lastGoldAttempt>45000)refreshGoldMarketPrice();if(assets)loadGoldHistory();}
+ function startGold(){const assets=el('assets')?.classList.contains('active');if(!assets&&!el('executive')?.classList.contains('active'))return;if(Date.now()-lastGoldAttempt>45000)refreshGoldMarketPrice({automatic:true});if(assets)loadGoldHistory();}
  const originalNav=nav;
  nav=function(page){const result=originalNav(page);if(page==='assets'||page==='executive')startGold();return result;};
  const originalShell=ensureCanonicalShell;

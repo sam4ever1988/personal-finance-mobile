@@ -10,11 +10,13 @@ function fixture(){
  ctx.applyRecordSyncDeltaRows=rows=>{for(const r of rows){if(r.section==='cash_flow_ledger'){ctx.cashFlowLedger=ctx.cashFlowLedger.filter(x=>x.id!==r.record_id);if(!r.deleted_at)ctx.cashFlowLedger.push(r.data);}else{ctx.other=ctx.other.filter(x=>x.section!==r.section||x.record_id!==r.record_id);if(!r.deleted_at)ctx.other.push(r);}}return {changed:!!rows.length,appliedRows:rows};};
  ctx.cloudClient={auth:{getSession:async()=>({data:{session:{user:{id:'owner'}}}})},from:()=>({upsert:async rows=>{ctx.writes.push(...rows);for(const r of rows){ctx.remote=ctx.remote.filter(x=>x.section!==r.section||x.record_id!==r.record_id);ctx.remote.push(r);}return {error:null};}})};
  vm.createContext(ctx);
+ vm.runInContext(fn('06','syncRecordValue'),ctx);
  for(const name of ['cashFlowLedgerKey','addCashFlowLedgerEntry'])vm.runInContext(fn('02',name),ctx);
  for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
  ctx.cloudProtectedRefreshBusy=false;
  return ctx;
 }
+const quoteContext=fixture();assert.equal(quoteContext.syncRecordValue({price24k:250,manual:false,updatedAt:'old'}),quoteContext.syncRecordValue({price24k:300,manual:false,updatedAt:'new'}));assert.notEqual(quoteContext.syncRecordValue({price24k:250,manual:true}),quoteContext.syncRecordValue({price24k:300,manual:true}));assert.notEqual(quoteContext.syncRecordValue({amount:250}),quoteContext.syncRecordValue({amount:300}));
 const payment={type:'outgoing-payment',referenceId:'outgoing:outpay-school-one',date:'2026-09-29',month:'2026-09',amount:862.5,sourceId:'bank',createdAt:'2026-09-29T17:54:00Z'};
 (async()=>{
  const a=fixture(),b=fixture();const first=a.addCashFlowLedgerEntry(payment),second=b.addCashFlowLedgerEntry(payment);
