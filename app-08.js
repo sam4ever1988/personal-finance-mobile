@@ -892,7 +892,7 @@ function openStatementFormatBuilder(){
     headerRow:Number(v.headerRow||1),dataStartRow:Number(v.dataStartRow||2),
     date:clean(v.dateColumn),description:clean(v.descriptionColumn),
     amount:clean(v.amountColumn),debit:clean(v.debitColumn),credit:clean(v.creditColumn),
-    balance:clean(v.balanceColumn),reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column)
+    balance:clean(v.balanceColumn),reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column),direction:clean(v.directionColumn),currency:clean(v.currencyColumn),counterparty:m.counterparty||'',sourceCurrency:m.sourceCurrency||''
    };
    statementFormats.push({
     id:'fmt-'+Date.now(),name:String(v.name).trim(),accountId:String(v.accountId||'').trim(),
@@ -994,6 +994,8 @@ function openStatementFormatBuilderV268(existing=null){
    {name:'debitColumn',label:'Debit Column',value:m.debit||'',placeholder:'Enter a column letter, e.g. C'},
    {name:'creditColumn',label:'Credit Column',value:m.credit||'',placeholder:'Enter a column letter, e.g. D'},
    {name:'balanceColumn',label:'Balance Column',value:m.balance||'',placeholder:'F — optional'},
+   {name:'directionColumn',label:'Credit / Debit Indicator Column',value:m.direction||'',placeholder:'G — optional'},
+   {name:'currencyColumn',label:'Currency Column',value:m.currency||'',placeholder:'E — optional'},
    {name:'referenceColumn',label:'Reference Column',value:m.reference||'',placeholder:'G — optional'},
    {name:'cardLast4Column',label:'Card Last 4 Column',value:m.cardLast4||'',placeholder:'H — optional'}
   ],
@@ -1002,7 +1004,7 @@ function openStatementFormatBuilderV268(existing=null){
    if(!clean(v.amountColumn)&&!clean(v.debitColumn)&&!clean(v.creditColumn)){
     return goldActionError('Enter the Amount column letter, or enter Debit and/or Credit column letters. The example text is not a saved value.',['amountColumn','debitColumn','creditColumn']);
    }
-   const columnFields=['dateColumn','descriptionColumn','amountColumn','debitColumn','creditColumn','balanceColumn','referenceColumn','cardLast4Column'];
+   const columnFields=['dateColumn','descriptionColumn','amountColumn','debitColumn','creditColumn','balanceColumn','referenceColumn','cardLast4Column','directionColumn','currencyColumn'];
    const invalidColumns=columnFields.filter(k=>clean(v[k])&&!/^[A-Z]{1,3}$/.test(clean(v[k])));
    if(invalidColumns.length)return goldActionError('Use column letters such as A, B or AA, not amounts or card numbers.',invalidColumns);
    if(!clean(v.dateColumn)||!clean(v.descriptionColumn))return goldActionError('Enter the Date and Description column letters.',['dateColumn','descriptionColumn']);
@@ -1012,7 +1014,7 @@ function openStatementFormatBuilderV268(existing=null){
     headerRow:Number(v.headerRow||1),dataStartRow:Number(v.dataStartRow||2),
     date:clean(v.dateColumn),description:clean(v.descriptionColumn),amount:clean(v.amountColumn),
     debit:clean(v.debitColumn),credit:clean(v.creditColumn),balance:clean(v.balanceColumn),
-    reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column)
+    reference:clean(v.referenceColumn),cardLast4:clean(v.cardLast4Column),direction:clean(v.directionColumn),currency:clean(v.currencyColumn),counterparty:m.counterparty||'',sourceCurrency:m.sourceCurrency||''
    };
    const target=existing?{...existing}:{id:'fmt-'+Date.now(),active:true,builtIn:false};
    target.name=String(v.name).trim();target.accountId=String(v.accountId||'').trim();

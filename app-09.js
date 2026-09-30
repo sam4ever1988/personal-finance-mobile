@@ -1,24 +1,9 @@
 /* V296 Investments — editable activity, settlement workflow and daily movement */
 var INV_USD_SAR=3.75;
-var INV_SEED=[
- {ticker:"7202",company:"Solutions by stc",market:"SA",qty:200,avg:271.95,price:216.90},
- {ticker:"2010",company:"SABIC",market:"SA",qty:130,avg:65.733,price:50.10},
- {ticker:"1180",company:"Saudi National Bank",market:"SA",qty:124,avg:38.9265,price:43.40},
- {ticker:"4012",company:"Thob Al Aseel",market:"SA",qty:1850,avg:4.0191,price:3.49},
- {ticker:"1010",company:"Riyad Bank",market:"SA",qty:300,avg:20.8765,price:20.85},
- {ticker:"4001",company:"Abdullah Al Othaim Markets",market:"SA",qty:900,avg:11.0046,price:4.98},
- {ticker:"4164",company:"Nahdi Medical",market:"SA",qty:40,avg:122.3886,price:93.90},
- {ticker:"4003",company:"United Electronics (eXtra)",market:"SA",qty:50,avg:99.393,price:66.70},
- {ticker:"2020",company:"SABIC Agri-Nutrients",market:"SA",qty:21,avg:116.7322,price:130.50},
- {ticker:"4190",company:"Jarir Marketing",market:"SA",qty:120,avg:13.8622,price:17.10},
- {ticker:"4163",company:"Al-Dawaa Medical Services",market:"SA",qty:37,avg:74.7068,price:39.00},
- {ticker:"1831",company:"Maharah Human Resources",market:"SA",qty:305,avg:5.39,price:4.65},
- {ticker:"4084",company:"Derayah Financial",market:"SA",qty:8,avg:30.00,price:22.18},
- {ticker:"LCID",company:"Lucid Group",market:"US",qty:51,avg:34.66,price:5.09},
- {ticker:"RIO",company:"Rio Tinto",market:"US",qty:11,avg:69.39,price:104.78}
-];
-var invHoldings=JSON.parse(localStorage.getItem("pf_investments_holdings")||"null")||(window.financeActiveUserId&&!window.financeIsOwner?[]:JSON.parse(JSON.stringify(INV_SEED)));
-var invTrades=JSON.parse(localStorage.getItem("pf_investments_trades")||"[]");
+// Portfolios start empty in every workspace. Holdings come only from scoped saved records.
+function invReadWorkspaceList(key){try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[];}catch(_){return [];}}
+var invHoldings=invReadWorkspaceList("pf_investments_holdings");
+var invTrades=invReadWorkspaceList("pf_investments_trades");
 var invLastPriceUpdate=localStorage.getItem("pf_investments_price_time")||"";
 
 var INV_ANALYSIS_ASOF="2026-09-22";

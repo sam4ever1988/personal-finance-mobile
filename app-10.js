@@ -194,6 +194,9 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    });switcher.value=window.financeWorkspaceUserId||'';
    switcher.onchange=()=>window.financeChooseWorkspace?.(switcher.value);
   }
+  const deleteButton=document.getElementById('accountWorkspaceDelete');
+  const selectedWorkspace=window.financeWorkspaceChoices?.find(w=>w.id===window.financeWorkspaceUserId);
+  if(deleteButton)deleteButton.hidden=!selectedWorkspace?.own||selectedWorkspace.id===window.financeActiveUserId;
   const adminCard=document.getElementById('adminAccessCard');if(adminCard)adminCard.hidden=!window.financeIsOwner||!!window.financeSharedWorkspace;
   const ownCard=document.getElementById('accountOwnAccessCard'),summary=document.getElementById('accountOwnAccessSummary');
   if(ownCard&&summary){
@@ -227,6 +230,28 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   sessionStorage.setItem('finance_workspace_selected_'+window.financeActiveUserId,workspaceId);
   location.reload();
  };
+ window.financeDeleteWorkspace=async function(){
+  const selected=window.financeWorkspaceChoices?.find(w=>w.id===window.financeWorkspaceUserId);
+  const status=document.getElementById('accountWorkspaceDeleteStatus'),button=document.getElementById('accountWorkspaceDelete');
+  if(!selected?.own||selected.id===window.financeActiveUserId){if(status)status.textContent='Only an additional workspace you own can be deleted.';return false;}
+  if(typeof getCloudMeta==='function'&&getCloudMeta().pending){status.textContent='Save or resolve pending changes before deleting this workspace.';return false;}
+  const typed=prompt('Permanently delete “'+selected.name+'” and all its financial records? This cannot be undone. Type the exact workspace name to confirm.');
+  if(typed!==selected.name)return false;
+  button.disabled=true;
+  try{
+   const {data:{session},error:authError}=await window.financeSupabaseClient.auth.getSession();
+   if(authError||session?.user.id!==window.financeActiveUserId)throw Error('Sign in again before deleting a workspace.');
+   const {data,error}=await window.financeSupabaseClient.from('finance_workspaces').delete().eq('id',selected.id).eq('owner_user_id',session.user.id).select('id');
+   if(error)throw error;if(data?.length!==1)throw Error('Workspace deletion was not confirmed.');
+   // Do not save a deleted slot again on the next load.
+   await window.financeScopeWipe();localStorage.removeItem('pf_active_user_id');localStorage.removeItem('pf_private_owned_cache_slot');
+   const dbName='PersonalFinanceDB-owned-'+session.user.id+'-'+selected.id;
+   await new Promise(resolve=>{const request=indexedDB.deleteDatabase(dbName);request.onsuccess=request.onerror=request.onblocked=resolve;});
+   sessionStorage.setItem('finance_workspace_selected_'+session.user.id,session.user.id);
+   location.reload();return true;
+  }catch(error){status.textContent='Could not delete workspace: '+error.message;return false;}finally{button.disabled=false;}
+ };
+ document.getElementById('accountWorkspaceDelete')?.addEventListener('click',()=>window.financeDeleteWorkspace());
  document.getElementById('accountNewWorkspaceCreate')?.addEventListener('click',async e=>{
   const button=e.currentTarget,input=document.getElementById('accountNewWorkspaceName');
   const status=document.getElementById('accountNewWorkspaceStatus'),name=String(input?.value||'').trim();

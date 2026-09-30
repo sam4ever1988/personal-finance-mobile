@@ -24,7 +24,7 @@ function fixture(){
  return {c,meta,deny:()=>authorized=false,writes:()=>writes};
 }
 (async()=>{
- await cacheTests();const a=fixture();assert(await a.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]));assert.equal(a.c.financeDeviceCloudVerified(),true);assert.equal(a.writes(),0);
+ await cacheTests();const a=fixture();a.c.invHoldings=[{ticker:'stale'}];a.c.invTrades=[{id:'stale'}];a.c.invEnsureLedgerV296=()=>{};a.c.applyRecordSyncRows([],{authoritative:true});assert.equal(a.c.invHoldings.length,0);assert.equal(a.c.invTrades.length,0);assert(await a.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]));assert.equal(a.c.financeDeviceCloudVerified(),true);assert.equal(a.writes(),0);
  const b=fixture();b.deny();await assert.rejects(()=>b.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]),/ownership/);assert.equal(b.c.recordSyncReady,false);
  const d=fixture();d.c.window.financeAdditionalWorkspace=false;assert.equal(await d.c.initializeEmptyOwnedWorkspace({user:{id:'actor'}},[]),false);assert.equal(d.c.financeDeviceCloudVerified(),false);
  const e=fixture();e.c.recordFetchAll=async()=>[{section:'card_payment_plan',record_id:'one',data:{id:'one'}},{section:'card_payment_plan',record_id:'two',data:{id:'two'}}];
@@ -36,3 +36,4 @@ function fixture(){
  env.getCloudMeta=()=>({pending:false});await handler({currentTarget:nodes.accountNewWorkspaceCreate});assert.equal(calls,1);assert.equal(reloads,0);assert.match(nodes.accountNewWorkspaceStatus.textContent,/created/);
  console.log('PASS: owned cache round-trip and pending preservation, shared isolation, verified empty workspace, unauthorized/primary empty rejection, canonical load before normalization, no upload during load, pending-create guard and no forced reload');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+

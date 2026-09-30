@@ -54,10 +54,10 @@ function applyRecordSyncRows(rows,options={}){
   if(typeof goldZakatHistory!=='undefined')goldZakatHistory=list('personal_assets_zakat');
   if(typeof goldSaleHistory!=='undefined')goldSaleHistory=list('personal_assets_sales');
   if(typeof goldMarket!=='undefined')goldMarket=singleton('personal_assets_market',goldMarket);
-  if(rows.some(r=>r.section==='investments_holdings')&&typeof invHoldings!=='undefined'){
+  if(typeof invHoldings!=='undefined'){
    invHoldings=list('investments_holdings');localStorage.setItem('pf_investments_holdings',JSON.stringify(invHoldings));
   }
-  if(rows.some(r=>r.section==='investments_trades')&&typeof invTrades!=='undefined'){
+  if(typeof invTrades!=='undefined'){
    invTrades=active.filter(r=>r.section==='investments_trades').map(r=>({...r.data,_cloudRecordId:r.data?._cloudRecordId??String(r.record_id)}));localStorage.setItem('pf_investments_trades',JSON.stringify(invTrades));
    if(typeof invEnsureLedgerV296==='function')invEnsureLedgerV296();
   }
