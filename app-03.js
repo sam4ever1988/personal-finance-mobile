@@ -44,7 +44,7 @@ function canonicalTopHTML(){
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
- +'</nav>'+(window.financeWorkspaceChoices?.length>1?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
+ +'</nav>'+(window.financeWorkspaceChoices?.length>1?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){
  var sheet=document.getElementById('canonicalMobileNavSheet');if(sheet)sheet.remove();
@@ -85,6 +85,8 @@ function ensureCanonicalShell(){
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
  top.innerHTML=canonicalTopHTML();
  top.classList.toggle('hasWorkspace',!!top.querySelector('.canonicalWorkspace'));
+ const workspaceSelect=top.querySelector('#financeWorkspaceSwitch');
+ if(workspaceSelect)workspaceSelect.title=window.financeWorkspaceName||workspaceSelect.selectedOptions?.[0]?.textContent||'';
  top.querySelector('#financeWorkspaceSwitch')?.addEventListener('change',e=>window.financeChooseWorkspace?.(e.target.value));
  if(typeof renderAccountProfile==='function')renderAccountProfile();
  top.querySelectorAll('[data-page-jump]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();closeCanonicalMobileSheet(top);top.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'));nav(b.dataset.pageJump)});
