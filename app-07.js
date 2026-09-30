@@ -390,7 +390,7 @@ async function recordPushAll(reason='edit'){
   }).map(r=>({...r,data:mergedBankBalances.get(`${r.section}|${r.record_id}`)||r.data,deleted_at:null}));
   // Payments, undo history and balance adjustments form one operation. Never
   // publish its history while holding back its conflicting balance (or reverse).
-  const paymentSections=new Set(['bank_balance_overrides','cash_flow_ledger','outgoings','card_payment_plan','manual_transactions','income_plan']);
+  const paymentSections=new Set(['finance_settings','bank_balance_overrides','cash_flow_ledger','outgoings','card_payment_plan','manual_transactions','income_plan']);
   const paymentConflict=conflicts.some(key=>paymentSections.has(key.split('|')[0]));
   if(paymentConflict)upserts=upserts.filter(row=>!paymentSections.has(row.section));
   // Unrelated investment and rental edits can still be published.
