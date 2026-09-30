@@ -564,15 +564,37 @@ function bankTransferImpact(accountId){
   return sum+(row.targetId===accountId?amount:0)-(row.sourceId===accountId?amount:0);
  },0);
 }
+function bankStatementBalanceEnabled(accountId){
+ const saved=bankBalanceOverrides?.[accountId];
+ return !!window.financeAdditionalWorkspace || !!(saved&&typeof saved==='object'&&saved.mode==='statement-net');
+}
+function bankStatementMovement(accountId){
+ // Read source records directly: imports, cloud deletions and edits must all
+ // change the same derived balance without applying a second saved delta.
+ return Math.round((importedTransactions||[]).reduce((sum,t)=>{
+  if(transactionActions[t._id]?.status)return sum;
+  const row={...t,...(txOverrides[t._id]||{})};
+  const amount=Number(row.amount);
+  return row.account===accountId&&Number.isFinite(amount)?sum+amount:sum;
+ },0)*100)/100;
+}
 function adjustedBankBalance(a){
- const v=Number(bankBalanceOverrides?.[a.id]);
+ const saved=bankBalanceOverrides?.[a.id];
+ const v=Number(saved&&typeof saved==='object'?saved.balance:saved);
  const base=Number.isFinite(v)?v:legacyAdjustedBankBalance(a);
  if(a.type!=='bank')return base;
- return Math.round((base+bankTransferImpact(a.id))*100)/100;
+ const statementDelta=bankStatementBalanceEnabled(a.id)
+  ?bankStatementMovement(a.id)-Number(saved?.statementAnchor||0):0;
+ return Math.round((base+bankTransferImpact(a.id)+statementDelta)*100)/100;
 }
 function setTrackedBankBalance(accountId,value){
  const n=Number(value);if(!Number.isFinite(n))return false;
- bankBalanceOverrides[accountId]=Math.round((n-(account(accountId)?.type==='bank'?bankTransferImpact(accountId):0))*100)/100;
+ const bank=account(accountId)?.type==='bank';
+ const balance=Math.round((n-(bank?bankTransferImpact(accountId):0))*100)/100;
+ // Balance and its statement anchor are one value for atomic per-account
+ // cloud conflict protection. Setting an actual balance absorbs existing rows.
+ bankBalanceOverrides[accountId]=bank&&bankStatementBalanceEnabled(accountId)
+  ?{mode:'statement-net',balance,statementAnchor:bankStatementMovement(accountId)}:balance;
  localStorage.setItem('pf_bank_balance_overrides',JSON.stringify(bankBalanceOverrides));
  localStorage.setItem('pf_reset_card_ids',JSON.stringify([...resetCardIds]));
  localStorage.setItem('pf_card_reset_history',JSON.stringify(cardResetHistory));
