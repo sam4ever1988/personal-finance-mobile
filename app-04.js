@@ -30,7 +30,7 @@ function execGoldTrend(id,current){
   x.fillStyle='#91aabd';x.font='10px system-ui';x.textAlign='center';vals.forEach((v,i)=>x.fillText(v.label,pad+i*(w-pad*2)/(vals.length-1),h-5));
  });
 }
-function executiveUpcomingPayments(){
+function executiveUpcomingPayments(all=false){
  const today=new Date(),items=[],ym=currentPlanMonth();
  const nextDate=(day=1)=>{const d=new Date(today.getFullYear(),today.getMonth(),Math.max(1,Math.min(28,Number(day)||1)));if(d<today)d.setMonth(d.getMonth()+1);return d;};
  // Use the application's EXISTING planner functions only. Do not manufacture planner rows here.
@@ -44,14 +44,15 @@ function executiveUpcomingPayments(){
  });
  (financeSettings.loans||[]).filter(l=>String(l.status||'').toLowerCase()!=='closed').forEach(l=>{
   const amt=Math.max(0,Number(l.monthly||l.monthlyPayment||l.monthlyInstallment||l.installmentAmount||l.paymentAmount||l.emi||0));
-  if(amt>.005)items.push({date:nextDate(l.dueDay||l.paymentDay||1),kind:'Personal Loan',label:l.name||l.bank||l.lender||'Personal Loan',amount:amt});
+  const dueDate=nextDate(l.dueDay||l.paymentDay||1),month=dueDate.getFullYear()+'-'+String(dueDate.getMonth()+1).padStart(2,'0');const unpaid=all&&typeof loanInstallmentDue==='function'?loanInstallmentDue(l,month).remaining:amt;
+  if(unpaid>.005)items.push({date:dueDate,kind:'Personal Loan',label:l.name||l.bank||l.lender||'Personal Loan',amount:unpaid});
  });
- (installments||[]).filter(p=>!p.completedConfirmed&&String(p.status||'').toLowerCase()!=='completed').forEach(p=>{
+ (installments||[]).filter(p=>(!all||!p.cardId)&&!p.completedConfirmed&&String(p.status||'').toLowerCase()!=='completed').forEach(p=>{
   let amt=0;try{amt=Math.max(0,Number(planCalc(p).monthly||0));}catch(_){}
   if(amt>.005)items.push({date:nextDate(p.dueDay||1),kind:'Installment',label:p.merchant||p.description||'Installment',amount:amt});
  });
  (goldAssets||[]).filter(a=>activeGoldWeight(a)>0.0001&&goldZakatDue(a)).forEach(a=>{const ds=goldNextDue(a),d=ds?new Date(ds+'T12:00:00'):null;if(d&&!isNaN(d))items.push({date:d,kind:'Zakat',label:a.name||'Gold Zakat',amount:goldAssetValue(a)*.025});});
- return items.filter(x=>x.amount>.005&&x.date instanceof Date&&!isNaN(x.date)).sort((a,b)=>a.date-b.date).slice(0,6);
+ const sorted=items.filter(x=>x.amount>.005&&x.date instanceof Date&&!isNaN(x.date)).sort((a,b)=>a.date-b.date);return all?sorted:sorted.slice(0,6);
 }
 function renderExecutiveDashboard(){
  if(!$('executive'))return;
@@ -976,6 +977,8 @@ function renderTransactions(){
  let rows=transactionFilters(normalizedTx(),source).sort((a,b)=>b.date.localeCompare(a.date));
  const physical=$('txPhysicalCard')?.value||''; if(physical)rows=rows.filter(t=>txMatchesPhysicalCardFilter(t,physical));
  const sm=$('txStatementMonth').value;if(sm)rows=rows.filter(t=>t.statementMonth===sm);
+ if(window.financeTxReview==='uncategorized')rows=rows.filter(t=>!t.category||/unclass|uncategor/i.test(t.category));
+ if(window.financeTxReview==='manual')rows=rows.filter(t=>t.manual||t.isManual);
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
  $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
@@ -988,7 +991,7 @@ fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFil
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
 $('applyStatementRule').addEventListener('click',applyStatementRuleToTransactions);
 ['txSearch','txFrom','txTo','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id)?.addEventListener(id==='txSearch'?'input':'change',renderTransactions));
-$('txReset').addEventListener('click',()=>{eligiblePurchasesOnly=false;$('txSearch').value='';if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
+$('txReset').addEventListener('click',()=>{window.financeTxReview='';eligiblePurchasesOnly=false;$('txSearch').value='';if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
 $('txSelectAllVisible').onclick=()=>{beginTxSelectionScrollLock();document.querySelectorAll('#transactions [data-select-tx]').forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));enforceTxSelectionScrollLock();};

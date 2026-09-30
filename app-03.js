@@ -7,13 +7,13 @@ function financePageVisible(page){
 /* V283 single-source application shell */
 function navIcon(name){
  var paths={
-  dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  dashboard:'<path d="M3 11l9-8 9 8M5 10v10h14V10M9 20v-7h6v7"/>',
   transactions:'<path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/><path d="M18 7l-3 3"/><path d="M6 17l3-3"/>',
   outgoings:'<path d="M5 19L19 5"/><path d="M10 5h9v9"/>',
   installments:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><circle cx="12" cy="15" r="2"/><path d="M12 13v2l1 1"/>',
   import:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v7M9 15l3 3 3-3"/>',
   investments:'<path d="M3 20h18"/><path d="M5 16l5-5 4 3 6-8"/><path d="M15 6h5v5"/>',
-  assets:'<path d="M12 3l8 6-8 12L4 9z"/><path d="M4 9h16M9 9l3 12 3-12"/>',
+  assets:'<path d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>',
   rental:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/><circle cx="17" cy="14" r="1"/>',
   reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H21v4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -44,7 +44,7 @@ function canonicalTopHTML(){
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
  +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
- +'</nav>'+(window.financeWorkspaceChoices?.length>1?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
+ +'</nav>'+(window.financeWorkspaceChoices?.length>0?'<label class="canonicalWorkspace">Workspace <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){
  var sheet=document.getElementById('canonicalMobileNavSheet');if(sheet)sheet.remove();

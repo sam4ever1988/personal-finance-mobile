@@ -1,0 +1,70 @@
+/* V372: approved compact layouts, shared navigation and retained tools. */
+html body [hidden]{display:none!important}
+html body .layoutChart svg,html body #reportTrendChart svg{display:block;width:100%;height:auto;min-height:210px}
+.layoutChart svg text,#reportTrendChart svg text{fill:#9ab8ca;font:12px system-ui}
+.chartGrid{stroke:#25506a;stroke-width:1;opacity:.65}
+.chartLegend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:12px;color:#b9cede;font-size:12px}
+.chartLegend i,.layoutFlowRow i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.chartLegend small{margin-left:auto}.layoutEmpty{padding:24px 12px;color:var(--muted,#9ab8ca);text-align:center;line-height:1.7}
+.layoutSegments{display:inline-flex;gap:3px;background:#062639;border:1px solid #24516b;border-radius:8px;padding:3px;flex-shrink:0}
+.layoutSegments button{border:0;border-radius:5px;background:transparent;color:#aec6d8;padding:7px 12px;min-height:32px;cursor:pointer;font:inherit;font-size:12px}
+.layoutSegments button.selected{color:#e6fbff;background:#12607e;box-shadow:inset 0 0 0 1px #21b8dc}
+.layoutSegments button:disabled{opacity:.45}.layoutSegments button:focus-visible,.layoutRank:focus-visible{outline:2px solid #28caff;outline-offset:2px}
+.layoutTrack{display:block;background:#163d54;height:8px;border-radius:6px;overflow:hidden}.layoutTrack i{display:block;height:100%;border-radius:6px}
+.layoutRank{display:grid;grid-template-columns:minmax(110px,1fr) minmax(70px,2fr) 120px 50px;gap:16px;align-items:center;width:100%;border:0;border-bottom:1px solid #20465e;background:transparent;color:inherit;padding:14px 0;text-align:left;font:inherit;cursor:pointer}
+.layoutRank>span:first-child{overflow-wrap:anywhere}.layoutRank>b,.layoutRank>small{text-align:right}.layoutRank small{color:#9ab8ca}
+.layoutCompare{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;padding:16px 0}.layoutCompare small{display:block;color:var(--muted,#9ab8ca);font-size:12px;margin-bottom:8px}.layoutCompare b{display:block;font-size:20px;overflow-wrap:anywhere}
+.layoutCheck{display:flex;align-items:center;gap:8px;font-size:12px}.layoutExplore{margin-bottom:18px}.layoutExplore>.layoutSegments{margin-bottom:4px}
+.layoutReviewRow{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #20465e}.layoutReviewRow>div{flex:1}.layoutReviewRow small{display:block;margin-top:5px;color:var(--muted,#9ab8ca)}.layoutReviewRow b{font-size:13px}.layoutReviewRow:last-child{border-bottom:0}
+.layoutDetails{border:1px solid #24516b;border-radius:12px;margin:16px 0;background:#082c42}.layoutDetails>summary{padding:15px 18px;cursor:pointer;font-weight:600;color:#c9deeb}.layoutDetails>.txDarkPanel{border:0}
+html body #executive .execGrid{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)!important;align-items:start!important;gap:18px!important;height:auto!important;min-height:0!important}
+html body #executive .execCol{gap:18px!important;align-self:start;min-height:0!important}
+html body #executive .execPanel{height:auto!important;min-height:0!important}
+html body #executive .execBottom{grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:start!important;margin-top:18px!important}
+.layoutDashboardDetails{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:18px;align-items:start}
+.layoutCashFlow{display:grid;grid-template-columns:220px minmax(0,1fr);gap:25px;align-items:center;padding:16px 0}.layoutFlowRing{width:210px;height:210px;border-radius:50%;display:grid;place-items:center}.layoutFlowRing>div{width:152px;height:152px;border-radius:50%;background:#082d43;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}.layoutFlowRing small{color:#9ab8ca}.layoutFlowRing b{font-size:20px}.layoutFlowMonth{text-align:right;color:#9ab8ca;font-size:12px}.layoutFlowRow{display:grid;grid-template-columns:1fr 50px;gap:10px;margin-bottom:19px}.layoutFlowRow>span{grid-column:1/-1;font-size:13px}.layoutFlowRow>span>b{float:right}.layoutFlowRow strong{font-size:12px}.layoutFlowRow .layoutTrack{height:10px}.layoutFlowRemaining{display:flex;justify-content:space-between;border-top:1px solid #24516b;padding-top:15px}.layoutFlowRemaining b{font-size:20px}
+html body #reports .reportAnalyticsGrid{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)!important;align-items:start!important}
+html body #reports .reportPanelHead{gap:16px;flex-wrap:wrap}html body #reports .reportTrendChart{min-height:0!important}
+html body #transactions .txInsightGrid{grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr)!important;align-items:start!important}
+html body #transactions .txPanelHead{flex-wrap:wrap;gap:12px}html body #transactions .txFilterPanel{margin-bottom:18px}
+html body #transactions .txSpendFlex{display:block}.layoutDetails .layoutRank{grid-template-columns:minmax(120px,1fr) 2fr 120px 50px}
+html body #rental .rentalLayout{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr)!important;align-items:start!important}.layoutRentalLeft,html body #rental .rentalRight{display:grid;gap:18px;align-content:start}.layoutRentalLeft>.panel{min-width:0;margin:0!important}html body #rental .rentalCalendarPanel{min-height:0!important}html body #rental .rentalReport{margin-top:18px}
+html body #accountprofile .prefsGrid{grid-template-columns:minmax(280px,.8fr) minmax(0,1.3fr)!important;align-items:start!important}.layoutAccountColumn{display:grid;gap:18px;min-width:0;align-content:start}html body #accountprofile .layoutAccountColumn>.panel{margin:0!important;min-width:0;width:100%;grid-column:auto!important}.layoutAccountColumn .prefsForm{display:grid;gap:12px}.layoutAccountColumn .panel>button{margin-top:12px}
+.layoutGoldGrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:18px;margin:18px 0;align-items:start}.goldMarketWatch{grid-row:span 2}.goldChartControls{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0}.goldChartControls label{display:flex;align-items:center;gap:12px;font-size:12px}.goldChartControls select{background:#06283c;color:#eaf5ff;border:1px solid #24516b;border-radius:7px;padding:9px 12px}.goldAttribution a{color:#49cde8}.goldAttribution{margin-top:15px}.layoutGoldGrid .splitHead{flex-wrap:wrap;gap:12px}.goldSavedPrices #goldPriceGrid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px}.goldSavedPrices #goldPriceGrid .kpi{padding:12px}.goldSavedPrices .kpiValue{font-size:19px}.goldSavedPrices #goldPriceMeta{line-height:1.7}.goldSavedPrices button{margin-top:10px}.layoutGoldHistory>.splitHead{margin:22px 0 16px}.goldHistoryPart .sectionTitle{margin:12px 0}
+@media(min-width:901px){
+ html body #canonicalAppTop,html body #canonicalAppTop.hasWorkspace{display:grid!important;grid-template-columns:minmax(130px,160px) minmax(0,1fr) minmax(180px,240px) 0 54px!important;gap:12px!important;height:72px!important;min-height:72px!important;padding:0 22px!important;background:#062b40!important;border-bottom:1px solid #1f5872!important;overflow:visible!important}
+ html body #canonicalAppTop .canonicalDate{display:none!important}html body #canonicalAppTop .canonicalBrand{width:auto!important;min-width:0!important}html body #canonicalAppTop .canonicalBrand small{font-size:9px!important}
+ html body #canonicalAppTop .canonicalTopNav{display:flex!important;align-items:stretch!important;justify-content:center!important;gap:5px!important;overflow:visible!important;height:72px!important;min-width:0!important}
+ html body #canonicalAppTop .canonicalMenu{position:relative!important;display:flex!important;min-width:0!important}
+ html body #canonicalAppTop .canonicalTopNav>button,html body #canonicalAppTop .canonicalMenuTrigger{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:7px!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;height:72px!important;min-height:72px!important;padding:0 9px!important;color:#9bbdce!important;font-size:13px!important;white-space:nowrap!important;min-width:0!important}
+ html body #canonicalAppTop .canonicalTopNav>button span,html body #canonicalAppTop .canonicalMenuTrigger>span{white-space:nowrap!important}
+ html body #canonicalAppTop .navSvg{width:21px!important;height:21px!important;flex-shrink:0!important}html body #canonicalAppTop .navChevron{display:inline!important;font-size:12px!important}
+ html body #canonicalAppTop .canonicalMenu.active>.canonicalMenuTrigger,html body #canonicalAppTop .canonicalTopNav>button.active{color:#43d1ef!important;box-shadow:inset 0 -3px #37c8e8!important}
+ html body #canonicalAppTop .canonicalDropdown{position:absolute!important;top:71px!important;left:0!important;right:auto!important;bottom:auto!important;width:285px!important;min-width:285px!important;background:#073047!important;border:1px solid #24647c!important;border-radius:0 0 10px 10px!important;padding:8px!important;z-index:1000!important;box-shadow:0 15px 30px #0006!important}
+ html body #canonicalAppTop .canonicalDropdown>button{display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;min-height:46px!important;background:transparent!important;color:#b3d4e4!important;border:0!important;padding:10px!important;border-radius:7px!important;text-align:left!important;font-size:13px!important}
+ html body #canonicalAppTop .canonicalDropdown>button.active,html body #canonicalAppTop .canonicalDropdown>button:hover{background:#105572!important;color:#71e2f7!important}
+ html body #canonicalAppTop .canonicalWorkspace{display:block!important;min-width:0!important;font-size:10px!important;color:#9bbdce!important;margin:0!important}html body #canonicalAppTop .canonicalWorkspace select{font-size:13px!important;min-height:34px!important;height:34px!important;margin-top:3px!important}
+ html body #canonicalAppTop .canonicalAvatar{width:48px!important;height:40px!important;border-radius:8px!important;font-size:13px!important}
+}
+@media(min-width:901px) and (max-width:1350px){html body #canonicalAppTop .canonicalBrand>div{display:none!important}html body #canonicalAppTop,html body #canonicalAppTop.hasWorkspace{grid-template-columns:35px minmax(0,1fr) 180px 0 48px!important;padding:0 12px!important;gap:6px!important}html body #canonicalAppTop .canonicalMenuTrigger,html body #canonicalAppTop .canonicalTopNav>button{font-size:11px!important;padding:0 5px!important;gap:4px!important}html body #canonicalAppTop .navSvg{width:18px!important;height:18px!important}}
+@media(max-width:1100px){.layoutDashboardDetails{grid-template-columns:1fr 1fr}.layoutCashFlow{grid-template-columns:1fr;justify-items:center}.layoutFlowRows{width:100%}}
+@media(max-width:900px){
+ html body #executive .execGrid,html body #executive .execBottom,html body #reports .reportAnalyticsGrid,html body #transactions .txInsightGrid,html body #rental .rentalLayout,html body #accountprofile .prefsGrid,.layoutGoldGrid{grid-template-columns:1fr!important}
+ html body #executive .execPanel{overflow:visible!important}.layoutGoldGrid .goldMarketWatch{grid-row:auto}.layoutDashboardDetails{grid-template-columns:1fr}.layoutCompare b{font-size:18px}.layoutRank,.layoutDetails .layoutRank{grid-template-columns:minmax(90px,1fr) minmax(40px,1fr) 90px;gap:9px;font-size:12px}.layoutRank>small{display:none}.goldChartControls{flex-wrap:wrap}.layoutSegments button{padding:7px 10px}.layoutGoldHistory>.splitHead{flex-wrap:wrap;gap:12px}
+}
+html[data-finance-theme="light"] .layoutTrack{background:#d9e6ec}html[data-finance-theme="light"] .layoutSegments,html[data-finance-theme="light"] .layoutDetails{background:#edf5f8;color:#163c53}html[data-finance-theme="light"] .layoutFlowRing>div{background:#fff}html[data-finance-theme="light"] .layoutChart svg text,html[data-finance-theme="light"] #reportTrendChart svg text{fill:#40667d}
+html body #reports #reportTrendChart{display:block!important;height:auto!important}
+html body #executive #execUpcoming,html body #executive .execUpcomingPanel .execEmpty{min-height:0!important}
+html body #executive .execUpcomingPanel .execEmpty{padding:22px 0!important}
+html body .goldMarketWatch{align-self:stretch;display:flex;flex-direction:column}
+html body .goldMarketWatch #goldHistoryChart{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:250px}
+html body #canonicalAppTop .canonicalBrand>div{min-width:0!important}
+html body #canonicalAppTop .canonicalBrand b{white-space:nowrap!important;font-size:17px!important}
+html body #canonicalAppTop .canonicalBrand small{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:115px!important;display:block!important}
+html body #transactions #txFlowChart[hidden],html body #transactions #txSpendChart[hidden]{display:none!important}
+html body #executive .execPanel.execUpcomingPanel{height:auto!important;min-height:0!important}
+html body #accountprofile.view.active{overflow:visible!important;max-height:none!important}
+html body #transactions .layoutReviewRow .btn{background:#103b52!important;border:1px solid #28617c!important;color:#d3ecf8!important}
+html body #rental .rentalKpis{grid-template-columns:repeat(7,minmax(0,1fr))!important}
+@media(max-width:1100px){html body #rental .rentalKpis{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:900px){html body #rental .rentalKpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
