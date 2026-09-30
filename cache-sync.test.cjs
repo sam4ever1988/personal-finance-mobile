@@ -34,5 +34,9 @@ const payment={type:'outgoing-payment',referenceId:'outgoing:outpay-school-one',
  const g=fixture();g.getCloudMeta().pending=false;g.localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');g.document={activeElement:null,querySelector:()=>null};g.currentCloudCursorIso=()=>'';let reads=0,release;
  g.recordFetchAll=()=>{reads++;return new Promise(resolve=>release=()=>resolve(c.remote));};
  const inFlight=g.cloudAutoReconcile('startup');await new Promise(r=>setImmediate(r));assert.equal(await g.cloudAutoReconcile('visible'),false);release();assert.equal(await inFlight,true);assert.equal(reads,1);assert.equal(g.cashFlowLedger.length,1);
+ const h=fixture();h.cashFlowLedger=[{...original}];h.remote=[];h.cloudClient.from=()=>({upsert:async()=>({error:new Error('Offline test')})});
+ assert.equal(await h.recordPushAll(),false);assert.equal(h.cashFlowLedger.length,1);assert.equal(h.getCloudMeta().pending,true);
+ const i=fixture();i.getCloudMeta().pending=false;i.localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');i.document={activeElement:null,querySelector:()=>null};i.recordFetchAll=async()=>{i.getCloudMeta().pending=true;return c.remote;};
+ await i.cloudAutoReconcile('startup');assert.equal(i.getCloudMeta().pending,true);
  console.log('PASS: stable payment identity, reversal preserved, exact-copy alignment, cloud balance refresh, conflict isolation, changed-payment protection, one-read startup and concurrent refresh coalescing');
 })().catch(e=>{console.error(e);process.exitCode=1;});
