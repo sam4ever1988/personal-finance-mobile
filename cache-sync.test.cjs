@@ -11,7 +11,7 @@ function fixture(){
  ctx.cloudClient={auth:{getSession:async()=>({data:{session:{user:{id:'owner'}}}})},from:()=>({upsert:async rows=>{ctx.writes.push(...rows);for(const r of rows){ctx.remote=ctx.remote.filter(x=>x.section!==r.section||x.record_id!==r.record_id);ctx.remote.push(r);}return {error:null};}})};
  vm.createContext(ctx);
  for(const name of ['cashFlowLedgerKey','addCashFlowLedgerEntry'])vm.runInContext(fn('02',name),ctx);
- for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','cloudAutoReconcile'])vm.runInContext(fn('07',name),ctx);
+ for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
  ctx.cloudProtectedRefreshBusy=false;
  return ctx;
 }
@@ -38,5 +38,15 @@ const payment={type:'outgoing-payment',referenceId:'outgoing:outpay-school-one',
  assert.equal(await h.recordPushAll(),false);assert.equal(h.cashFlowLedger.length,1);assert.equal(h.getCloudMeta().pending,true);
  const i=fixture();i.getCloudMeta().pending=false;i.localStorage.setItem('pf_v185_authoritative_cloud_loaded','1');i.document={activeElement:null,querySelector:()=>null};i.recordFetchAll=async()=>{i.getCloudMeta().pending=true;return c.remote;};
  await i.cloudAutoReconcile('startup');assert.equal(i.getCloudMeta().pending,true);
+ const j=fixture();j.cashFlowLedger=[{...original,id:'retired-copy'},{...original}];
+ j.alignOutgoingLedgerIdsWithCloud([{section:'cash_flow_ledger',record_id:'retired-copy',data:{...original,id:'retired-copy'},deleted_at:'2026-09-30'}, {section:'cash_flow_ledger',record_id:'original',data:{...original,status:'reversed'}}]);
+ assert.equal(j.cashFlowLedger.length,1);assert.equal(j.cashFlowLedger[0].id,'original');
+ const k=fixture();k.other=[{section:'bank_balance_overrides',record_id:'state',data:{bank:100}},{section:'outgoings',record_id:'school',data:{payments:['paid']}}];k.cashFlowLedger=[{...original}];k.rememberRecordSyncBaseline(k.buildRecordSyncRowsFromState());k.remote=k.buildRecordSyncRowsFromState().map(r=>({...r,data:JSON.parse(JSON.stringify(r.data))}));
+ k.other[0].data={bank:90};k.other[1].data={payments:[]};k.cashFlowLedger[0].status='reversed';k.remote[0].data={bank:80};
+ assert.equal(await k.recordPushAll(),false);assert.equal(k.writes.length,0);assert.equal(k.remote.find(r=>r.section==='cash_flow_ledger').data.status,undefined);
+ const l=fixture();l.RECORD_SYNC_SINGLETON='singleton';l.bankBalanceOverrides={bank:90,other:25};l.remote=[{section:'bank_balance_overrides',record_id:'singleton',data:{bank:80,other:20}}];l.localStorage.setItem('baseline',JSON.stringify({'bank_balance_overrides|singleton':l.syncRecordValue({bank:100,other:20})}));let backedUp=false;
+ l.saveRecoverySnapshot=()=>backedUp=true;l.scheduleRecordPush=()=>{};l.renderCloudReconciliation=async()=>{};
+ assert.equal(await l.useCloudBankBalanceValue('bank',90,80),true);assert.equal(l.bankBalanceOverrides.bank,80);assert.equal(l.bankBalanceOverrides.other,25);assert.equal(JSON.parse(l.recordSyncBaseline()['bank_balance_overrides|singleton']).other,20);assert(backedUp);
+ await assert.rejects(()=>l.useCloudBankBalanceValue('bank',80,70),/changed/);assert.equal(l.bankBalanceOverrides.bank,80);
  console.log('PASS: stable payment identity, reversal preserved, exact-copy alignment, cloud balance refresh, conflict isolation, changed-payment protection, one-read startup and concurrent refresh coalescing');
 })().catch(e=>{console.error(e);process.exitCode=1;});
