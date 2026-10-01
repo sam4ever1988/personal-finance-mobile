@@ -1275,7 +1275,7 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
   detectPhysicalCardEndingFromRaw(raw,accountId);
  const physicalCardEnding=detectedPhysicalCardEnding ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',reference:cleanImportText(pick('transaction reference','reference','reference number','bank reference','transaction id')),physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
