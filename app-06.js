@@ -307,8 +307,8 @@ function splitFreshStatementRows(previewRows,existingRows){
  return {fresh,duplicates};
 }
 function selectedStatementCardUpdates(){return importDuplicateDecision?.cardUpdates||[];}
-function validateStatementCardUpdates(){
- const updates=selectedStatementCardUpdates(),seen=new Set();
+function validateStatementCardUpdates(updates=selectedStatementCardUpdates()){
+ const seen=new Set();
  for(const update of updates){
   const old=importedTransactions.find(t=>t._id===update.id);
   if(seen.has(update.id)||!old||!statementCardMatch(update.row,old)||statementCardSnapshot(old)!==update.snapshot)throw Error('A matched transaction changed or was selected twice. Read the statement again and review the latest matches before updating.');
@@ -342,8 +342,9 @@ function statementImportDuplicateReview(){
  return splitFreshStatementRows(importPreviewRows,existingStatementImportRows());
 }
 function showStatementImportDuplicates(review=statementImportDuplicateReview()){
+ if(window.financeStatementHasCardMatches?.(review)){window.openStatementCardReview();return;}
  $('importDuplicateReviewBody').innerHTML=review.duplicates.map(({row,match,cardMatches},i)=>{
-  const changes=cardMatches?.length?'<label><input type="checkbox" data-import-card-update="'+i+'"> Update existing card to •'+escapeHtml(row.physicalCardEnding)+'</label><div class="meta">'+(cardMatches.length>1?'Multiple possible matches: choose the existing transaction.':'Verify this match and card assignment, especially if dates or descriptions differ. Amount, date, category and notes stay unchanged.')+'</div><select class="control" data-import-card-target="'+i+'">'+(cardMatches.length>1?'<option value="">Choose existing transaction</option>':'')+cardMatches.map(t=>'<option value="'+escapeHtml(t._id)+'">'+escapeHtml(t.date+' · '+t.description+' · card '+(txOverrides[t._id]?.physicalCardEnding||t.physicalCardEnding||'unknown'))+(txOverrides[t._id]?.physicalCardEnding?' · manually edited card (will be replaced)':'')+'</option>').join('')+'</select>':'';
+  const changes=''; // Card assignments are reviewed on their own page.
   return `<tr><td>${i+1}</td><td>${escapeHtml(row.date)}<div class="meta">${escapeHtml(accountName(row.account))} • ${escapeHtml(String(row.physicalCardEnding||''))}</div></td><td><b>${escapeHtml(row.description)}</b><div class="meta">Existing: ${escapeHtml(match.description)} • ${escapeHtml(match.date)} • card ${escapeHtml(txOverrides[match._id]?.physicalCardEnding||match.physicalCardEnding||'unknown')}</div></td><td>${signed(Number(row.amount||0))}</td><td>${changes}<label><input type="checkbox" data-import-duplicate-include="${i}"> Import as a separate real transaction</label></td></tr>`;
  }).join('');
  review.duplicates.forEach((entry,i)=>{
@@ -351,7 +352,7 @@ function showStatementImportDuplicates(review=statementImportDuplicateReview()){
   if(update&&box&&target){box.checked=true;target.value=update.id;}
   const include=$('importDuplicateReviewBody').querySelector('[data-import-duplicate-include="'+i+'"]');if(include)include.checked=entry.row.importAnyway===true;
  });
- $('importDuplicateReviewMeta').textContent=`${review.duplicates.length} matched transaction(s); ${review.fresh.length} new. Select card updates to confirm them. Ambiguous matches require choosing a target. Unselected matches are skipped.`;
+ $('importDuplicateReviewMeta').textContent=`${review.duplicates.length} matched transaction(s); ${review.fresh.length} new. Unselected matches are skipped. Use Review Card Assignments on the import page to update saved card transactions.`;
  openModal('importDuplicateReviewModal');
 }
 function cleanupExistingImportedStatementDuplicates(){
@@ -649,6 +650,7 @@ function renderImportPreview(){
  reviewButton.hidden=!reviewRows.length;
  reviewButton.textContent=reviewRows.length?`Review Transactions (${reviewRows.length})`:'Review Transactions';
  const dup=importDuplicateDecision;
+ const cardButton=$('openStatementCardReview');if(cardButton)cardButton.hidden=!window.financeStatementHasCardMatches?.(dup);
  const matchedButton=$('reviewStatementMatches');if(matchedButton){matchedButton.hidden=!dup?.duplicates?.length;matchedButton.textContent='Review Matched Rows ('+(dup?.duplicates?.length||0)+')';}
  $('importPreviewMeta').textContent=importDuplicateDecision
   ?`${dup?.found??total} transaction(s) found in ${importPreviewFileName}. ${dup?.duplicates.length||0} matched; ${total} selected for import; ${selectedStatementCardUpdates().length} card updates selected. ${reviewRows.length?`${reviewRows.length} selected row(s) need category review.`:'Selected rows are classified.'}`

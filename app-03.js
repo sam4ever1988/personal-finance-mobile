@@ -125,7 +125,7 @@ function syncCanonicalShell(page){
  var date=document.getElementById('canonicalDate');if(date){date.innerHTML='<span>'+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})+'</span><small class="canonicalVersion">'+(window.APP_BUILD_VERSION||'3.60')+'</small>';}
  document.querySelectorAll('.execVer,.cashVer,.txExecVer,.strategySideVer').forEach(el=>el.textContent=window.APP_BUILD_VERSION||'3.60');
  document.querySelectorAll('#canonicalAppTop [data-page-jump]').forEach(b=>b.classList.toggle('active',b.dataset.pageJump===page));
- var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','more']};
+ var groups={Dashboard:['executive','accounts','financialposition','strategy'],Transactions:['transactions','incomeplan','outgoings','installments'],Settings:['financeSettings','bankconnections','importstatements','statementCardReview','more']};
  document.querySelectorAll('#canonicalAppTop [data-nav-menu]').forEach(m=>{var label=m.querySelector('.canonicalMenuTrigger span')?.textContent||'';m.classList.toggle('active',groups[label]?.includes(page)||false)});
 }
 
@@ -1241,7 +1241,7 @@ function nav(page){
  }
 
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===page));
- const readOnly=window.financePagePermissions?.[page]==='view';
+ const readOnly=window.financePagePermissions?.[page==='statementCardReview'?'importstatements':page]==='view';
  const currentView=document.getElementById(page);
  window.financeReadOnlyObserver?.disconnect();
  if(readOnly&&currentView){
@@ -1258,13 +1258,13 @@ function nav(page){
  document.body.classList.toggle('assetsModernMode',page==='assets');
  document.body.classList.toggle('investmentsMode',page==='investments');
  document.body.classList.toggle('cloudMode',page==='cloudSync');
- document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync','auditTrail','accountprofile','adminAccess','accessLab'].includes(page));
+ document.body.classList.toggle('modernMode',['financialposition','reports','installments','importstatements','assets','investments','rental','financeSettings','more','accountDetail','incomeplan','outgoings','categories','paymentDetails','cloudSync','auditTrail','accountprofile','adminAccess','accessLab','statementCardReview'].includes(page));
  if(page==='executive'&&$('execTopDate'))$('execTopDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  document.querySelectorAll('.navBtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
  document.querySelectorAll('[data-modern-page]').forEach(b=>b.classList.toggle('active',b.dataset.modernPage===page));
  if($('modernModuleDate'))$('modernModuleDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 
- const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details',auditTrail:'Audit Trail',adminAccess:'Admin Access',accessLab:'Access Test'};
+ const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details',auditTrail:'Audit Trail',adminAccess:'Admin Access',accessLab:'Access Test',statementCardReview:'Review Card Assignments'};
  if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
  if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
 
