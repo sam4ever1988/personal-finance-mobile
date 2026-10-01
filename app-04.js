@@ -954,6 +954,7 @@ function renderTxExecutiveInsights(filtered){
  const all=Array.isArray(filtered)?filtered:transactions;
  if($('txExecDate'))$('txExecDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  if($('txTableCount'))$('txTableCount').textContent=all.length;
+ if($('txFilteredAmount'))$('txFilteredAmount').textContent='Total amount: '+money(all.reduce((sum,t)=>sum+Math.abs(Number(t.amount)||0),0));
  if($('txShowingText'))$('txShowingText').textContent=`Showing ${all.length} matching transactions`;
  if($('txCutoffText'))$('txCutoffText').textContent=$('statementCutoffDay')?.value||24;
  const spend=all.filter(t=>['spend','fee'].includes(txType(t)));

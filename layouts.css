@@ -165,3 +165,12 @@ html body .financePhotoAvatar{background-size:cover!important;background-positio
 html body #canonicalAppTop .financePhotoAvatar>span:first-child{display:none!important}
 #accountAvatarPreview.financePhotoAvatar{width:72px;height:72px;border-radius:50%}
 #accountAvatarUploadField[hidden]{display:none!important}
+
+/* Keep native workspace choices readable across browsers and workspace reloads. */
+html body #financeWorkspaceSwitch,html body #accountWorkspaceSwitch{color-scheme:dark;background-color:#06283c!important;color:#dbeaf2!important}
+html body #financeWorkspaceSwitch option,html body #accountWorkspaceSwitch option{background-color:#06283c;color:#dbeaf2}
+html[data-finance-theme="light"] body #financeWorkspaceSwitch,html[data-finance-theme="light"] body #accountWorkspaceSwitch{color-scheme:light;background-color:#edf5f8!important;color:#163c53!important}
+html[data-finance-theme="light"] body #financeWorkspaceSwitch option,html[data-finance-theme="light"] body #accountWorkspaceSwitch option{background-color:#edf5f8;color:#163c53}
+html body .txTableFoot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+html body #txFilteredAmount{font-weight:700;color:#dbeaf2;white-space:nowrap}
+html[data-finance-theme="light"] body #txFilteredAmount{color:#163c53}
