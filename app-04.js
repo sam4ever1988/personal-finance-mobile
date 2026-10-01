@@ -266,6 +266,7 @@ function openBulkUpdateSelected(){
  physical.innerHTML='<option value="">— Keep Existing —</option>'+allPhysicalCardOptions().map(o=>`<option value="${o.ending}">${escapeHtml(o.label)}</option>`).join('');
 
  if($('bulkUpdateType'))$('bulkUpdateType').value='';
+ financePopulateMonthSelect($('bulkUpdateMonth'),'— Keep Existing —');
  $('bulkUpdateMonth').value='';
  $('bulkUpdateDescription').value='';
  openModal('txBulkUpdateModal');

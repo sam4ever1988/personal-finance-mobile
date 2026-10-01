@@ -85,7 +85,7 @@ async function parseStatementFile(file,accountId,statementMonth=''){
  }
 
  if(name.endsWith('.xlsx')||name.endsWith('.xls')){
-  if(typeof XLSX==='undefined')throw new Error('Excel import library is unavailable. Reload while connected to the internet.');
+  if(typeof XLSX==='undefined')await financeLoadStatementLibrary('excel');
   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
   const detected=detectWorkbookAccount(wb,accountId);
   accountId=detected.accountId||accountId;
@@ -120,7 +120,7 @@ async function parseStatementFile(file,accountId,statementMonth=''){
  }
 
  if(name.endsWith('.pdf')){
-  if(typeof pdfjsLib==='undefined')throw new Error('PDF import library is unavailable. Reload while connected to the internet.');
+  if(typeof pdfjsLib==='undefined')await financeLoadStatementLibrary('pdf');
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
@@ -1739,7 +1739,7 @@ function setSyncArrayForSection(section,value){
  }
 }
 function syncRecordValue(value){
- return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)&&'price24k' in v&&v.manual!==true?{manual:false}:v&&typeof v==='object'&&!Array.isArray(v)
+ return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)&&v.cardId&&v.scheduleMode&&'lastStatementBilledAt' in v?Object.fromEntries(Object.keys(v).filter(key=>key!=='lastStatementBilledAt').sort().map(key=>[key,v[key]])):v&&typeof v==='object'&&!Array.isArray(v)&&'price24k' in v&&v.manual!==true?{manual:false}:v&&typeof v==='object'&&!Array.isArray(v)
   ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 }
 function mergeOneRecordIntoSection(row){

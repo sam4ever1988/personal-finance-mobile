@@ -593,6 +593,7 @@ renderCustomCreditCards=function(){
 
 $('execAddTx')?.addEventListener('click',()=>openManualTransaction());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>openInstallment());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
 async function init(){
+ const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
  // V261: show the Executive shell immediately while local finance state restores.
  // This removes the blank/legacy first-run wait without changing financial data.
  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='executive'));
@@ -624,10 +625,8 @@ async function init(){
  await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
 
  // Restore IndexedDB, but never let a blocked database hold the whole application.
- let localSavedAt='';
- try{const localState=await Promise.race([financeDB.get('finance_state'),new Promise(resolve=>setTimeout(()=>resolve(null),900))]);localSavedAt=localState?.savedAt||'';}catch(_){}
  const restorePromise=Promise.resolve().then(()=>financeDB.restore()).catch(e=>{console.warn('Deferred IndexedDB restore failed',e);return false;});
- const restored=await Promise.race([restorePromise,new Promise(resolve=>setTimeout(()=>resolve(false),1200))]);
+ const restored=await Promise.race([restorePromise,new Promise(resolve=>setTimeout(()=>resolve(false),300))]);
  if(restored){
   rebuildTransactions();normalizeCardPaymentPlan();ensureLedgerBackedPlannerRows();rebuildAllPlannerPaymentsFromLedger();reconcileRemainingPrincipalPlans();ensurePartialPaymentFields();
   if(!startupUi || !startupUi.page || startupUi.page==='executive')renderExecutiveDashboard();
@@ -645,7 +644,7 @@ async function init(){
 
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
- const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
+
  let session=null;
  // Cloud startup is deferred until after the local UI is painted below.
  // Run each startup migration once only.
@@ -667,7 +666,7 @@ async function init(){
   const mk=paymentBudgetMonth(h);
   // V91 repairs the earlier automatic behavior. Historical payments from a bank/card
   // do not touch Monthly Planned Income unless they were explicitly created under V91+.
-  if(!String(h.incomeDecisionVersion||'').startsWith('V91')){
+  if(Number(String(h.incomeDecisionVersion||'').match(/^V(\d+)/)?.[1]||0)<91){
    h.deductFromIncome=(h.sourceId==='cash-source');
    h.budgetMonth=mk;
    h.incomeDecisionVersion='V91-migrated';

@@ -1106,7 +1106,7 @@ function openAccount(id,returnPage){
   <td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-detail-plan="${p.id}">Edit</button><button type="button" class="btn small danger" data-detail-delete-plan="${p.id}">Delete</button></div></td>
  </tr>`}).join('')}</tbody></table></div>`:'<div class="meta">No installment plans for this card.</div>'}`;
 })()}</div>
-<div class="notice" style="margin:12px 0"><b>Card balance:</b> Outstanding / Utilized includes all still-live transaction cycles, not only the current open cycle. Prior calculated cycles remain utilized until replaced by an official/released statement or otherwise closed. Available Credit = Credit Limit − Outstanding / Utilized − current-cycle installment commitment. Historical built-in rows remain reference-only.</div>
+<div class="notice" style="margin:12px 0"><b>Card balance:</b> Outstanding / Utilized includes unpaid transaction cycles, billed installments and future installment principal, with payments applied once. Available Credit = Credit Limit − Outstanding / Utilized. The current-cycle installment preview is already included. Historical built-in rows remain reference-only.</div>
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>

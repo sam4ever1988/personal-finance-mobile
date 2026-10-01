@@ -2,7 +2,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=n=>fs.readFileSync(`${__dirname}/app-${n}.js`,'utf8');
 function fn(n,name){const s=source(n),start=s.indexOf(`function ${name}(`);assert(start>=0,name);const end=s.slice(start+1).search(/\n(?:async )?function |\n(?:const|var) /);return s.slice(s.slice(0,start).endsWith('async ')?start-6:start,end<0?s.length:start+1+end);}
 function fixture(){
- const storage=new Map(),meta={pending:true},ctx={console,Date,Map,Set,JSON,Math,setTimeout:()=>0,clearTimeout:()=>{},window:{financeActiveUserId:'owner',__financeStateInitialized:true},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},cashFlowLedger:[],recordPendingDeletes:[],recordSyncApplying:false,recordSyncReady:true,recordSyncPushBusy:false,recordSyncPushTimer:0,recentOwnBankBalanceWrites:new Map(),RECORD_SYNC_BASELINE_KEY:'baseline',RECORD_SYNC_TABLE:'records',financeSettingsDirty:false,selectedTxIds:new Set(),recordSyncLastCloudUpdatedAt:0,
+ const storage=new Map(),meta={pending:true},ctx={console,Date,Map,Set,JSON,Math,setTimeout:()=>0,clearTimeout:()=>{},window:{financeActiveUserId:'owner',__financeStateInitialized:true},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},cashFlowLedger:[],recordPendingDeletes:[],recordSyncApplying:false,recordSyncReady:true,recordSyncPushBusy:false,recordSyncPushTimer:0,recentOwnBankBalanceWrites:new Map(),RECORD_SYNC_BASELINE_KEY:'baseline',RECORD_SYNC_TABLE:'records',financeSettingsDirty:false,financeSettingsEditing:false,RECORD_SYNC_SINGLETON:'singleton',selectedTxIds:new Set(),recordSyncLastCloudUpdatedAt:0,
  syncRecordValue:v=>JSON.stringify(v,(_k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,x[k]])):x),getCloudMeta:()=>meta,setCloudMeta:x=>Object.assign(meta,x),cloudSetStatus:x=>ctx.status=x,activeViewId:()=>'',saveRecordDeleteQueue:()=>{},markLocalRecordWrite:()=>{},rememberOwnBankBalanceWrite:()=>{},noteCloudUpdatedAt:()=>{},incomeMonthKey:d=>String(d).slice(0,7)};
  ctx.other=[];ctx.remote=[];ctx.writes=[];
  ctx.buildRecordSyncRowsFromState=()=>[...ctx.other,...ctx.cashFlowLedger.map(data=>({section:'cash_flow_ledger',record_id:data.id,data}))];
@@ -12,7 +12,7 @@ function fixture(){
  vm.createContext(ctx);
  vm.runInContext(fn('06','syncRecordValue'),ctx);
  for(const name of ['cashFlowLedgerKey','addCashFlowLedgerEntry'])vm.runInContext(fn('02',name),ctx);
- for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','cloudLoanHistoryExplainsCache','recoverStaleLoanCache','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
+ for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','cloudLoanHistoryExplainsCache','recoverStaleLoanCache','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','recordImmediateUpsert','recordImmediateBatch','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
  ctx.cloudProtectedRefreshBusy=false;
  return ctx;
 }
@@ -59,6 +59,8 @@ const payment={type:'outgoing-payment',referenceId:'outgoing:outpay-school-one',
  const q=loanCache();q.financeSettingsEditing=true;assert.equal(q.recoverStaleLoanCache(q.remote),false);
  const r=loanCache();r.remote=r.remote.filter(x=>x.section!=='cash_flow_ledger');assert.equal(r.recoverStaleLoanCache(r.remote),false);
  const t=loanCache();t.other[0].data.loans[0].monthly=4000;assert.equal(t.recoverStaleLoanCache(t.remote),false);
+ const immediate=fixture();let queued=0;immediate.scheduleRecordPush=()=>queued++;await immediate.recordImmediateUpsert('tx_overrides','singleton',{a:{amount:123}});await immediate.recordImmediateBatch('card_payment_plan',[{id:'plan'}]);assert.equal(queued,2);assert.equal(immediate.writes.length,0);
+ const derived=fixture();assert.equal(derived.syncRecordValue({cardId:'one',scheduleMode:'remaining-principal',manualRemaining:100,lastStatementBilledAt:'device'}),derived.syncRecordValue({cardId:'one',scheduleMode:'remaining-principal',manualRemaining:100,lastStatementBilledAt:'cloud'}));assert.notEqual(derived.syncRecordValue({cardId:'one',scheduleMode:'remaining-principal',manualRemaining:100}),derived.syncRecordValue({cardId:'one',scheduleMode:'remaining-principal',manualRemaining:99}));
  const u=fixture();u.other=[{section:'bank_balance_overrides',record_id:'singleton',data:{bank:100}}];u.remote=[{section:'bank_balance_overrides',record_id:'singleton',data:{bank:80}}];assert.equal(await u.recordPushAll(),false);assert.equal(u.other[0].data.bank,100);
  console.log('PASS: verified stale loan recovery makes zero cloud writes; unexplained balance, local payment, bank edit, active editor, missing ledger and missing baseline protected');
  console.log('PASS: stable payment identity, reversal preserved, exact-copy alignment, cloud balance refresh, conflict isolation, changed-payment protection, one-read startup and concurrent refresh coalescing');

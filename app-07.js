@@ -321,7 +321,13 @@ async function recordPushAll(reason='edit'){
   if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(before);
   recoverStaleLoanCache(before);
   const cloudMap=new Map(before.map(r=>[`${r.section}|${r.record_id}`,r]));
+  const localByKey=new Map(buildRecordSyncRowsFromState().map(row=>[`${row.section}|${row.record_id}`,row]));
+  rememberRemoteRecordBaseline(before.filter(row=>!row.deleted_at&&syncRecordValue(localByKey.get(`${row.section}|${row.record_id}`)?.data)===syncRecordValue(row.data)));
   const baseline=recordSyncBaseline();
+  const settingsKey=`finance_settings|${RECORD_SYNC_SINGLETON}`;
+  const localSettings=buildRecordSyncRowsFromState().find(row=>`${row.section}|${row.record_id}`===settingsKey);
+  if(!financeSettingsEditing&&localSettings&&baseline[settingsKey]!==undefined&&
+     syncRecordValue(localSettings.data)===syncRecordValue(JSON.parse(baseline[settingsKey])))financeSettingsDirty=false;
   let current=buildRecordSyncRowsFromState().filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
   // A missing baseline is unknown provenance, not proof that cached data is
@@ -376,7 +382,7 @@ async function recordPushAll(reason='edit'){
    // browser still holds an older baseline. Matching values are reconciled.
    if(syncRecordValue(cloud.data)===syncRecordValue(r.data))return false;
    const old=baseline[key]===undefined?undefined:syncRecordValue(JSON.parse(baseline[key]));
-   if(r.section==='bank_balance_overrides'&&old!==undefined){
+   if(['bank_balance_overrides','tx_overrides','transaction_actions'].includes(r.section)&&old!==undefined){
     let merged=mergeBankBalanceFields(JSON.parse(baseline[key]),r.data,cloud.data);
     // A rapid second payment can reach this push before the previous push has
     // advanced the baseline. Accept that intermediate cloud value only when
@@ -541,37 +547,10 @@ function rememberRemoteRecordBaseline(rows){
 
 async function recordImmediateUpsert(section,recordId,data,reason='direct-write'){
  if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return false;
- if(!cloudClient){
-  scheduleRecordPush(reason);return false;
- }
- try{
-  const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session||session.user.id!==window.financeActiveUserId||!recordSyncReady){
-   scheduleRecordPush(reason);return false;
-  }
-
-  const row={section,record_id:String(recordId),data,deleted_at:null};
-  markLocalRecordWrite(section,recordId);
-
-  const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert({...row,user_id:(window.financeWorkspaceUserId||session.user.id)},{onConflict:'user_id,section,record_id'});
-  if(error)throw error;
-
-  setCloudMeta({
-   initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,
-   lastSyncedAt:new Date().toISOString(),
-   lastAutoSyncAt:new Date().toISOString(),
-   lastAutoSyncReason:`immediate-${reason}`
-  });
-  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Record saved • cloud reconciliation needed':'Record saved • full sync pending verification'} • ${new Date().toLocaleTimeString()}`);
-  return true;
- }catch(e){
-  console.warn('Immediate record sync failed',section,recordId,e);
-  setCloudMeta({pending:true});
-  cloudSetStatus('Sync pending • '+e.message);
-  scheduleRecordPush(reason);
-  return false;
- }
+ // All callers first update application state. Use the same guarded writer as
+ // normal edits; a stale device must never bypass baseline/conflict checks.
+ scheduleRecordPush(reason);
+ return false;
 }
 
 async function recordImmediateDelete(section,recordId,reason='direct-delete'){
@@ -596,42 +575,8 @@ async function recordImmediateDelete(section,recordId,reason='direct-delete'){
 async function recordImmediateBatch(section,records,reason='batch-write'){
  if(window.financeSectionPermission&&window.financeSectionPermission(section)!=='edit')return false;
  if(!Array.isArray(records)||!records.length)return true;
- if(!cloudClient){
-  scheduleRecordPush(reason);return false;
- }
- try{
-  const {data:{session}}=await cloudClient.auth.getSession();
-  if(!session||session.user.id!==window.financeActiveUserId||!recordSyncReady){
-   scheduleRecordPush(reason);return false;
-  }
-
-  const rows=records.map((x,i)=>({
-   section,
-   record_id:syncStableId(section,x,i),
-   data:x,
-   deleted_at:null
-  }));
-  rows.forEach(r=>markLocalRecordWrite(r.section,r.record_id));
-
-  const {error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .upsert(rows.map(r=>({...r,user_id:(window.financeWorkspaceUserId||session.user.id)})),{onConflict:'user_id,section,record_id'});
-  if(error)throw error;
-
-  setCloudMeta({
-   initialized:true,deviceTrusted:true,pending:getCloudMeta().pending,
-   lastSyncedAt:new Date().toISOString(),
-   lastAutoSyncAt:new Date().toISOString(),
-   lastAutoSyncReason:`immediate-${reason}`
-  });
-  cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Records saved • cloud reconciliation needed':'Records saved • full sync pending verification'} • ${new Date().toLocaleTimeString()}`);
-  return true;
- }catch(e){
-  console.warn('Immediate batch sync failed',section,e);
-  setCloudMeta({pending:true});
-  cloudSetStatus('Sync pending • '+e.message);
-  scheduleRecordPush(reason);
-  return false;
- }
+ scheduleRecordPush(reason);
+ return false;
 }
 
 function syncManualTransactionImmediate(tx){
@@ -727,7 +672,8 @@ async function startRealtimeRecordSync(){
  // V225: an already-initialized trusted source device must keep publishing after an
  // upgrade. New/untrusted devices still require one verified manual cloud load.
  recordSyncReady=!recoveryCloudLockActive() && (verifiedCloudLoad || (meta.initialized&&meta.deviceTrusted));
- if(recordSyncReady && !Object.keys(recordSyncBaseline()).length)rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
+ // A cached device cannot invent a cloud baseline from its own stale data.
+ // Baselines are established only by verified cloud equality or a cloud load.
  cloudSetStatus(recordSyncReady?'Protected sync ready • local edits publish automatically':'Protected • use Load Latest Cloud Data once on this device');
 
  if(legacyPlannerCleanupPending){
@@ -1100,6 +1046,12 @@ async function renderCloudReconciliation(){
    const sectionSummary=Object.entries(bySection).sort((a,b)=>b[1]-a[1]).map(([section,count])=>`${esc(section)}: ${count}`).join(' • ');
    el.className='notice danger';
    el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>This device</th><th>Cloud</th><th>Resolve</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Balance adjustments are used to calculate the displayed account balance. Use cloud value replaces only the selected device adjustment; other local edits are kept. Showing up to 500 field differences.</div></div>`;
+   if(!window.financeSharedWorkspace&&!window.financeRestrictedOwnAccess){
+    const button=document.createElement('button');button.type='button';button.className='btn primary';button.id='cloudResolveUseLatest';button.textContent='Use latest cloud on this device';
+    const note=document.createElement('p');note.className='meta';note.textContent='Replace this device’s cached records together from the cloud. A recovery backup keeps your current device data; this action uploads nothing.';
+    el.insertBefore(note,el.querySelector('#cloudDiffToggle'));el.insertBefore(button,el.querySelector('#cloudDiffToggle'));
+    button.onclick=async()=>{button.disabled=true;try{await cloudDownloadAll();}catch(error){cloudSetStatus(error.message);button.disabled=false;}};
+   }
    el.querySelectorAll('[data-use-cloud-bank]').forEach(button=>{button.onclick=async()=>{button.disabled=true;try{const d=balanceChoices[Number(button.dataset.useCloudBank)];await useCloudBankBalanceValue(d.field,d.local,d.cloud);}catch(error){cloudSetStatus(error.message);button.disabled=false;}};});
    const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
   }

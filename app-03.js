@@ -445,6 +445,15 @@ function installmentRemainingSchedule(p){
 }
 function installmentReleasedSlices(p){
  const slices=Array.isArray(p.statementBilledHistory)?p.statementBilledHistory.map(row=>({...row})):[];
+ // Older plans recorded billed counts before per-month history existed.
+ // Preserve those slices too: reopening a previously paid cycle must restore
+ // its installment debt alongside its purchases and recorded payments.
+ const original=planMonthly(p),billedStart=p.startMonth||installmentReferenceMonth(p);
+ const legacyBilled=Math.max(0,Number(p.statementBilledInstallments||0)-slices.length);
+ for(let i=0;i<Math.min(original.length,legacyBilled);i++){
+  const month=addMonthsToYM(billedStart,i);
+  if(!slices.some(row=>row.month===month))slices.push({month,amount:Number(original[i]||0)});
+ }
  if(p.scheduleMode!=='remaining-principal'&&p.remainingMonthsOverride==null){
   const schedule=planMonthly(p),start=installmentReferenceMonth(p);
   const billed=installmentPaidThroughReleasedStatement(p);

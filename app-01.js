@@ -19,6 +19,7 @@ function financeNativeMoney(n,currency=financeBaseCurrency()){return Number.isFi
 
 
 
+window.financeHadPersistedStateAtStart=['pf_installments','pf_imported_transactions','pf_manual_transactions'].every(key=>localStorage.getItem(key)!==null);
 var financeDB={
  name:window.financeAdditionalWorkspace
   ?'PersonalFinanceDB-owned-'+window.financeActiveUserId+'-'+window.financeWorkspaceUserId
@@ -32,8 +33,8 @@ var financeDB={
  async put(key,value){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readwrite');tx.objectStore(this.store).put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})},
  async get(key){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readonly');const r=tx.objectStore(this.store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
  snapshot(){return {categories,installments,merchantRules,txOverrides,incomePlan,manualTransactions,importedTransactions,importHistory,outgoings,duplicateDecisions,statementRule,transactionActions,cardPaymentPlan,cashFlowLedger,savedAt:new Date().toISOString()}},
- async save(){if(window.financeSharedWorkspace)return;try{await this.put('finance_state',this.snapshot());updateDbStatus(true)}catch(e){console.warn('IndexedDB save failed',e);updateDbStatus(false)}},
- async restore(){if(window.financeSharedWorkspace)return false;try{const d=await this.get('finance_state');if(!d)return false;
+ async save(){if(window.financeSharedWorkspace)return;this.cacheRevision=(this.cacheRevision||0)+1;try{await this.put('finance_state',this.snapshot());updateDbStatus(true)}catch(e){console.warn('IndexedDB save failed',e);updateDbStatus(false)}},
+ async restore(){if(window.financeSharedWorkspace||window.financeHadPersistedStateAtStart)return false;const revision=this.cacheRevision||0;try{const d=await this.get('finance_state');if(!d||revision!==(this.cacheRevision||0))return false;
    categories=d.categories||categories;installments=d.installments||installments;merchantRules=d.merchantRules||merchantRules;txOverrides=d.txOverrides||txOverrides;incomePlan=d.incomePlan||incomePlan;manualTransactions=d.manualTransactions||manualTransactions;importedTransactions=d.importedTransactions||importedTransactions;importHistory=d.importHistory||importHistory;outgoings=d.outgoings||outgoings;duplicateDecisions=d.duplicateDecisions||duplicateDecisions;statementRule=d.statementRule||statementRule;transactionActions=d.transactionActions||transactionActions;cardPaymentPlan=d.cardPaymentPlan||cardPaymentPlan;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;cashFlowLedger=d.cashFlowLedger||cashFlowLedger;
  purgeLegacyAr5867SeedRows();
  purgeLegacySabAnchorRows();
@@ -43,6 +44,49 @@ var financeDB={
    rebuildAllPlannerPaymentsFromLedger();
    updateDbStatus(true,d.savedAt);return true}catch(e){console.warn('IndexedDB restore failed',e);updateDbStatus(false);return false}}
 };
+var financeStatementLibraries=new Map();
+function financeLoadStatementLibrary(kind){
+ const definitions={excel:{global:'XLSX',url:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'},pdf:{global:'pdfjsLib',url:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'}};
+ const item=definitions[kind];
+ if(!item)return Promise.reject(new Error('Unknown statement file type'));
+ if(window[item.global])return Promise.resolve(window[item.global]);
+ if(financeStatementLibraries.has(kind))return financeStatementLibraries.get(kind);
+ const request=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src=item.url;script.async=true;
+  const fail=()=>{clearTimeout(timer);script.remove();financeStatementLibraries.delete(kind);reject(new Error('Could not load the '+kind+' importer. Check your connection and try again.'));};
+  const timer=setTimeout(fail,20000);
+  script.onload=()=>{clearTimeout(timer);if(window[item.global])resolve(window[item.global]);else fail();};script.onerror=fail;document.head.append(script);
+ });
+ financeStatementLibraries.set(kind,request);return request;
+}
+function financePopulateMonthSelect(select,blankLabel='Choose month'){
+ if(!select)return;
+ const value=select.value,now=new Date(),months=new Set(value?[value]:[]);
+ for(let i=-60;i<=60;i++){const date=new Date(now.getFullYear(),now.getMonth()+i,1);months.add(date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0'));}
+ select.replaceChildren(new Option(blankLabel,''));
+ [...months].sort().reverse().forEach(month=>{const [year,m]=month.split('-').map(Number);select.add(new Option(new Date(year,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}),month));});
+ select.value=value;
+}
+function financeMonthFallbacks(root=document){
+ root.querySelectorAll('input[type="month"]').forEach(input=>{
+  if(input.type==='month'||input.dataset.monthFallback)return;
+  // Safari versions without a native month picker retain the original input
+  // and its listeners, with a visible select that submits the same YYYY-MM.
+  input.dataset.monthFallback='true';
+  const select=document.createElement('select');select.id=(input.id||'financeMonth')+'Picker';select.className=input.className;
+  select.setAttribute('aria-label',input.getAttribute('aria-label')||input.closest('.field')?.querySelector('label')?.textContent||'Month');
+  if(input.hasAttribute('data-view-control'))select.setAttribute('data-view-control','');
+  select.required=input.required;select.disabled=input.disabled;
+  const descriptor=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  const update=value=>{if(value&&![...select.options].some(option=>option.value===value))select.add(new Option(value,value));select.value=value;};
+  input.type='hidden';input.after(select);financePopulateMonthSelect(select,input.required?'Choose month':'All months');update(descriptor.get.call(input));
+  Object.defineProperty(input,'value',{configurable:true,get(){return descriptor.get.call(this);},set(value){descriptor.set.call(this,value);update(descriptor.get.call(this));}});
+  select.addEventListener('change',()=>{input.value=select.value;input.dispatchEvent(new Event('change',{bubbles:true}));});
+  new MutationObserver(()=>{select.disabled=input.disabled;select.required=input.required;}).observe(input,{attributes:true,attributeFilter:['disabled','required']});
+ });
+}
+financeMonthFallbacks();
+new MutationObserver(records=>{if(records.some(record=>[...record.addedNodes].some(node=>node.nodeType===1)))financeMonthFallbacks();}).observe(document.body,{childList:true,subtree:true});
 var lastMobileNavAt=0;
 const CLOUD_META_KEY='pf_cloud_sync_meta';
 var cloudAutoSaveTimer=null;
@@ -80,7 +124,8 @@ let financeSettingsEditing=false;
 
 function financeApplyBaseLabels(){if(financeBaseCurrency()==='SAR')return;const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(!['SCRIPT','STYLE','OPTION'].includes(node.parentElement?.tagName))node.nodeValue=node.nodeValue.replace(/\bSAR\b/g,financeBaseCurrency());}}
 financeApplyBaseLabels();
-function financeMoneyDecimals(currency=financeBaseCurrency()){return new Intl.NumberFormat('en',{style:'currency',currency}).resolvedOptions().maximumFractionDigits;}
+var financeDecimalCache=new Map();
+function financeMoneyDecimals(currency=financeBaseCurrency()){if(!financeDecimalCache.has(currency))financeDecimalCache.set(currency,new Intl.NumberFormat('en',{style:'currency',currency}).resolvedOptions().maximumFractionDigits);return financeDecimalCache.get(currency);}
 function financeRoundMoney(n){const scale=10**financeMoneyDecimals();return Math.round(Number(n)*scale)/scale;}
 function financeMoneyStep(){return String(10**-financeMoneyDecimals());}
 function financeFormatAmount(n,currency=financeBaseCurrency()){const digits=financeMoneyDecimals(currency);return Number(n).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}

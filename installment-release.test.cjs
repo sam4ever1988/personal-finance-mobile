@@ -41,3 +41,11 @@ assert.equal(ctx.financeRoundMoney(15550.30+2915.97+20196.25-1533.73-ctx.recorde
 ctx.cardPaymentPlan[0].paid=true;assert.equal(ctx.recordedCardPaymentCredit('first'),15550.30);
 ctx.cardPaymentPlan[0].paid=false;ctx.cardFundedPaymentBreakdown=()=>[];assert.equal(ctx.recordedCardPaymentCredit('first'),20000);
 console.log('PASS: partial source-card payment coverage credited once; October transfer coverage does not create SAR 1533.73 excess credit; fully paid and no-transfer paths preserved');
+// Historical billed slices are reinstated when late activity reopens a paid
+// cycle. The historical payment cannot release its installments twice.
+ctx.cardCycleHasStatement=()=>false;ctx.cardCycleFullyPaid=()=>false;
+ctx.installments=[{...plan(1563.95,2,1),fullAmount:2345.92,statementBilledInstallments:1}];
+assert.equal(ctx.installmentReleasedSlices(ctx.installments[0]).find(r=>r.month==='2026-09').amount,781.97);
+assert.equal(ctx.cardUnrepresentedBilledInstallments('first'),1563.94);
+ctx.cardCycleFullyPaid=(id,month)=>month==='2026-09';assert.equal(ctx.cardUnrepresentedBilledInstallments('first'),781.97);
+console.log('PASS: reopened historical cycle restores its billed installment debt; paid cycle excludes it; October slice remains occupied once');
