@@ -1186,6 +1186,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
 
  // Re-render only what the active page needs after controls were restored.
  if(page==='transactions')renderTransactions();
+ if(page==='more'&&$('txHistoryBox')?.style.display!=='none')renderTxHistory();
  else if(page==='executive')renderExecutiveDashboard();
  else if(page==='strategy')renderFinancialStrategy();
  else if(page==='assets')renderGoldAssets();

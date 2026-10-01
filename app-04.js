@@ -193,8 +193,15 @@ function transactionImportedDateCell(t){
  if(Number.isNaN(d.getTime()))return '<span class="meta">Import date unavailable</span>';
  return `<span data-sort-value="${d.toISOString()}">${escapeHtml(d.toLocaleDateString())}<div class="meta">${escapeHtml(d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))}</div></span>`;
 }
+let financeDuplicateRowCache=null;
+function financeRenderTransactionRows(rows){
+ const previous=financeDuplicateRowCache,groups=new Map();
+ possibleDuplicateGroups(false).forEach(group=>{for(const row of [group.a,group.b])if(!groups.has(row._id))groups.set(row._id,group);});
+ financeDuplicateRowCache=groups;
+ try{return rows.map(txRow6).join('');}finally{financeDuplicateRowCache=previous;}
+}
 function txRow6(t){
- const group=possibleDuplicateGroups(false).find(g=>g.a._id===t._id||g.b._id===t._id);
+ const group=financeDuplicateRowCache?financeDuplicateRowCache.get(t._id):possibleDuplicateGroups(false).find(g=>g.a._id===t._id||g.b._id===t._id);
  const other=group?(group.a._id===t._id?group.b:group.a):null;
  const dup=!!group;
  const thisLabel=t.manual?'Keep Manual':'Keep This Transaction';
@@ -724,15 +731,19 @@ function refreshAfterTransactionChange(accountId=''){
  ensureReleasedCyclePlannerRows();
  normalizeReleasedPaymentAliases();
  ensurePartialPaymentFields();
- renderTransactions();
- renderReports();
- renderDashboard();
- renderAccounts();
- renderPaymentPlanner();
- renderIncomePlan();
- renderInstallments();
- renderReviewAlerts();
- renderTxHistory();
+ // Recompute shared state above; hidden pages render fresh when navigated to.
+ const visible=activeViewId();
+ if(visible==='transactions')renderTransactions();
+ if(visible==='reports')renderReports();
+ if(visible==='executive')renderDashboard();
+ if(visible==='accounts')renderAccounts();
+ if(visible==='incomeplan'){renderPaymentPlanner();renderIncomePlan();}
+ if(visible==='installments')renderInstallments();
+ if(visible==='financialposition')renderFinancialPosition();
+ if(visible==='strategy')renderFinancialStrategy();
+ if(visible==='statementCardReview')window.financeRenderStatementComparison?.();
+ const alerts=document.getElementById('reviewAlerts');if(alerts?.closest('.view.active'))renderReviewAlerts();
+ const history=document.getElementById('txHistoryBox');if(history?.closest('.view.active')&&history.style.display!=='none')renderTxHistory();
  if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
   openAccount(currentAccountDetailId,accountDetailReturnPage);
  }
@@ -982,7 +993,7 @@ function renderTransactions(){
  if(window.financeTxReview==='manual')rows=rows.filter(t=>t.manual||t.isManual);
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
- $('txBody').innerHTML=rows.map(txRow6).join('')||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
+ $('txBody').innerHTML=financeRenderTransactionRows(rows)||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
  if(typeof initializeSortableTables==='function')initializeSortableTables($('transactions'));
  renderTxExecutiveInsights(rows);
  if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
@@ -1096,7 +1107,7 @@ function renderReports(){
  $('topCategoriesBody').innerHTML=cats.slice(0,7).map(g=>'<tr data-drill-type="category" data-drill-value="'+escapeHtml(g[0])+'"><td>'+escapeHtml(g[0])+'</td><td>'+money(g[1])+'</td><td>'+(s.spend?(g[1]/s.spend*100).toFixed(1):0)+'%</td></tr>').join('');
 
  const drillRows=spendRows.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
- $('reportTxBody').innerHTML=drillRows.map(txRow6).join('')||'<tr><td colspan="8">No spending transactions for this selection.</td></tr>';
+ $('reportTxBody').innerHTML=financeRenderTransactionRows(drillRows)||'<tr><td colspan="8">No spending transactions for this selection.</td></tr>';
  const sel=$('reportSelection'),clr=$('clearReportSelection');
  if(reportDrill.type){sel.innerHTML='<span class="selectionChip">'+(reportDrill.type==='category'?'Category':'Subcategory')+': '+escapeHtml(reportDrill.value)+'</span><span class="meta">'+drillRows.length+' transaction'+(drillRows.length===1?'':'s')+' • '+money(drillRows.reduce((sum,t)=>sum+Math.abs(t.amount),0))+'</span>';clr.style.display='';}
  else{sel.innerHTML='<span class="meta">Showing all transactions for the current report filters.</span>';clr.style.display='none';}

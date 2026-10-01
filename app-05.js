@@ -621,8 +621,7 @@ $('txEditForm').addEventListener('submit',e=>{
   rebuildCardAfterStatementMonthMove(original.account,oldMonth,newMonth);
  }
 
- // Full refresh is required even if only category changed because the card
- // detail, planner, dashboard, reports and current-cycle metrics share state.
+ // Recompute shared financial state and refresh the visible page.
  refreshAfterTransactionChange(original.account);
  renderCategories();
 });
@@ -1159,7 +1158,7 @@ ${paymentActivity}
  </div>
  <div style="overflow-x:auto"><table class="txTable">
   <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${rows.map(txRow6).join('')}${!rows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
+  <tbody>${financeRenderTransactionRows(rows)}${!rows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
  </table></div>
  ${(()=>{
    const cards=accountPhysicalCards(id);
@@ -1219,7 +1218,7 @@ ${paymentActivity}
   <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
   <span class="meta" id="detailTxSelectedCount">0 selected</span>
  </div>
- <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?rows.map(txRow6).join(''):'<tr><td colspan="8">No transactions.</td></tr>'}</tbody></table></div>
+ <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?financeRenderTransactionRows(rows):'<tr><td colspan="8">No transactions.</td></tr>'}</tbody></table></div>
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
