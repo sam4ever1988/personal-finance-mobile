@@ -177,3 +177,5 @@ html[data-finance-theme="light"] body #txFilteredAmount{color:#163c53}
 /* The floating guide must not cover the filtered transaction amount. */
 html body .txTableFoot{padding-right:120px!important}
 @media(max-width:600px){html body #txFilteredAmount{white-space:normal;overflow-wrap:anywhere}}
+/* Header background shorthand must not reset the saved photo's fit/crop. */
+html body #canonicalAppTop .canonicalAvatar.financePhotoAvatar{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
