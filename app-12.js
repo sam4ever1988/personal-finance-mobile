@@ -156,38 +156,39 @@
  window.financeStatementHasCardMatches=data=>!!data?.duplicates?.some(entry=>!entry.cardReviewUpdated&&matches(entry).length);
  function canEdit(){return (!window.financePagePermissions||window.financePagePermissions.importstatements==='edit')&&(!window.financeSectionPermission||['imported_transactions','tx_overrides'].every(section=>window.financeSectionPermission(section)==='edit'));}
  function current(){return entries.filter(entry=>entry.row.account===el('statementCardAccount').value&&!entry.cardReviewUpdated);}
+ function cardFor(entry){return el('statementCardEnding').value|| (entry.row.physicalCardDetected===true?String(entry.row.physicalCardEnding||''):'');}
  function updateCounts(){
   const list=current(),chosen=list.filter(entry=>selected.has(entry.index));
   el('statementCardSummary').textContent=list.length+' matching transaction(s) · '+chosen.length+' selected · '+(review?.fresh?.length||0)+' new rows stay on Import Statements';
-  el('statementCardApply').disabled=busy||!canEdit()||!chosen.length||!el('statementCardEnding').value;
+  el('statementCardApply').disabled=busy||!canEdit()||!chosen.length||chosen.some(entry=>!/^\d{4}$/.test(cardFor(entry)));
   el('statementCardSelectAll').disabled=!list.some(entry=>targets.get(entry.index));
  }
  function renderRows(){
   const list=current();
   el('statementCardRows').innerHTML=list.map(entry=>{
    const id=targets.get(entry.index),old=entry.candidates.find(t=>t._id===id),card=old?(txOverrides[old._id]?.physicalCardEnding||old.physicalCardEnding||''):'',manual=old&&txOverrides[old._id]?.physicalCardEnding;
-   return '<tr class="'+(selected.has(entry.index)?'isSelected':'')+'"><td><input type="checkbox" aria-label="Select '+esc(entry.row.description)+'" data-card-review-select="'+entry.index+'" '+(selected.has(entry.index)?'checked ':'')+(!id?'disabled':'')+'></td><td>'+esc(entry.row.date)+'</td><td>'+esc(entry.row.description)+'</td><td>'+signed(entry.row.amount)+'</td><td>'+esc(card?physicalCardLabelFor(entry.row.account,card):'Choose existing match')+(manual?'<small>Manually edited card. Applying updates replaces this card assignment.</small>':'')+'</td><td>'+esc(physicalCardLabelFor(entry.row.account,entry.row.physicalCardEnding))+'</td><td>'+(entry.candidates.length===1?esc(entry.candidates[0].date+' · '+entry.candidates[0].description)+'<small>Existing record; no new transaction</small>':'<select aria-label="Choose existing transaction" data-card-review-target="'+entry.index+'"><option value="">Choose existing match</option>'+entry.candidates.map(t=>'<option value="'+esc(t._id)+'" '+(id===t._id?'selected':'')+'>'+esc(t.date+' · '+t.description+' · '+physicalCardLabelFor(t.account,txOverrides[t._id]?.physicalCardEnding||t.physicalCardEnding)+' · ID '+t._id)+'</option>').join('')+'</select><small>Possible matches: verify date, amount and merchant.</small>')+'</td></tr>';
+   return '<tr class="'+(selected.has(entry.index)?'isSelected':'')+'"><td><input type="checkbox" aria-label="Select '+esc(entry.row.description)+'" data-card-review-select="'+entry.index+'" '+(selected.has(entry.index)?'checked ':'')+(!id?'disabled':'')+'></td><td>'+esc(entry.row.date)+'</td><td>'+esc(entry.row.description)+'</td><td>'+signed(entry.row.amount)+'</td><td>'+esc(card?physicalCardLabelFor(entry.row.account,card):'Choose existing match')+(manual?'<small>Manually edited card. Applying updates replaces this card assignment.</small>':'')+'</td><td>'+esc(/^\d{4}$/.test(cardFor(entry))?physicalCardLabelFor(entry.row.account,cardFor(entry)):'Card not identified — choose a bulk correction')+'</td><td>'+(entry.candidates.length===1?esc(entry.candidates[0].date+' · '+entry.candidates[0].description)+'<small>Existing record; no new transaction</small>':'<select aria-label="Choose existing transaction" data-card-review-target="'+entry.index+'"><option value="">Choose existing match</option>'+entry.candidates.map(t=>'<option value="'+esc(t._id)+'" '+(id===t._id?'selected':'')+'>'+esc(t.date+' · '+t.description+' · '+physicalCardLabelFor(t.account,txOverrides[t._id]?.physicalCardEnding||t.physicalCardEnding)+' · ID '+t._id)+'</option>').join('')+'</select><small>Possible matches: verify date, amount and merchant.</small>')+'</td></tr>';
   }).join('')||'<tr><td colspan="7">No matching card transactions waiting for updates. New rows are on Import Statements.</td></tr>';
   el('statementCardRows').querySelectorAll('[data-card-review-select]').forEach(box=>box.onchange=()=>{const index=Number(box.dataset.cardReviewSelect);if(box.checked)selected.add(index);else selected.delete(index);box.closest('tr').classList.toggle('isSelected',box.checked);updateCounts();});
-  el('statementCardRows').querySelectorAll('[data-card-review-target]').forEach(select=>select.onchange=()=>{targets.set(Number(select.dataset.cardReviewTarget),select.value);selected.delete(Number(select.dataset.cardReviewTarget));renderRows();});
+  el('statementCardRows').querySelectorAll('[data-card-review-target]').forEach(select=>select.onchange=()=>{const index=Number(select.dataset.cardReviewTarget);targets.set(index,select.value);if(select.value&&/^\d{4}$/.test(cardFor(entries.find(e=>e.index===index))))selected.add(index);else selected.delete(index);renderRows();});
   updateCounts();
  }
  function renderAccount(){
   const id=el('statementCardAccount').value,list=current(),cards=[...new Set([...accountPhysicalCards(id),...list.map(entry=>entry.row.physicalCardEnding).filter(x=>/^\d{4}$/.test(String(x)))])];
-  el('statementCardEnding').innerHTML='<option value="">Choose a card</option>'+cards.map(ending=>'<option value="'+esc(ending)+'">'+esc(physicalCardLabelFor(id,ending))+'</option>').join('');
-  selected.clear();renderRows();
+  el('statementCardEnding').innerHTML='<option value="">Use cards detected in statement</option>'+cards.map(ending=>'<option value="'+esc(ending)+'">'+esc(physicalCardLabelFor(id,ending))+'</option>').join('');
+  selected.clear();const used=new Set();list.forEach(entry=>{const target=targets.get(entry.index);if(target&&!used.has(target)&&/^\d{4}$/.test(cardFor(entry))){selected.add(entry.index);used.add(target);}});renderRows();
  }
  window.openStatementCardReview=function(){
   review=importDuplicateDecision;entries=[];selected.clear();targets.clear();
   (review?.duplicates||[]).forEach((entry,index)=>{if(entry.cardReviewUpdated)return;const candidates=matches(entry);if(!candidates.length)return;const snapshots=Object.fromEntries(candidates.map(old=>[old._id,entry.cardSnapshots?.[old._id]||statementCardSnapshot(old)]));entries.push({...entry,index,candidates,snapshots,original:entry});if(candidates.length===1)targets.set(index,candidates[0]._id);});
   const ids=[...new Set(entries.map(entry=>entry.row.account))];
   el('statementCardAccount').innerHTML=ids.map(id=>'<option value="'+esc(id)+'">'+esc(accountName(id))+'</option>').join('');
-  el('statementCardStatus').textContent='Select matching transactions and choose their correct card. This page only updates saved transactions.';
+  el('statementCardStatus').textContent='Detected cards are prefilled and clear matches are selected. Review and click Apply Updates. Ambiguous matches require confirmation; use the bulk correction only if needed. A file with only an account-level card header cannot distinguish supplementary purchases.';
   closeModal('importDuplicateReviewModal');nav('statementCardReview');renderAccount();
  };
  el('openStatementCardReview').onclick=window.openStatementCardReview;
  el('statementCardAccount').onchange=renderAccount;
- el('statementCardEnding').onchange=()=>{updateCounts();el('statementCardStatus').textContent='Selected transactions will be assigned to '+el('statementCardEnding').selectedOptions[0].textContent+'. Other edits are preserved.';};
+ el('statementCardEnding').onchange=()=>{renderRows();el('statementCardStatus').textContent='Selected transactions will be assigned to '+el('statementCardEnding').selectedOptions[0].textContent+'. Other edits are preserved.';};
  el('statementCardSelectAll').onclick=()=>{current().forEach(entry=>{if(targets.get(entry.index))selected.add(entry.index);});renderRows();};
  el('statementCardClear').onclick=()=>{selected.clear();renderRows();};
  el('statementCardBack').onclick=()=>{if(review){review.decided=true;review.skipped=review.duplicates.filter(entry=>!entry.cardReviewUpdated&&!entry.row.importAnyway).length;}nav('importstatements');};
@@ -196,14 +197,14 @@
   const status=el('statementCardStatus'),ending=el('statementCardEnding').value,list=current().filter(entry=>selected.has(entry.index));
   try{
    if(!canEdit())throw Error('Edit permission is required to update card assignments.');
-   if(review!==importDuplicateDecision||!/^\d{4}$/.test(ending)||!list.length)throw Error('Choose the card and select the transactions to update.');
-   const updates=list.map(entry=>({id:targets.get(entry.index),row:{...entry.row,physicalCardEnding:ending,physicalCardDetected:true},snapshot:entry.snapshots[targets.get(entry.index)]}));
+   if(review!==importDuplicateDecision||!list.length||list.some(entry=>!/^\d{4}$/.test(cardFor(entry))))throw Error('Choose the card and select the transactions to update.');
+   const updates=list.map(entry=>({id:targets.get(entry.index),row:{...entry.row,physicalCardEnding:cardFor(entry),physicalCardDetected:true},snapshot:entry.snapshots[targets.get(entry.index)]}));
    validateStatementCardUpdates(updates);busy=true;updateCounts();
    const stamp=Date.now(),saved=applyStatementCardUpdates(updates,stamp),history={batchId:'card-review-'+stamp,fileName:importPreviewFileName,accountId:el('statementCardAccount').value,count:0,totalAmount:0,updatedCardCount:saved.length,updatedTransactionIds:saved.map(t=>t._id),importedAt:new Date(stamp).toISOString(),cardReviewOnly:true};
    importHistory.push(history);list.forEach(entry=>{entry.original.cardReviewUpdated=true;entry.cardReviewUpdated=true;});review.decided=true;review.cardUpdates=[];review.skipped=review.duplicates.filter(entry=>!entry.cardReviewUpdated&&!entry.row.importAnyway).length;
    rebuildTransactions();saveLocal();recordImmediateUpsert('import_history',syncStableId('import_history',history,importHistory.length-1),history,'statement-card-review');
    renderTransactions();renderAccounts();renderDashboard();renderReports();renderImportHistory();renderImportPreview();
-   selected.clear();renderRows();status.textContent='Updated '+saved.length+' existing transaction(s) to '+physicalCardLabelFor(history.accountId,ending)+'. No transactions added; amounts and balances unchanged. You can update another group or return to import the new rows.';
+   selected.clear();renderRows();status.textContent='Updated '+saved.length+' existing transaction(s) using the reviewed card assignments. No transactions added; amounts and balances unchanged. You can update another group or return to import the new rows.';
   }catch(error){status.textContent=error.message;}finally{busy=false;updateCounts();}
  };
 })();
