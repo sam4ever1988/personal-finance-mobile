@@ -41,7 +41,8 @@
   svg+='</svg><div class="chartLegend"><span><i style="background:'+(paired?'#25cda0':'#ef5665')+'"></i>'+(paired?'Money in':'Spending')+'</span><span><i style="background:'+(paired?'#ef5665':'#25cda0')+'"></i>'+(paired?'Spending & fees':'Cumulative spend · right axis')+'</span><small>'+financeBaseCurrency()+' • '+esc(series[0].from)+' → '+esc(series[series.length-1].to)+'</small></div>';
   return svg;
  }
- function modeButtons(id,modes,selected){return '<div class="layoutSegments" id="'+id+'">'+modes.map(([v,l])=>'<button type="button" class="'+(v===selected?'selected':'')+'" data-mode="'+v+'">'+l+'</button>').join('')+'</div>';}
+ function modeButtons(id,modes,selected){return '<div class="layoutSegments" id="'+id+'">'+modes.map(([v,l])=>'<button type="button" data-view-control class="'+(v===selected?'selected':'')+'" data-mode="'+v+'">'+l+'</button>').join('')+'</div>';}
+ function bindModes(id,select){el(id)?.querySelectorAll('[data-mode]').forEach(button=>{button.onclick=()=>select(button.dataset.mode);});}
  function bars(items,total,drill){const max=Math.max(1,...items.map(x=>x[1]));return items.map((x,i)=>'<button type="button" class="layoutRank" '+(drill?'data-drill-type="'+drill+'" data-drill-value="'+esc(x[0])+'"':'')+'><span>'+esc(x[0])+'</span><span class="layoutTrack"><i style="width:'+x[1]/max*100+'%;background:'+palette[i%palette.length]+'"></i></span><b>'+money(x[1])+'</b><small>'+(total?x[1]/total*100:0).toFixed(1)+'%</small></button>').join('')||'<div class="layoutEmpty">No spending in this period.</div>';}
  function applyReportLayout(){
   const root=el('reports');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';
@@ -54,8 +55,8 @@
   const left=node('div','layoutReportColumn'),right=node('div','layoutReportColumn');move(root.querySelector('.reportTrendPanel'),left);move(second?.firstElementChild,left);move(rank,right);move(second?.firstElementChild,right);main.append(left,right);second?.remove();
   const explore=node('div','reportPanel layoutExplore','<div class="reportPanelHead"><div><h2>Explore Spending</h2><p>Find the merchants and subcategories behind your spending</p></div></div>'+modeButtons('reportExploreControls',[['merchant','By merchant'],['subcategory','By subcategory']],'merchant')+'<div id="reportExploreRows"></div>');main?.after(explore);
   el('reportCompareToggle').onchange=()=>renderReports();
-  el('reportPeriodControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){reportMode=b.dataset.mode;renderReports();}};
-  el('reportExploreControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){reportExplore=b.dataset.mode;renderReports();}};
+  bindModes('reportPeriodControls',mode=>{reportMode=mode;renderReports();});
+  bindModes('reportExploreControls',mode=>{reportExplore=mode;renderReports();});
  }
  const originalReports=renderReports;
  renderReports=function(){originalReports();applyReportLayout();const rows=reportRows(),from=el('reportFrom').value,to=el('reportTo').value,span=(day(to)-day(from))/86400000;
@@ -84,7 +85,7 @@
   const cv=el('txFlowChart');if(cv){cv.hidden=true;cv.after(node('div','layoutChart'));cv.nextElementSibling.id='txFlowVisual';}
   const head=flow?.querySelector('.txPanelHead');if(head){head.querySelector('b').textContent='Money In vs Money Out';head.insertAdjacentHTML('beforeend',modeButtons('txPeriodControls',[['daily','Daily'],['weekly','Weekly'],['monthly','Monthly']],txMode));}
   const filters=root.querySelector('.txFilterPanel');grid?.before(filters);
-  el('txPeriodControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){txMode=b.dataset.mode;renderTransactions();}};
+  bindModes('txPeriodControls',mode=>{txMode=mode;renderTransactions();});
  }
  const originalTxInsights=renderTxExecutiveInsights;
  renderTxExecutiveInsights=function(rows){originalTxInsights(rows);applyTransactionsLayout();rows=Array.isArray(rows)?rows:normalizedTx();
@@ -137,15 +138,15 @@
   const invitation=node('div','panel prefsCard','<div class="panelTitle">Invite a New User</div><p class="meta">Send a secure invitation email. Your workspace stays private unless you explicitly share it.</p><button class="btn primary" type="button" id="accountInviteOpen">Open Invitations</button>');invitation.hidden=!!window.financeSharedWorkspace;right.append(invitation);el('accountInviteOpen').onclick=()=>nav('invitations');
  }
  function applyGoldLayout(){const root=el('assets');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';
-  const pricing=el('goldPriceGrid')?.closest('.panel'),layout=node('div','layoutGoldGrid'),watch=node('div','panel goldMarketWatch','<div class="splitHead"><div><div class="panelTitle">Gold Market Watch</div><small class="meta">Spot price estimate • workspace currency • excludes retail fees</small></div>'+modeButtons('goldRangeControls',[['24h','1D'],['7d','1W'],['1m','1M'],['1y','1Y']],goldRange)+'</div><div class="goldChartControls"><label>Unit <select id="goldChartUnit"><option value="gram">'+financeBaseCurrency()+' / gram</option><option value="ounce">USD / troy ounce</option></select></label>'+modeButtons('goldPurityControls',[[24,'24K'],[22,'22K'],[21,'21K'],[18,'18K']],goldPurity)+'</div><div id="goldHistoryChart" class="layoutChart"></div><div class="meta goldAttribution">History: <a href="https://standardbullion.com/spot-gold-price" target="_blank" rel="noopener">Data by Standard Bullion</a> · history converted using the current workspace reference rate</div>');
+  const pricing=el('goldPriceGrid')?.closest('.panel'),layout=node('div','layoutGoldGrid'),watch=node('div','panel goldMarketWatch','<div class="splitHead"><div><div class="panelTitle">Gold Market Watch</div><small class="meta">Spot price estimate • workspace currency • excludes retail fees</small></div>'+modeButtons('goldRangeControls',[['24h','1D'],['7d','1W'],['1m','1M'],['1y','1Y']],goldRange)+'</div><div class="goldChartControls"><label>Unit <select id="goldChartUnit" data-view-control><option value="gram">'+financeBaseCurrency()+' / gram</option><option value="ounce">USD / troy ounce</option></select></label>'+modeButtons('goldPurityControls',[[24,'24K'],[22,'22K'],[21,'21K'],[18,'18K']],goldPurity)+'</div><div id="goldHistoryChart" class="layoutChart"></div><div class="meta goldAttribution">History: <a href="https://standardbullion.com/spot-gold-price" target="_blank" rel="noopener">Data by Standard Bullion</a> · history converted using the current workspace reference rate</div>');
   pricing.before(layout);const side=node('div','layoutGoldSide');layout.append(watch,side);side.append(pricing);pricing.classList.add('goldSavedPrices');pricing.querySelector('.panelTitle').textContent='Price Source & Controls';watch.insertBefore(el('goldPriceGrid'),el('goldHistoryChart'));
   const tabArea=node('div','layoutGoldHistory');layout.after(tabArea);tabArea.append(node('div','splitHead','<div class="panelTitle">Gold Assets & History</div>'+modeButtons('goldAssetTabs',[['active','Active'],['sales','Sold'],['zakat','Zakat History']],goldTab)));
   ['goldAssetsBody','goldSaleHistoryBody','goldZakatHistoryBody'].forEach((id,i)=>{const table=el(id)?.closest('.panel'),title=table?.previousElementSibling,part=node('div','goldHistoryPart');part.dataset.goldTab=['active','sales','zakat'][i];if(title?.classList.contains('sectionTitle'))move(title,part);move(table,part);tabArea.append(part);});
   const holding=node('div','panel goldHoldings','<div class="panelTitle">Your Holdings</div><div id="goldHoldingsSummary"></div><button type="button" class="btn primary" onclick="addGoldAsset()">+ Add Gold</button>');side.append(holding);
-  el('goldRangeControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldRange=b.dataset.mode;loadGoldHistory();}};
-  el('goldPurityControls').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldPurity=Number(b.dataset.mode);renderGoldHistory();}};
+  bindModes('goldRangeControls',mode=>{goldRange=mode;renderGoldHistory();loadGoldHistory();});
+  bindModes('goldPurityControls',mode=>{goldPurity=Number(mode);renderGoldHistory();});
   el('goldChartUnit').onchange=e=>{goldUnit=e.target.value;renderGoldHistory();};
-  el('goldAssetTabs').onclick=e=>{const b=e.target.closest('[data-mode]');if(b){goldTab=b.dataset.mode;renderGoldTabs();}};
+  bindModes('goldAssetTabs',mode=>{goldTab=mode;renderGoldTabs();});
 
   renderGoldTabs();
  }

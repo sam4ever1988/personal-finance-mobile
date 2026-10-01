@@ -1245,7 +1245,7 @@ function nav(page){
  const currentView=document.getElementById(page);
  window.financeReadOnlyObserver?.disconnect();
  if(readOnly&&currentView){
-  const lockControls=()=>currentView.querySelectorAll('button:not([data-page-jump]),input:not([type=search]),textarea')
+  const lockControls=()=>currentView.querySelectorAll('button:not([data-page-jump]):not([data-view-control]),input:not([type=search]):not([data-view-control]),textarea:not([data-view-control])')
    .forEach(control=>{if(!control.disabled)control.disabled=true;});
   lockControls();
   window.financeReadOnlyObserver=new MutationObserver(lockControls);
