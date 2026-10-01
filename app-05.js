@@ -1116,7 +1116,7 @@ function openAccount(id,returnPage){
   <div class="sectionTitle" style="margin:0">Transactions</div>
   <div class="meta">${[
    accountDetailTxFilter.month?`Statement: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statements',
-   accountDetailTxFilter.physicalCard?`Card: ${physicalCardLabelFor(id,accountDetailTxFilter.physicalCard)}`:'All physical cards',
+   accountDetailTxFilter.physicalCard?`Card: ${escapeHtml(physicalCardLabelFor(id,accountDetailTxFilter.physicalCard))}`:'All physical cards',
    accountDetailTxFilter.fromDate?`From ${accountDetailTxFilter.fromDate}`:'',
    accountDetailTxFilter.toDate?`To ${accountDetailTxFilter.toDate}`:''
   ].filter(Boolean).join(' • ')}</div>
@@ -1133,7 +1133,7 @@ function openAccount(id,returnPage){
   </div>
   <div class="field" style="margin:0">
    <label>Physical Card</label>
-   <select id="cardTxPhysicalFilter" class="input"><option value="">All Physical Cards</option>${accountPhysicalCards(id).map(e=>`<option value="${e}" ${accountDetailTxFilter.physicalCard===e?'selected':''}>${physicalCardLabelFor(id,e)}</option>`).join('')}</select>
+   <select id="cardTxPhysicalFilter" class="input"><option value="">All Physical Cards</option>${accountPhysicalCards(id).map(e=>`<option value="${e}" ${accountDetailTxFilter.physicalCard===e?'selected':''}>${escapeHtml(physicalCardLabelFor(id,e))}</option>`).join('')}</select>
   </div>
   <div class="field" style="margin:0">
    <label>From Date</label>
@@ -1171,7 +1171,7 @@ ${paymentActivity}
    const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0);
    return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
     <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters. Payments and transfers appear above for tracing.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
-    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card')} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
+    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${escapeHtml(g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card'))} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
    </div>`;
   })()}
 </div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));

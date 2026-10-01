@@ -211,7 +211,7 @@ function txRow6(t){
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
  const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
- return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} aria-label="Select transaction"></div></td><td>${t.date}</td><td>${transactionImportedDateCell(t)}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
+ return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} aria-label="Select transaction"></div></td><td>${t.date}</td><td>${transactionImportedDateCell(t)}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${escapeHtml(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
  const n=selectedTxIds.size;
@@ -818,8 +818,10 @@ function setDuplicateDecision(aId,bId,decision){
  }
 }
 function possibleDuplicateGroups(includeDecided=false){
- const rows=normalizedTx(),out=[];
- for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+ const rows=normalizedTx(),out=[],buckets=new Map();
+ rows.forEach((row,index)=>{const key=JSON.stringify([row.account,!!row.manual]);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(index);});
+ for(let i=0;i<rows.length;i++)for(const j of buckets.get(JSON.stringify([rows[i].account,!rows[i].manual]))||[]){
+  if(j<=i)continue;
   const a=rows[i],b=rows[j];
 
   // Duplicate review is ONLY for a manual transaction compared with

@@ -271,7 +271,7 @@ function transactionPhysicalCardEnding(t){
 }
 function physicalCardLabelFor(accountId,ending){
  const e=String(ending||'').replace(/\D/g,''); if(!e)return 'Unassigned';
- return `${physicalCardRole(accountId,e)} •${e}`;
+ const label=account(accountId)?.extra?.['Physical Card Names']?.[e];return `${physicalCardRole(accountId,e)}${label?' · '+label:''} •${e}`;
 }
 function allPhysicalCardOptions(){
  const out=[];
@@ -280,7 +280,7 @@ function allPhysicalCardOptions(){
 }
 function fillPhysicalCardSelect(sel,accountId,includeAll=false,keepValue=''){
  if(!sel)return; const cards=accountPhysicalCards(accountId);
- sel.innerHTML=(includeAll?'<option value="">All Physical Cards</option>':'')+cards.map(e=>`<option value="${e}">${physicalCardLabelFor(accountId,e)}</option>`).join('');
+ sel.innerHTML=(includeAll?'<option value="">All Physical Cards</option>':'')+cards.map(e=>`<option value="${e}">${escapeHtml(physicalCardLabelFor(accountId,e))}</option>`).join('');
  const wanted=String(keepValue||'').replace(/\D/g,'');
  if(wanted&&cards.includes(wanted))sel.value=wanted; else if(!includeAll&&cards.length)sel.value=cards[0];
 }

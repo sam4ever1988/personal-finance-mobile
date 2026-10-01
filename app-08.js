@@ -775,13 +775,9 @@ function v279HydrateActivePage(){
   if(document.getElementById('financeSettings')?.classList.contains('active'))renderFinanceSettings(true);
  }catch(e){console.error('V279 final hydration failed',e);}
 }
-window.addEventListener('load',()=>{
- v279HydrateActivePage();
- setTimeout(v279HydrateActivePage,250);
- setTimeout(v279HydrateActivePage,1000);
-},{once:true});
-
-init().catch(err=>{
+// Finish hydration once after initialization; late IndexedDB and cloud updates
+// already refresh their affected view when they complete.
+init().then(()=>v279HydrateActivePage()).catch(err=>{
  console.error('V275 initialization failed',err);
  const u=$('execUpdated');if(u)u.textContent='Local data loaded • startup maintenance warning';
  try{if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();}catch(_){}
@@ -1061,3 +1057,37 @@ document.addEventListener('click',e=>{if(e.target.closest?.('#refreshStatementTe
 setTimeout(refreshSharedStatementTemplates,0);
 setInterval(()=>{if(document.querySelector('#importstatements.active'))refreshSharedStatementTemplates();},60000);
 setTimeout(()=>{try{renderStatementFormatsV268();}catch(e){console.warn('V268 statement format render',e)}},0);
+
+/* Supplementary cards share their parent's balance, limit and statement cycle. */
+function financeCanEditSupplementaryCards(){return (!window.financePagePermissions||window.financePagePermissions.financeSettings==='edit')&&(!window.financeSectionPermission||window.financeSectionPermission('custom_credit_cards')==='edit');}
+function financeSupplementaryUsage(parent,ending){return [...importedTransactions,...manualTransactions].some(t=>{const override=txOverrides[t._id]||{};return (override.account||t.account)===parent&&String(override.physicalCardEnding||t.physicalCardEnding||'')===ending;});}
+function financeStorePhysicalCards(id,endings,names){
+ const current=account(id);if(!current||current.type!=='card')throw Error('Choose a main credit card.');
+ const edited={...current,custom:true,extra:{...(current.extra||{}),'Physical Cards':[...new Set([String(current.ending),...endings])],'Physical Card Names':names},updatedAt:new Date().toISOString()};
+ const index=customCreditCards.findIndex(c=>c.id===id);if(index<0)customCreditCards.push(edited);else customCreditCards[index]=edited;
+ syncCustomAccountsIntoAccounts();localStorage.setItem('pf_custom_credit_cards',JSON.stringify(customCreditCards));saveV194Data();saveLocal();scheduleRecordPush('supplementary-card-settings');renderCustomCreditCards();renderSupplementaryCards();
+}
+function editSupplementaryCard(parentId='',oldEnding=''){
+ if(!financeCanEditSupplementaryCards()){alert('Edit permission for Settings is required.');return;}
+ const cards=editableFinanceCards();if(!cards.length){alert('Add a main credit card first.');return;}
+ const parent=account(parentId),name=parent?.extra?.['Physical Card Names']?.[oldEnding]||'';
+ openUnifiedAction({title:oldEnding?'Edit Supplementary Card':'Add Supplementary Card',subtitle:'Shares the main card’s credit limit, balance and statement cycle. Existing transactions retain their account and card assignment.',save:'Save Supplementary Card',fields:[{name:'parent',label:'Main Credit Card',type:'select',value:parentId||cards[0].id,options:cards.map(c=>({value:c.id,label:accountName(c.id)})),required:true},{name:'name',label:'Cardholder / Card Label',value:name,required:true},{name:'ending',label:'Last 4 Digits',value:oldEnding,required:true}],submit:v=>{
+  if(!financeCanEditSupplementaryCards())return goldActionError('Edit permission for Settings is required.');
+  const ending=String(v.ending||'').trim(),target=account(v.parent),label=String(v.name||'').trim();
+  if(!/^\d{4}$/.test(ending)||!label||!target||target.type!=='card')return goldActionError('Choose a main card, enter a label and exactly four digits.');
+  if(String(target.ending)===ending)return goldActionError('These are the main card’s digits. Enter the supplementary card’s digits.');
+  if((v.parent!==parentId||ending!==oldEnding)&&accountPhysicalCards(v.parent).includes(ending))return goldActionError('This card is already linked to the selected main card.');
+  if(oldEnding&&(v.parent!==parentId||ending!==oldEnding)&&financeSupplementaryUsage(parentId,oldEnding))return goldActionError('This card has transaction history. You can edit its label; add a new card for a replacement or correct transaction assignments before changing its link.');
+  if(oldEnding&&v.parent!==parentId){const names={...(account(parentId)?.extra?.['Physical Card Names']||{})};delete names[oldEnding];financeStorePhysicalCards(parentId,accountPhysicalCards(parentId).filter(e=>e!==oldEnding),names);}
+  const names={...(target.extra?.['Physical Card Names']||{})};if(oldEnding&&v.parent===parentId)delete names[oldEnding];names[ending]=label;
+  financeStorePhysicalCards(v.parent,[...accountPhysicalCards(v.parent).filter(e=>!(v.parent===parentId&&e===oldEnding)),ending],names);return true;
+ }});
+}
+function renderSupplementaryCards(){
+ const box=$('supplementaryCardsList');if(!box)return;
+ const rows=editableFinanceCards().flatMap(parent=>accountPhysicalCards(parent.id).filter(e=>e!==String(parent.ending)).map(ending=>({parent,ending,name:parent.extra?.['Physical Card Names']?.[ending]||'Supplementary Card'})));
+ box.innerHTML=rows.length?rows.map(({parent,ending,name})=>'<div class="notice customAccountEditRow"><div><b>'+escapeHtml(name)+' •'+escapeHtml(ending)+'</b><div class="meta">Linked to '+escapeHtml(accountName(parent.id))+'</div></div><div><button class="btn small" type="button" data-edit-supp="'+escapeHtml(parent.id)+'" data-ending="'+ending+'">Edit</button> <button class="btn small danger" type="button" data-remove-supp="'+escapeHtml(parent.id)+'" data-ending="'+ending+'">Remove</button></div></div>').join(''):'<div class="meta">No supplementary cards linked. Add one under a main credit card.</div>';
+ box.querySelectorAll('[data-edit-supp]').forEach(b=>b.onclick=()=>editSupplementaryCard(b.dataset.editSupp,b.dataset.ending));
+ box.querySelectorAll('[data-remove-supp]').forEach(b=>b.onclick=()=>{if(!financeCanEditSupplementaryCards()){alert('Edit permission for Settings is required.');return;}const id=b.dataset.removeSupp,ending=b.dataset.ending;if(financeSupplementaryUsage(id,ending)){alert('This card has transaction history. Keep it linked to preserve that history.');return;}if(!confirm('Remove supplementary card •'+ending+' from Settings?'))return;const names={...(account(id).extra?.['Physical Card Names']||{})};delete names[ending];financeStorePhysicalCards(id,accountPhysicalCards(id).filter(e=>e!==ending),names);});
+}
+$('addSupplementaryCard').onclick=()=>editSupplementaryCard();

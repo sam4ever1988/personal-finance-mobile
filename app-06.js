@@ -110,7 +110,7 @@ async function parseStatementFile(file,accountId,statementMonth=''){
    const counts={};
    normalized.forEach(t=>counts[t.physicalCardEnding]=(counts[t.physicalCardEnding]||0)+1);
    const summary=Object.entries(counts)
-    .map(([ending,count])=>`${physicalCardLabelFor(accountId,ending)}: ${count}`)
+    .map(([ending,count])=>`${escapeHtml(physicalCardLabelFor(accountId,ending))}: ${count}`)
     .join(' • ');
    if(summary){
     $('importAccountHint').innerHTML=`Al Rajhi Excel auto-assigned by physical card: <b>${summary}</b>. Review the preview before importing.`;
@@ -201,7 +201,7 @@ async function parseStatementFile(file,accountId,statementMonth=''){
    out.forEach(t=>counts[t.physicalCardEnding]=(counts[t.physicalCardEnding]||0)+1);
    if($('importAccountHint')){
     const summary=Object.entries(counts)
-     .map(([ending,count])=>`${physicalCardLabelFor(accountId,ending)}: ${count}`)
+     .map(([ending,count])=>`${escapeHtml(physicalCardLabelFor(accountId,ending))}: ${count}`)
      .join(' • ');
     $('importAccountHint').innerHTML=`Al Rajhi •0955 PDF auto-assigned by physical card: <b>${summary}</b>. Review the preview before importing.`;
    }
@@ -659,7 +659,7 @@ function renderImportPreview(){
  $('importPreviewBody').innerHTML=total
   ?importPreviewRows.slice(0,300).map((t,index)=>`<tr class="${reviewIndexes.has(index)?'importNeedsReview':''}">
     <td>${t.date}${t.previewEdited?'<div class="meta green">Edited</div>':''}</td>
-    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}${account(t.account)?.type==='card'?` • ${physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t))}`:''}</div></td>
+    <td><b>${t.description}</b><div class="meta">${accountName(t.account)} • ${cardMonthLabel(assignedTransactionPaymentMonth(t.account,t))}${account(t.account)?.type==='card'?` • ${escapeHtml(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}`:''}</div></td>
     <td>${t.category||'—'}<div class="meta">${t.subcategory||'—'}</div>${reviewIndexes.has(index)?'<span class="importReviewBadge">Needs Review</span>':'<span class="importReadyBadge">Ready</span>'}</td>
     <td>${txType(t)}</td>
     <td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td>
@@ -1330,6 +1330,7 @@ function renderSavedLoanSummary(){
 function loanCalc(loan){if(!loan||loan.status==='closed')return {remainingMonths:0,remainingAmount:0,status:'Completed'};const remainingMonths=Math.max(0,Number(loan.remainingMonths||0));const remainingAmount=Math.max(0,Number(loan.remainingAmount||0));return {remainingMonths,remainingAmount,status:(remainingMonths>0||remainingAmount>0)?'Active':'Completed'};}
 function totalFixedLoans(){rollAllLoansToMonth(currentYearMonth());const month=currentIncomeMonth();return (financeSettings.loans||[]).reduce((sum,l)=>sum+(l.status!=='closed'?Math.max(0,Number(l.monthly||0)):loanPaymentsForMonth(l,month).reduce((z,p)=>z+Number(p.amount||0),0)),0);}
 function renderFinanceSettings(force=false){
+ if(typeof renderSupplementaryCards==='function')renderSupplementaryCards();
  rollAllLoansToMonth(currentYearMonth());
  if(!force && financeSettingsEditing && document.getElementById('financeSettings')?.classList.contains('active'))return;
  const loansBox=$('loanSettingsRows');
@@ -1900,7 +1901,7 @@ function renderCurrentPageForSections(sections){
  else if(page==='financeSettings'){
   if(!financeSettingsEditing)renderFinanceSettings();
   else if(!sections.some(s=>s==='custom_banks'||s==='custom_credit_cards'))return false;
-  renderCustomBanks();renderCustomCreditCards();
+  renderCustomBanks();renderCustomCreditCards();if(typeof renderSupplementaryCards==='function')renderSupplementaryCards();
  }
  else if(page==='accountDetail'&&currentAccountDetailId){
   openAccount(currentAccountDetailId,accountDetailReturnPage||'accounts');
