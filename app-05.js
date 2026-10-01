@@ -665,14 +665,10 @@ function cardPositionHero(a,m){
    </div>
    
    
-   ${is0955?`<div class="physicalCardsBox">
+   <div class="physicalCardsBox">
     <div class="cardDetailSub">Physical cards under this account</div>
-    <div class="subcardTags">
-     <span class="subcardTag">Primary •0955</span>
-     <span class="subcardTag">Supplementary •9345</span>
-     <span class="subcardTag">Supplementary •9634</span>
-    </div>
-   </div>`:''}
+    <div class="subcardTags">${accountPhysicalCards(a.id).map(ending=>`<span class="subcardTag">${escapeHtml(physicalCardLabelFor(a.id,ending))}</span>`).join('')}</div>
+   </div>
   </div>
   <div class="installmentPanel">
    <div class="panelTitle" style="margin-bottom:10px">Installment Reservation Breakdown</div>

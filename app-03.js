@@ -403,7 +403,7 @@ function currentYearMonth(){const d=new Date();return `${d.getFullYear()}-${Stri
 function elapsedMonths(fromMonth,toMonth=currentYearMonth()){
  const a=monthIndex(fromMonth),b=monthIndex(toMonth);return a===null||b===null?0:Math.max(0,b-a);
 }
-function installmentReferenceMonth(p){return p.referenceMonth||'2026-08';}
+function installmentReferenceMonth(p){return p.referenceMonth||p.startMonth||currentYearMonth();}
 function cardCycleHasRecordedPayment(cardId,month){
  return cardPaymentPlan.some(row=>
   row.accountId===cardId &&
@@ -412,28 +412,55 @@ function cardCycleHasRecordedPayment(cardId,month){
   row.paid===true && Number(paymentPaidAmount(row)||0)>0.005
  );
 }
+function installmentCycleReleasedByDate(cardId,month,asOfDate=new Date()){
+ if(account(cardId)?.type!=='card'||!/^\d{4}-\d{2}$/.test(String(month)))return false;
+ const cycle=cardCycleSetting(cardId),day=Math.max(1,Math.min(31,Number(cycle.statementDay)||1)),due=Math.max(1,Math.min(31,Number(cycle.dueDay)||25));
+ const index=monthIndex(month)-(due<day?1:0),year=Math.floor(index/12),mon=index%12,last=new Date(year,mon+1,0).getDate();
+ const release=new Date(year,mon,Math.min(day,last));
+ return Number.isFinite(asOfDate.getTime())&&asOfDate>=release;
+}
 function installmentPaidThroughReleasedStatement(p){
  if(!p||p.completedConfirmed)return 0;
  const ref=installmentReferenceMonth(p);
  const start=monthIndex(ref);
  if(start===null)return 0;
  let paidThrough=0;
- for(let i=0;i<Math.max(0,Number(p.remainingMonthsOverride??(Number(p.months||0)-Number(p.paidInstallments||0))));i++){
+ const remainingMode=p.scheduleMode==='remaining-principal'||p.remainingMonthsOverride!=null;
+ for(let i=0;i<Math.max(0,Number(remainingMode?(p.remainingMonthsOverride??(Number(p.months||0)-Number(p.paidInstallments||0))):p.months));i++){
   const idx=start+i, y=Math.floor(idx/12), m=(idx%12)+1;
   const ym=`${y}-${String(m).padStart(2,'0')}`;
   // A confirmed statement moves the installment into that statement. A fully
   // paid calculated cycle also advances it; a partial payment never does.
-  if(cardCycleHasStatement(p.cardId,ym)||cardCycleHasRecordedPayment(p.cardId,ym)) paidThrough=i+1;
+  if(cardCycleHasStatement(p.cardId,ym)||cardCycleHasRecordedPayment(p.cardId,ym)||installmentCycleReleasedByDate(p.cardId,ym)) paidThrough=i+1;
   else break;
  }
  return paidThrough;
 }
-function reduceRemainingPrincipalByReleasedStatements(remaining,remainingCount,releasedCount){
+function installmentRemainingSchedule(p){
+ const count=Math.max(0,Number(p.remainingMonthsOverride||0)),paid=Math.max(0,Number(p.paidInstallments||0));
+ if(!Number.isFinite(Number(p.fullAmount))||Number(p.fullAmount)<=0||Number(p.months)<=0)return null;
+ const schedule=planMonthly(p).slice(paid,paid+count);
+ const total=financeRoundMoney(schedule.reduce((sum,value)=>sum+value,0));
+ return schedule.length===count&&Math.abs(total-Number(p.manualRemaining||0))<0.005?schedule:null;
+}
+function installmentReleasedSlices(p){
+ const slices=Array.isArray(p.statementBilledHistory)?p.statementBilledHistory.map(row=>({...row})):[];
+ if(p.scheduleMode!=='remaining-principal'&&p.remainingMonthsOverride==null)return slices;
+ let remaining=Math.max(0,Number(p.manualRemaining||0)),count=Math.max(0,Number(p.remainingMonthsOverride||0));
+ const released=Math.min(count,installmentPaidThroughReleasedStatement(p)),ref=installmentReferenceMonth(p),schedule=installmentRemainingSchedule(p);
+ for(let i=0;i<released&&count>0;i++){
+  const amount=count===1?financeRoundMoney(remaining):(schedule?.[i]??financeRoundMoney(remaining/count)),month=addMonthsToYM(ref,i);
+  if(!slices.some(row=>row.month===month))slices.push({month,amount});
+  remaining=Math.max(0,financeRoundMoney(remaining-amount));count--;
+ }
+ return slices;
+}
+function reduceRemainingPrincipalByReleasedStatements(remaining,remainingCount,releasedCount,schedule=null){
  let rem=Math.max(0,financeRoundMoney(Number(remaining||0)));
  let count=Math.max(0,Number(remainingCount||0));
  const billed=Math.min(count,Math.max(0,Number(releasedCount||0)));
  for(let i=0;i<billed&&count>0;i++){
-  const installment=count===1?rem:financeRoundMoney((rem/count));
+  const installment=count===1?rem:(schedule?.[i]??financeRoundMoney((rem/count)));
   rem=Math.max(0,financeRoundMoney((rem-installment)));
   count=Math.max(0,count-1);
  }
@@ -447,7 +474,7 @@ function planCalc(p){
   const savedRemaining=Math.max(0,financeRoundMoney(Number(p.manualRemaining||0)));
   const savedRemainingCount=Math.max(0,Number(p.remainingMonthsOverride||0));
   const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
-  const advanced=reduceRemainingPrincipalByReleasedStatements(savedRemaining,savedRemainingCount,releasedStatementPaid);
+  const advanced=reduceRemainingPrincipalByReleasedStatements(savedRemaining,savedRemainingCount,releasedStatementPaid,installmentRemainingSchedule(p));
   const remaining=advanced.remaining;
   const remainingCount=advanced.remainingCount;
   const paid=Math.max(0,Number(p.paidInstallments||0))+advanced.billed;
@@ -468,7 +495,7 @@ function planCalc(p){
  const scheduledPaid=Math.min(p.months,Math.max(basePaid,releasedStatementPaid));
  const scheduledRemainingCount=Math.max(p.months-scheduledPaid,0);
  let scheduledRemaining=schedule.slice(scheduledPaid).reduce((sum,v)=>sum+v,0);
- if(p.manualRemaining!==undefined&&p.manualRemaining!==null&&autoElapsed===0)scheduledRemaining=Number(p.manualRemaining);
+ if(p.manualRemaining!==undefined&&p.manualRemaining!==null&&autoElapsed===0&&releasedStatementPaid<=basePaid)scheduledRemaining=Number(p.manualRemaining);
  scheduledRemaining=Math.max(0,financeRoundMoney(scheduledRemaining));
  const completionCandidate=(scheduledRemainingCount===0||scheduledRemaining<=0.005);
  const confirmedCompleted=!!p.completedConfirmed;
@@ -485,7 +512,9 @@ function reconcileRemainingPrincipalPlans(){
   const ref=p.referenceMonth||p.startMonth||currentYearMonth();
   const released=installmentPaidThroughReleasedStatement(p);
   if(released<=0)return;
-  const advanced=reduceRemainingPrincipalByReleasedStatements(p.manualRemaining,p.remainingMonthsOverride,released);
+  const slices=installmentReleasedSlices(p);
+  const advanced=reduceRemainingPrincipalByReleasedStatements(p.manualRemaining,p.remainingMonthsOverride,released,installmentRemainingSchedule(p));
+  p.statementBilledHistory=slices;
   p.manualRemaining=advanced.remaining;
   p.remainingMonthsOverride=advanced.remainingCount;
   p.paidInstallments=Math.max(0,Number(p.paidInstallments||0))+advanced.billed;

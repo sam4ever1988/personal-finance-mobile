@@ -1489,6 +1489,8 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
 function installmentAmountForPaymentMonth(cardId,paymentMonth){
  const plans=installments.filter(p=>p.cardId===cardId && !p.completedConfirmed);
  return plans.reduce((sum,p)=>{
+  const releasedSlice=installmentReleasedSlices(p).find(row=>row.month===paymentMonth);
+  if(releasedSlice)return sum+Number(releasedSlice.amount||0);
   // Once an installment has been billed into a statement it is no longer part
   // of the future reserve, but it must stay inside that statement's payment.
   // Keep the billed slice in its original payment month so completing a plan
