@@ -1,4 +1,4 @@
-function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=Math.round(value*.025*100)/100,due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
+function payGoldZakat(id){const a=goldAssets.find(x=>x.id===id);if(!a||!goldZakatDue(a))return;const w=activeGoldWeight(a),value=goldAssetValue(a),amount=financeRoundMoney(value*.025),due=goldNextDue(a);const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt(`Zakat due ${money(amount)}\nPay from:\n`+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];if(!confirm(`Record Zakat payment of ${money(amount)} from ${src.name}?`))return;const date=new Date().toISOString().slice(0,10),h=hijriParts(new Date(due+'T12:00:00'));goldZakatHistory.push({id:'ZAK-'+Date.now(),assetId:a.id,assetName:a.name,hijriCycle:String(h.year),weight:w,valueUsed:value,amount,paidDate:date,sourceId:src.id,sourceName:src.name});cashFlowLedger.push({id:'cfl-zakat-'+Date.now(),type:'zakat-payment',date,month:date.slice(0,7),amount,direction:'out',description:`Gold Zakat • ${a.name}`,sourceId:src.id,targetId:a.id,status:'active'});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)-amount);}saveV194Data();localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));saveLocal();renderGoldAssets();renderDashboard();renderIncomePlan();renderAccounts();}
 async function refreshGoldMarketPrice(){renderGoldAssets();try{if($('goldPriceMeta'))$('goldPriceMeta').textContent='Refreshing live gold price…';const r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();const usdOz=Number(j.price||j.ask||0);if(!usdOz)throw Error('No price returned');goldMarket={price24k:usdOz*3.75/31.1034768,updatedAt:new Date().toISOString(),source:'Gold-API XAU/USD × 3.75 SAR/USD',manual:false};saveV194Data();renderGoldAssets();}catch(e){renderGoldAssets();if($('goldPriceMeta'))$('goldPriceMeta').textContent='Live price unavailable • '+e.message+' • use Manual Price';}}
 function manualGoldMarketPrice(){const v=Number(prompt('24K gold price per gram in SAR:',Number(goldMarket.price24k||0).toFixed(2)));if(!Number.isFinite(v)||v<=0)return;goldMarket={price24k:v,updatedAt:new Date().toISOString(),source:'Manual Saudi market price',manual:true};saveV194Data();renderGoldAssets();}
 function addCustomCreditCard(){const bank=prompt('Bank name:');if(!bank)return;const name=prompt('Card name (example: Visa Signature):');if(!name)return;const ending=(prompt('Last 4 digits:')||'').replace(/\D/g,'').slice(-4);if(ending.length!==4)return alert('Enter 4 digits.');const limit=Number(prompt('Credit limit (SAR):','0'));if(!Number.isFinite(limit)||limit<0)return;const statementDay=Math.max(1,Math.min(31,Number(prompt('Statement closing day (1-31):','25'))||25));const dueDay=Math.max(1,Math.min(31,Number(prompt('Payment due day (1-31):','15'))||15));const id='custom-card-'+ending+'-'+Date.now();const c={id,bank,name,ending,type:'card',extra:{'Credit Limit':limit},custom:true,physicalCards:[ending]};customCreditCards.push(c);accounts.push(c);financeSettings.cardCycles[id]={statementDay,dueDay};localStorage.setItem('pf_finance_settings',JSON.stringify(financeSettings));saveV194Data();saveLocal();renderCustomCreditCards();renderCustomBanks();renderFinanceSettings();renderDashboard();renderAccounts();alert('Credit card created. It now uses the standard card transaction, planner and installment logic.');}
@@ -62,7 +62,7 @@ function renderExecutiveDashboard(){
  const cardUsed=cm.reduce((s,x)=>s+Number(x.m.total||0),0),cardAvail=cm.reduce((s,x)=>s+Math.max(0,Number(x.m.available||0)),0),cardLimit=cardUsed+cardAvail;
  const bank= banks.reduce((s,a)=>s+adjustedBankBalance(a),0);
  const activeGold=goldAssets.filter(a=>activeGoldWeight(a)>0.0001),goldWeight=activeGold.reduce((s,a)=>s+activeGoldWeight(a),0),goldValue=activeGold.reduce((s,a)=>s+goldAssetValue(a),0),zakat=activeGold.filter(goldZakatDue).reduce((s,a)=>s+goldAssetValue(a)*.025,0);
- const investmentValue=typeof invTotals==='function'?Math.max(0,Number(invTotals().value||0)):0;
+ const investmentValue=typeof invTotals==='function'?Math.max(0,Number(invTotals().value)):0;
  const rentalCurrent=typeof rentalMonthDataFor==='function'?rentalMonthDataFor(new Date()):{revenue:0,net:0,occupancy:0};
  const installmentLiability=installments.filter(p=>p.status!=='completed').reduce((s,p)=>s+Math.max(0,Number(p.remainingPrincipal||p.remainingAmount||0)),0);
  const loanLiability=(financeSettings.loans||[]).filter(l=>l.status!=='closed').reduce((s,l)=>s+Math.max(0,Number(l.remainingAmount||0)),0);
@@ -75,7 +75,7 @@ function renderExecutiveDashboard(){
   ['Bank Balance',bank,banks.length+' account'+(banks.length===1?'':'s')],
   ['Total Credit Available',cardAvail,cards.length+' credit card'+(cards.length===1?'':'s')],
   ['Gold Assets Value',goldValue,goldWeight.toFixed(2)+' g'],
-  ['Investment Portfolio',investmentValue,'Saudi + U.S. holdings in SAR'],
+  ['Investment Portfolio',investmentValue,'Saudi + U.S. holdings in '+financeBaseCurrency()],
   ['Airbnb Monthly Revenue',rentalCurrent.revenue,'Net '+money(rentalCurrent.net)+' • '+Number(rentalCurrent.occupancy||0).toFixed(0)+'% occupied'],
   ['Total Assets (Net)',net,'Assets '+money(totalAssets)+' | Liabilities '+money(totalLiabilities)]
  ];
@@ -115,7 +115,7 @@ function renderFinancialPosition(){
  const cardUsed=cm.reduce((s,x)=>s+Math.max(0,Number(x.total||0)),0);
  const bank=banks.reduce((s,a)=>s+Number(adjustedBankBalance(a)||0),0);
  const activeGold=goldAssets.filter(a=>activeGoldWeight(a)>0.0001),goldValue=activeGold.reduce((s,a)=>s+Number(goldAssetValue(a)||0),0);
- const investmentValue=typeof invTotals==='function'?Math.max(0,Number(invTotals().value||0)):0;
+ const investmentValue=typeof invTotals==='function'?Math.max(0,Number(invTotals().value)):0;
  const otherAssets=Math.max(0,Number(financeSettings.otherAssetsValue||financeSettings.otherAssets||0));
  const loans=(financeSettings.loans||[]).filter(l=>l.status!=='closed').reduce((s,l)=>s+Math.max(0,Number(l.remainingAmount||0)),0);
  const installmentLiability=installments.filter(p=>!p.cardId&&p.status!=='completed').reduce((s,p)=>s+Math.max(0,Number(p.remainingPrincipal||p.remainingAmount||0)),0);
@@ -580,7 +580,7 @@ function renderAccounts(){
   ['Available Credit',money(available),'Live remaining credit','↔','purple'],
   ['Current Card Due',money(currentDue),'Remaining for '+month,'↑','red'],
   ['Payments This Month',money(paidThisMonth),'Recorded against selected month','✓','green'],
-  ['Credit Utilization',util.toFixed(1)+'%','SAR '+Math.round(utilized).toLocaleString('en-US')+' utilized','◔','gold']
+  ['Credit Utilization',util.toFixed(1)+'%',financeBaseCurrency()+' '+Math.round(utilized).toLocaleString('en-US')+' utilized','◔','gold']
  ].map(x=>`<div class="cashKpi ${x[4]}" data-icon="${x[3]}"><small>${x[0]}</small><b>${x[1]}</b><em>${x[2]}</em></div>`).join('');
  if($('cashDate'))$('cashDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  if($('cashBankCount'))$('cashBankCount').textContent=banks.length+' accounts';
@@ -1024,7 +1024,7 @@ function reportRows(){
  const cashPaidOutgoingRows=allOutgoingOccurrences(120).flatMap(x=>{
   const o=outgoings.find(o=>o.id===x.outgoingId);
   return outgoingPaymentEntries(o,x.month).filter(p=>p.sourceId==='cash-source').map(p=>({
-   _id:`out-paid-${p.id}`,account:'cash-outgoing',date:p.date||x.date,posting:p.date||x.date,description:x.description,amount:-Math.abs(Number(p.amount||0)),category:x.category,subcategory:x.subcategory,kind:'expense',currency:'SAR',original:null,manual:true,outgoing:true,paid:true
+   _id:`out-paid-${p.id}`,account:'cash-outgoing',date:p.date||x.date,posting:p.date||x.date,description:x.description,amount:-Math.abs(Number(p.amount||0)),category:x.category,subcategory:x.subcategory,kind:'expense',currency:financeBaseCurrency(),original:null,manual:true,outgoing:true,paid:true
   }));
  });
  const rows=transactionFilters([...normalizedTx(),...cashPaidOutgoingRows],{account:$('reportAccount').value,category:$('reportCategory').value,type:$('reportType').value,from:$('reportFrom').value,to:$('reportTo').value});

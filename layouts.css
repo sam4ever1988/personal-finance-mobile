@@ -160,3 +160,8 @@ html body #strategy .planningWorkspace .btn.primary{background:#08a88d!important
 html body #strategy .planningWorkspace input,html body #strategy .planningWorkspace select{color-scheme:dark!important;min-height:38px}
 html body #strategy .planningWorkspace .planningControls label{color:#a9c3d1!important}
 html body #strategy .planningWorkspace td,html body #strategy .planningWorkspace th{color:#d8eaf4!important;border-color:#18485e!important}
+html body #canonicalAppTop .canonicalAvatar>span:first-child{font-size:12px!important;background:none!important;width:auto!important;height:auto!important;font-weight:800!important}
+html body .financePhotoAvatar{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;color:transparent!important;overflow:hidden}
+html body #canonicalAppTop .financePhotoAvatar>span:first-child{display:none!important}
+#accountAvatarPreview.financePhotoAvatar{width:72px;height:72px;border-radius:50%}
+#accountAvatarUploadField[hidden]{display:none!important}

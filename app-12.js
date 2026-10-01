@@ -68,27 +68,51 @@
   for(const r of raw.slice(Math.max(0,Number(map.dataStartRow||2)-2))){
    const ds=String(get(r,map.date)||'').trim();let date=parseImportDate(ds);
    if(!date){const m=ds.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4})$/),months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];if(m&&months.includes(m[1]))date=m[3]+'-'+String(months.indexOf(m[1])+1).padStart(2,'0')+'-'+m[2].padStart(2,'0');}
-   const currency=String(get(r,map.currency)||map.sourceCurrency||'SAR').trim().toUpperCase();
+   const currency=String(get(r,map.currency)||map.sourceCurrency||financeBaseCurrency()).trim().toUpperCase();
    const direction=String(get(r,map.direction)||'').trim().toLowerCase();
    let amount=Number(String(get(r,map.amount)||0).replace(/[,\s]/g,''));
    if(map.debit||map.credit){const debit=Number(get(r,map.debit)||0),credit=Number(get(r,map.credit)||0);amount=credit>0?credit:-Math.abs(debit);}
    if(map.direction){if(!['credit','debit','cr','dr'].includes(direction))throw Error('Unknown credit/debit indicator. Review the CSV before importing.');amount=(['debit','dr'].includes(direction)?-1:1)*Math.abs(amount);}
    const description=cleanImportText(get(r,map.description)),counterparty=cleanImportText(get(r,map.counterparty));
    if(!date||!description||!Number.isFinite(amount)||!amount)throw Error('A CSV row has an invalid date, description or amount. Nothing was imported.');
-   if(currency!=='SAR'&&currency!=='PHP')throw Error('This template supports PHP or SAR. Review the statement currency.');
-   if(currency==='PHP'&&!(Number.isFinite(rate)&&rate>0))throw Error('This BDO statement is in PHP. Enter the SAR value of 1 PHP before previewing; the original PHP amount will be preserved.');
+   if(!FINANCE_CURRENCIES.includes(currency))throw Error('Unsupported statement currency.');
+   if(currency!==financeBaseCurrency()&&document.getElementById('importSourceCurrency')?.value&&document.getElementById('importSourceCurrency').value!==currency)throw Error('Select '+currency+' as the statement currency before using its conversion rate.');
+   if(currency!==financeBaseCurrency()&&!(Number.isFinite(rate)&&rate>0))throw Error('This statement is in '+currency+'. Enter the '+financeBaseCurrency()+' value of 1 '+currency+' before previewing.');const fx=currency===financeBaseCurrency()?1:rate;
    const guessed=guessImportedCategory(description+' '+counterparty),transfer=/^(sent to|received from)\b/i.test(counterparty)||/\b(DBFT|FT SA-SA|IBFT|fund transfer)\b/i.test(description),kind=transfer?'transfer':amount>0?'income':guessed[2];
-   const transaction={account:accountId,date,posting:date,description,amount:currency==='PHP'?Math.round(amount*rate*100)/100:amount,category:transfer?'Financial Obligations':amount>0?'Miscellaneous':guessed[0],subcategory:transfer?'Savings / Investments':amount>0?'Unexpected Expenses':guessed[1],kind,needsReview:amount>0&&!transfer||guessed[3]||transfer,categoryReviewed:false,currency:'SAR',original:currency==='PHP'?{currency:'PHP',amount,exchangeRate:rate,exchangeRateTo:'SAR',rateSource:'User-confirmed statement conversion'}:null,reference:cleanImportText(get(r,map.reference)),counterparty,manual:false,imported:true,source:'BDO CSV Statement',physicalCardEnding:'',physicalCardDetected:false,statementMonth:statementMonth||statementMonthByRule(date,statementRule.cutoffDay)};
+   const transaction={account:accountId,date,posting:date,description,amount:financeRoundMoney(amount*fx),category:transfer?'Financial Obligations':amount>0?'Miscellaneous':guessed[0],subcategory:transfer?'Savings / Investments':amount>0?'Unexpected Expenses':guessed[1],kind,needsReview:amount>0&&!transfer||guessed[3]||transfer,categoryReviewed:false,currency:financeBaseCurrency(),original:{currency,amount,exchangeRate:fx,exchangeRateTo:financeBaseCurrency(),rateSource:document.getElementById('importFxStatus')?.dataset.source||'User-confirmed statement conversion',rateDate:document.getElementById('importFxStatus')?.dataset.date||''},reference:cleanImportText(get(r,map.reference)),counterparty,manual:false,imported:true,source:'BDO CSV Statement',physicalCardEnding:'',physicalCardDetected:false,statementMonth:statementMonth||statementMonthByRule(date,statementRule.cutoffDay)};
    rows.push(transaction);
   }return rows;
  }
  window.financeMappedCsvRows=mappedCsvRows;
  const originalParse=parseStatementFile;
- parseStatementFile=async function(file,accountId,statementMonth){if(!file.name.toLowerCase().endsWith('.csv'))return originalParse(file,accountId,statementMonth);const text=await file.text(),raw=parseCsvRows(text),headers=Object.keys(raw[0]||{});const selected=document.getElementById('importFormatSelect')?.value;const format=typeof allStatementFormats==='function'?allStatementFormats().find(f=>f.id===selected):null;const isBDO=headers.includes('Credit/debit indicator')&&headers.includes('Book date')&&headers.includes('Account number(BBAN)');const map=format?.mappingConfig||(isBDO?bdoMap:null);if(!map)return originalParse({name:file.name,text:async()=>text},accountId,statementMonth);if(Number(map.headerRow||1)!==1)throw Error('CSV mappings currently require the first row to contain column headers.');return mappedCsvRows(text,map,accountId,statementMonth,Number(document.getElementById('importPhpRate')?.value||0));};
- function importControls(){const field=document.getElementById('importAccount')?.closest('.formGrid');if(!field)return;let controls=document.getElementById('importTemplateControls');if(!controls){controls=document.createElement('div');controls.id='importTemplateControls';controls.className='field full';controls.innerHTML='<label>Statement template<select class="control" id="importFormatSelect"><option value="">Auto-detect format</option></select></label><label style="margin-top:10px">BDO / PHP conversion · SAR value of 1 PHP<input class="control" id="importPhpRate" type="number" min="0.000001" step="0.000001" placeholder="Enter your confirmed exchange rate"></label><div class="hint">BDO debit and credit indicators are mapped automatically. The system reports in SAR: enter a conversion rate for PHP statements. Original PHP values and the chosen rate are preserved in each transaction. No current rate is assumed for historical transactions.</div>';field.insertBefore(controls,document.getElementById('importStatementMonth').closest('.field').nextSibling);}const select=document.getElementById('importFormatSelect'),value=select.value;select.innerHTML='<option value="">Auto-detect format</option>'+allStatementFormats().filter(f=>f.mappingConfig&&String(f.fileType).includes('CSV')).map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join('');select.value=value;}
+ parseStatementFile=async function(file,accountId,statementMonth){
+  const csv=file.name.toLowerCase().endsWith('.csv');let text,map,isBDO=false;
+  if(csv){text=await file.text();const raw=parseCsvRows(text),headers=Object.keys(raw[0]||{}),selected=document.getElementById('importFormatSelect')?.value,format=allStatementFormats().find(f=>f.id===selected);isBDO=headers.includes('Credit/debit indicator')&&headers.includes('Book date')&&headers.includes('Account number(BBAN)');map=format?.mappingConfig||(isBDO?bdoMap:null);}
+  const input=document.getElementById('importPhpRate'),sourceEl=document.getElementById('importSourceCurrency');
+  if(isBDO&&sourceEl)sourceEl.value='PHP';
+  const rate=Number(input?.value||0);
+  if(map){if(Number(map.headerRow||1)!==1)throw Error('CSV mappings require the first row to contain column headers.');return mappedCsvRows(text,map,accountId,statementMonth,rate);}
+  const source=csv?(sourceEl?.value||financeBaseCurrency()):'SAR',target=financeBaseCurrency();
+  if(source!==target&&!(rate>0))throw Error('This statement is in '+source+'. Enter the '+target+' value of 1 '+source+' before previewing.');
+  if(source!==target&&sourceEl&&sourceEl.value!==source)throw Error('Select '+source+' as the statement currency, then fetch or enter its conversion rate.');
+  const rows=await originalParse(csv?{name:file.name,text:async()=>text}:file,accountId,statementMonth);
+  return rows.map(t=>source===target?{...t,currency:target}:{...t,amount:financeRoundMoney(Number(t.amount)*rate),currency:target,original:{currency:source,amount:t.amount,exchangeRate:rate,exchangeRateTo:target,sourceOriginal:t.original||null,rateSource:document.getElementById('importFxStatus')?.dataset.source||'User-confirmed statement conversion',rateDate:document.getElementById('importFxStatus')?.dataset.date||''}});
+ };
+
+ function importControls(){
+  const field=document.getElementById('importAccount')?.closest('.formGrid');if(!field)return;
+  let controls=document.getElementById('importTemplateControls');if(!controls){controls=document.createElement('div');controls.id='importTemplateControls';controls.className='field full';controls.innerHTML='<label>Statement template<select class="control" id="importFormatSelect"><option value="">Auto-detect format</option></select></label><div class="formGrid"><label>Statement currency<select id="importSourceCurrency" class="control">'+financeCurrencyOptions(financeBaseCurrency())+'</select></label><label>1 statement currency = '+financeBaseCurrency()+'<input class="control" id="importPhpRate" type="number" min="0.000001" step="any" placeholder="Rate used for this statement"></label></div><button class="btn small" type="button" id="importFetchRate">Get online reference rate</button><div id="importFxStatus" class="meta" role="status"></div><div class="hint">Same-currency imports use 1. BDO CSV currency is detected from the file. Saudi bank PDF formats use SAR. Review the dated online reference or enter the actual historical bank rate; original values are retained.</div>';field.insertBefore(controls,document.getElementById('importStatementMonth').closest('.field').nextSibling);
+   const source=document.getElementById('importSourceCurrency'),input=document.getElementById('importPhpRate'),status=document.getElementById('importFxStatus'),button=document.getElementById('importFetchRate');
+   input.addEventListener('input',()=>{input.dataset.manual='1';status.dataset.source='User-confirmed statement conversion';status.dataset.date='';status.textContent='Custom rate • 1 '+source.value+' = '+input.value+' '+financeBaseCurrency();});
+   source.addEventListener('change',()=>{input.value=source.value===financeBaseCurrency()?1:'';input.dataset.manual='';status.dataset.date='';status.dataset.source='';status.textContent='';});
+   button.addEventListener('click',async()=>{const from=source.value;input.dataset.manual='';button.disabled=true;status.textContent='Fetching '+from+' → '+financeBaseCurrency()+'…';try{const d=await financeFetchRate(from);if(source.value!==from||input.dataset.manual)return;input.value=d.rate;status.dataset.date=d.date||'';status.dataset.source=d.source;status.textContent=d.source+' · '+d.date+' · 1 '+from+' = '+d.rate+' '+financeBaseCurrency()+'. Review before import.';if(d.attribution){const a=document.createElement('a');a.href='https://www.exchangerate-api.com';a.target='_blank';a.rel='noopener';a.textContent=' ExchangeRate-API';status.append(a);}}catch(_){if(source.value===from&&!input.dataset.manual)status.textContent='Online rate unavailable. Enter the actual statement rate.';}finally{button.disabled=false;}});
+  }
+  const select=document.getElementById('importFormatSelect'),value=select.value;select.innerHTML='<option value="">Auto-detect format</option>'+allStatementFormats().filter(f=>f.mappingConfig&&String(f.fileType).includes('CSV')).map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join('');select.value=value;
+ }
+
  const oldPage=renderImportPage;renderImportPage=function(){oldPage();importControls();};
  const oldFormats=renderStatementFormatsV268;renderStatementFormatsV268=function(){oldFormats();importControls();};renderStatementFormats=renderStatementFormatsV268;
- const oldPreview=renderImportPreview;renderImportPreview=function(){oldPreview();document.querySelectorAll('#importPreviewBody tr').forEach((tr,i)=>{const t=importPreviewRows[i];if(t?.original?.currency==='PHP'&&tr.cells[4]){const label=document.createElement('div');label.className='meta';label.textContent='PHP '+Number(t.original.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' × '+t.original.exchangeRate;tr.cells[4].append(label);}});};
+ const oldPreview=renderImportPreview;renderImportPreview=function(){oldPreview();document.querySelectorAll('#importPreviewBody tr').forEach((tr,i)=>{const t=importPreviewRows[i];if(t?.original?.currency&&tr.cells[4]){const label=document.createElement('div');label.className='meta';label.textContent=t.original.currency+' '+Number(t.original.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' × '+t.original.exchangeRate;tr.cells[4].append(label);}});};
 })();
 (function(){
  const previous=isStatementDuplicate;
@@ -100,4 +124,23 @@
   }
   return previous(candidate,existing);
  };
+})();
+
+/* User profile appearance: initials by default; photo is user metadata, not workspace data. */
+(function(){
+ window.financeApplyAvatar=function(){
+  const p=window.financeUserProfile||JSON.parse(localStorage.getItem('pf_profile_v283')||'{}'),initials=(p.initials||'MF').toUpperCase().slice(0,3),draft=window.financeAvatarDraft;
+  const mode=document.getElementById('accountAvatarMode');if(mode&&!draft)mode.value=p.avatarMode||'initials';
+  const selected=mode?.value||p.avatarMode||'initials',photo=draft||p.photo,valid=selected==='picture'&&typeof photo==='string'&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)&&photo.length<60000;
+  document.querySelectorAll('.canonicalAvatar,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar,#accountAvatarPreview').forEach(e=>{e.classList.toggle('financePhotoAvatar',!!valid);e.style.backgroundImage=valid?'url("'+photo+'")':'';e.setAttribute('aria-label',valid?'Profile picture':initials+' profile');const text=e.querySelector('span:first-child')||e;text.textContent=valid?'':initials;});
+  const upload=document.getElementById('accountAvatarUploadField');if(upload)upload.hidden=selected!=='picture';
+ };
+ const mode=document.getElementById('accountAvatarMode'),file=document.getElementById('accountAvatarUpload'),status=document.getElementById('accountProfileStatus');
+ mode?.addEventListener('change',()=>{const p=window.financeUserProfile||{};const chosen=mode.value;window.financeAvatarDraft=chosen==='picture'?(p.photo||''):null;document.getElementById('accountAvatarUploadField').hidden=chosen!=='picture';document.querySelectorAll('.financePhotoAvatar').forEach(e=>{if(chosen==='initials'){e.classList.remove('financePhotoAvatar');e.style.backgroundImage='';const text=e.querySelector('span:first-child')||e;text.textContent=document.getElementById('accountInitials').value||p.initials||'MF';}});});
+ file?.addEventListener('change',async()=>{const selected=file.files[0];if(!selected)return;if(!['image/jpeg','image/png','image/webp'].includes(selected.type)||selected.size>2*1024*1024){status.textContent='Choose a JPEG, PNG or WebP picture up to 2 MB.';file.value='';return;}
+  try{const url=URL.createObjectURL(selected),img=new Image();try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d'),size=Math.min(img.naturalWidth,img.naturalHeight);ctx.drawImage(img,(img.naturalWidth-size)/2,(img.naturalHeight-size)/2,size,size,0,0,128,128);window.financeAvatarDraft=canvas.toDataURL('image/jpeg',.82);mode.value='picture';window.financeApplyAvatar();status.textContent='Picture ready. Save Profile to apply it across your workspaces.';}finally{URL.revokeObjectURL(url);}}catch(_){status.textContent='Could not read this picture. Choose another image.';}
+ });
+ window.financeApplyAvatar();
+ // Native stock prices stay in USD/SAR; base-denominated totals refresh after dated FX.
+ if(financeBaseCurrency()!=='SAR'){const refreshFx=()=>Promise.allSettled(['SAR','USD'].map(c=>financeFetchRate(c))).then(()=>{renderInvestments();renderFinancialPosition();renderDashboard();});refreshFx();setInterval(()=>{if(document.visibilityState==='visible')refreshFx();},1800000);}
 })();

@@ -112,6 +112,7 @@ function ensureCanonicalShell(){
 }
 function syncCanonicalShell(page){
  ensureCanonicalShell();
+ window.financeApplyAvatar?.();
  var locked=document.body.classList.contains('financeAccessLocked');
  var shellAvatar=document.querySelector('#canonicalAppTop .canonicalAvatar');
  var shellProfile=document.querySelector('#canonicalAppTop [data-profile-menu]');
@@ -237,7 +238,7 @@ function saveLocal(){
  financeDB.save();
  scheduleCloudAutoSave();
 }
-function money(n){return 'SAR '+MONEY.format(Math.abs(Number(n||0)));}
+function money(n){return Number.isFinite(Number(n))?financeBaseCurrency()+' '+financeFormatAmount(Math.abs(Number(n||0))):'— (exchange rate unavailable)';}
 function signed(n){return (n<0?'-':n>0?'+':'')+money(n);}
 function account(id){return accounts.find(a=>a.id===id)}
 function isCreditCardAccountId(id){
@@ -389,9 +390,9 @@ function cardCurrentBalance(a){
 function planMonthly(p){
  // Use normal currency rounding for the recurring amount and place only the
  // unavoidable rounding remainder in the final installment.
- const base=Math.round((p.fullAmount/p.months)*100)/100;
+ const base=financeRoundMoney((p.fullAmount/p.months));
  const arr=Array(p.months).fill(base);
- arr[arr.length-1]=Math.round((p.fullAmount-base*(p.months-1))*100)/100;
+ arr[arr.length-1]=financeRoundMoney((p.fullAmount-base*(p.months-1)));
  return arr;
 }
 function monthIndex(ym){
@@ -428,12 +429,12 @@ function installmentPaidThroughReleasedStatement(p){
  return paidThrough;
 }
 function reduceRemainingPrincipalByReleasedStatements(remaining,remainingCount,releasedCount){
- let rem=Math.max(0,Math.round(Number(remaining||0)*100)/100);
+ let rem=Math.max(0,financeRoundMoney(Number(remaining||0)));
  let count=Math.max(0,Number(remainingCount||0));
  const billed=Math.min(count,Math.max(0,Number(releasedCount||0)));
  for(let i=0;i<billed&&count>0;i++){
-  const installment=count===1?rem:Math.round((rem/count)*100)/100;
-  rem=Math.max(0,Math.round((rem-installment)*100)/100);
+  const installment=count===1?rem:financeRoundMoney((rem/count));
+  rem=Math.max(0,financeRoundMoney((rem-installment)));
   count=Math.max(0,count-1);
  }
  return {remaining:rem,remainingCount:count,billed};
@@ -443,7 +444,7 @@ function planCalc(p){
   return {schedule:[],paid:Number(p.paidInstallments||0),scheduledPaid:Number(p.paidInstallments||0),basePaid:Number(p.paidInstallments||0),autoElapsed:0,remaining:0,scheduledRemaining:0,monthly:0,remainingCount:0,scheduledRemainingCount:0,status:p.completedConfirmed?'Completed':'Review',completionCandidate:true};
  }
  if(p.scheduleMode==='remaining-principal' || p.remainingMonthsOverride!=null){
-  const savedRemaining=Math.max(0,Math.round(Number(p.manualRemaining||0)*100)/100);
+  const savedRemaining=Math.max(0,financeRoundMoney(Number(p.manualRemaining||0)));
   const savedRemainingCount=Math.max(0,Number(p.remainingMonthsOverride||0));
   const releasedStatementPaid=installmentPaidThroughReleasedStatement(p);
   const advanced=reduceRemainingPrincipalByReleasedStatements(savedRemaining,savedRemainingCount,releasedStatementPaid);
@@ -452,9 +453,9 @@ function planCalc(p){
   const paid=Math.max(0,Number(p.paidInstallments||0))+advanced.billed;
   const completed=p.completedConfirmed===true || remaining<=0.005 || remainingCount<=0;
   const status=completed?'Completed':'Active';
-  const monthly=completed?0:Math.round((remaining/remainingCount)*100)/100;
+  const monthly=completed?0:financeRoundMoney((remaining/remainingCount));
   const schedule=remainingCount>0?Array(remainingCount).fill(monthly):[];
-  if(schedule.length)schedule[schedule.length-1]=Math.round((remaining-monthly*(remainingCount-1))*100)/100;
+  if(schedule.length)schedule[schedule.length-1]=financeRoundMoney((remaining-monthly*(remainingCount-1)));
   return {schedule,paid,scheduledPaid:paid,basePaid:Number(p.paidInstallments||0),autoElapsed:0,releasedStatementPaid:advanced.billed,remaining:completed?0:remaining,scheduledRemaining:completed?0:remaining,monthly,remainingCount:completed?0:remainingCount,scheduledRemainingCount:completed?0:remainingCount,status,completionCandidate:completed,completionReason:completed?(p.completedConfirmed?'confirmed':'fully-billed'):''};
  }
  const schedule=planMonthly(p);
@@ -468,7 +469,7 @@ function planCalc(p){
  const scheduledRemainingCount=Math.max(p.months-scheduledPaid,0);
  let scheduledRemaining=schedule.slice(scheduledPaid).reduce((sum,v)=>sum+v,0);
  if(p.manualRemaining!==undefined&&p.manualRemaining!==null&&autoElapsed===0)scheduledRemaining=Number(p.manualRemaining);
- scheduledRemaining=Math.max(0,Math.round(scheduledRemaining*100)/100);
+ scheduledRemaining=Math.max(0,financeRoundMoney(scheduledRemaining));
  const completionCandidate=(scheduledRemainingCount===0||scheduledRemaining<=0.005);
  const confirmedCompleted=!!p.completedConfirmed;
  const status=(confirmedCompleted||completionCandidate)?'Completed':'Active';
@@ -521,7 +522,7 @@ function sabInstallmentPosition(){
  const plans=installments.filter(p=>p.cardId==='sab-440880'&&!p.completedConfirmed);
  let monthly=0,totalPrincipal=0,remainingPrincipal=0,paidPrincipal=0,remainingMonths=0;
  plans.forEach(p=>{const c=planCalc(p);totalPrincipal+=Number(p.fullAmount||0);remainingPrincipal+=Math.max(0,Number(c.remaining||0));remainingMonths+=Math.max(0,Number(c.remainingCount||0));monthly+=Number(c.monthly||0);paidPrincipal+=Math.max(0,Number(p.fullAmount||0)-Number(c.remaining||0));});
- return {monthly:Math.round(monthly*100)/100,totalPrincipal:Math.round(totalPrincipal*100)/100,remainingPrincipal:Math.round(remainingPrincipal*100)/100,paidPrincipal:Math.round(paidPrincipal*100)/100,remainingMonths};
+ return {monthly:financeRoundMoney(monthly),totalPrincipal:financeRoundMoney(totalPrincipal),remainingPrincipal:financeRoundMoney(remainingPrincipal),paidPrincipal:financeRoundMoney(paidPrincipal),remainingMonths};
 }
 
 function sabManualBalanceAdjustment(){
@@ -535,9 +536,9 @@ function sabManualBalanceAdjustment(){
 function installmentPaidPrincipal(p){
  const schedule=planMonthly(p);
  const c=planCalc(p);
- if(p.completedConfirmed)return Math.round(schedule.reduce((sum,v)=>sum+Number(v||0),0)*100)/100;
+ if(p.completedConfirmed)return financeRoundMoney(schedule.reduce((sum,v)=>sum+Number(v||0),0));
  const paidCount=Math.min(Math.max(Number(c.paid||0),0),schedule.length);
- return Math.round(schedule.slice(0,paidCount).reduce((sum,v)=>sum+Number(v||0),0)*100)/100;
+ return financeRoundMoney(schedule.slice(0,paidCount).reduce((sum,v)=>sum+Number(v||0),0));
 }
 function cardInstallmentPaidPrincipal(cardId){
  return installments
@@ -576,7 +577,7 @@ function recordedCardPaymentCredit(cardId){
  const liveUsageByMonth={};
  liveUnreleasedTransactionRows(cardId).forEach(t=>{
   const month=assignedTransactionPaymentMonth(cardId,t);
-  liveUsageByMonth[month]=Math.round(((liveUsageByMonth[month]||0)+Math.abs(Number(t.amount||0)))*100)/100;
+  liveUsageByMonth[month]=financeRoundMoney(((liveUsageByMonth[month]||0)+Math.abs(Number(t.amount||0))));
  });
  cardPaymentPlan
   .filter(p=>p.accountId===cardId)
@@ -601,7 +602,7 @@ function recordedCardPaymentCredit(cardId){
    });
   });
 
- return Math.round(credit*100)/100;
+ return financeRoundMoney(credit);
 }
 
 function cardFundedPaymentBreakdown(cardId){
@@ -630,7 +631,7 @@ function cardFundedPaymentBreakdown(cardId){
     // release card-funded transfers. Planner due also contains the transfers.
     const due=Math.max(0,Number(transactionAmountForPaymentMonthAll(cardId,month)||0)+Number(installmentAmountForPaymentMonth(cardId,month)||0));
     const paid=Math.max(0,...plans.map(p=>Number(paymentPaidAmount(p)||0)));
-    excessPaidByMonth.set(month,Math.max(0,Math.round((paid-due)*100)/100));
+    excessPaidByMonth.set(month,Math.max(0,financeRoundMoney((paid-due))));
    }
 
    // If the bank/import/manual feed already contains this outgoing card-funded
@@ -659,18 +660,16 @@ function cardFundedPaymentBreakdown(cardId){
     matchedInTransactionFeed:!!matchedTransaction,
     sourceCycleStillOpen,
     countsSeparately:canCount && amount-covered>0.005,
-    uncoveredAmount:canCount?Math.max(0,Math.round((amount-covered)*100)/100):0,
+    uncoveredAmount:canCount?Math.max(0,financeRoundMoney((amount-covered))):0,
     coveredBySourcePayment:covered
    };
   });
 }
 
 function cardFundedPaymentUsage(cardId){
- return Math.round(
-  cardFundedPaymentBreakdown(cardId)
+ return financeRoundMoney(cardFundedPaymentBreakdown(cardId)
    .filter(x=>x.countsSeparately)
-   .reduce((sum,h)=>sum+h.uncoveredAmount,0)*100
- )/100;
+   .reduce((sum,h)=>sum+h.uncoveredAmount,0));
 }
 
 function cardCreditBreakdown(cardId){
@@ -817,17 +816,15 @@ function liveUnreleasedTransactionRows(cardId){
 }
 
 function liveUnreleasedTransactionUsage(cardId){
- return Math.round(
-  liveUnreleasedTransactionRows(cardId)
-   .reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0)*100
- )/100;
+ return financeRoundMoney(liveUnreleasedTransactionRows(cardId)
+   .reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0));
 }
 
 function liveTransactionUsageByMonth(cardId){
  const out={};
  liveUnreleasedTransactionRows(cardId).forEach(t=>{
   const month=assignedTransactionPaymentMonth(cardId,t);
-  out[month]=Math.round(((out[month]||0)+Math.abs(Number(t.amount||0)))*100)/100;
+  out[month]=financeRoundMoney(((out[month]||0)+Math.abs(Number(t.amount||0))));
  });
  return out;
 }
@@ -879,8 +876,8 @@ function excelCardAccounting(a){
   .reduce((sum,p)=>sum+Math.max(0,Number(planCalc(p).remaining||0)),0));
 
  // Display-only split: this month's installment vs future reserve.
- const futureReserve=Math.max(0,Math.round((remainingPrincipal-currentInstallment)*100)/100);
- const currentCycle=Math.max(0,Math.round((currentTransactions+currentInstallment)*100)/100);
+ const futureReserve=Math.max(0,financeRoundMoney((remainingPrincipal-currentInstallment)));
+ const currentCycle=Math.max(0,financeRoundMoney((currentTransactions+currentInstallment)));
 
  // Recorded payments must restore available credit on the target card.
  // Do not double-count payments already reflected in a confirmed statement's
@@ -941,7 +938,7 @@ function excelCardAccounting(a){
   nextInstallmentScheduled:currentInstallment,
   excelAccountingModel:true,
   grossOccupied,
-  normalNonInstallmentUtilized:Math.max(0,Math.round((total-Math.min(total,remainingPrincipal))*100)/100),
+  normalNonInstallmentUtilized:Math.max(0,financeRoundMoney((total-Math.min(total,remainingPrincipal)))),
   installmentIncludedInUtilized:Math.min(total,futureReserve),
   releasedIncludedInLiveUtilization:true,
   creditLimitInvariant:Math.abs((available+total+currentInstallment-overCredit)-limit)<0.02
@@ -1438,10 +1435,10 @@ function outgoingPaymentEntries(o,month){
  return Array.isArray(stored)?stored:stored?[stored]:[];
 }
 function outgoingPaidAmount(o,month){
- return Math.round(outgoingPaymentEntries(o,month).reduce((sum,p)=>sum+Number(p.amount||0),0)*100)/100;
+ return financeRoundMoney(outgoingPaymentEntries(o,month).reduce((sum,p)=>sum+Number(p.amount||0),0));
 }
 function outgoingRemaining(o,month){
- return Math.max(0,Math.round((Number(o.amount||0)-outgoingPaidAmount(o,month))*100)/100);
+ return Math.max(0,financeRoundMoney((Number(o.amount||0)-outgoingPaidAmount(o,month))));
 }
 function outgoingOccurrencePaid(x){
  const o=outgoings.find(o=>o.id===x.outgoingId);
@@ -1632,7 +1629,7 @@ function recordOutgoingPayment(outgoingId,month,amount,sourceId,date,editId=''){
    category:o.category,
    subcategory:o.subcategory,
    kind:'expense',
-   currency:'SAR',
+   currency:financeBaseCurrency(),
    original:null,
    manual:true,
    outgoingPaymentId:paymentId,
@@ -1793,7 +1790,7 @@ function renderDashboardRemainingBalances(){
 function completeInstallmentEarly(id){
  const p=installments.find(x=>x.id===id); if(!p)return;
  const c=planCalc(p),a=account(p.cardId); const defaultAmt=Math.max(0,Number(c.remaining||0));
- const raw=prompt(`EARLY INSTALLMENT SETTLEMENT\n\n${a?.bank||''} •${a?.ending||''}\n${p.description}\nRemaining principal: ${money(defaultAmt)}\n\nEnter final settlement amount (SAR):`,defaultAmt.toFixed(2)); if(raw===null)return;
+ const raw=prompt(`EARLY INSTALLMENT SETTLEMENT\n\n${a?.bank||''} •${a?.ending||''}\n${p.description}\nRemaining principal: ${money(defaultAmt)}\n\nEnter final settlement amount (${financeBaseCurrency()}):`,defaultAmt.toFixed(2)); if(raw===null)return;
  const amt=Number(raw); if(!Number.isFinite(amt)||amt<0){alert('Enter a valid settlement amount.');return;}
  const sources=[{id:'cash-source',name:'Monthly Planned Income'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];
  const choice=prompt('Paid from:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'); if(choice===null)return;
@@ -1875,4 +1872,4 @@ function deleteGoldAsset(id){
  renderGoldAssets();renderDashboard();
  if(typeof renderFinancialPosition==='function')renderFinancialPosition();
 }
-function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (SAR):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}
+function sellGoldAsset(id){const a=goldAssets.find(x=>x.id===id);if(!a)return;const avail=activeGoldWeight(a);const w=Number(prompt(`Weight to sell (g) — available ${avail.toFixed(3)} g:`,avail.toFixed(3)));if(!Number.isFinite(w)||w<=0||w>avail+.0001)return alert('Invalid sale weight.');const proceeds=Number(prompt('Total sale proceeds (${financeBaseCurrency()}):',''));if(!Number.isFinite(proceeds)||proceeds<0)return;const date=prompt('Sale date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;const sources=[{id:'cash-source',name:'Monthly Cash Flow'},...accounts.filter(x=>x.type==='bank').map(x=>({id:x.id,name:accountName(x.id)}))];const ch=Number(prompt('Receive proceeds to:\n'+sources.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),'1'))||1;const src=sources[Math.max(0,Math.min(sources.length-1,ch-1))];const allocatedCost=Number(a.purchasePrice||0)*(w/Number(a.weight||1));const gain=proceeds-allocatedCost;goldSaleHistory.push({id:'GSALE-'+Date.now(),assetId:a.id,assetName:a.name,date,weight:w,proceeds,receivedToId:src.id,receivedToName:src.name,gainLoss:gain});incomePlan.extraIncomeHistory=incomePlan.extraIncomeHistory||[];incomePlan.extraIncomeHistory.push({id:'gold-sale-'+Date.now(),date,month:date.slice(0,7),amount:proceeds,note:`Gold sale • ${a.name} • ${w} g`});if(src.id!=='cash-source'){const ba=account(src.id);if(ba?.type==='bank')setTrackedBankBalance(ba.id,adjustedBankBalance(ba)+proceeds);}localStorage.setItem('pf_income_plan',JSON.stringify(incomePlan));saveV194Data();saveLocal();renderGoldAssets();renderIncomePlan();renderDashboard();renderAccounts();}

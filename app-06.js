@@ -593,7 +593,7 @@ function renderImportPreview(){
  $('importPreviewReady').textContent=String(ready);
  $('importPreviewReview').textContent=String(reviewRows.length);
  $('importPreviewTotalAmount').textContent=money(selectedAmount);
- $('importPreviewNetAmount').textContent=`Net: ${signed(Math.round(selectedNet*100)/100)}`;
+ $('importPreviewNetAmount').textContent=`Net: ${signed(financeRoundMoney(selectedNet))}`;
  syncImportPreviewAssignmentControls();
  const reviewButton=$('reviewImportTransactions');
  reviewButton.hidden=!reviewRows.length;
@@ -800,7 +800,7 @@ function commitStatementPreviewImport(){
   fileName:importPreviewFileName,
   accountId:importedAccountId,
   count:importedFresh.length,
-  totalAmount:Math.round(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0)*100)/100,
+  totalAmount:financeRoundMoney(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0)),
   skipped,
   duplicateSkipped:skipped,
   importedAt:new Date(stamp).toISOString(),
@@ -959,9 +959,9 @@ function renderMonthlyIncomePlans(){
 
  document.querySelectorAll('[data-edit-income-month]').forEach(b=>b.addEventListener('click',()=>{
   const p=incomePlanForMonth(b.dataset.editIncomeMonth);if(!p)return;
-  const mine=prompt(`My Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.mySalary||0)));if(mine===null)return;
-  const wife=prompt(`Other Salary for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.wifeSalary||0)));if(wife===null)return;
-  const other=prompt(`Other Income for ${extraIncomeMonthTitle(p.month)} (SAR)`,String(Number(p.otherIncome||0)));if(other===null)return;
+  const mine=prompt(`My Salary for ${extraIncomeMonthTitle(p.month)} (${financeBaseCurrency()})`,String(Number(p.mySalary||0)));if(mine===null)return;
+  const wife=prompt(`Other Salary for ${extraIncomeMonthTitle(p.month)} (${financeBaseCurrency()})`,String(Number(p.wifeSalary||0)));if(wife===null)return;
+  const other=prompt(`Other Income for ${extraIncomeMonthTitle(p.month)} (${financeBaseCurrency()})`,String(Number(p.otherIncome||0)));if(other===null)return;
   const vals=[Number(mine),Number(wife),Number(other)];
   if(vals.some(v=>!Number.isFinite(v)||v<0)){alert('Please enter valid non-negative amounts.');return;}
   p.mySalary=vals[0];p.wifeSalary=vals[1];p.otherIncome=vals[2];
@@ -1124,7 +1124,7 @@ function addExtraIncomeFromInput(){
   id:'extra-'+Date.now(),
   date:today.toISOString().slice(0,10),
   month:currentIncomeMonth(),
-  amount:Math.round(amount*100)/100
+  amount:financeRoundMoney(amount)
  });
  incomePlan.extraIncome=accumulatedExtraIncome();
  el.value='';
@@ -1158,7 +1158,7 @@ function loanInstallmentDue(loan,month){
  const payments=loanPaymentsForMonth(loan,month);
  const paid=payments.reduce((sum,p)=>sum+Number(p.amount||0),0);
  const expected=payments.length?Number(payments[0].installmentAmount):Math.min(Number(loan.monthly||0),Number(loan.remainingAmount||0));
- return {paid,expected,remaining:Math.max(0,Math.round((expected-paid)*100)/100)};
+ return {paid,expected,remaining:Math.max(0,financeRoundMoney((expected-paid)))};
 }
 function saveConfirmedLoanChanges(){
  financeSettingsDirty=true;
@@ -1176,16 +1176,16 @@ function confirmLoanPayment(loanId,values,requestId){
  const amount=Number(values.amount),month=String(values.installmentMonth||''),date=String(values.date||'');
  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(date)||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)throw new Error('Enter a valid payment date and installment month.');
  const due=loanInstallmentDue(loan,month);
- if(loan.status==='closed'||!Number.isFinite(amount)||amount<=0||Math.abs(amount-Math.round(amount*100)/100)>.000001||amount>Math.min(due.remaining,Number(loan.remainingAmount||0))+.005)throw new Error('Enter an amount within the unpaid installment balance, using at most two decimal places.');
+ if(loan.status==='closed'||!Number.isFinite(amount)||amount<=0||Math.abs(amount-financeRoundMoney(amount))>.000001||amount>Math.min(due.remaining,Number(loan.remainingAmount||0))+Number(financeMoneyStep())/2)throw new Error('Enter an amount within the unpaid installment balance, using the workspace currency decimal places.');
  const sourceId=values.sourceId||'',source=sourceId?account(sourceId):null;
  if(sourceId&&source?.type!=='bank')throw new Error('Choose a bank account or tracking only.');
  if(source&&window.financeSectionPermission&&['bank_balance_overrides','cash_flow_ledger'].some(section=>window.financeSectionPermission(section)!=='edit'))throw new Error('Bank balance and cash-flow editing permission is required to deduct from an account.');
  saveRecoverySnapshot('before-confirm-loan-payment');
  const beforeMonths=Number(loan.remainingMonths||0);
- const remaining=Math.max(0,Math.round((Number(loan.remainingAmount||0)-amount)*100)/100);
+ const remaining=Math.max(0,financeRoundMoney((Number(loan.remainingAmount||0)-amount)));
  const settled=due.remaining-amount<=.005;
  const monthsReduced=remaining<=.005?beforeMonths:(settled?Math.min(1,beforeMonths):0);
- const payment={id:requestId,amount:Math.round(amount*100)/100,date,installmentMonth:month,installmentAmount:due.expected,sourceId,sourceName:source?accountName(sourceId):'Already deducted / tracking only',monthsReduced,status:'active',recordedAt:new Date().toISOString()};
+ const payment={id:requestId,amount:financeRoundMoney(amount),date,installmentMonth:month,installmentAmount:due.expected,sourceId,sourceName:source?accountName(sourceId):'Already deducted / tracking only',monthsReduced,status:'active',recordedAt:new Date().toISOString()};
  loan.paymentHistory.push(payment);loan.remainingAmount=remaining;loan.remainingMonths=Math.max(0,beforeMonths-monthsReduced);
  loan.status=remaining<=.005?'closed':'active';loan.updatedAt=new Date().toISOString();
  addCashFlowLedgerEntry({id:'cfl-'+requestId,type:'loan-payment',date,month:date.slice(0,7),amount:payment.amount,sourceId,sourceName:payment.sourceName,targetId:loanId,targetName:loan.name,description:'Loan payment • '+loan.name,referenceId:'loan:'+requestId,referenceType:'loan-payment',deductFromIncome:false,createdAt:payment.recordedAt});
@@ -1199,7 +1199,7 @@ function undoConfirmedLoanPayment(loanId,paymentId){
  if(payment.sourceId&&window.financeSectionPermission&&['bank_balance_overrides','cash_flow_ledger'].some(section=>window.financeSectionPermission(section)!=='edit'))throw new Error('Bank balance and cash-flow editing permission is required to undo this bank payment.');
  saveRecoverySnapshot('before-undo-loan-payment');
  payment.status='reversed';payment.reversedAt=new Date().toISOString();
- loan.remainingAmount=Math.round((Number(loan.remainingAmount||0)+Number(payment.amount))*100)/100;
+ loan.remainingAmount=financeRoundMoney((Number(loan.remainingAmount||0)+Number(payment.amount)));
  loan.remainingMonths=Number(loan.remainingMonths||0)+Number(payment.monthsReduced||0);
  // Undoing an earlier partial payment also reopens a month that a later
  // partial payment had completed. Restore that term reduction only once.
@@ -1221,7 +1221,7 @@ function openLoanPaymentConfirmation(loanId){
  openUnifiedAction({title:'Confirm Loan Payment',subtitle:'Record money already paid. Choose the installment month separately from the payment date, including next month. Tracking only leaves the bank balance unchanged; selecting a bank deducts the amount from its tracked balance.',save:'Confirm Payment',fields:[
  {name:'installmentMonth',label:'Installment month being paid',type:'month',value:month,required:true},
  {name:'date',label:'Actual payment date',type:'date',value:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),required:true},
- {name:'amount',label:'Amount paid (SAR)',type:'number',min:'.01',step:'.01',value:due.remaining||Math.min(Number(loan.monthly||0),Number(loan.remainingAmount||0)),required:true},
+ {name:'amount',label:('Amount paid ('+financeBaseCurrency()+')'),type:'number',min:financeMoneyStep(),step:financeMoneyStep(),value:due.remaining||Math.min(Number(loan.monthly||0),Number(loan.remainingAmount||0)),required:true},
  {name:'sourceId',label:'Paid from (bank choices deduct the tracked balance)',type:'select',value:loan.defaultPaymentAccountId||'',options:[{value:'',label:'Already deducted by bank / tracking only'},...accounts.filter(a=>a.type==='bank').map(a=>({value:a.id,label:'Deduct tracked balance: '+accountName(a.id)}))]}
  ],submit:v=>{try{return confirmLoanPayment(loanId,v,requestId);}catch(error){return goldActionError(error.message);}}});
 }
@@ -1259,7 +1259,7 @@ function renderFinanceSettings(force=false){
  const loansBox=$('loanSettingsRows');
  if(loansBox){
   const rows=financeSettings.loans||[];
-  loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (SAR)</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field"><label>Default Payment Account</label><select data-loan-field="defaultPaymentAccountId"><option value="">Already deducted / tracking only</option>${accounts.filter(a=>a.type==='bank').map(a=>`<option value="${escapeHtml(a.id)}" ${l.defaultPaymentAccountId===a.id?'selected':''}>${escapeHtml(accountName(a.id))}</option>`).join('')}</select></div><div class="field"><label>Balance As Of Month</label><input type="month" data-loan-field="referenceMonth" value="${escapeHtml(l.referenceMonth||currentYearMonth())}"></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
+  loansBox.innerHTML=rows.length?rows.map((l,i)=>`<div class="panel" style="margin:8px 0;padding:12px" data-loan-setting="${i}"><div class="formGrid"><div class="field full"><label>Loan Name</label><input data-loan-field="name" value="${escapeHtml(l.name||'')}"></div><div class="field"><label>Monthly Payment (${financeBaseCurrency()})</label><input type="number" min="0" step="0.01" data-loan-field="monthly" value="${Number(l.monthly||0)}"></div><div class="field"><label>Remaining Amount (${financeBaseCurrency()})</label><input type="number" min="0" step="0.01" data-loan-field="remainingAmount" value="${Number(l.remainingAmount||0)}"></div><div class="field"><label>Remaining Months</label><input type="number" min="0" max="600" data-loan-field="remainingMonths" value="${Number(l.remainingMonths||0)}"></div><div class="field"><label>Status</label><select data-loan-field="status"><option value="active" ${l.status!=='closed'?'selected':''}>Active</option><option value="closed" ${l.status==='closed'?'selected':''}>Closed</option></select></div><div class="field"><label>Default Payment Account</label><select data-loan-field="defaultPaymentAccountId"><option value="">Already deducted / tracking only</option>${accounts.filter(a=>a.type==='bank').map(a=>`<option value="${escapeHtml(a.id)}" ${l.defaultPaymentAccountId===a.id?'selected':''}>${escapeHtml(accountName(a.id))}</option>`).join('')}</select></div><div class="field"><label>Balance As Of Month</label><input type="month" data-loan-field="referenceMonth" value="${escapeHtml(l.referenceMonth||currentYearMonth())}"></div><div class="field full" style="display:flex;justify-content:flex-end"><button class="btn danger" type="button" data-delete-loan="${i}">Delete Loan</button></div></div></div>`).join(''):'<div class="notice">No loans configured.</div>';
   loansBox.querySelectorAll('[data-loan-setting]').forEach(row=>{
    const idx=Number(row.dataset.loanSetting);
    row.querySelectorAll('[data-loan-field]').forEach(el=>{

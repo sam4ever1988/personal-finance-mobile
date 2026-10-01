@@ -8,7 +8,7 @@ var rentalUnitId='default';
 function rentalUnit(){return rentalUnits.find(u=>u.id===rentalUnitId)||rentalUnits[0]}
 function rentalBelongs(row){return String(row.unitId||'default')===String(rentalUnit().id)}
 function rentalFeeRate(booking){return Math.min(100,Math.max(0,Number(booking.organiserFee??rentalUnit().organiserFee??30)))}
-function rentalCurrency(booking){return booking.currency||'SAR'}
+function rentalCurrency(booking){return booking.currency||financeBaseCurrency()}
 function rentalNativeRate(booking){return Number(booking.dailyRate??(Number(booking.total||0)/rNights(booking.checkin,booking.checkout)))}
 function rentalRate(booking){return rentalNativeRate(booking)*Number(booking.fxRateSAR||1)}
 function rentalGross(booking){return rentalRate(booking)*rNights(booking.checkin,booking.checkout)}
@@ -18,7 +18,7 @@ function rentalSave(){localStorage.setItem("pf_rental_bookings",JSON.stringify(r
 function rDate(s){return new Date(s+"T12:00:00")}
 window.rIso=function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function rNextDate(s){var d=rDate(s);d.setDate(d.getDate()+1);return rIso(d)}
-function rMoney(n){return "SAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function rMoney(n){return financeNativeMoney(n)}
 function rNights(a,b){return Math.max(1,Math.round((rDate(b)-rDate(a))/86400000))}
 function rentalMonthDataFor(viewDate){
  var view=viewDate instanceof Date?viewDate:rentalView,y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1,12),end=new Date(y,m+1,1,12),days=new Date(y,m+1,0).getDate(),revenue=0,booked=0;
@@ -126,24 +126,24 @@ function rentalModal(title,fields,onSave){
 }
 window.rentalOpenBooking=function(date,id,checkout){
  const existing=id!=null?rentalBookings.find(b=>String(b.id)===String(id)&&rentalBelongs(b)):null;
- const currency=existing?(existing.currency||'SAR'):'PHP',rate=existing?rentalNativeRate(existing):'',fx=existing?.fxRateSAR??(currency==='SAR'?1:'');
- rentalModal(existing?'Edit Booking':'Add Booking','<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(existing?.checkin||date||rIso(new Date()))+'"></div><div class="field"><label>Check-out (not a booked night)</label><input name="checkout" type="date" required value="'+(existing?.checkout||checkout||rNextDate(date||rIso(new Date())))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" value="'+rEsc(existing?.ref||'')+'" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Customer payment currency</label><select name="currency"><option value="PHP"'+(currency==='PHP'?' selected':'')+'>PHP • Philippine peso</option><option value="USD"'+(currency==='USD'?' selected':'')+'>USD • US dollar</option><option value="SAR"'+(currency==='SAR'?' selected':'')+'>SAR • Saudi riyal</option></select></div><div class="field"><label>Daily rate (customer currency / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required value="'+rate+'"></div><div class="field"><label>1 customer currency = SAR (editable)</label><input name="fxRateSAR" type="number" min="0.000001" step="any" required value="'+fx+'"></div><div class="field full meta" id="rentalFxSource">Loading reference rate…</div><div class="field"><label>Organiser Fee (%)</label><input name="organiserFee" type="number" min="0" max="100" step="0.01" required value="'+(existing?rentalFeeRate(existing):Number(rentalUnit().organiserFee??30))+'"></div><div class="field"><label>Payment</label><select name="paid"><option value="0">Pending</option><option value="1"'+(existing?.paid?' selected':'')+'>Received</option></select></div><div class="field full"><label>Notes</label><input name="note" value="'+rEsc(existing?.note||'')+'"></div>',fd=>{
+ const currency=existing?(existing.currency||financeBaseCurrency()):financeBaseCurrency(),rate=existing?rentalNativeRate(existing):'',fx=existing?.fxRateSAR??(currency===financeBaseCurrency()?1:'');
+ rentalModal(existing?'Edit Booking':'Add Booking','<div class="field"><label>Check-in</label><input name="checkin" type="date" required value="'+(existing?.checkin||date||rIso(new Date()))+'"></div><div class="field"><label>Check-out (not a booked night)</label><input name="checkout" type="date" required value="'+(existing?.checkout||checkout||rNextDate(date||rIso(new Date())))+'"></div><div class="field"><label>Booking Reference</label><input name="ref" value="'+rEsc(existing?.ref||'')+'" placeholder="Airbnb reference or guest initials"></div><div class="field"><label>Customer payment currency</label><select name="currency">'+financeCurrencyOptions(currency)+'</select></div><div class="field"><label>Daily rate (customer currency / night)</label><input name="dailyRate" type="number" min="0" step="0.01" required value="'+rate+'"></div><div class="field"><label>1 customer currency = '+financeBaseCurrency()+' (editable)</label><input name="fxRateSAR" type="number" min="0.000001" step="any" required value="'+fx+'"></div><div class="field full meta" id="rentalFxSource">Loading reference rate…</div><div class="field"><label>Organiser Fee (%)</label><input name="organiserFee" type="number" min="0" max="100" step="0.01" required value="'+(existing?rentalFeeRate(existing):Number(rentalUnit().organiserFee??30))+'"></div><div class="field"><label>Payment</label><select name="paid"><option value="0">Pending</option><option value="1"'+(existing?.paid?' selected':'')+'>Received</option></select></div><div class="field full"><label>Notes</label><input name="note" value="'+rEsc(existing?.note||'')+'"></div>',fd=>{
   const a=String(fd.get('checkin')),z=String(fd.get('checkout')),rate=Number(fd.get('dailyRate')),fee=Number(fd.get('organiserFee')),currency=String(fd.get('currency')),fx=Number(fd.get('fxRateSAR'));
   if(z<=a){alert('Check-out must be after check-in.');return false}
-  if(!['PHP','USD','SAR'].includes(currency)||!(fx>0)||!Number.isFinite(rate)||rate<0){alert('Enter a valid currency, daily rate and SAR exchange rate.');return false}
-  if(currency==='SAR'&&fx!==1){alert('SAR bookings use a rate of 1.');return false}
+  if(!FINANCE_CURRENCIES.includes(currency)||!(fx>0)||!Number.isFinite(rate)||rate<0){alert('Enter a valid currency, daily rate and '+financeBaseCurrency()+' exchange rate.');return false}
+  if(currency===financeBaseCurrency()&&fx!==1){alert(''+financeBaseCurrency()+' bookings use a rate of 1.');return false}
   if(!Number.isFinite(fee)||fee<0||fee>100){alert('Fee must be 0–100%.');return false}
   if(rentalBookings.some(b=>b!==existing&&rentalBelongs(b)&&a<b.checkout&&z>b.checkin)){alert('Booking overlaps another reservation for this unit.');return false}
   if(rentalDatesInRange(a,rIso(new Date(rDate(z).getTime()-86400000))).some(day=>rentalBlocks.some(b=>rentalBelongs(b)&&b.date===day&&b.status!=='available'))){alert('Booking overlaps blocked or maintenance dates.');return false}
-  const paid=fd.get('paid')==='1',grossSAR=rate*fx*rNights(a,z),row={id:existing?.id||Date.now(),unitId:rentalUnit().id,checkin:a,checkout:z,ref:String(fd.get('ref')||''),dailyRate:rate,currency,fxRateSAR:fx,fxRateDate:document.getElementById('rentalFxSource')?.dataset.rateDate||existing?.fxRateDate||'',organiserFee:fee,paid,paidAmount:paid?grossSAR:0,paymentDate:paid?(existing?.paymentDate||rIso(new Date())):'',note:String(fd.get('note')||'')};
+  const paid=fd.get('paid')==='1',grossSAR=rate*fx*rNights(a,z),row={id:existing?.id||Date.now(),unitId:rentalUnit().id,checkin:a,checkout:z,ref:String(fd.get('ref')||''),dailyRate:rate,currency,baseCurrency:financeBaseCurrency(),fxRateSAR:fx,fxRateDate:document.getElementById('rentalFxSource')?.dataset.rateDate||existing?.fxRateDate||'',organiserFee:fee,paid,paidAmount:paid?grossSAR:0,paymentDate:paid?(existing?.paymentDate||rIso(new Date())):'',note:String(fd.get('note')||'')};
   if(existing)Object.assign(existing,row);else rentalBookings.push(row);
   if(typeof recordImmediateUpsert==='function')recordImmediateUpsert('rental_bookings',row.id,row,'rental-booking-save');
  });
  const modal=document.getElementById('rentalModal'),currencyEl=modal.querySelector('[name="currency"]'),fxEl=modal.querySelector('[name="fxRateSAR"]'),status=modal.querySelector('#rentalFxSource');
- fxEl.addEventListener('input',()=>{fxEl.dataset.manual='1';status.dataset.rateDate='';status.textContent='Custom exchange rate: 1 '+currencyEl.value+' = '+fxEl.value+' SAR.'});
- const loadRate=()=>{const selected=currencyEl.value;fxEl.dataset.manual='';if(selected==='SAR'){fxEl.value=1;status.textContent='SAR booking • no conversion';status.dataset.rateDate=rIso(new Date());return}
+ fxEl.addEventListener('input',()=>{fxEl.dataset.manual='1';status.dataset.rateDate='';status.textContent='Custom exchange rate: 1 '+currencyEl.value+' = '+fxEl.value+' '+financeBaseCurrency()+'.'});
+ const loadRate=()=>{const selected=currencyEl.value;fxEl.dataset.manual='';if(selected===financeBaseCurrency()){fxEl.value=1;status.textContent=''+financeBaseCurrency()+' booking • no conversion';status.dataset.rateDate=rIso(new Date());return}
   if(existing&&selected===currency){fxEl.value=existing.fxRateSAR;status.textContent='Saved booking rate. Change it or select another currency to fetch a new reference.';status.dataset.rateDate=existing.fxRateDate||'';return}
-  fxEl.value='';status.textContent='Loading '+selected+' → SAR reference rate…';financeFetchSarRate(selected).then(data=>{if(!modal.isConnected||currencyEl.value!==selected||fxEl.dataset.manual)return;fxEl.value=data.rate;status.dataset.rateDate=data.date||'';status.textContent='Reference '+(data.date||'latest')+' • 1 '+selected+' = '+data.rate+' SAR. You can override it.'}).catch(()=>{if(modal.isConnected&&currencyEl.value===selected)status.textContent='Reference rate unavailable. Enter the rate used for this booking.'});
+  fxEl.value='';status.textContent='Loading '+selected+' → '+financeBaseCurrency()+' reference rate…';financeFetchSarRate(selected).then(data=>{if(!modal.isConnected||currencyEl.value!==selected||fxEl.dataset.manual)return;fxEl.value=data.rate;status.dataset.rateDate=data.date||'';status.textContent='Reference '+(data.date||'latest')+' • 1 '+selected+' = '+data.rate+' '+financeBaseCurrency()+'. You can override it.'}).catch(()=>{if(modal.isConnected&&currencyEl.value===selected)status.textContent='Reference rate unavailable. Enter the rate used for this booking.'});
  };
  currencyEl.addEventListener('change',loadRate);loadRate();
 }
@@ -164,7 +164,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
 /* V283 account + preferences */
 (function(){
  const PROFILE_KEY='pf_profile_v283',PREF_KEY='pf_preferences_v283';
- const getProfile=()=>{try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch(e){return {}}};
+ const getProfile=()=>{if(window.financeUserProfile)return window.financeUserProfile;try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch(e){return {}}};
  const getPrefs=()=>{try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}};
  function effectiveTheme(t){return t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):(t||'dark')}
  window.applyFinancePreferences=function(){
@@ -185,6 +185,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   const em=document.getElementById('accountEmailPreview');if(em)em.textContent=email||'Local profile • Login not connected yet';
   const dn=document.getElementById('accountDisplayName');if(dn)dn.value=name;const ei=document.getElementById('accountEmail');if(ei){ei.value=email;ei.readOnly=true;}const ii=document.getElementById('accountInitials');if(ii)ii.value=initials;
   document.querySelectorAll('.canonicalAvatar>span:first-child,.profileIdentity>b,.execAvatar,.cashAvatar,.txExecAvatar,.strategyAvatar').forEach(e=>e.textContent=initials);
+  window.financeApplyAvatar?.();
   const pi=document.querySelector('.profileIdentity span');if(pi)pi.textContent=email||name;
   const ownWorkspace=window.financeWorkspaceChoices?.find(w=>w.own);
   const workspaceName=document.getElementById('financeWorkspaceName');if(workspaceName)workspaceName.value=ownWorkspace?.name||'My Workspace';
@@ -194,6 +195,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    });switcher.value=window.financeWorkspaceUserId||'';
    switcher.onchange=()=>window.financeChooseWorkspace?.(switcher.value);
   }
+  let currencyInfo=document.getElementById('accountWorkspaceCurrencyInfo');if(!currencyInfo&&switcher){currencyInfo=document.createElement('p');currencyInfo.id='accountWorkspaceCurrencyInfo';currencyInfo.className='meta';switcher.after(currencyInfo);}if(currencyInfo)currencyInfo.textContent='Workspace currency: '+financeBaseCurrency()+' · fixed at creation.';
   const deleteButton=document.getElementById('accountWorkspaceDelete');
   const selectedWorkspace=window.financeWorkspaceChoices?.find(w=>w.id===window.financeWorkspaceUserId);
   if(deleteButton)deleteButton.hidden=!selectedWorkspace?.own||selectedWorkspace.id===window.financeActiveUserId;
@@ -219,7 +221,10 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   localStorage.setItem(PREF_KEY,JSON.stringify(p));
   applyFinancePreferences();
  });
- document.addEventListener('submit',e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const name=document.getElementById('accountDisplayName').value.trim()||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3);localStorage.setItem(PROFILE_KEY,JSON.stringify({name,email,initials}));renderAccountProfile();});
+ document.addEventListener('submit',async e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const status=document.getElementById('accountProfileStatus'),button=e.target.querySelector('[type="submit"]'),name=document.getElementById('accountDisplayName').value.trim().slice(0,80)||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3),mode=document.getElementById('accountAvatarMode').value,photo=mode==='picture'?(window.financeAvatarDraft||getProfile().photo||''):null;
+  if(mode==='picture'&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)){status.textContent='Upload a picture first, or choose Initials.';return;}
+  const profile={name,email,initials,avatarMode:mode,photo};button.disabled=true;status.textContent='Saving profile…';try{const {error}=await window.financeSupabaseClient.auth.updateUser({data:{finance_profile:profile}});if(error)throw error;window.financeUserProfile=profile;window.financeAvatarDraft=null;localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));renderAccountProfile();window.financeApplyAvatar?.();status.textContent='Profile saved.';}catch(error){status.textContent='Could not save profile: '+error.message;}finally{button.disabled=false;}
+ });
  window.financeChooseWorkspace=async function(workspaceId){
   if(workspaceId===window.financeWorkspaceUserId)return;
   if(!window.financeWorkspaceChoices?.some(w=>w.id===workspaceId))return;
@@ -252,6 +257,7 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
   }catch(error){status.textContent='Could not delete workspace: '+error.message;return false;}finally{button.disabled=false;}
  };
  document.getElementById('accountWorkspaceDelete')?.addEventListener('click',()=>window.financeDeleteWorkspace());
+ const workspaceCurrencySelect=document.getElementById('accountNewWorkspaceCurrency');if(workspaceCurrencySelect)workspaceCurrencySelect.innerHTML=financeCurrencyOptions('SAR');
  document.getElementById('accountNewWorkspaceCreate')?.addEventListener('click',async e=>{
   const button=e.currentTarget,input=document.getElementById('accountNewWorkspaceName');
   const status=document.getElementById('accountNewWorkspaceStatus'),name=String(input?.value||'').trim();
@@ -262,14 +268,14 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
     status.textContent='Saving the current workspace before creating a database…';
     if(!await recordPushAll('before-workspace-create'))throw new Error('Current workspace changes are still pending. Resolve the sync before creating a database.');
    }
-   const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name});
+   const {data:id,error}=await window.financeSupabaseClient.rpc('finance_create_workspace',{workspace_name:name,workspace_currency:document.getElementById('accountNewWorkspaceCurrency').value});
    if(error||!id)throw error||new Error('Database creation was not confirmed.');
    const sharedIndex=window.financeWorkspaceChoices.findIndex(w=>!w.own);
-   window.financeWorkspaceChoices.splice(sharedIndex<0?window.financeWorkspaceChoices.length:sharedIndex,0,{id,name,own:true});
+   window.financeWorkspaceChoices.splice(sharedIndex<0?window.financeWorkspaceChoices.length:sharedIndex,0,{id,name,own:true,currency:document.getElementById('accountNewWorkspaceCurrency').value});
    input.value='';
    if(typeof syncCanonicalShell==='function')syncCanonicalShell(activeViewId());
    renderAccountProfile();
-   status.textContent='Database created: '+name+'. Select it from the Workspace menu when ready.';
+   status.textContent='Database created: '+name+' ('+document.getElementById('accountNewWorkspaceCurrency').value+')'+'. Select it from the Workspace menu when ready.';
   }catch(error){status.textContent='Could not create database: '+error.message;}
   finally{button.disabled=false;}
  });

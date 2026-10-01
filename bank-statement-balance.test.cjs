@@ -2,7 +2,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(__dirname+'/app-02.js','utf8');
 function fn(name){const start=source.indexOf('function '+name+'('),end=source.slice(start+1).search(/\nfunction /);assert(start>=0);return source.slice(start,start+1+end);}
 const saved=new Map(),bank={id:'bdo',type:'bank',balance:0},other={id:'other',type:'bank',balance:0};
-const c={window:{financeAdditionalWorkspace:true},bankBalanceOverrides:{bdo:0},importedTransactions:[],transactionActions:{},txOverrides:{},cashFlowLedger:[],manualTransactions:[],paymentSourceImpact:()=>0,account:id=>id==='bdo'?bank:other,resetCardIds:new Set(),cardResetHistory:[],localStorage:{setItem:(k,v)=>saved.set(k,v)}};
+const c={financeRoundMoney:n=>Math.round(n*100)/100,window:{financeAdditionalWorkspace:true},bankBalanceOverrides:{bdo:0},importedTransactions:[],transactionActions:{},txOverrides:{},cashFlowLedger:[],manualTransactions:[],paymentSourceImpact:()=>0,account:id=>id==='bdo'?bank:other,resetCardIds:new Set(),cardResetHistory:[],localStorage:{setItem:(k,v)=>saved.set(k,v)}};
 vm.createContext(c);for(const n of ['manualAccountMovement','legacyAdjustedBankBalance','bankTransferImpact','bankStatementBalanceEnabled','bankStatementMovement','adjustedBankBalance','setTrackedBankBalance'])vm.runInContext(fn(n),c);
 const balance=()=>c.adjustedBankBalance(bank);
 c.importedTransactions=[{_id:'credit',account:'bdo',amount:120},{_id:'debit',account:'bdo',amount:-30}];assert.equal(balance(),90);

@@ -351,6 +351,8 @@ function classifyBankSms(text,merchant){
  return {category:'Miscellaneous',subcategory:'Unexpected Expenses',description:merchant||'Bank SMS Transaction',needsReview:true};
 }
 function applyBankSms(){
+ if(financeBaseCurrency()!=='SAR'){if($('bankSmsStatus'))$('bankSmsStatus').textContent='This parser supports SAR bank messages. Enter the amount in '+financeBaseCurrency()+' manually, or import a statement with its confirmed conversion rate.';return;}
+
  const raw=$('bankSmsPaste')?.value.trim();if(!raw)return;
  const accountId=detectSmsAccount(raw);
  const amount=parseSmsAmount(raw);
@@ -411,7 +413,7 @@ $('manualTxForm').addEventListener('submit',e=>{
  const tx={
   _id:'manual-'+Date.now(),account:$('manualTxAccount').value,physicalCardEnding:$('manualTxPhysicalCard').value||String(account($('manualTxAccount').value)?.ending||''),date:$('manualTxDate').value,posting:$('manualTxDate').value,
   description:$('manualTxDesc').value.trim(),amount:sign*raw,category:$('manualTxCategory').value,
-  subcategory:$('manualTxSubcategory').value,kind:type,currency:'SAR',original:null,manual:true,
+  subcategory:$('manualTxSubcategory').value,kind:type,currency:financeBaseCurrency(),original:null,manual:true,
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
   smsRaw:form.dataset.smsRaw||'',smsPaymentChannel:form.dataset.smsPaymentChannel||'',needsCategoryReview:form.dataset.smsNeedsReview==='1',trackedBankApplied:selectedManualAccount?.type==='bank'
  };
@@ -488,7 +490,7 @@ $('instCategory').addEventListener('change',()=>fillSubcategorySelect($('instSub
 function updateInstallPreview(){
  const full=Number($('instAmount').value||0),remaining=Math.max(0,Number($('instRemainingAmount').value||0)),remainingMonths=Math.max(1,Number($('instMonths').value||1));
  if(!full){$('instPreview').textContent='Enter the original amount, remaining amount, and remaining months.';return}
- const monthly=Math.round((remaining/remainingMonths)*100)/100;
+ const monthly=financeRoundMoney((remaining/remainingMonths));
  $('instPreview').innerHTML=`Remaining principal: <b>${money(remaining)}</b> • Remaining months: <b>${remainingMonths}</b> • Recalculated monthly installment: <b>${money(monthly)}</b>. Changing the months changes the monthly payment, not the remaining principal.`;
 }
 $('installForm').addEventListener('submit',e=>{
@@ -704,7 +706,7 @@ $('balanceOfferForm').addEventListener('submit',e=>{
  if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid offer amount.');return;}
  if(scope==='current'&&amount>m.current+0.01&&!confirm(`This amount is above the current non-installment balance ${money(m.current)} and may double-count existing installment reserves. Continue?`))return;
  if(scope==='full'){const active=installments.filter(p=>p.cardId===cardId&&planCalc(p).remaining>0);if(active.length&&!confirm(`Replace ${active.length} existing active installment plan(s) with this full-balance offer?`))return;active.forEach(p=>{deletedInstallmentIds.add(p.id);if(typeof recordImmediateDelete==='function')recordImmediateDelete('installments',p.id,'balance-offer-replace')});localStorage.setItem('pf_deleted_installment_ids',JSON.stringify([...deletedInstallmentIds]));installments=installments.filter(p=>!(p.cardId===cardId&&planCalc(p).remaining>0));}
- installments.push({id:'balance-offer-'+Date.now(),cardId,description:$('balanceOfferDescription').value.trim()||'Card Balance Installment Offer',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:Math.round(amount*100)/100,months,startMonth:$('balanceOfferStartMonth').value||currentMonthInput(),referenceMonth:$('balanceOfferStartMonth').value||currentMonthInput(),paidInstallments:0,monthlyFee:fee,source:'Bank Balance Installment Offer',planType:'balance-offer',offerScope:scope,createdAt:new Date().toISOString().slice(0,10)});
+ installments.push({id:'balance-offer-'+Date.now(),cardId,description:$('balanceOfferDescription').value.trim()||'Card Balance Installment Offer',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:financeRoundMoney(amount),months,startMonth:$('balanceOfferStartMonth').value||currentMonthInput(),referenceMonth:$('balanceOfferStartMonth').value||currentMonthInput(),paidInstallments:0,monthlyFee:fee,source:'Bank Balance Installment Offer',planType:'balance-offer',offerScope:scope,createdAt:new Date().toISOString().slice(0,10)});
  if(a.extra&&a.extra['Future Installment Reserve']!==undefined)delete a.extra['Future Installment Reserve'];
  localStorage.setItem('pf_installments',JSON.stringify(installments));saveLocal();closeBalanceOffer();renderInstallments();renderAccounts();renderDashboard();openAccount(cardId);
 });
@@ -1273,7 +1275,7 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
   detectPhysicalCardEndingFromRaw(raw,accountId);
  const physicalCardEnding=detectedPhysicalCardEnding ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:'SAR',original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
@@ -1536,7 +1538,7 @@ function parsePdfLineHeuristic(line,accountId,forcedStatementMonth='',physicalCa
   kind,
   needsReview,
   categoryReviewed:!needsReview,
-  currency:'SAR',
+  currency:financeBaseCurrency(),
   original:null,
   manual:false,
   imported:true,

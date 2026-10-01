@@ -1,3 +1,19 @@
+/* Workspace amounts are stored in the immutable workspace base currency.
+   Market prices retain their native currency; conversion happens at valuation. */
+var FINANCE_CURRENCIES=['SAR','PHP','USD','EUR','GBP','AED','AUD','CAD','CHF','CNY','HKD','SGD','JPY','INR','KRW','IDR','MYR','THB','NZD','BHD','KWD','QAR','OMR','EGP','PKR','BDT','ZAR','TRY','BRL','MXN'];
+function financeBaseCurrency(){return FINANCE_CURRENCIES.includes(window.financeWorkspaceCurrency)?window.financeWorkspaceCurrency:'SAR';}
+function financeCurrencyOptions(selected){var names=new Intl.DisplayNames(['en'],{type:'currency'});return FINANCE_CURRENCIES.map(c=>'<option value="'+c+'"'+(c===selected?' selected':'')+'>'+c+' · '+names.of(c)+'</option>').join('');}
+var financeFxQuotes=new Map(),financeFxRequests=new Map();
+function financeFxFactor(from){var to=financeBaseCurrency();if(from===to)return 1;if(to==='SAR'&&from==='USD')return 3.75;var q=financeFxQuotes.get(from+'|'+to);return q&&Date.now()-q.loaded<3600000?q.rate:NaN;}
+async function financeFetchRate(from,to=financeBaseCurrency()){
+ if(!FINANCE_CURRENCIES.includes(from)||!FINANCE_CURRENCIES.includes(to))throw Error('Unsupported currency');
+ if(from===to)return {from,to,rate:1,date:new Date().toISOString().slice(0,10),source:'Same currency'};
+ var key=from+'|'+to,cached=financeFxQuotes.get(key);if(cached&&Date.now()-cached.loaded<1800000)return cached;
+ if(financeFxRequests.has(key))return financeFxRequests.get(key);
+ var request=(async()=>{var r=await fetch('/api/exchange-rate?from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('Online reference rate unavailable');var d=await r.json();if(d.from!==from||d.to!==to||!Number.isFinite(Number(d.rate))||!(Number(d.rate)>0))throw Error('Invalid exchange rate');var q={...d,rate:Number(d.rate),loaded:Date.now()};financeFxQuotes.set(key,q);return q;})();
+ financeFxRequests.set(key,request);try{return await request;}finally{financeFxRequests.delete(key);}
+}
+function financeNativeMoney(n,currency=financeBaseCurrency()){return Number.isFinite(Number(n))?currency+' '+financeFormatAmount(n,currency):'— (exchange rate unavailable)';}
 
 
 
@@ -61,3 +77,11 @@ if(!financeSettings.cardCycles||typeof financeSettings.cardCycles!=='object')fin
 Object.entries(DEFAULT_CARD_CYCLE_SETTINGS).forEach(([id,cfg])=>{if(!financeSettings.cardCycles[id])financeSettings.cardCycles[id]={...cfg};});
 let financeSettingsDirty=false;
 let financeSettingsEditing=false;
+
+function financeApplyBaseLabels(){if(financeBaseCurrency()==='SAR')return;const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(!['SCRIPT','STYLE','OPTION'].includes(node.parentElement?.tagName))node.nodeValue=node.nodeValue.replace(/\bSAR\b/g,financeBaseCurrency());}}
+financeApplyBaseLabels();
+function financeMoneyDecimals(currency=financeBaseCurrency()){return new Intl.NumberFormat('en',{style:'currency',currency}).resolvedOptions().maximumFractionDigits;}
+function financeRoundMoney(n){const scale=10**financeMoneyDecimals();return Math.round(Number(n)*scale)/scale;}
+function financeMoneyStep(){return String(10**-financeMoneyDecimals());}
+function financeFormatAmount(n,currency=financeBaseCurrency()){const digits=financeMoneyDecimals(currency);return Number(n).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
+document.addEventListener('focusin',event=>{const input=event.target;if(input?.type!=='number'||input.step!=='0.01')return;const label=input.closest('label')?.textContent||input.closest('.field')?.querySelector('label')?.textContent||'';if(label.includes(financeBaseCurrency())||/amount|balance|salary|income|payment|cost/i.test(input.id)&&!/^inv(?!SettlementAmount|Dividend)/.test(input.id)){input.step=financeMoneyStep();}});

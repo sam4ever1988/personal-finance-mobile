@@ -455,9 +455,9 @@ function plannedIncomePaymentHistory(month=currentIncomeMonth()){
 function recomputePlanPaidAmountFromHistory(p){
  if(!p)return;
  const history=Array.isArray(p.paymentHistory)?p.paymentHistory.filter(h=>!h.mirrored):[];
- p.paidAmount=Math.round(history.reduce((sum,h)=>
+ p.paidAmount=financeRoundMoney(history.reduce((sum,h)=>
    sum+Math.max(0,Number(h.duePortion!=null?h.duePortion:h.amount||0)),0
- )*100)/100;
+ ));
  const due=Number(plannerAmountForRow(p));
  p.paid=Number.isFinite(due)&&due>0&&p.paidAmount>=due-0.005;
 }
@@ -571,12 +571,12 @@ function bankStatementBalanceEnabled(accountId){
 function bankStatementMovement(accountId){
  // Read source records directly: imports, cloud deletions and edits must all
  // change the same derived balance without applying a second saved delta.
- return Math.round((importedTransactions||[]).reduce((sum,t)=>{
+ return financeRoundMoney((importedTransactions||[]).reduce((sum,t)=>{
   if(transactionActions[t._id]?.status)return sum;
   const row={...t,...(txOverrides[t._id]||{})};
   const amount=Number(row.amount);
   return row.account===accountId&&Number.isFinite(amount)?sum+amount:sum;
- },0)*100)/100;
+ },0));
 }
 function adjustedBankBalance(a){
  const saved=bankBalanceOverrides?.[a.id];
@@ -585,12 +585,12 @@ function adjustedBankBalance(a){
  if(a.type!=='bank')return base;
  const statementDelta=bankStatementBalanceEnabled(a.id)
   ?bankStatementMovement(a.id)-Number(saved?.statementAnchor||0):0;
- return Math.round((base+bankTransferImpact(a.id)+statementDelta)*100)/100;
+ return financeRoundMoney((base+bankTransferImpact(a.id)+statementDelta));
 }
 function setTrackedBankBalance(accountId,value){
  const n=Number(value);if(!Number.isFinite(n))return false;
  const bank=account(accountId)?.type==='bank';
- const balance=Math.round((n-(bank?bankTransferImpact(accountId):0))*100)/100;
+ const balance=financeRoundMoney((n-(bank?bankTransferImpact(accountId):0)));
  // Balance and its statement anchor are one value for atomic per-account
  // cloud conflict protection. Setting an actual balance absorbs existing rows.
  bankBalanceOverrides[accountId]=bank&&bankStatementBalanceEnabled(accountId)
@@ -684,12 +684,12 @@ function durableLedgerPaidAmountForPlan(p){
 
  const rows=exact.length?exact:byCycle;
  const seen=new Set();
- return Math.round(rows.reduce((sum,x)=>{
+ return financeRoundMoney(rows.reduce((sum,x)=>{
   const key=x.id||cashFlowLedgerKey(x);
   if(seen.has(key))return sum;
   seen.add(key);
   return sum+Math.max(0,Number(x.duePortion??x.amount??0));
- },0)*100)/100;
+ },0));
 }
 
 function ensurePartialPaymentFields(){
@@ -710,9 +710,9 @@ function paymentPaidAmount(p){
 function releasedStatementAudit(p){
  const original=Math.max(0,Number(inferStatementOriginalAmount(p)||0));
  const installmentAdjustment=Math.min(original,Math.max(0,Number(statementAdjustmentTotal(p)||0)));
- const adjusted=Math.max(0,Math.round((original-installmentAdjustment)*100)/100);
- const paid=Math.max(0,Math.round(Number(paymentPaidAmount(p)||0)*100)/100);
- const remaining=Math.max(0,Math.round((adjusted-paid)*100)/100);
+ const adjusted=Math.max(0,financeRoundMoney((original-installmentAdjustment)));
+ const paid=Math.max(0,financeRoundMoney(Number(paymentPaidAmount(p)||0)));
+ const remaining=Math.max(0,financeRoundMoney((adjusted-paid)));
  return {original,installmentAdjustment,adjusted,paid,remaining};
 }
 
@@ -721,7 +721,7 @@ function paymentRemainingAmount(p){
   return releasedStatementAudit(p).remaining;
  }
  const due=Number(plannerAmountForRow(p));
- return Number.isFinite(due)?Math.max(0,Math.round((due-paymentPaidAmount(p))*100)/100):null;
+ return Number.isFinite(due)?Math.max(0,financeRoundMoney((due-paymentPaidAmount(p)))):null;
 }
 function recordPartialPayment(id){openRecordPayment(id)}
 function undoLastPartialPayment(id,ledgerReferenceId=''){
@@ -757,12 +757,9 @@ function undoLastPartialPayment(id,ledgerReferenceId=''){
   setTrackedBankBalance(sourceAccount.id,adjustedBankBalance(sourceAccount)+amount);
  }
 
- const survivingPaid=Math.round(
-  p.paymentHistory
+ const survivingPaid=financeRoundMoney(p.paymentHistory
    .filter(h=>!h.mirrored)
-   .reduce((sum,h)=>sum+Math.max(0,Number(h.duePortion!=null?h.duePortion:h.amount||0)),0)
-  *100
- )/100;
+   .reduce((sum,h)=>sum+Math.max(0,Number(h.duePortion!=null?h.duePortion:h.amount||0)),0));
 
  p.paidAmount=survivingPaid;
  p.paid=false;
@@ -963,7 +960,7 @@ function fullBalanceOfferNormalUsage(cardId){
  if(!offers.length)return null;
  const converted=offers.reduce((sum,p)=>sum+Number(p.fullAmount||0),0);
  const m=cardMetrics(a);
- return Math.max(0,Math.round((Number(m.total||0)-converted)*100)/100);
+ return Math.max(0,financeRoundMoney((Number(m.total||0)-converted)));
 }
 function activeBalanceOfferPlans(cardId){
  return installments.filter(p=>p.cardId===cardId && p.planType==='balance-offer' && planCalc(p).status==='Active');
@@ -988,9 +985,9 @@ function estimateAlRajhi0955Statement(paymentMonth){
  const normalDebits=rows.reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
  const installmentMonthly=cardMonthlyCommitment('ar-0955');
  return {
-  normalDebits:Math.round(normalDebits*100)/100,
-  installmentMonthly:Math.round(installmentMonthly*100)/100,
-  total:Math.round((normalDebits+installmentMonthly)*100)/100,
+  normalDebits:financeRoundMoney(normalDebits),
+  installmentMonthly:financeRoundMoney(installmentMonthly),
+  total:financeRoundMoney((normalDebits+installmentMonthly)),
   count:rows.length
  };
 }
@@ -1067,7 +1064,7 @@ function cardCurrentCycleTransactionUsage(cardId){
   t.manual &&
   !['transfer'].includes(txType(t))
  ).reduce((s,t)=>s+Number(t.amount||0),0);
- return Math.max(0,Math.round((spend-credits)*100)/100);
+ return Math.max(0,financeRoundMoney((spend-credits)));
 }
 function releasedPaymentRowPriority(p){
  if(!p)return -999;
@@ -1183,9 +1180,9 @@ function unifiedCardEngineAudit(cardId){
  return {
   cardId,
   liveUserRows:live.length,
-  liveUserAmount:Math.round(live.reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)*100)/100,
+  liveUserAmount:financeRoundMoney(live.reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)),
   archivedLegacyRows:legacy.length,
-  archivedLegacyAmount:Math.round(legacy.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)*100)/100,
+  archivedLegacyAmount:financeRoundMoney(legacy.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0)),
   released:m.releasedStatementBalance,
   installmentPrincipal:m.fullRemainingInstallmentPrincipal,
   fundedOtherCards:m.fundedOtherCards,
@@ -1240,16 +1237,16 @@ function liveCardBalanceTrace(cardId){
   activeCycle,
   creditLimit:m.limit,
   includedLiveTransactions:included,
-  includedLiveTransactionTotal:Math.round(included.reduce((s,x)=>s+x.amount,0)*100)/100,
+  includedLiveTransactionTotal:financeRoundMoney(included.reduce((s,x)=>s+x.amount,0)),
   historicalTransactionsExcluded:excludedPast,
   cardFundedPayments:funded,
-  separatelyCountedFundedPayments:Math.round(funded.filter(x=>x.countsSeparately).reduce((s,x)=>s+x.amount,0)*100)/100,
+  separatelyCountedFundedPayments:financeRoundMoney(funded.filter(x=>x.countsSeparately).reduce((s,x)=>s+x.amount,0)),
   remainingInstallmentPrincipal:m.fullRemainingInstallmentPrincipal,
   releasedAmountToPay:m.releasedStatementBalance,
   paymentsAndCredits:m.totalCardCredits,
   utilized:m.total,
   available:m.available,
-  expectedUtilized:Math.round((m.releasedStatementBalance+m.liveTransactionUsage+m.fullRemainingInstallmentPrincipal+m.fundedOtherCards)*100)/100,
+  expectedUtilized:financeRoundMoney((m.releasedStatementBalance+m.liveTransactionUsage+m.fullRemainingInstallmentPrincipal+m.fundedOtherCards)),
   statementPaymentsAlreadyApplied:true
  };
 }
@@ -1518,7 +1515,7 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
    // 781.98). An edited principal uses its own recalculated schedule instead.
    if(billedCount>0 && billedIndex>=billedCount && billedIndex<Number(p.months||0)){
     const original=planMonthly({fullAmount:Number(p.fullAmount||0),months:Number(p.months||1)});
-    const originalRemaining=Math.round(original.slice(billedCount).reduce((v,n)=>v+n,0)*100)/100;
+    const originalRemaining=financeRoundMoney(original.slice(billedCount).reduce((v,n)=>v+n,0));
     if(Math.abs(originalRemaining-Number(c.remaining||0))<0.011)return sum+Number(original[billedIndex]||0);
    }
    const elapsed=(refIdx!==null&&payIdx!==null)?Math.max(0,payIdx-refIdx):0;
@@ -1538,14 +1535,14 @@ function provisionalPaymentForMonth(cardId,paymentMonth){
  if(cardId==='meem-7102'){
   const transactionAmount=Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0);
   const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
-  return Math.round((transactionAmount+installment)*100)/100;
+  return financeRoundMoney((transactionAmount+installment));
  }
 
  const transactionAmount=(resetCardIds.has(cardId)||cardId==='meem-7102')
   ? Number(resetCardTransactionAmountForPaymentMonth(cardId,paymentMonth)||0)
   : manualCardAmountForPaymentMonth(cardId,paymentMonth);
  const installment=installmentAmountForPaymentMonth(cardId,paymentMonth);
- return Math.round((transactionAmount+installment)*100)/100;
+ return financeRoundMoney((transactionAmount+installment));
 }
 
 function ledgerRowsForCardCycle(cardId,month){
@@ -1800,7 +1797,7 @@ function inferStatementOriginalAmount(p){
 function adjustedConfirmedStatementAmount(p){
  const original=inferStatementOriginalAmount(p);
  const moved=statementAdjustmentTotal(p);
- return Math.max(0,Math.round((original-moved)*100)/100);
+ return Math.max(0,financeRoundMoney((original-moved)));
 }
 
 function importedOfficialPlannerRow(cardId,month){
@@ -1816,11 +1813,11 @@ function calculatedPaymentCycleAmount(cardId,month){
  const transactions=Number(transactionAmountForPaymentMonthAll(cardId,month)||0);
  const installment=Number(installmentAmountForPaymentMonth(cardId,month)||0);
  const transfers=Number(cardLedgerSourceTransfersForMonth(cardId,month)||0);
- return Math.round((transactions+installment+transfers)*100)/100;
+ return financeRoundMoney((transactions+installment+transfers));
 }
 function cardLedgerSourceTransfersForMonth(cardId,month){
  const rows=liveCardTransactions();
- return Math.round((cashFlowLedger||[]).filter(h=>
+ return financeRoundMoney((cashFlowLedger||[]).filter(h=>
   h.type==='card-payment' && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId &&
   (h.sourcePaymentMonth||paymentMonthForTransaction(cardId,h.date))===month
  ).reduce((sum,h)=>{
@@ -1831,7 +1828,7 @@ function cardLedgerSourceTransfersForMonth(cardId,month){
    !['transfer','income'].includes(txType(t)) &&
    /card payment|credit card payment|payment|transfer/i.test(String(t.description||'')));
   return sum+(matched?0:Math.max(0,Number(h.amount||0)));
- },0)*100)/100;
+ },0));
 }
 
 function plannerAmountSource(p){
@@ -1876,7 +1873,7 @@ function plannerAmountExplanation(p){
  const activity=Number(transactionAmountForPaymentMonthAll(p.accountId,p.month)||0);
  const installment=Number(installmentAmountForPaymentMonth(p.accountId,p.month)||0);
  const transfers=Number(cardLedgerSourceTransfersForMonth(p.accountId,p.month)||0);
- const total=Math.round((activity+installment+transfers)*100)/100;
+ const total=financeRoundMoney((activity+installment+transfers));
  return `Date-driven ${cardMonthLabel(p.month)} cycle: ${money(activity)} transaction activity + ${money(installment)} installment commitment + ${money(transfers)} card-funded transfers = ${money(total)}. An imported official statement will replace this calculated amount.`;
 }
 function syncUpcomingNbdMazeed(){
