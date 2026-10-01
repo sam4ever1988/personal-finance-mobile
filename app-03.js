@@ -445,7 +445,15 @@ function installmentRemainingSchedule(p){
 }
 function installmentReleasedSlices(p){
  const slices=Array.isArray(p.statementBilledHistory)?p.statementBilledHistory.map(row=>({...row})):[];
- if(p.scheduleMode!=='remaining-principal'&&p.remainingMonthsOverride==null)return slices;
+ if(p.scheduleMode!=='remaining-principal'&&p.remainingMonthsOverride==null){
+  const schedule=planMonthly(p),start=installmentReferenceMonth(p);
+  const billed=installmentPaidThroughReleasedStatement(p);
+  for(let i=Math.max(0,Number(p.paidInstallments||0));i<billed;i++){
+   const month=addMonthsToYM(start,i);
+   if(!slices.some(row=>row.month===month))slices.push({month,amount:Number(schedule[i]||0)});
+  }
+  return slices;
+ }
  let remaining=Math.max(0,Number(p.manualRemaining||0)),count=Math.max(0,Number(p.remainingMonthsOverride||0));
  const released=Math.min(count,installmentPaidThroughReleasedStatement(p)),ref=installmentReferenceMonth(p),schedule=installmentRemainingSchedule(p);
  for(let i=0;i<released&&count>0;i++){
@@ -533,7 +541,8 @@ function activeInstallmentPlans(cardId=null){return installments.filter(p=>(!car
 function completedInstallmentPlans(cardId=null){return installments.filter(p=>(!cardId||p.cardId===cardId)&&planCalc(p).status==='Completed');}
 function cardInstallmentRemaining(cardId){return activeInstallmentPlans(cardId).reduce((sum,p)=>sum+planCalc(p).remaining,0)}
 function linkedActiveInstallment(txId){
- return installments.find(p=>p.linkedTransactionId===txId && !p.completedConfirmed && ['Active','Review'].includes(planCalc(p).status))||null;
+ return installments.find(p=>p.linkedTransactionId===txId &&
+  (['Active','Review'].includes(planCalc(p).status)||planCalc(p).completionReason==='fully-billed'))||null;
 }
 function isTransactionMovedToInstallment(txId){return !!linkedActiveInstallment(txId)}
 
@@ -598,6 +607,11 @@ function activeManualCardBalanceDelta(cardId){
 
 function recordedCardPaymentCredit(cardId){
  let credit=0;
+ const transferCoverageByMonth={};
+ cardFundedPaymentBreakdown(cardId).forEach(row=>{
+  const month=row.effectivePaymentMonth;
+  transferCoverageByMonth[month]=financeRoundMoney((transferCoverageByMonth[month]||0)+Number(row.coveredBySourcePayment||0));
+ });
 
  // V228: a payment against an unreleased/current calculated card cycle must
  // immediately restore available credit. Once a genuine statement already nets
@@ -623,7 +637,9 @@ function recordedCardPaymentCredit(cardId){
     const paid=Math.max(0,Number(paymentPaidAmount(p)||0));
     // Once a paid cycle advances installment principal, crediting that same
     // installment payment again would inflate available credit.
-    if(liveUsage>0)credit+=p.paid===true?Math.min(liveUsage,paid):paid;
+    // Source-card transfer usage already subtracts this payment's coverage.
+    // Applying the full payment again would restore that credit twice.
+    if(liveUsage>0)credit+=p.paid===true?Math.min(liveUsage,paid):Math.max(0,paid-Number(transferCoverageByMonth[p.month]||0));
     else if(installmentDue>0 && p.paid!==true)credit+=Math.min(installmentDue,paid);
    }
    (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
@@ -858,6 +874,16 @@ function liveTransactionUsageByMonth(cardId){
  return out;
 }
 
+function cardUnrepresentedBilledInstallments(cardId){
+ // Releasing a schedule moves debt; it does not pay it. Keep the released
+ // slices occupied until a statement represents them or the cycle is paid.
+ return financeRoundMoney(installments.filter(p=>p.cardId===cardId)
+  .reduce((sum,p)=>sum+installmentReleasedSlices(p).reduce((subtotal,row)=>{
+   if(cardCycleHasStatement(cardId,row.month)||cardCycleFullyPaid(cardId,row.month))return subtotal;
+   return subtotal+Math.max(0,Number(row.amount||0));
+  },0),0));
+}
+
 function excelCardAccounting(a){
  const limit=Math.max(0,Number(a.extra?.['Credit Limit']||0));
  if(!limit)return null;
@@ -904,8 +930,11 @@ function excelCardAccounting(a){
  const remainingPrincipal=Math.max(0,activeInstallmentPlans(a.id)
   .reduce((sum,p)=>sum+Math.max(0,Number(planCalc(p).remaining||0)),0));
 
- // Display-only split: this month's installment vs future reserve.
- const futureReserve=Math.max(0,financeRoundMoney((remainingPrincipal-currentInstallment)));
+ // Future principal is independent of the open-cycle installment preview.
+ // planCalc already excludes billed installments. The open cycle's next
+ // installment is still inside this principal; subtracting it again hides debt.
+ const futureReserve=financeRoundMoney(remainingPrincipal);
+ const billedInstallments=cardUnrepresentedBilledInstallments(a.id);
  const currentCycle=Math.max(0,financeRoundMoney((currentTransactions+currentInstallment)));
 
  // Recorded payments must restore available credit on the target card.
@@ -920,15 +949,14 @@ function excelCardAccounting(a){
  // only when the source-card transaction feed does not already contain it.
  const fundedOtherCards=Math.max(0,creditBreakdown.cardFundedPayments);
 
- // V155 AGREED INSTALLMENT ACCOUNTING:
- // Remaining principal is split into Current Cycle Installment + Future Installment Reserve.
- // Outstanding / Utilized includes the FUTURE reserve only.
- // Available Credit deducts the current installment separately.
- const grossOccupied=Math.max(0,released+liveTransactions+futureReserve+fundedOtherCards);
+ // Count each installment exactly once: future principal plus billed slices
+ // not yet represented by a statement. The current-cycle preview is already
+ // included in one of those buckets and must not be deducted a second time.
+ const grossOccupied=Math.max(0,financeRoundMoney(released+liveTransactions+futureReserve+billedInstallments+fundedOtherCards));
  const occupied=Math.max(0,grossOccupied-totalCredits);
  const overCredit=Math.max(0,totalCredits-grossOccupied);
  const total=occupied;
- const available=Math.max(0,limit-total-currentInstallment)+overCredit;
+ const available=financeRoundMoney(Math.max(0,limit-total)+overCredit);
  const utilization=limit?total/limit*100:0;
 
  return {
@@ -940,6 +968,7 @@ function excelCardAccounting(a){
   bankAvailable:available,
   futureReserved:futureReserve,
   fullRemainingInstallmentPrincipal:remainingPrincipal,
+  unrepresentedBilledInstallments:billedInstallments,
   availableBeforeInstallments:available,
   bankUtilized:total,
   utilization,
@@ -970,7 +999,7 @@ function excelCardAccounting(a){
   normalNonInstallmentUtilized:Math.max(0,financeRoundMoney((total-Math.min(total,remainingPrincipal)))),
   installmentIncludedInUtilized:Math.min(total,futureReserve),
   releasedIncludedInLiveUtilization:true,
-  creditLimitInvariant:Math.abs((available+total+currentInstallment-overCredit)-limit)<0.02
+  creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
 function cardMetrics(a){
