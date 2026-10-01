@@ -174,3 +174,6 @@ html[data-finance-theme="light"] body #financeWorkspaceSwitch option,html[data-f
 html body .txTableFoot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 html body #txFilteredAmount{font-weight:700;color:#dbeaf2;white-space:nowrap}
 html[data-finance-theme="light"] body #txFilteredAmount{color:#163c53}
+/* The floating guide must not cover the filtered transaction amount. */
+html body .txTableFoot{padding-right:120px!important}
+@media(max-width:600px){html body #txFilteredAmount{white-space:normal;overflow-wrap:anywhere}}
