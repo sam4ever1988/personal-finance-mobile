@@ -1269,13 +1269,14 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  const debit=Number(String(pick('debit','withdrawal','debit amount')).replace(/[,\s]/g,'')),credit=Number(String(pick('credit','deposit','credit amount')).replace(/[,\s]/g,''));
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
+ const statementTransactionAmount=amount;const billingKey=Object.keys(low).find(k=>/^billing amount(?:\s*\(sar\))?$/.test(k));const billingText=billingKey?String(low[billingKey]??'').trim():'';const billed=Number(billingText.replace(/SAR/ig,'').replace(/[,\s]/g,'').replace(/\(([^)]+)\)/,'-$1'));const statementBillingAmount=billingText&&Number.isFinite(billed)?billed:null;
  const [category,subcategory,kind,needsReview]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
  const detectedPhysicalCardEnding=
   String(raw?.['Physical Card Ending']||raw?.physicalCardEnding||'').replace(/\D/g,'') ||
   detectPhysicalCardEndingFromRaw(raw,accountId);
  const physicalCardEnding=detectedPhysicalCardEnding ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',reference:cleanImportText(pick('transaction reference','reference','reference number','bank reference','transaction id')),physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,statementTransactionAmount,statementBillingAmount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',reference:cleanImportText(pick('transaction reference','reference','reference number','bank reference','transaction id')),physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];

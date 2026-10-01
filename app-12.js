@@ -181,10 +181,10 @@
  window.openStatementCardReview=function(){
   review=importDuplicateDecision;entries=[];selected.clear();targets.clear();
   (review?.duplicates||[]).forEach((entry,index)=>{if(entry.cardReviewUpdated)return;const candidates=matches(entry);if(!candidates.length)return;const snapshots=Object.fromEntries(candidates.map(old=>[old._id,entry.cardSnapshots?.[old._id]||statementCardSnapshot(old)]));entries.push({...entry,index,candidates,snapshots,original:entry});if(candidates.length===1)targets.set(index,candidates[0]._id);});
-  const ids=[...new Set(entries.map(entry=>entry.row.account))];
+  const ids=[...new Set([...entries.map(entry=>entry.row.account),...(window.financeStatementComparison?.rows||[]).map(row=>row.account)])];
   el('statementCardAccount').innerHTML=ids.map(id=>'<option value="'+esc(id)+'">'+esc(accountName(id))+'</option>').join('');
   el('statementCardStatus').textContent='Detected cards are prefilled and clear matches are selected. Review and click Apply Updates. Ambiguous matches require confirmation; use the bulk correction only if needed. A file with only an account-level card header cannot distinguish supplementary purchases.';
-  closeModal('importDuplicateReviewModal');nav('statementCardReview');renderAccount();
+  closeModal('importDuplicateReviewModal');nav('statementCardReview');renderAccount();window.financeRenderStatementComparison?.();
  };
  el('openStatementCardReview').onclick=window.openStatementCardReview;
  el('statementCardAccount').onchange=renderAccount;
@@ -203,8 +203,51 @@
    const stamp=Date.now(),saved=applyStatementCardUpdates(updates,stamp),history={batchId:'card-review-'+stamp,fileName:importPreviewFileName,accountId:el('statementCardAccount').value,count:0,totalAmount:0,updatedCardCount:saved.length,updatedTransactionIds:saved.map(t=>t._id),importedAt:new Date(stamp).toISOString(),cardReviewOnly:true};
    importHistory.push(history);list.forEach(entry=>{entry.original.cardReviewUpdated=true;entry.cardReviewUpdated=true;});review.decided=true;review.cardUpdates=[];review.skipped=review.duplicates.filter(entry=>!entry.cardReviewUpdated&&!entry.row.importAnyway).length;
    rebuildTransactions();saveLocal();recordImmediateUpsert('import_history',syncStableId('import_history',history,importHistory.length-1),history,'statement-card-review');
-   renderTransactions();renderAccounts();renderDashboard();renderReports();renderImportHistory();renderImportPreview();
+   renderTransactions();renderAccounts();renderDashboard();renderReports();renderImportHistory();renderImportPreview();window.financeRenderStatementComparison?.();
    selected.clear();renderRows();status.textContent='Updated '+saved.length+' existing transaction(s) using the reviewed card assignments. No transactions added; amounts and balances unchanged. You can update another group or return to import the new rows.';
   }catch(error){status.textContent=error.message;}finally{busy=false;updateCounts();}
  };
+})();
+
+/* Read-only, one-to-one comparison of the complete upload against a statement tag. */
+(function(){
+ const el=id=>document.getElementById(id),esc=escapeHtml;
+ window.financeCompareStatement=function(uploaded,existing){
+  const remaining=new Set(existing.map((_,i)=>i)),pairs=[],missing=[];
+  const sameCurrency=(a,b)=>String(a.currency||financeBaseCurrency())===String(b.currency||financeBaseCurrency());
+  const text=v=>String(v||'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+  const identity=(a,b)=>{const ar=String(a.reference||'').trim(),br=String(b.reference||'').trim();return sameCurrency(a,b)&&importDateDays(a.date,b.date)<=3&&(ar&&br?ar===br:!!text(a.description)&&text(a.description)===text(b.description));};
+  // Reserve equal-amount matches before considering possible amount discrepancies.
+  uploaded.forEach(row=>{const candidates=[...remaining].filter(i=>identity(row,existing[i])&&financeRoundMoney(Number(row.amount))===financeRoundMoney(Number(existing[i].amount)));candidates.sort((a,b)=>importDateDays(row.date,existing[a].date)-importDateDays(row.date,existing[b].date));if(candidates.length){const i=candidates[0];remaining.delete(i);pairs.push({row,old:existing[i],type:'Matched',delta:0});}else missing.push(row);});
+  const unmatched=[];
+  missing.forEach(row=>{const candidates=[...remaining].filter(i=>identity(row,existing[i]));if(candidates.length===1&&missing.filter(other=>identity(other,existing[candidates[0]])).length===1){const i=candidates[0];remaining.delete(i);pairs.push({row,old:existing[i],type:row.statementBillingAmount===0&&row.comparisonUsesBilling?'Not billed in uploaded statement':'Possible amount difference',delta:financeRoundMoney(Number(row.amount)-Number(existing[i].amount))});}else unmatched.push({row,type:'Only in uploaded statement',delta:financeRoundMoney(Number(row.amount))});});
+  const extras=[...remaining].map(i=>{const old=existing[i],possibleDuplicate=pairs.some(p=>identity(p.row,old)&&financeRoundMoney(Number(p.row.amount))===financeRoundMoney(Number(old.amount)));return {old,type:possibleDuplicate?'Only in system — possible duplicate':'Only in system',delta:financeRoundMoney(-Number(old.amount))};});
+  const totals=rows=>({count:rows.length,charges:financeRoundMoney(rows.reduce((s,r)=>s+Math.max(0,-Number(r.amount)),0)),credits:financeRoundMoney(rows.reduce((s,r)=>s+Math.max(0,Number(r.amount)),0)),net:financeRoundMoney(-rows.reduce((s,r)=>s+Number(r.amount),0))});
+  const statement=totals(uploaded),system=totals(existing),difference=financeRoundMoney(system.net-statement.net),issues=[...extras,...unmatched,...pairs.filter(p=>p.type!=='Matched')];
+  return {statement,system,difference,issues,matched:pairs.filter(p=>p.type==='Matched').length,explained:financeRoundMoney(issues.reduce((s,r)=>s+r.delta,0))};
+ };
+ window.financeSetStatementComparison=function(rows,fileName,month){
+  window.financeStatementComparison={rows:rows.map(r=>({...r})),fileName,workspace:window.financeWorkspaceUserId,month:month||rows[0]?.statementMonth||''};
+  const ids=[...new Set(rows.map(r=>r.account))];el('statementCompareAccount').innerHTML=ids.map(id=>'<option value="'+esc(id)+'">'+esc(accountName(id))+'</option>').join('');
+  el('statementCompareMonth').value=window.financeStatementComparison.month;el('statementCompareBasis').value=rows.some(r=>r.statementBillingAmount!=null)?'billing':'transaction';
+  window.financeRenderStatementComparison();
+ };
+ window.financeRenderStatementComparison=function(){
+  const data=window.financeStatementComparison,panel=el('statementComparison');if(!panel)return;
+  panel.hidden=!data||data.workspace!==window.financeWorkspaceUserId;if(panel.hidden)return;
+  const id=el('statementCompareAccount').value,month=el('statementCompareMonth').value;
+  if(!/^\d{4}-\d{2}$/.test(month)){el('statementCompareSummary').textContent='Choose the statement month to compare.';el('statementCompareTotals').innerHTML='';el('statementCompareRows').innerHTML='';return;}
+  rebuildTransactions();
+  const useBilling=el('statementCompareBasis').value==='billing';const uploaded=data.rows.filter(r=>r.account===id).map(r=>({...r,amount:useBilling&&r.statementBillingAmount!=null?r.statementBillingAmount:(r.statementTransactionAmount??r.amount),comparisonUsesBilling:useBilling&&r.statementBillingAmount!=null})),existing=normalizedTx().filter(r=>r.account===id&&r.statementMonth===month);
+  const currency=financeBaseCurrency(),invalid=[...uploaded,...existing].some(r=>!Number.isFinite(Number(r.amount))||(r.currency&&r.currency!==currency));
+  if(invalid){el('statementCompareSummary').textContent='Comparison paused: amounts must be valid and in the workspace currency.';el('statementCompareTotals').innerHTML='';el('statementCompareRows').innerHTML='';return;}
+  const result=window.financeCompareStatement(uploaded,existing);
+  const metrics=[['Uploaded statement',result.statement],['System · '+month,result.system]];
+  el('statementCompareTotals').innerHTML=metrics.map(([label,t])=>'<div class="panel"><b>'+esc(label)+'</b><div>'+t.count+' transactions</div><div>Charges: '+money(t.charges)+'</div><div>Payments / credits: '+money(t.credits)+'</div><div><b>Net charges: '+money(t.net)+'</b></div></div>').join('')+'<div class="panel"><b>System minus statement</b><div class="statementDifference">'+signed(result.difference)+'</div><div>'+ (result.difference>0?'System is higher':result.difference<0?'System is lower':'Totals agree')+'</div><div>Explained by listed rows: '+signed(result.explained)+'</div></div>';
+  el('statementCompareSummary').textContent=data.fileName+' · All uploaded rows for this account compared with Statement '+month+' tags, regardless of transaction date. '+(useBilling?'Bank billing amounts used where supplied; zero billing rows are not billed. ':'Transaction amounts used. ')+result.matched+' matched · '+result.issues.length+' differences. This compares transactions, not opening or closing bank balances.';
+  el('statementCompareRows').innerHTML=result.issues.map(item=>{const row=item.row||item.old;return '<tr><td>'+esc(item.type)+'</td><td>'+esc(row.date)+'</td><td>'+esc(row.description)+'</td><td>'+ (item.row?signed(item.row.amount):'—')+'</td><td>'+(item.old?signed(item.old.amount):'—')+'</td><td>'+signed(item.delta)+'</td><td>'+esc(item.old?physicalCardLabelFor(id,item.old.physicalCardEnding||account(id)?.ending)+' · '+item.old._id:'Not matched to this statement tag')+'</td></tr>';}).join('')||'<tr><td colspan="7">No differences found. Uploaded transactions match this statement tag.</td></tr>';
+ };
+ el('statementCompareMonth').onchange=window.financeRenderStatementComparison;
+ el('statementCompareAccount').onchange=window.financeRenderStatementComparison;el('statementCompareBasis').onchange=window.financeRenderStatementComparison;
+ el('statementCompareRefresh').onclick=window.financeRenderStatementComparison;
 })();

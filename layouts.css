@@ -184,3 +184,5 @@ html body #canonicalAppTop .canonicalAvatar.financePhotoAvatar{background-size:c
 
 html[data-finance-theme="light"] .statementCardToolbar select,html[data-finance-theme="light"] .statementCardTableWrap select,html[data-finance-theme="light"] .statementCardToolbar option,html[data-finance-theme="light"] .statementCardTableWrap option{color-scheme:light;background:#edf5f8;color:#163c53}
 html body #statementCardReview{padding:24px;box-sizing:border-box}.statementCardTableWrap td:nth-child(2),.statementCardTableWrap td:nth-child(4){white-space:nowrap}.statementCardToolbar button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:600px){html body #statementCardReview{padding:16px}}
+
+.statementCompareTotals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.statementCompareTotals .panel{display:grid;gap:8px;margin:0}.statementDifference{font-size:26px;font-weight:700}#statementCompareSummary{overflow-wrap:anywhere}@media(max-width:700px){.statementCompareTotals{grid-template-columns:1fr}}
