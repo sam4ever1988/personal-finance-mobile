@@ -251,3 +251,32 @@
  el('statementCompareAccount').onchange=window.financeRenderStatementComparison;el('statementCompareBasis').onchange=window.financeRenderStatementComparison;
  el('statementCompareRefresh').onclick=window.financeRenderStatementComparison;
 })();
+
+/* 3.98: share transaction normalization only within one synchronous page render.
+   No calculated data survives navigation, edits, cloud updates or the render. */
+(function(){
+ let renderData=null;
+ for(const name of ['liveCardTransactions','normalizedTx']){
+  const original=window[name];
+  window[name]=function(includeInactive=false){
+   if(!renderData)return original(includeInactive);
+   const key=name+'|'+!!includeInactive;
+   if(!renderData.has(key))renderData.set(key,original(includeInactive));
+   // Each consumer keeps its own rows, as with the original normalization.
+   return renderData.get(key).map(row=>({...row}));
+  };
+ }
+ // Existing writes and rebuilds invalidate data even if invoked during a render.
+ for(const name of ['saveLocal','rebuildTransactions']){
+  const original=window[name];
+  window[name]=function(...args){if(renderData)renderData.clear();return original.apply(this,args);};
+ }
+ for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy']){
+  const original=window[name];
+  window[name]=function(...args){
+   if(renderData)return original.apply(this,args);
+   renderData=new Map();
+   try{return original.apply(this,args);}finally{renderData=null;}
+  };
+ }
+})();

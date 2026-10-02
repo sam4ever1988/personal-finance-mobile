@@ -137,5 +137,10 @@ var financeDecimalCache=new Map();
 function financeMoneyDecimals(currency=financeBaseCurrency()){if(!financeDecimalCache.has(currency))financeDecimalCache.set(currency,new Intl.NumberFormat('en',{style:'currency',currency}).resolvedOptions().maximumFractionDigits);return financeDecimalCache.get(currency);}
 function financeRoundMoney(n){const scale=10**financeMoneyDecimals();return Math.round(Number(n)*scale)/scale;}
 function financeMoneyStep(){return String(10**-financeMoneyDecimals());}
-function financeFormatAmount(n,currency=financeBaseCurrency()){const digits=financeMoneyDecimals(currency);return Number(n).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
+var financeAmountFormatters=new Map();
+function financeFormatAmount(n,currency=financeBaseCurrency()){
+ const digits=financeMoneyDecimals(currency);
+ if(!financeAmountFormatters.has(digits))financeAmountFormatters.set(digits,new Intl.NumberFormat('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}));
+ return financeAmountFormatters.get(digits).format(Number(n));
+}
 document.addEventListener('focusin',event=>{const input=event.target;if(input?.type!=='number'||input.step!=='0.01')return;const label=input.closest('label')?.textContent||input.closest('.field')?.querySelector('label')?.textContent||'';if(label.includes(financeBaseCurrency())||/amount|balance|salary|income|payment|cost/i.test(input.id)&&!/^inv(?!SettlementAmount|Dividend)/.test(input.id)){input.step=financeMoneyStep();if(input.min==='0.01')input.min=financeMoneyStep();}});
