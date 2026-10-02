@@ -1712,6 +1712,8 @@ function rebuildResetCardPlannerRows(cardId){
 }
 
 function ensureImportedTransactionPlannerRows(cardId,rows=[]){
+ // Bank imports and edits affect bank balances, not credit-card obligations.
+ if(!isCreditCardAccountId(cardId))return;
  const months=[...new Set(
   (rows||[])
    .filter(t=>t.account===cardId)

@@ -12,7 +12,7 @@ function fixture(){
  vm.createContext(ctx);
  vm.runInContext(fn('06','syncRecordValue'),ctx);
  for(const name of ['cashFlowLedgerKey','addCashFlowLedgerEntry'])vm.runInContext(fn('02',name),ctx);
- for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','cloudLoanHistoryExplainsCache','recoverStaleLoanCache','safeIncomingRecordRows','mergeBankBalanceFields','recordPushAll','recordImmediateUpsert','recordImmediateBatch','cloudRefreshInteractionBlocked','cloudHasLocalEditsSinceBaseline','cloudUnresolvedRecordKeys','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
+ for(const name of ['alignOutgoingLedgerIdsWithCloud','recordSyncBaseline','rememberRecordSyncBaseline','rememberRemoteRecordBaseline','cloudLoanHistoryExplainsCache','recoverStaleLoanCache','safeIncomingRecordRows','mergeBankBalanceFields','isObsoleteBankImportPlannerRow','queueObsoleteBankImportPlannerRows','recordPushAll','recordImmediateUpsert','recordImmediateBatch','cloudRefreshInteractionBlocked','cloudHasLocalEditsSinceBaseline','cloudUnresolvedRecordKeys','cloudAutoReconcile','useCloudBankBalanceValue'])vm.runInContext(fn('07',name),ctx);
  ctx.cloudProtectedRefreshBusy=false;
  return ctx;
 }
