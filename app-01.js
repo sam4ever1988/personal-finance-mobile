@@ -29,7 +29,16 @@ var financeDB={
    ?'PersonalFinanceDB-restricted-'+window.financeActiveUserId+'-'+window.financePageFingerprint+'-'+(localStorage.getItem('pf_permission_epoch')||'initial')
    :window.financeIsOwner?'PersonalFinanceDB':('PersonalFinanceDB-'+(window.financeActiveUserId||'signed-out')),
  version:1,store:'app_state',
- open(){return new Promise((resolve,reject)=>{const r=indexedDB.open(this.name,this.version);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(this.store))db.createObjectStore(this.store)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
+ open(){
+  if(this.openPromise)return this.openPromise;
+  this.openPromise=new Promise((resolve,reject)=>{
+   const r=indexedDB.open(this.name,this.version);
+   r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(this.store))db.createObjectStore(this.store)};
+   r.onsuccess=()=>{const db=r.result;db.onversionchange=()=>{db.close();this.openPromise=null;};resolve(db);};
+   r.onerror=()=>{this.openPromise=null;reject(r.error)};
+  });
+  return this.openPromise;
+ },
  async put(key,value){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readwrite');tx.objectStore(this.store).put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})},
  async get(key){const db=await this.open();return new Promise((resolve,reject)=>{const tx=db.transaction(this.store,'readonly');const r=tx.objectStore(this.store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})},
  snapshot(){return {categories,installments,merchantRules,txOverrides,incomePlan,manualTransactions,importedTransactions,importHistory,outgoings,duplicateDecisions,statementRule,transactionActions,cardPaymentPlan,cashFlowLedger,savedAt:new Date().toISOString()}},

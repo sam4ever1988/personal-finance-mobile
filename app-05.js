@@ -61,6 +61,11 @@ function renderInstallments(){
  // Accounts + legacy Dashboard pages. Those pages render fresh when navigated to.
 }
 
+function refreshCategoryViews(){
+ // Changed categories appear in the active module now. Hidden modules rebuild
+ // their controls and totals on navigation instead of blocking the save.
+ renderCurrentPageForSections(['categories','merchant_rules','tx_overrides','installments']);
+}
 function renderCategories(){
  const names=Object.keys(categories);if(!categories[selectedCategory])selectedCategory=names[0]||'';
  const subCount=names.reduce((sum,name)=>sum+(categories[name]||[]).length,0);
@@ -78,7 +83,7 @@ function renderCategories(){
  document.querySelectorAll('[data-del-sub]').forEach(b=>b.addEventListener('click',()=>deleteSubcategoryName(selectedCategory,b.dataset.delSub)));
  const rules=Object.entries(merchantRules);
  $('merchantRulesBody').innerHTML=rules.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v.category)}</td><td>${escapeHtml(v.subcategory||'—')}</td><td><button type="button" class="btn small danger" data-rule="${escapeHtml(encodeURIComponent(k))}">Delete</button></td></tr>`).join('')||'<tr><td colspan="4">No remembered merchant rules yet.</td></tr>';
- document.querySelectorAll('[data-rule]').forEach(b=>b.addEventListener('click',()=>{delete merchantRules[decodeURIComponent(b.dataset.rule)];saveLocal();renderCategories();renderTransactions();renderReports()}));
+ document.querySelectorAll('[data-rule]').forEach(b=>b.addEventListener('click',()=>{delete merchantRules[decodeURIComponent(b.dataset.rule)];saveLocal();refreshCategoryViews()}));
  refreshCategoryDropdowns();
 }
 function refreshCategoryDropdowns(){
@@ -144,7 +149,7 @@ function deleteCategoryName(name){
  Object.values(merchantRules).forEach(v=>{if(v.category===name){v.category='Miscellaneous';v.subcategory='Unexpected Expenses'}});
  installments.forEach(p=>{if(p.category===name){p.category='Miscellaneous';p.subcategory='Unexpected Expenses'}});
  delete categories[name];selectedCategory=Object.keys(categories)[0]||'';
- saveLocal();renderCategories();renderTransactions();renderReports();renderInstallments();
+ saveLocal();refreshCategoryViews();
 }
 function deleteSubcategoryName(cat,name){
  if(!confirm(`Delete subcategory "${name}" from "${cat}"? Existing matching records will become Uncategorized.`))return;
@@ -153,7 +158,7 @@ function deleteSubcategoryName(cat,name){
  Object.values(merchantRules).forEach(v=>{if(v.category===cat&&v.subcategory===name)v.subcategory='Uncategorized'});
  installments.forEach(p=>{if(p.category===cat&&p.subcategory===name)p.subcategory='Uncategorized'});
  categories[cat]=(categories[cat]||[]).filter(x=>x!==name);
- saveLocal();renderCategories();renderTransactions();renderReports();renderInstallments();
+ saveLocal();refreshCategoryViews();
 }
 $('simpleForm').addEventListener('submit',e=>{
  e.preventDefault();
@@ -218,10 +223,7 @@ $('simpleForm').addEventListener('submit',e=>{
 
  saveLocal();
  closeModal('simpleModal');
- renderCategories();
- renderTransactions();
- renderReports();
- renderInstallments();
+ refreshCategoryViews();
 });
 
 

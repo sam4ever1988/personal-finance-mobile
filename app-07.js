@@ -650,13 +650,23 @@ async function handleRealtimeRecordPayload(payload){
  }
 }
 
-async function startRealtimeRecordSync(){
+var recordSyncStartPromise=null;
+var recordSyncChannelIdentity='';
+function startRealtimeRecordSync(){
+ if(recordSyncStartPromise)return recordSyncStartPromise;
+ recordSyncStartPromise=startRealtimeRecordSyncOnce().finally(()=>{recordSyncStartPromise=null;});
+ return recordSyncStartPromise;
+}
+async function startRealtimeRecordSyncOnce(){
  if(!cloudClient)return false;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session){
   recordSyncReady=false;
   return false;
  }
+
+ const identity=session.user.id+'|'+(window.financeWorkspaceUserId||session.user.id);
+ if(recordSyncChannel&&recordSyncChannelIdentity===identity&&recordSyncReady&&!recoveryCloudLockActive())return true;
 
  if(!financeProtectedAccountCatalogReady()){
   recordSyncReady=false;
@@ -686,6 +696,7 @@ async function startRealtimeRecordSync(){
  // remains as a fallback. The delta handler never replaces the full local database.
  if(recordSyncChannel){try{await cloudClient.removeChannel(recordSyncChannel);}catch(_){} recordSyncChannel=null;}
  if(recordSyncReady){
+  recordSyncChannelIdentity=identity;
   recordSyncChannel=cloudClient.channel('finance-sync-records-v284')
    .on('postgres_changes',{event:'*',schema:'public',table:RECORD_SYNC_TABLE},handleRealtimeRecordPayload)
    .subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')cloudSetStatus('Realtime reconnect pending • protected polling remains active');});
@@ -981,13 +992,21 @@ async function useCloudBankBalanceValue(accountId,expectedLocal,expectedCloud){
  await renderCloudReconciliation();
  return true;
 }
-async function renderCloudReconciliation(){
+var cloudReconciliationPromise=null;
+var cloudDiffExpanded=false;
+function renderCloudReconciliation(){
+ if(cloudReconciliationPromise)return cloudReconciliationPromise;
+ cloudReconciliationPromise=renderCloudReconciliationOnce().finally(()=>{cloudReconciliationPromise=null;});
+ return cloudReconciliationPromise;
+}
+async function renderCloudReconciliationOnce(){
  const el=$('cloudReconciliation');
  if(!el||!cloudClient)return;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session){el.innerHTML='<b>Local vs Cloud:</b> Sign in to compare.';return;}
  try{
   const cloudRows=await recordFetchAll();
+  const detailScroll=$('cloudDiffDetails')?.scrollTop||0;
   const active=cloudRows.filter(r=>!r.deleted_at);
   if(!active.length){el.className='notice danger';el.innerHTML='<b>Local vs Cloud:</b> No active cloud records found.';return;}
   const localRows=buildRecordSyncRowsFromState();
@@ -1053,7 +1072,13 @@ async function renderCloudReconciliation(){
     button.onclick=async()=>{button.disabled=true;try{await cloudDownloadAll();}catch(error){cloudSetStatus(error.message);button.disabled=false;}};
    }
    el.querySelectorAll('[data-use-cloud-bank]').forEach(button=>{button.onclick=async()=>{button.disabled=true;try{const d=balanceChoices[Number(button.dataset.useCloudBank)];await useCloudBankBalanceValue(d.field,d.local,d.cloud);}catch(error){cloudSetStatus(error.message);button.disabled=false;}};});
-   const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');if(b&&d)b.onclick=()=>{const open=d.style.display!=='none';d.style.display=open?'none':'block';b.textContent=open?'View Differences':'Hide Differences';};
+   const b=$('cloudDiffToggle'),d=$('cloudDiffDetails');
+   if(b&&d){
+    d.style.display=cloudDiffExpanded?'block':'none';d.scrollTop=detailScroll;
+    b.textContent=cloudDiffExpanded?'Hide Differences':'View Differences';
+    b.setAttribute('aria-expanded',String(cloudDiffExpanded));
+    b.onclick=()=>{cloudDiffExpanded=!cloudDiffExpanded;d.style.display=cloudDiffExpanded?'block':'none';b.textContent=cloudDiffExpanded?'Hide Differences':'View Differences';b.setAttribute('aria-expanded',String(cloudDiffExpanded));};
+   }
   }
  }catch(e){
   el.className='notice danger';
