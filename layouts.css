@@ -188,3 +188,11 @@ html body #statementCardReview{padding:24px;box-sizing:border-box}.statementCard
 .statementCompareTotals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.statementCompareTotals .panel{display:grid;gap:8px;margin:0}.statementDifference{font-size:26px;font-weight:700}#statementCompareSummary{overflow-wrap:anywhere}@media(max-width:700px){.statementCompareTotals{grid-template-columns:1fr}}
 /* Dialog actions remain above fixed navigation on every page and screen size. */
 html body #unifiedActionModal.modalBack{z-index:2147483647!important;box-sizing:border-box}html body #unifiedActionModal .modal{max-height:calc(100dvh - 36px);box-sizing:border-box;overscroll-behavior:contain}
+
+/* V394: duplicate review follows the surrounding workspace palette. */
+html body .dupResolveBox{background:#082f43;border-color:#176581;color:#edf7ff;white-space:normal}
+html body .dupResolveBox .meta{color:#a9c5d7}
+html body .dupResolveBox .btn:not(.primary){background:#062b3d;color:#edf7ff;border-color:#176581}
+html[data-finance-theme="light"] body .dupResolveBox{background:#edf5f8;border-color:#aac9d7;color:#163c53}
+html[data-finance-theme="light"] body .dupResolveBox .meta{color:#617d8c}
+html[data-finance-theme="light"] body .dupResolveBox .btn:not(.primary){background:#f8fbfc;color:#163c53;border-color:#aac9d7}

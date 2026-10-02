@@ -323,6 +323,20 @@ function isMisassignedNbdPaymentExpense(t){
    x.sourceId==='ar-0955' && x.targetId==='nbd-infinite-4411' && Math.abs(Number(x.amount||0)-11025)<0.01);
 }
 
+function rememberedMerchantCategory(description){
+ const text=String(description||'').trim().toLowerCase();
+ const key=Object.keys(merchantRules||{}).filter(k=>k.trim()).sort((a,b)=>b.length-a.length).find(k=>text.includes(k.toLowerCase()));
+ return key?merchantRules[key]:null;
+}
+function applyRememberedTransactionCategory(out,override){
+ const rule=rememberedMerchantCategory(out.description);
+ // Date, amount and physical-card overrides must not disable merchant memory.
+ // Explicit categorization of a transaction still takes precedence.
+ if(rule&&!Object.prototype.hasOwnProperty.call(override||{},'category')&&!Object.prototype.hasOwnProperty.call(override||{},'subcategory')){
+  out.category=rule.category;out.subcategory=rule.subcategory||'';
+ }
+ return out;
+}
 function liveCardTransactions(includeInactive=false){
  const rows=[
   ...importedTransactions.map((t,i)=>({...t,manual:false,imported:true,_id:t._id||('import'+i)})),
@@ -334,9 +348,7 @@ function liveCardTransactions(includeInactive=false){
   out.paymentMonth=out.paymentMonth||paymentMonthForTransaction(out.account,out.date);
   out.statementMonth=out.statementMonth||out.paymentMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
   if(txOverrides[t._id])Object.assign(out,txOverrides[t._id]);
-  const ruleKeys=Object.keys(merchantRules).sort((a,b)=>b.length-a.length);
-  const rk=ruleKeys.find(k=>String(out.description||'').toLowerCase().includes(k.toLowerCase()));
-  if(rk && !txOverrides[t._id])Object.assign(out,merchantRules[rk]);
+  applyRememberedTransactionCategory(out,txOverrides[t._id]);
   out.txAction=transactionActions[t._id]||null;
   if(isNbdPaymentOnSourceCard(out)){
    out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
@@ -351,9 +363,7 @@ function normalizedTx(includeInactive=false){
    out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
    if(txOverrides[t._id]) Object.assign(out,txOverrides[t._id]);
    out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
-   const ruleKeys=Object.keys(merchantRules).sort((a,b)=>b.length-a.length);
-   const rk=ruleKeys.find(k=>out.description.toLowerCase().includes(k.toLowerCase()));
-   if(rk && !txOverrides[t._id]) Object.assign(out,merchantRules[rk]);
+   applyRememberedTransactionCategory(out,txOverrides[t._id]);
    out.txAction=transactionActions[t._id]||null;
   if(isNbdPaymentOnSourceCard(out)){
    out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
@@ -1467,7 +1477,7 @@ function renderReviewAlerts(){
 }
 function openManualTransaction(prefill={}){
  fillAccountSelect($('manualTxAccount'),true);if(prefill.account)$('manualTxAccount').value=prefill.account;fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,prefill.physicalCardEnding||'');
- $('manualTxDate').value=prefill.date||'2026-08-28';
+ $('manualTxDate').value=prefill.date||new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
  $('manualTxDesc').value=prefill.description||'';
  $('manualTxType').value=prefill.kind||'expense';
  $('manualTxAmount').value=prefill.amount?Math.abs(prefill.amount):'';
@@ -1475,6 +1485,9 @@ function openManualTransaction(prefill={}){
  $('manualTxCategory').value=prefill.category||'Miscellaneous';
  if(!$('manualTxCategory').value)$('manualTxCategory').selectedIndex=0;
  fillSubcategorySelect($('manualTxSubcategory'),$('manualTxCategory').value,prefill.subcategory||'Unexpected Expenses');
+ $('manualTxRememberMerchant').checked=true;
+ $('manualTxForm').dataset.categoryChosen='';
+ if(!prefill.category)prefillManualMerchantCategory();
  $('manualTxInstallment').checked=false;
  updateManualInstallmentEligibility();
  openModal('manualTxModal');

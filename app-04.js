@@ -509,8 +509,7 @@ function bindTxRows(){
   };
  });
 
- document.querySelectorAll('[data-dup-keep]').forEach(b=>b.onclick=e=>{e.stopPropagation();resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep)});
- document.querySelectorAll('[data-dup-action]').forEach(b=>b.onclick=e=>{e.stopPropagation();setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction)});
+ // Duplicate review actions use the permanent capture handler below.
  document.querySelectorAll('[data-delete-tx]').forEach(b=>b.onclick=e=>{
   e.preventDefault();e.stopPropagation();deleteTransactionRecord(b.dataset.deleteTx);
  });
@@ -538,6 +537,18 @@ if(!window.__transactionSelectionDelegated){
  },true);
 }
 
+// Capture handles freshly rendered buttons even before table binding and prevents
+// surrounding row navigation or click hardening from consuming the action.
+document.addEventListener('click',e=>{
+ const b=e.target?.closest?.('[data-dup-keep],[data-dup-action]');
+ if(!b||b.disabled)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ if(b.hasAttribute('data-dup-keep'))resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep);
+ else setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction);
+},true);
+function financeCanResolveDuplicates(){
+ return (!window.financeSectionPermission||['duplicate_decisions','transaction_actions'].every(s=>window.financeSectionPermission(s)==='edit'));
+}
 function cardPaymentSourceDisplay(p){
  const directHistory=(Array.isArray(p?.paymentHistory)?p.paymentHistory:[]).filter(h=>!h.mirrored&&Number(h.amount||0)>0);
  const ledgerHistory=(cashFlowLedger||[])
@@ -792,6 +803,8 @@ function deleteTransactionRecord(id){
  refreshAfterTransactionChange(t.account||'');
 }
 function resolveDuplicate(aId,bId,keepId){
+ if(!financeCanResolveDuplicates())return;
+ if(keepId!==aId&&keepId!==bId)return;
  const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);if(!a||!b)return;
  const removeId=keepId===aId?bId:aId;
  const keep=keepId===aId?a:b;
@@ -812,10 +825,11 @@ function dupDays(a,b){return Math.abs((new Date(a+'T00:00:00Z')-new Date(b+'T00:
 function duplicatePairKey(a,b){return [a._id,b._id].sort().join('::')}
 function duplicateDecision(a,b){return duplicateDecisions[duplicatePairKey(a,b)]||''}
 function setDuplicateDecision(aId,bId,decision){
+ if(!financeCanResolveDuplicates())return;
  const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);if(!a||!b)return;
  if(decision==='not-duplicate'){
    duplicateDecisions[duplicatePairKey(a,b)]='not-duplicate';
-   saveLocal();renderTransactions();renderReviewAlerts();
+   saveLocal();refreshAfterTransactionChange(a.account);
  }
 }
 function possibleDuplicateGroups(includeDecided=false){

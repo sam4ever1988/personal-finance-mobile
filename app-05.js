@@ -249,7 +249,17 @@ $('addTransaction').addEventListener('click',()=>{setTimeout(()=>{
 $('addTransaction').addEventListener('click',()=>openManualTransaction());
 if($('moreAddTransaction'))$('moreAddTransaction').addEventListener('click',()=>openManualTransaction());
 $('quickAddTransaction')?.addEventListener('click',()=>openManualTransaction());
-$('manualTxCategory').addEventListener('change',()=>fillSubcategorySelect($('manualTxSubcategory'),$('manualTxCategory').value));
+function prefillManualMerchantCategory(){
+ if($('manualTxForm').dataset.categoryChosen==='1')return;
+ const rule=rememberedMerchantCategory($('manualTxDesc').value);
+ if(!rule||!categories[rule.category])return;
+ $('manualTxCategory').value=rule.category;
+ fillSubcategorySelect($('manualTxSubcategory'),rule.category,rule.subcategory);
+ $('manualTxForm').dataset.smsNeedsReview='0';
+}
+$('manualTxDesc').addEventListener('input',prefillManualMerchantCategory);
+$('manualTxSubcategory').addEventListener('change',()=>{$('manualTxForm').dataset.categoryChosen='1';});
+$('manualTxCategory').addEventListener('change',()=>{$('manualTxForm').dataset.categoryChosen='1';fillSubcategorySelect($('manualTxSubcategory'),$('manualTxCategory').value);});
 $('manualTxAccount').addEventListener('change',()=>{fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,'');updateManualInstallmentEligibility();});
 ['manualTxType','manualTxAmount'].forEach(id=>$(id).addEventListener('input',updateManualInstallmentEligibility));
 
@@ -362,6 +372,8 @@ function applyBankSms(){
  const credit=smsLooksLikeCredit(raw);
  const channel=parseSmsPaymentChannel(raw);
  const classification=classifyBankSms(raw,merchant);
+ const remembered=rememberedMerchantCategory(classification.description);
+ if(remembered)Object.assign(classification,{category:remembered.category,subcategory:remembered.subcategory,needsReview:false});
 
  if(accountId){$('manualTxAccount').value=accountId;const detectedEnding=accountPhysicalCards(accountId).find(e=>smsNormalizeDigits(raw).includes(e))||'';fillPhysicalCardSelect($('manualTxPhysicalCard'),accountId,false,detectedEnding);}
  $('manualTxDate').value=dt.date;
@@ -417,6 +429,8 @@ $('manualTxForm').addEventListener('submit',e=>{
   smsImported:!!form.dataset.smsRaw,smsTime:form.dataset.smsTime||'',smsRemainingBalance:Number.isFinite(smsRemaining)?smsRemaining:null,
   smsRaw:form.dataset.smsRaw||'',smsPaymentChannel:form.dataset.smsPaymentChannel||'',needsCategoryReview:form.dataset.smsNeedsReview==='1',trackedBankApplied:selectedManualAccount?.type==='bank'
  };
+ if($('manualTxRememberMerchant').checked&&tx.description)merchantRules[tx.description]={category:tx.category,subcategory:tx.subcategory};
+ else if(rememberedMerchantCategory(tx.description))txOverrides[tx._id]={category:tx.category,subcategory:tx.subcategory};
  manualTransactions.push(tx);transactions.push({...tx});
 
  // Bank SMS "رصيد" is the available/remaining balance AFTER this transaction.
