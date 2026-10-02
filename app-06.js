@@ -1864,8 +1864,8 @@ function sectionAffectsPage(section,page){
  const map={
   executive:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','income_plan','outgoings','custom_banks','custom_credit_cards','investments_holdings','investments_trades','rental_bookings','rental_expenses','rental_blocks','rental_units','personal_assets_gold','personal_assets_zakat','personal_assets_sales','personal_assets_market']),
   transactions:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','duplicate_decisions','merchant_rules','categories','statement_rule','reset_card_ids','card_reset_history']),
-  accountDetail:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','reset_card_ids','card_reset_history','custom_banks','custom_credit_cards']),
-  accounts:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','custom_banks','custom_credit_cards']),
+  accountDetail:new Set(['finance_settings','merchant_rules','categories','statement_rule','manual_transactions','imported_transactions','tx_overrides','transaction_actions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','reset_card_ids','card_reset_history','custom_banks','custom_credit_cards']),
+  accounts:new Set(['tx_overrides','transaction_actions','manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','custom_banks','custom_credit_cards']),
   dashboard:new Set(['manual_transactions','imported_transactions','installments','card_payment_plan','cash_flow_ledger','bank_balance_overrides','finance_settings','income_plan','outgoings']),
   reports:new Set(['manual_transactions','imported_transactions','tx_overrides','transaction_actions','categories']),
   installments:new Set(['installments','deleted_installment_ids','card_payment_plan']),
@@ -1878,7 +1878,7 @@ function sectionAffectsPage(section,page){
   rental:new Set(['rental_bookings','rental_expenses','rental_blocks','rental_units']),
   assets:new Set(['personal_assets_gold','personal_assets_zakat','personal_assets_sales','personal_assets_market'])
  };
- return map[page]?.has(section)??false;
+ return map[['financialposition','strategy'].includes(page)?'executive':page]?.has(section)??false;
 }
 function renderCurrentPageForSections(sections){
  const page=activeViewId();
@@ -1895,6 +1895,8 @@ function renderCurrentPageForSections(sections){
  else if(page==='importstatements')renderImportPage();
  else if(page==='accounts')renderAccounts();
  else if(page==='dashboard')renderDashboard();
+ else if(page==='financialposition')renderFinancialPosition();
+ else if(page==='strategy')renderFinancialStrategy();
  else if(page==='investments'&&typeof renderInvestments==='function')renderInvestments();
  else if(page==='rental'&&typeof renderRental==='function')renderRental();
  else if(page==='assets'&&typeof renderGoldAssets==='function')renderGoldAssets();

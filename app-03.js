@@ -1236,7 +1236,7 @@ function restoreReviewPage(state,{restoreScroll=true}={}){
 
  restoreReviewControls(state);
 
- const page=state.page||'dashboard';
+ const page=state.page==='dashboard'?'executive':(state.page||'executive');
  if(!financePageVisible(page)){
   nav(['executive','rental','investments','transactions','accounts','assets','accountprofile']
     .find(p=>financePageVisible(p))||'accountprofile');
@@ -1316,6 +1316,7 @@ function loadSavedReviewState(){
 }
 
 function nav(page){
+ if(page==='dashboard')page='executive';
  if(page==='adminAccess'&&!window.financeIsOwner)return nav('accountprofile');
  if(!financePageVisible(page)){
   const first=['executive','rental','investments','transactions','accounts','assets','outgoings','installments','incomeplan','reports','accountprofile']
@@ -1460,36 +1461,8 @@ function unclearTransactions(){
 function eligibleUnplannedInstallments(){
  return normalizedTx().filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
 }
-function renderReviewAlerts(){
- const box=$('reviewAlerts'); if(!box)return;
- const unclear=unclearTransactions();
- const eligible=eligibleUnplannedInstallments();
- const dupGroups=possibleDuplicateGroups();
- const known=account('ar-0955');
- let parts=[];
- parts.push(`<div class="reviewAlert good"><div class="alertTitle">✓ Al Rajhi •0955 reconciled</div><div class="alertText">Bank available balance: <b>${money(6807.25)}</b>. Reserved installment balance: <b>${money(8852.17)}</b>. Available Credit: <b>${money(15659.42)}</b>.</div></div>`);
- parts.push(`<div class="reviewAlert info"><div class="alertTitle">Balance reconciliation note</div><div class="alertText">The imported •0955 activity runs from 31 Jul to 27 Aug and contains both purchases and large card payments. By itself, that activity does not establish the opening balance or any bank-side installment principal, so it cannot independently reconcile to ${money(6807.25)}. If a transaction is missing, use <b>Add Transaction</b>; if a purchase was converted by the bank, use <b>Convert to Installment Plan</b>.</div><div class="alertActions"><button class="btn" data-alert-action="addtx">+ Add Transaction</button></div></div>`);
- if(unclear.length){
-  const total=unclear.reduce((sum,t)=>sum+Math.abs(t.amount),0);
-  parts.push(`<div class="reviewAlert"><div class="alertTitle">⚠ ${unclear.length} transaction${unclear.length===1?'':'s'} need category review</div><div class="alertText">${money(total)} is currently under Miscellaneous / Unexpected Expenses. Review these so future reports are accurate.</div><div class="alertActions"><button class="btn" data-alert-action="unclear">Review Transactions</button></div></div>`);
- }
- if(eligible.length){
-  const total=eligible.reduce((sum,t)=>sum+Math.abs(t.amount),0);
-  parts.push(`<div class="reviewAlert"><div class="alertTitle">⚠ ${eligible.length} purchase${eligible.length===1?'':'s'} above SAR 1,000 can be reviewed for installments</div><div class="alertText">${money(total)} across Al Rajhi/SAB cards. Nothing is converted automatically—you choose the transaction and number of months.</div><div class="alertActions"><button class="btn primary" data-alert-action="eligible">Review Eligible Purchases</button></div></div>`);
- }
-  if(dupGroups.length){
-  const manualPairs=dupGroups.filter(g=>g.manualPair).length;
-  parts.push(`<div class="reviewAlert danger"><div class="alertTitle">⚠ ${dupGroups.length} possible duplicate pair${dupGroups.length===1?'':'s'}</div><div class="alertText">${manualPairs} pair${manualPairs===1?'':'s'} include a manually entered transaction that may now also exist in an imported statement. Choose which copy to keep, or mark the pair as Not a Duplicate. The excluded copy stays in history and does not count in calculations.</div><div class="alertActions"><button class="btn primary" data-alert-action="duplicates">Review Possible Duplicates</button></div></div>`);
- }
- box.innerHTML=parts.join('');
- box.querySelectorAll('[data-alert-action]').forEach(b=>b.addEventListener('click',()=>{
-  const a=b.dataset.alertAction;
-  if(a==='addtx')openManualTransaction();
-  if(a==='duplicates')showDuplicateReview();
-  if(a==='unclear'){nav('transactions');$('txCategory').value='Miscellaneous';renderTransactions();}
-  if(a==='eligible'){eligiblePurchasesOnly=true;nav('transactions');$('txSearch').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions();window.scrollTo({top:0,behavior:'smooth'});}
- }));
-}
+// Retained for older import handlers; current transaction attention controls own review.
+function renderReviewAlerts(){}
 function openManualTransaction(prefill={}){
  fillAccountSelect($('manualTxAccount'),true);if(prefill.account)$('manualTxAccount').value=prefill.account;fillPhysicalCardSelect($('manualTxPhysicalCard'),$('manualTxAccount').value,false,prefill.physicalCardEnding||'');
  $('manualTxDate').value=prefill.date||new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
@@ -1878,11 +1851,6 @@ function saveV194Data(){
  if(typeof scheduleCloudAutoSave==='function')scheduleCloudAutoSave();
 }
 function remainingMonthlyCashFlow(){return remainingIncomeAvailable();}
-function renderDashboardRemainingBalances(){
- const box=$('dashRemainingBalances'); if(!box)return;
- const cards=accounts.filter(a=>a.type==='card');
- box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px">'+cards.map(a=>{const m=cardMetrics(a);return '<div class="miniMetric" style="padding:10px 12px"><span>Card •'+escapeHtml(String(a.ending||''))+'</span><b style="font-size:16px">'+money(m.available)+'</b><small>Remaining</small></div>'}).join('')+'</div>';
-}
 function completeInstallmentEarly(id){
  const p=installments.find(x=>x.id===id); if(!p)return;
  const c=planCalc(p),a=account(p.cardId); const defaultAmt=Math.max(0,Number(c.remaining||0));

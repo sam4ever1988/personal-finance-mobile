@@ -127,46 +127,10 @@ function renderFinancialPosition(){
  $('fpSummary').innerHTML=`<div class="fpSummaryCards"><div class="fpSummaryCard"><small>Total Assets</small><b class="green">${money(totalAssets)}</b></div><div class="fpSummaryCard"><small>Total Liabilities</small><b class="red">${money(totalLiabilities)}</b></div><div class="fpSummaryCard"><small>Net Position</small><b class="${net>=0?'green':'red'}">${money(net)}</b></div></div>`;
 }
 
+// Compatibility entry point for older action handlers; the old renderer is retired.
 function renderDashboard(){
- const s=summaryData();
- const cardMetricsAll=accounts.filter(a=>a.type==='card').map(a=>cardMetrics(a));
- const obligations=cardMetricsAll.reduce((sum,m)=>sum+m.total,0);
- const currentCardBalance=cardMetricsAll.reduce((sum,m)=>sum+m.current,0);
- const reservedInstallments=cardMetricsAll.reduce((sum,m)=>sum+m.inst,0);
- const monthlyPlannedIncome=totalIncomePlan(), monthlyCardPayments=remainingIncomePaymentsTotal(), remainingMonthlyIncome=remainingIncomeAvailable();
- if($('dashKpis'))$('dashKpis').innerHTML=[
-  kpiHTML('Monthly Planned Income',money(monthlyPlannedIncome),`Paid from Monthly Planned Income: ${money(monthlyCardPayments)}`,'green'),
-  kpiHTML('Remaining for Card Payments',money(remainingMonthlyIncome),'After loans, outgoings and card payments already recorded',remainingMonthlyIncome>=0?'green':'red'),
-  kpiHTML('Current Card Balance',money(currentCardBalance),`Excludes ${money(reservedInstallments)} reserved in installment plans`,'red'),
-  kpiHTML('Total Card Bank Utilization',money(obligations),'Current balance + reserved installment principal','amber')
- ].join('');
- if($('sideBalance'))$('sideBalance').textContent=money(currentBankBalance());
- if($('sideUpdatedDate'))$('sideUpdatedDate').textContent='Updated '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
- renderDashboardRemainingBalances();
- if($('dashAccounts'))$('dashAccounts').innerHTML=accounts.map(accountCardHTML).join('');
- bindAccountCards();
- const rows=normalizedTx().slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
- if($('recentBody'))$('recentBody').innerHTML=rows.map(txRow5).join('');
- renderReviewAlerts();renderPaymentPlanner();
  if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();
 }
-function accountCardHTML(a){
- if(a.type==='card'){
-  const m=cardMetrics(a),meta=`Ending •${a.ending} • Available ${money(m.available)}`,sub=a.id==='ar-0955'?`<div class="subcardTags"><span class="subcardTag">Primary •0955</span><span class="subcardTag">Supplementary •9345</span><span class="subcardTag">Supplementary •9634</span></div>`:'';
-  return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${meta}${a.id==='sab-440880'?'':''}${resetCardIds.has(a.id)?' • RESET / DATE-DRIVEN':''}</div>${sub}</div><div style="text-align:right"><div class="amount red">${money(m.currentCycleUsage||0)}</div><div class="meta">Current cycle amount</div><div class="meta">${money(m.currentCycleTransactions||0)} transactions${Number(m.currentCycleInstallment||0)>0?` + ${money(m.currentCycleInstallment)} installment`:''}</div>${Number(m.releasedStatementBalance||0)>0?`<div class="meta blue" style="margin-top:3px">Released / amount to pay ${money(m.releasedStatementBalance)}${cardReleasedStatementBreakdown(a.id).length>1?` • ${cardReleasedStatementBreakdown(a.id).length} cycles`:''}</div>`:''}${m.inst>0?`<div class="meta amber" style="margin-top:3px">Future installment reserve ${money(m.inst)}</div>`:''}${m.creditBalance>0?`<div class="meta green" style="margin-top:3px">Card credit / payments received ${money(m.creditBalance)}</div>`:''}<div class="meta"><b>Total utilized ${money(m.total)}</b> • Bank/card position</div><button class="btn small danger" type="button" data-reset-card="${a.id}" style="margin-top:8px">Reset Card</button></div></div>`;
- }
- return `<div class="accountCard" data-account="${a.id}">${bankLogoHTML(a)}<div class="grow"><div class="name">${a.bank} • ${a.name}</div><div class="meta">${a.ending?`Ending •${a.ending}`:'Cash account'}</div></div><div><div class="amount green">${money(adjustedBankBalance(a))}</div><div class="meta" style="text-align:right">${a.balanceLabel||'Balance'}</div></div></div>`;
-}
-function bindAccountCards(){
- document.querySelectorAll('[data-account]').forEach(el=>el.addEventListener('click',e=>{
-  if(e.target.closest('[data-reset-card]'))return;
-  openAccount(el.dataset.account);
- }));
- document.querySelectorAll('[data-reset-card]').forEach(btn=>btn.addEventListener('click',e=>{
-  e.stopPropagation();resetCardData(btn.dataset.resetCard);
- }));
-}
-function txRow5(t){const ip=linkedActiveInstallment(t._id);return `<tr class="clickable" data-tx="${t._id}"><td>${t.date}</td><td><b>${t.description}</b>${ip?'<span class="badge active" style="margin-left:6px">Installment</span>':''}<div class="meta">${accountName(t.account)}${ip?` • ${money(planCalc(ip).remaining)} reserved`:''}</div></td><td>${t.category}</td><td>${account(t.account)?.ending||''}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`}
 var selectedTxIds=new Set();
 let bulkUpdateDraftActive=false;
 let bulkUpdateDraftState=null;
@@ -580,7 +544,6 @@ function cardPaymentSourceDisplay(p){
 }
 
 function renderAccounts(){
- const grid=$('accountsGrid');if(grid){grid.innerHTML=accounts.map(accountCardHTML).join('');bindAccountCards();}
  const cards=accounts.filter(a=>a.type==='card'),banks=accounts.filter(a=>a.type==='bank');
  const metrics=cards.map(a=>({a,m:cardMetrics(a)}));
  const bankBalance=banks.reduce((z,a)=>z+Number(adjustedBankBalance(a)||0),0);

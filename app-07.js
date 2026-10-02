@@ -1060,6 +1060,7 @@ async function renderCloudReconciliation(){
   el.innerHTML=`<b>Local vs Cloud:</b> Check failed • ${String(e.message||e)}`;
  }
 }
+var cloudPanelReconciliationTimer=null;
 function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
@@ -1070,8 +1071,16 @@ function updateCloudSyncPanel(remoteInitialized=null){
  if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
  if(loadBtn){loadBtn.disabled=remoteInitialized===false;}
- renderLocalSyncSummary();
- setTimeout(()=>renderCloudReconciliation(),0);
+ // The hidden sync page used to fetch and compare the entire database on every
+ // metadata update, stacking redundant network requests during each save.
+ if(activeViewId()==='cloudSync'){
+  renderLocalSyncSummary();
+  clearTimeout(cloudPanelReconciliationTimer);
+  cloudPanelReconciliationTimer=setTimeout(()=>{
+   cloudPanelReconciliationTimer=null;
+   if(activeViewId()==='cloudSync')renderCloudReconciliation();
+  },120);
+ }
 }
 async function cloudInspectState(){
  // The old settings snapshot belongs to the primary database only.
@@ -1743,6 +1752,40 @@ function cloudLocalLastSavedAt(){
  return meta.lastLocalSavedAt||meta.lastSyncedAt||'';
 }
 
+function cloudRefreshInteractionBlocked(){
+ const el=document.activeElement;
+ const visible=el&&(!el.getClientRects||el.getClientRects().length>0);
+ // Filters are view state, not unsaved records. Hidden dialog inputs can retain
+ // focus after dismissal and must not suspend downloads forever.
+ const editing=visible&&el.matches?.('input,select,textarea,[contenteditable="true"]')&&!!el.closest?.('form,[contenteditable="true"]');
+ const modalOpen=!!document.querySelector('.modalBack.open,.modal.open,.modal[style*="display: block"],dialog[open]');
+ const selecting=['transactions','accountDetail','reports'].includes(activeViewId())&&selectedTxIds.size>0;
+ return !!(editing||modalOpen||selecting||financeSettingsEditing);
+}
+function cloudHasLocalEditsSinceBaseline(){
+ const baseline=recordSyncBaseline();
+ return buildRecordSyncRowsFromState().some(r=>{
+  const key=`${r.section}|${r.record_id}`;
+  return baseline[key]!==undefined&&(!window.financeSectionPermission||window.financeSectionPermission(r.section)==='edit')&&syncRecordValue(r.data)!==syncRecordValue(JSON.parse(baseline[key]));
+ });
+}
+function cloudUnresolvedRecordKeys(remote,full=false){
+ const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
+ const queued=new Set(recordPendingDeletes.map(r=>`${r.section}|${r.record_id}`));
+ const keys=new Set(),cloudKeys=new Set();
+ for(const r of remote){
+  if(window.financeSectionPermission&&window.financeSectionPermission(r.section)==='off')continue;
+  if(r.section==='rental_blocks'&&/^\d+$/.test(String(r.record_id)))continue;
+  const key=`${r.section}|${r.record_id}`;cloudKeys.add(key);
+  if(queued.has(key))continue;
+  const mine=local.get(key);
+  if(r.deleted_at?!!mine:!mine||syncRecordValue(mine.data)!==syncRecordValue(r.data))keys.add(key);
+ }
+ if(full)for(const [key,r] of local){
+  if(!cloudKeys.has(key)&&!queued.has(key)&&(!window.financeSectionPermission||window.financeSectionPermission(r.section)!=='off'))keys.add(key);
+ }
+ return [...keys];
+}
 var cloudProtectedRefreshBusy=false;
 async function cloudAutoReconcile(reason='fallback'){
  if(!cloudClient||window.__financeStateInitialized!==true||cloudProtectedRefreshBusy)return false;
@@ -1754,32 +1797,52 @@ async function cloudAutoReconcile(reason='fallback'){
   // verified authoritative load. Never interrupt an active edit or overwrite pending work.
   const verified=localStorage.getItem('pf_v185_authoritative_cloud_loaded')==='1';
   const meta=getCloudMeta();
-  const activeEl=document.activeElement;
-  const editing=!!(activeEl&&activeEl.matches?.('input,select,textarea,[contenteditable="true"]'));
-  const modalOpen=!!document.querySelector('.modal.open,.modal[style*="display: block"],dialog[open]');
-  const transactionSelectionActive=selectedTxIds.size>0||!!activeEl?.matches?.('[data-select-tx],#txMasterCheck,#detailTxMasterCheck');
-  if(!recordSyncReady||recordSyncPushBusy||recordSyncApplying||editing||modalOpen||transactionSelectionActive)return false;
+  if(!recordSyncReady||recordSyncPushBusy||recordSyncApplying||cloudRefreshInteractionBlocked())return false;
   // A pending device still needs a guarded retry. recordPushAll compares its
   // local baseline before accepting remote edits, including tombstones.
-  if(meta.pending)return await recordPushAll(`pending-${reason}`);
+  if(meta.pending||cloudHasLocalEditsSinceBaseline())return await recordPushAll(`pending-${reason}`);
   if(!verified)return false;
   // Reopening a trusted device verifies its cache with one full read. Ordinary
   // polling remains incremental; overlapping focus/realtime checks are coalesced.
-  const refreshCache=['startup','visible','online'].includes(reason);
+  const refreshCache=['startup','visible','online','focus'].includes(reason);
   const changed=refreshCache?await recordFetchAll():await recordFetchChangedSince(currentCloudCursorIso());
+  if(refreshCache){
+   const cloudKeys=new Set(changed.map(r=>`${r.section}|${r.record_id}`));
+   const hasNewLocal=buildRecordSyncRowsFromState().some(r=>!cloudKeys.has(`${r.section}|${r.record_id}`)&&(!window.financeSectionPermission||window.financeSectionPermission(r.section)==='edit'));
+   if(hasNewLocal)return await recordPushAll(`unpublished-new-records-${reason}`);
+  }
   if(refreshCache&&recoverStaleLoanCache(changed))return await recordPushAll('verify-cloud-loan-cache');
   let recovered=[];
   if(changed.length){
    const result=applyRecordSyncDeltaRows(safeIncomingRecordRows(changed),{render:true});
+   const local=new Map(buildRecordSyncRowsFromState().map(r=>[`${r.section}|${r.record_id}`,r]));
+   rememberRemoteRecordBaseline(changed.filter(r=>!r.deleted_at&&syncRecordValue(local.get(`${r.section}|${r.record_id}`)?.data)===syncRecordValue(r.data)));
    rememberRemoteRecordBaseline(result.appliedRows);
    changed.forEach(r=>noteCloudUpdatedAt(r.updated_at));
    if(!refreshCache)recovered=await recoverCloudOnlyRecords();
+   const unresolved=cloudUnresolvedRecordKeys(changed,refreshCache);
+   if(unresolved.length){
+    window.financeSyncConflictKeys=unresolved;
+    setCloudMeta({reconciliationMismatch:true});
+    if(activeViewId()==='cloudSync')await renderCloudReconciliation();
+    cloudSetStatus(`Review sync • ${unresolved.length} device/cloud differences kept for review; local edits preserved`);
+    return result.changed||recovered.length>0;
+   }
+   if(refreshCache)setCloudMeta({reconciliationMismatch:false});
    setCloudMeta({initialized:true,deviceTrusted:true,pending:getCloudMeta().pending===true,lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),lastAutoSyncAt:new Date().toISOString(),lastAutoSyncReason:`protected-delta-${reason}`});
    if(activeViewId()==='cloudSync')await renderCloudReconciliation();
    cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:result.changed?'Cloud changes received':'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
    return result.changed||recovered.length>0;
   }
   if(!refreshCache)recovered=await recoverCloudOnlyRecords();
+  const unresolved=cloudUnresolvedRecordKeys(changed,refreshCache);
+  if(unresolved.length){
+   window.financeSyncConflictKeys=unresolved;
+   setCloudMeta({reconciliationMismatch:true});
+   if(activeViewId()==='cloudSync')await renderCloudReconciliation();
+   cloudSetStatus(`Review sync • ${unresolved.length} device/cloud differences kept for review; local edits preserved`);
+   return recovered.length>0;
+  }
   cloudLastAutoCheckAt=Date.now();
   if(activeViewId()==='cloudSync')await renderCloudReconciliation();
   cloudSetStatus(`${getCloudMeta().reconciliationMismatch?'Cloud reconciliation needed':recovered.length?`${recovered.length} cloud records recovered`:'Cloud verified'} • ${new Date().toLocaleTimeString()}`);
@@ -1878,15 +1941,16 @@ async function recoverCloudOnlyRecords(){
  // missed or whose timestamp was already passed by the delta cursor.
  const remote=await recordFetchAll();
  const missing=safeIncomingRecordRows(remote);
- if(!missing.length)return [];
- try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
- const result=applyRecordSyncDeltaRows(missing,{render:true});
+ if(missing.length)try{saveRecoverySnapshot('before-cloud-only-record-recovery');}catch(_){}
+ const result=missing.length?applyRecordSyncDeltaRows(missing,{render:true}):{changed:false,appliedRows:[]};
  if(result.changed){
   rememberRemoteRecordBaseline(result.appliedRows);
   missing.forEach(r=>noteCloudUpdatedAt(r.updated_at));
-  return missing;
  }
- return [];
+ const unresolved=cloudUnresolvedRecordKeys(remote,true);
+ window.financeSyncConflictKeys=unresolved;
+ setCloudMeta({reconciliationMismatch:unresolved.length>0});
+ return result.changed?missing:[];
 }
 
 function schedulePeriodicCloudAutoSync(){
@@ -1906,14 +1970,14 @@ function startCloudAutoSyncWatchers(){
  schedulePeriodicCloudAutoSync();
 
  // Local changes are still pushed immediately by the existing save/update/delete logic.
- // We intentionally do NOT pull on focus, tab visibility, or ordinary online events,
- // because those were causing unexpected page rebuilds while reviewing the system.
+ // On return to this browser, verify its cache while preserving active editors.
 
  window.addEventListener('online',()=>{
   cloudSetStatus('Online • checking protected cloud changes');
   cloudAutoReconcile('online');
  });
  window.addEventListener('offline',()=>cloudSetStatus('Offline • showing saved device data'));
+ window.addEventListener('focus',()=>{if(navigator.onLine!==false)cloudAutoReconcile('focus');});
 
  document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&navigator.onLine!==false)cloudAutoReconcile('visible');
