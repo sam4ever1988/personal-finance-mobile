@@ -467,11 +467,13 @@ function deleteMonthlyIncomeCardPayment(ledgerId){
  if(!row || row.type!=='card-payment')return;
 
  const cardLabel=row.targetName||accountName(row.targetId)||'this card';
- if(!confirm(`Delete this recorded payment?\n\n${cardLabel}\n${money(Number(row.amount||0))} • ${row.date||''}\n\nThis will automatically restore Monthly Planned Income and update the card payment balance, available credit, dashboard and payment planner.`))return;
+ if(!confirm(`Delete this recorded payment?\n\n${cardLabel}\n${money(Number(row.amount||0))} • ${row.date||''}\n\nThis will reverse the payment, restore its funding source and update the card balance, available credit and payment planner.`))return;
 
  // Recovery snapshot before any connected financial reversal.
  try{saveRecoverySnapshot('before-delete-monthly-income-card-payment');}catch(_){}
 
+ const sourceAccount=row.sourceId==='cash-source'?null:account(row.sourceId);
+ const sourceBankBalanceBefore=sourceAccount?.type==='bank'?adjustedBankBalance(sourceAccount):null;
  const ref=String(row.referenceId||'');
  const refParts=ref.split(':');
  const planId=ref.startsWith('payment:')?refParts[1]:'';
@@ -519,6 +521,10 @@ function deleteMonthlyIncomeCardPayment(ledgerId){
    });
    if(p.paymentHistory.length!==before)recomputePlanPaidAmountFromHistory(p);
   });
+ }
+
+ if(sourceAccount?.type==='bank'&&Number.isFinite(sourceBankBalanceBefore)&&Number.isFinite(amount)&&amount>0){
+  setTrackedBankBalance(sourceAccount.id,financeRoundMoney(sourceBankBalanceBefore+amount));
  }
 
  localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));
@@ -629,7 +635,7 @@ function closePaymentSourceModal(){delete $('paymentSourceModal').dataset.income
 function sourceAvailableLabel(sourceId){
  if(sourceId==='cash-source')return `Monthly Planned Income — available ${money(remainingIncomeAvailable())}`;
  const a=account(sourceId);if(!a)return 'Unknown source';
- if(a.type==='bank')return `${a.bank} • ${a.name} — available ${money(adjustedBankBalance(a))}`;
+ if(a.type==='bank')return `${a.bank} • ${a.name} — available ${balanceMoney(adjustedBankBalance(a))}`;
  const m=cardMetrics(a);return `${a.bank} • ${a.name} •${a.ending} — available credit ${money(m.available)}`;
 }
 function syncPaymentIncomeChoiceToSource(){
@@ -653,7 +659,7 @@ function updatePaymentSourcePreview(){
  if(id==='cash-source')msg+=`Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
  else{
   const a=account(id);
-  if(a?.type==='bank')msg+=`Estimated bank balance after payment: ${money(adjustedBankBalance(a)-amt)}.`;
+  if(a?.type==='bank')msg+=`Estimated bank balance after payment: ${balanceMoney(adjustedBankBalance(a)-amt)}.`;
   else if(a?.type==='card'){const m=cardMetrics(a);msg+=`Estimated available credit on source card after payment: ${money(Math.max(0,m.available-amt))}.`;}
   if(useIncome)msg+=` Monthly Planned Income remaining after payment: ${money(Math.max(0,remainingIncomeAvailable(payMonth)-amt))}.`;
   else msg+=` This payment will not be deducted from Monthly Planned Income.`;
@@ -738,6 +744,8 @@ function undoLastPartialPayment(id,ledgerReferenceId=''){
 
  if(!confirm(`Undo the last payment of ${money(amount)} from ${src}?`))return;
 
+ const sourceAccount=last.sourceId==='cash-source'?null:account(last.sourceId);
+ const sourceBankBalanceBefore=sourceAccount?.type==='bank'?adjustedBankBalance(sourceAccount):null;
  p.paymentHistory.splice(idx,1);
 
  const ref=last.ledgerReferenceId||
@@ -752,9 +760,8 @@ function undoLastPartialPayment(id,ledgerReferenceId=''){
   sourceId:last.sourceId||''
  });
 
- const sourceAccount=last.sourceId==='cash-source'?null:account(last.sourceId);
- if(sourceAccount?.type==='bank'){
-  setTrackedBankBalance(sourceAccount.id,adjustedBankBalance(sourceAccount)+amount);
+ if(sourceAccount?.type==='bank'&&Number.isFinite(sourceBankBalanceBefore)){
+  setTrackedBankBalance(sourceAccount.id,financeRoundMoney(sourceBankBalanceBefore+amount));
  }
 
  const survivingPaid=financeRoundMoney(p.paymentHistory

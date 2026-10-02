@@ -239,6 +239,7 @@ function saveLocal(){
  scheduleCloudAutoSave();
 }
 function money(n){return Number.isFinite(Number(n))?financeBaseCurrency()+' '+financeFormatAmount(Math.abs(Number(n||0))):'— (exchange rate unavailable)';}
+function balanceMoney(n){return (Number(n)<0?'-':'')+money(n);}
 function signed(n){return (n<0?'-':n>0?'+':'')+money(n);}
 function account(id){return accounts.find(a=>a.id===id)}
 function isCreditCardAccountId(id){
@@ -1626,7 +1627,7 @@ function updateOutgoingPaymentPreview(){
  }else{
   const a=account(sourceId);
   if(a?.type==='bank'){
-   text=`Paid from ${accountName(sourceId)}. Estimated bank balance after payment: ${money(adjustedBankBalance(a)-amount)}. This outgoing will no longer reduce Monthly Planned Income for ${cardMonthLabel(month)}.`;
+   text=`Paid from ${accountName(sourceId)}. Estimated bank balance after payment: ${balanceMoney(adjustedBankBalance(a)-amount)}. This outgoing will no longer reduce Monthly Planned Income for ${cardMonthLabel(month)}.`;
   }else if(a?.type==='card'){
    const m=cardMetrics(a);
    text=`Paid using ${accountName(sourceId)}. Estimated available credit after payment: ${money(Math.max(0,m.available-amount))}. The card purchase will be added to that card's transactions.`;

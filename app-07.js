@@ -2359,7 +2359,7 @@ $('paymentSourceForm').addEventListener('submit',e=>{
  const source=sourceId==='cash-source'?null:account(sourceId);
  const sourceBankBalanceBefore=source?.type==='bank'?adjustedBankBalance(source):null;
  if(source?.type==='bank'&&amount>adjustedBankBalance(source)+0.005){
-  if(!confirm(`This payment is greater than the current tracked balance of ${money(adjustedBankBalance(source))} in ${source.bank} • ${source.name}. Record it anyway?`))return;
+  if(!confirm(`This payment is greater than the current tracked balance of ${balanceMoney(adjustedBankBalance(source))} in ${source.bank} • ${source.name}. Record it anyway?`))return;
  }
  // V131: payment updates ledger only; statement base stays unchanged.
  p.paidAmount=paymentPaidAmount(p)+duePortion;

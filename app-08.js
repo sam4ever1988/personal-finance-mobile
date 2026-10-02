@@ -299,7 +299,7 @@ function openUnifiedAction(cfg){
 function editableFinanceBanks(){
  return accounts.filter(a=>a?.type==='bank'&&a.id!=='cash-wallet'&&(a.bank||a.name||a.ending));
 }
-function renderCustomBanks(){const el=$('customBanksList');if(!el)return;const banks=editableFinanceBanks();el.innerHTML=banks.length?banks.map(b=>'<div class="notice customAccountEditRow" style="margin-bottom:7px"><div><b>'+escapeHtml(b.bank||'Bank')+' • '+escapeHtml(b.name||'Account')+(b.ending?' •'+escapeHtml(b.ending):'')+'</b> • '+money(adjustedBankBalance(b))+'</div><button type="button" class="btn small" data-edit-bank="'+escapeHtml(b.id)+'">Edit</button></div>').join(''):'<div class="meta">No bank accounts in this workspace yet.</div>';el.querySelectorAll('[data-edit-bank]').forEach(btn=>btn.addEventListener('click',()=>editCustomBank(btn.dataset.editBank)))}
+function renderCustomBanks(){const el=$('customBanksList');if(!el)return;const banks=editableFinanceBanks();el.innerHTML=banks.length?banks.map(b=>'<div class="notice customAccountEditRow" style="margin-bottom:7px"><div><b>'+escapeHtml(b.bank||'Bank')+' • '+escapeHtml(b.name||'Account')+(b.ending?' •'+escapeHtml(b.ending):'')+'</b> • '+balanceMoney(adjustedBankBalance(b))+'</div><button type="button" class="btn small" data-edit-bank="'+escapeHtml(b.id)+'">Edit</button></div>').join(''):'<div class="meta">No bank accounts in this workspace yet.</div>';el.querySelectorAll('[data-edit-bank]').forEach(btn=>btn.addEventListener('click',()=>editCustomBank(btn.dataset.editBank)))}
 function editCustomBank(id){
  const current=editableFinanceBanks().find(b=>b.id===id);if(!current)return;
  openUnifiedAction({title:'Edit Bank Account',subtitle:'Update account details and the current tracked bank balance.',save:'Save Changes',fields:[{name:'bank',label:'Bank Name',value:current.bank,required:true,full:false},{name:'website',label:'Bank Website (optional, for automatic icon)',value:current.website||'',placeholder:'bank.example.com',full:true},{name:'name',label:'Account Name',value:current.name,required:true,full:false},{name:'ending',label:'Last 4 Digits',value:current.ending,required:true,full:false},{name:'balance',label:('Live Bank Balance ('+financeBaseCurrency()+')'),type:'number',step:'0.01',min:'0',value:adjustedBankBalance(current),required:true,full:false}],submit:v=>{
@@ -394,7 +394,8 @@ function editAccountPaymentActivity(id){
    const current=paymentActivityLedgerRow(id),linked=current&&paymentActivityCardHistory(current),amount=Number(v.amount);
    if(!linked||linked.entry!==entry)return goldActionError('This card payment changed. Reopen it.');
    if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter a valid amount with no more than two decimals.');
-   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid payment date.');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid payment date.');
+   const sourceBankBalanceBefore=source?.type==='bank'?adjustedBankBalance(source):null;
    const previous=Number(entry.amount||0),difference=amount-previous;
    if(source?.type==='bank'&&difference>adjustedBankBalance(source)+0.001)return goldActionError('Payment exceeds the source bank balance.');
    const remaining=Math.max(0,Number(paymentRemainingAmount(plan)||0));
@@ -402,7 +403,7 @@ function editAccountPaymentActivity(id){
    const extraCredit=Math.max(0,amount-duePortion);
    Object.assign(entry,{amount,date:v.date,budgetMonth:v.date.slice(0,7),duePortion,extraCredit});
    Object.assign(current,{amount,date:v.date,month:v.date.slice(0,7),duePortion,extraCredit});
-   if(source?.type==='bank')setTrackedBankBalance(source.id,adjustedBankBalance(source)-difference);
+   if(source?.type==='bank'&&Number.isFinite(sourceBankBalanceBefore))setTrackedBankBalance(source.id,sourceBankBalanceBefore-difference);
    plan.paidAmount=financeRoundMoney(plan.paymentHistory.filter(h=>!h.mirrored).reduce((sum,h)=>sum+Number(h.duePortion??h.amount??0),0));
    plan.paid=paymentRemainingAmount(plan)<=0.005;
    cardPaymentPlan.forEach(other=>{
