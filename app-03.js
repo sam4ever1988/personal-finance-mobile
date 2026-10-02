@@ -1021,7 +1021,7 @@ function excelCardAccounting(a){
   creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
-function cardMetrics(a){
+function cardMetricsBeforeBankHolds(a){
  const excel=excelCardAccounting(a);
  if(excel)return excel;
  const limit=Number(a.extra?.['Credit Limit']||0);
@@ -1033,6 +1033,21 @@ function cardMetrics(a){
   releasedStatementBalance:0,activeCycleMonth:cardActiveCycleMonth(a.id),
   currentMonthlyInstallments:0,nextInstallmentScheduled:0,excelAccountingModel:true
  };
+}
+
+
+function cardBankHolds(cardId){return (Array.isArray(financeSettings.bankHolds)?financeSettings.bankHolds:[]).filter(h=>h.cardId===cardId);}
+function cardBankReserve(cardId){return financeRoundMoney(cardBankHolds(cardId).filter(h=>h.status==='active').reduce((sum,h)=>sum+(Number.isFinite(Number(h.amount))?Math.max(0,Number(h.amount)):0),0));}
+function cardMetrics(a){
+ const m=cardMetricsBeforeBankHolds(a),bankReserve=cardBankReserve(a.id);
+ const availableBeforeBankHolds=m.available;
+ const available=Math.max(0,financeRoundMoney(availableBeforeBankHolds-bankReserve));
+ // A hold occupies credit but is not posted debt, income, or spending.
+ // Keep the liability fields intact for net worth and payment planning.
+ return {...m,bankReserve,availableBeforeBankHolds,available,bankAvailable:available,
+  availableBeforeInstallments:Math.max(0,financeRoundMoney(m.availableBeforeInstallments-bankReserve)),
+  creditOccupied:financeRoundMoney(m.total+bankReserve),
+  creditLimitInvariant:m.creditLimitInvariant!==false&&Math.abs(available-(Math.max(0,availableBeforeBankHolds-bankReserve)))<0.02};
 }
 
 

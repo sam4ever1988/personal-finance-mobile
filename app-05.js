@@ -641,6 +641,69 @@ $('txEditForm').addEventListener('submit',e=>{
 });
 
 
+function financeCanManageBankHolds(){
+ return (!window.financePagePermissions||window.financePagePermissions.accounts==='edit')&&(!window.financeSectionPermission||window.financeSectionPermission('finance_settings')==='edit');
+}
+function saveCardBankHolds(cardId){
+ financeSettingsDirty=true;
+ saveLocal();
+ scheduleRecordPush('credit-card-bank-hold');
+ // No transaction changed: do not run planner/statement repair routines.
+ const visible=activeViewId();
+ if(visible==='accountDetail'&&currentAccountDetailId)openAccount(currentAccountDetailId,accountDetailReturnPage);
+ else if(visible==='accounts')renderAccounts();
+ else if(visible==='executive')renderDashboard();
+ else if(visible==='financialposition')renderFinancialPosition();
+ else if(visible==='strategy')renderFinancialStrategy();
+}
+function editCardBankHold(cardId,id=''){
+ if(!financeCanManageBankHolds()||account(cardId)?.type!=='card')return;
+ const existing=id?cardBankHolds(cardId).find(h=>h.id===id&&h.status==='active'):null;
+ if(id&&!existing)return;
+ const workspace=window.financeWorkspaceUserId;
+ openUnifiedAction({title:existing?'Edit Bank Hold':'Add Bank Reserve / Hold',subtitle:'Temporarily reduces available credit. It does not create a payment, expense, or installment.',save:existing?'Save Hold':'Add Hold',fields:[
+  {name:'amount',label:'Reserve Amount ('+financeBaseCurrency()+')',type:'number',min:'0.01',step:financeMoneyStep(),required:true,value:existing?.amount||'',full:false},
+  {name:'date',label:'Bank Hold Date',type:'date',required:true,value:existing?.date||new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}),full:false},
+  {name:'reason',label:'Reason / Merchant',required:true,value:existing?.reason||''}
+ ],submit:v=>{
+  if(workspace!==window.financeWorkspaceUserId||!financeCanManageBankHolds())return goldActionError('Workspace or permission changed. Reopen this card.');
+  const amount=financeRoundMoney(Number(v.amount)),reason=String(v.reason||'').trim();
+  if(!Number.isFinite(amount)||amount<=0||!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!reason)return goldActionError('Enter a positive amount, date and reason.');
+  financeSettings.bankHolds=Array.isArray(financeSettings.bankHolds)?financeSettings.bankHolds:[];
+  if(id){const h=financeSettings.bankHolds.find(h=>h.id===id&&h.cardId===cardId&&h.status==='active');if(!h)return goldActionError('This hold has changed. Reopen the card.');Object.assign(h,{amount,date:v.date,reason,updatedAt:new Date().toISOString()});}
+  else financeSettings.bankHolds.push({id:'hold-'+crypto.randomUUID(),cardId,amount,date:v.date,reason,status:'active',createdAt:new Date().toISOString()});
+  saveCardBankHolds(cardId);return true;
+ }});
+}
+function closeCardBankHold(cardId,id,link=false){
+ if(!financeCanManageBankHolds())return;
+ const h=cardBankHolds(cardId).find(h=>h.id===id&&h.status==='active');if(!h)return;
+ const workspace=window.financeWorkspaceUserId;
+ const eligible=()=>normalizedTx().filter(t=>t.account===cardId&&Number(t.amount)<0&&!isCreditCardPaymentTx(t)&&!linkedActiveInstallment(t._id));
+ const rows=eligible();
+ if(link&&!rows.length){alert('No active posted purchase is available to link on this card. Import or add the posted transaction first.');return;}
+ openUnifiedAction({title:link?'Link Hold to Posted Transaction':'Release Bank Hold',subtitle:link?'The posted transaction already counts in your balance. Linking removes this temporary reserve without adding another charge.':'Release only when the bank has removed the hold. The record stays in history.',save:link?'Link and Remove Reserve':'Release Hold',fields:link?[
+  {name:'transactionId',label:'Posted Transaction',type:'select',required:true,options:[{value:'',label:'Choose a posted purchase'},...rows.map(t=>({value:t._id,label:t.date+' • '+t.description+' • '+money(Math.abs(t.amount))}))]},
+ ]:[{name:'date',label:'Release Date',type:'date',required:true,value:new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'})}],submit:v=>{
+  if(workspace!==window.financeWorkspaceUserId||!financeCanManageBankHolds())return goldActionError('Workspace or permission changed. Reopen this card.');
+  const current=cardBankHolds(cardId).find(h=>h.id===id&&h.status==='active');if(!current)return goldActionError('This hold is no longer active.');
+  if(link&&!eligible().some(t=>t._id===v.transactionId))return goldActionError('Choose an active purchase on this card.');
+  if(!link&&!/^\d{4}-\d{2}-\d{2}$/.test(v.date))return goldActionError('Enter a release date.');
+  Object.assign(current,{status:link?'linked':'released',transactionId:link?v.transactionId:'',closedDate:link?new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}):v.date,updatedAt:new Date().toISOString()});
+  saveCardBankHolds(cardId);return true;
+ }});
+}
+function cardBankHoldsPanel(a){
+ const holds=cardBankHolds(a.id),edit=financeCanManageBankHolds();
+ const render=h=>`<div class="bankHoldRow"><div><b>${escapeHtml(h.reason)}</b><div class="meta">${escapeHtml(h.date)} • ${escapeHtml(h.status==='linked'?'Linked to posted transaction':h.status==='released'?'Released':'Active bank hold')}</div></div><b>${money(h.amount)}</b>${edit&&h.status==='active'?`<div class="bankHoldActions"><button type="button" class="btn small" data-bank-hold-edit="${escapeHtml(h.id)}">Edit</button><button type="button" class="btn small" data-bank-hold-release="${escapeHtml(h.id)}">Release</button><button type="button" class="btn small" data-bank-hold-link="${escapeHtml(h.id)}">Link Posted Transaction</button></div>`:''}</div>`;
+ return `<section class="panel bankHoldPanel"><div class="splitHead"><div><div class="panelTitle" style="margin:0">Bank Reserves / Holds • ${money(cardBankReserve(a.id))}</div><div class="meta">Temporary credit holds, separate from spending and future installment reserves. Enter only holds not already counted as posted charges.</div></div>${edit?'<button type="button" class="btn" id="detailAddBankHold">+ Add Bank Hold</button>':''}</div>${holds.filter(h=>h.status==='active').map(render).join('')||'<div class="meta" style="margin-top:12px">No active bank holds.</div>'}${holds.some(h=>h.status!=='active')?'<details style="margin-top:12px"><summary>Hold History</summary>'+holds.filter(h=>h.status!=='active').map(render).join('')+'</details>':''}</section>`;
+}
+function bindCardBankHolds(cardId){
+ $('detailAddBankHold')?.addEventListener('click',()=>editCardBankHold(cardId));
+ $('accountDetailContent').querySelectorAll('[data-bank-hold-edit]').forEach(b=>b.onclick=()=>editCardBankHold(cardId,b.dataset.bankHoldEdit));
+ $('accountDetailContent').querySelectorAll('[data-bank-hold-release]').forEach(b=>b.onclick=()=>closeCardBankHold(cardId,b.dataset.bankHoldRelease));
+ $('accountDetailContent').querySelectorAll('[data-bank-hold-link]').forEach(b=>b.onclick=()=>closeCardBankHold(cardId,b.dataset.bankHoldLink,true));
+}
 function cardPositionHero(a,m){
  const plans=installments.filter(p=>p.cardId===a.id&&planCalc(p).remaining>0);
  const is0955=a.id==='ar-0955';
@@ -674,6 +737,7 @@ function cardPositionHero(a,m){
    <div class="cardMetricGrid">
     <div class="cardMetricBox"><span>Credit Limit</span><b>${money(m.limit)}</b></div>
     <div class="cardMetricBox"><span>Available Credit</span><b class="green">${money(m.available)}</b></div>
+    <div class="cardMetricBox"><span>Bank Reserves / Holds</span><b class="amber">${money(m.bankReserve||0)}</b></div>
     <div class="cardMetricBox"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
     <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>
    </div>
@@ -1082,7 +1146,7 @@ function openAccount(id,returnPage){
  }
  const rows=cardTransactionsForDetail(id);
  const paymentActivity=accountPaymentActivityHTML(id);
- if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
+ if(a.type==='card'){const m=cardMetrics(a),plans=installments.filter(p=>p.cardId===id&&planCalc(p).remaining>0),hero=cardPositionHero(a,m);$('accountDetailContent').innerHTML=`${hero}${cardBankHoldsPanel(a)}<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name} •${a.ending}</div><div class="meta">${resetCardIds.has(a.id)?'RESET MODE • transactions and active installments drive the live card balance':a.id==='ar-0955'?'Verified current balance as of 28 Aug 2026':a.id==='sab-440880'?'Transaction / installment driven balance':'Estimated from uploaded period transactions'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="detailBalanceOffer">Balance Installment Offer</button><button class="btn primary" id="detailAddPlan">+ Installment Plan</button><button type="button" class="btn danger" id="detailResetCard">Reset Card Month</button></div></div><div class="cardMetricGrid" style="margin-top:14px">
  <div class="miniMetric"><span>Current Open Cycle (${cardMonthLabel(m.activeCycleMonth)})</span><b class="red">${money(m.currentCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Prior Unreleased Cycle(s)</span><b class="amber">${money(m.priorOpenCycleTransactions||0)}</b></div>
  <div class="miniMetric"><span>Current Cycle Installment</span><b class="red">${money(m.currentCycleInstallment||0)}</b></div>
@@ -1231,7 +1295,7 @@ ${paymentActivity}
  <div style="overflow-x:auto"><table class="txTable"><thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead><tbody>${rows.length?financeRenderTransactionRows(rows):'<tr><td colspan="8">No transactions.</td></tr>'}</tbody></table></div>
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
- nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
+ nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();if(a.type==='card')bindCardBankHolds(id);requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
  const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.addEventListener('change',()=>{accountPaymentActivitySelection.month=activityMonth.value||'';openAccount(id,accountDetailReturnPage);});
  document.querySelectorAll('#accountDetailContent [data-edit-payment-activity]').forEach(b=>b.addEventListener('click',()=>editAccountPaymentActivity(b.dataset.editPaymentActivity)));
  document.querySelectorAll('#accountDetailContent [data-delete-payment-activity]').forEach(b=>b.addEventListener('click',()=>deleteAccountPaymentActivity(b.dataset.deletePaymentActivity)));
