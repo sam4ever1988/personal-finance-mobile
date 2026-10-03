@@ -670,6 +670,12 @@ function recordedCardPaymentCredit(cardId){
  return financeRoundMoney(credit);
 }
 
+function transferInstallmentPlan(ledgerId){
+ return installments.find(p=>p.linkedLedgerId===ledgerId)||null;
+}
+function canManageTransferInstallments(){
+ return !window.financeSectionPermission||['cash_flow_ledger','installments'].every(s=>window.financeSectionPermission(s)==='edit');
+}
 function cardFundedPaymentBreakdown(cardId){
  const activeCycle=cardActiveCycleMonth(cardId);
  const liveRows=liveCardTransactions();
@@ -680,7 +686,7 @@ function cardFundedPaymentBreakdown(cardId){
  // may be removed while its ledger entry is still active; that must not erase
  // utilization on the funding card.
  return (cashFlowLedger||[])
-  .filter(h=>['card-payment','card-bank-transfer'].includes(h.type) && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId)
+  .filter(h=>['card-payment','card-bank-transfer'].includes(h.type) && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId && !transferInstallmentPlan(h.id))
   .map(h=>{
    const amount=Math.max(0,Number(h.amount||0));
    const date=String(h.date||'').slice(0,10);

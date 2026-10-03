@@ -1119,15 +1119,30 @@ function bindReportFilters(){
 }
 bindReportFilters();
 
+function renderAfterInstallmentMutation(cardId){
+ ensureMonthlyPlannerRows(currentYearMonth());
+ ensureMonthlyPlannerRows(addMonthsToYM(currentYearMonth(),1));
+ const active=document.querySelector('.page.active')?.id;
+ const renderer={installments:renderInstallments,transactions:renderTransactions,reports:renderReports,accounts:renderAccounts,executive:renderDashboard,incomeplan:renderIncomePlan,financialposition:renderFinancialPosition,strategy:renderFinancialStrategy}[active];
+ if(renderer)renderer();
+ if(active==='accountDetail'&&currentAccountDetailId)openAccount(currentAccountDetailId,accountDetailReturnPage);
+}
 function deleteInstallmentPlan(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
  const c=planCalc(p),a=account(p.cardId);
- const msg=`Delete "${p.description}" from ${a?.name||'this card'}?\n\nRemaining amount: ${money(c.remaining)}\n\nUse this when the installment has been fully paid/settled and should no longer be included in future installment commitments.`;
+ const msg=p.linkedLedgerId?`Remove the installment plan for "${p.description}"? The original transfer remains and returns to normal card repayment; the wallet balance will not change.`:`Delete "${p.description}" from ${a?.name||'this card'}?\n\nRemaining amount: ${money(c.remaining)}\n\nUse this when the installment has been fully paid/settled and should no longer be included in future installment commitments.`;
  if(!confirm(msg))return;
  const seedIds=new Set([...MEEM_SEEDED_PLANS,...REQUIRED_0955_INSTALLMENTS,...BASE.initialInstallments].map(x=>x.id));
  if(seedIds.has(id)){
   const retired=new Set(JSON.parse(localStorage.getItem('pf_retired_installment_seed_ids')||'[]'));
   retired.add(id);localStorage.setItem('pf_retired_installment_seed_ids',JSON.stringify([...retired]));
+ }
+ if(p.linkedLedgerId){
+  const adjustmentKey=p.linkedTransactionId||('ledger:'+p.linkedLedgerId);
+  cardPaymentPlan.filter(row=>row.accountId===p.cardId&&Object.prototype.hasOwnProperty.call(row.installmentTransferAdjustments||{},adjustmentKey)).forEach(row=>{
+   delete row.installmentTransferAdjustments[adjustmentKey];row.amount=adjustedConfirmedStatementAmount(row);
+  });
+  saveCardPaymentPlan();
  }
  deletedInstallmentIds.add(id);
  if(typeof recordImmediateDelete==='function')recordImmediateDelete('installments',id,'installment-delete');

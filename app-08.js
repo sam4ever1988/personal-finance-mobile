@@ -314,6 +314,16 @@ function editCustomBank(id){
  }});
 }
 function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'This account will be available across transactions, imports, payment sources, reports and dashboards.',save:'Add Bank',fields:[{name:'bank',label:'Bank Name',required:true,full:false},{name:'website',label:'Bank Website (optional, for automatic icon)',placeholder:'bank.example.com',full:true},{name:'name',label:'Account Name',required:true,full:false},{name:'ending',label:'Last 4 Digits',required:true,full:false},{name:'balance',label:('Live Bank Balance ('+financeBaseCurrency()+')'),type:'number',step:'0.01',min:'0',value:'0',required:true,full:false}],submit:v=>{const e=String(v.ending||'').replace(/\D/g,'').slice(-4),bal=Number(v.balance),website=bankWebsiteOrigin(v.website);if(e.length!==4||!Number.isFinite(bal)||bal<0)return goldActionError('Enter exactly 4 digits and a valid bank balance.');if(v.website&&!website)return goldActionError('Enter a valid HTTPS bank website.');const b={id:'custom-bank-'+e+'-'+Date.now(),bank:String(v.bank||'').trim(),name:String(v.name||'').trim(),ending:e,website,type:'bank',custom:true,balance:bal,balanceLabel:'Live Balance',extra:{}};customBanks.push(b);localStorage.setItem('pf_custom_banks',JSON.stringify(customBanks));syncCustomAccountsIntoAccounts();setTrackedBankBalance(b.id,bal);saveLocal();scheduleRecordPush('custom-bank-add');refreshAccountDependentUI();return true}})}
+function openTransferInstallment(id){
+ if(!canManageTransferInstallments())return alert('Edit access to transfers and installments is required.');
+ const row=paymentActivityLedgerRow(id);
+ if(!row||row.type!=='card-bank-transfer'||account(row.sourceId)?.type!=='card'||account(row.targetId)?.type!=='bank')return alert('Select an active credit-card-to-bank or wallet transfer.');
+ const existing=transferInstallmentPlan(id);
+ if(existing)return openInstallment(existing);
+ const matched=cardFundedPaymentBreakdown(row.sourceId).find(h=>h.id===id)?.matchedTransactionId||'';
+ if(matched&&installments.some(p=>p.linkedTransactionId===matched))return alert('The matching card transaction already has an installment plan. Edit that plan in Installments to avoid duplicating it.');
+ openInstallment({cardId:row.sourceId,description:row.description||('Transfer to '+accountName(row.targetId)),category:'Miscellaneous',subcategory:'Unexpected Expenses',fullAmount:Number(row.amount),months:3,startMonth:paymentMonthForTransaction(row.sourceId,row.date),paidInstallments:0,linkedLedgerId:id,linkedTransactionId:matched,source:'Converted from wallet transfer'});
+}
 function openBankTransfer(){
  const banks=accounts.filter(a=>a.type==='bank');
  const destinations=accounts.filter(a=>a.type==='bank'||a.type==='card');
@@ -325,14 +335,17 @@ function openBankTransfer(){
   {name:'targetId',label:'To Bank Account / Credit Card',type:'select',value:destinations.find(a=>a.id!==banks[0].id)?.id,options:targetOptions,required:true,full:false},
   {name:'amount',label:('Amount ('+financeBaseCurrency()+')'),type:'number',step:'0.01',min:'0.01',required:true,full:false},
   {name:'date',label:'Transfer Date',type:'date',value:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),required:true,full:false},
+  {name:'repayment',label:'Card-to-wallet repayment',type:'select',value:'normal',options:[{value:'normal',label:'Normal card repayment'},{value:'installments',label:'Set up installment plan'}],full:true},
   {name:'note',label:'Note',placeholder:'Optional transfer reference',full:true}
  ],submit:v=>{
   const source=account(v.sourceId),target=account(v.targetId),amount=Number(v.amount);
   if(!source||!target||!['bank','card'].includes(source.type)||!['bank','card'].includes(target.type)||source.id===target.id)return goldActionError('Select two different accounts or cards.');
-  if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter an amount greater than zero with no more than two decimals.');
+  if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)-amount*100)>0.000001)return goldActionError('Enter an amount greater than zero with no more than two decimals.');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid transfer date.');
   if(source.type==='bank'&&amount>adjustedBankBalance(source)+0.001)return goldActionError('Transfer amount exceeds the source account balance.');
   if(source.type==='card'&&amount>cardMetrics(source).available+0.001)return goldActionError('Transfer amount exceeds the source card’s available credit.');
+  if(v.repayment==='installments'&&(source.type!=='card'||target.type!=='bank'))return goldActionError('Installments apply to a credit card transfer into a bank account or wallet.');
+  if(v.repayment==='installments'&&!canManageTransferInstallments())return goldActionError('Edit access to transfers and installments is required.');
   if(target.type==='card'){
    const month=paymentMonthForTransaction(target.id,v.date);
    ensureMonthlyPlannerRows(month);
@@ -354,7 +367,7 @@ function openBankTransfer(){
   }
   const id='bank-transfer-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
   addCashFlowLedgerEntry({id,type:source.type==='card'?'card-bank-transfer':'bank-transfer',date:v.date,amount,sourceId:source.id,sourceName:accountName(source.id),targetId:target.id,targetName:accountName(target.id),description:String(v.note||'').trim()||(source.type==='card'?'Credit card to bank transfer':'Bank account transfer'),referenceId:id});
-  saveLocal();syncCashFlowLedgerImmediate();refreshAccountDependentUI();renderIncomePlan();return true;
+  saveLocal();syncCashFlowLedgerImmediate();refreshAccountDependentUI();renderIncomePlan();if(v.repayment==='installments')setTimeout(()=>openTransferInstallment(id),0);return true;
  }});
 }
 function paymentActivityLedgerRow(id){
@@ -393,7 +406,7 @@ function editAccountPaymentActivity(id){
   ],submit:v=>{
    const current=paymentActivityLedgerRow(id),linked=current&&paymentActivityCardHistory(current),amount=Number(v.amount);
    if(!linked||linked.entry!==entry)return goldActionError('This card payment changed. Reopen it.');
-   if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter a valid amount with no more than two decimals.');
+   if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)-amount*100)>0.000001)return goldActionError('Enter a valid amount with no more than two decimals.');
    if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid payment date.');
    const sourceBankBalanceBefore=source?.type==='bank'?adjustedBankBalance(source):null;
    const previous=Number(entry.amount||0),difference=amount-previous;
@@ -420,6 +433,7 @@ function editAccountPaymentActivity(id){
   return openOutgoingPayment(item.outgoing.id,item.month,item.payment.id);
  }
  if(!['bank-transfer','card-bank-transfer'].includes(row.type))return;
+ if(transferInstallmentPlan(row.id))return alert('Remove the linked installment plan first to change the transfer amount or date. Use Edit installments to adjust repayment.');
  const source=account(row.sourceId),target=account(row.targetId);
  if(!source||!target)return alert('One of the accounts for this transfer is unavailable.');
  openUnifiedAction({title:'Edit Transfer',subtitle:`${accountName(source.id)} → ${accountName(target.id)}`,save:'Save Transfer',fields:[
@@ -429,7 +443,7 @@ function editAccountPaymentActivity(id){
  ],submit:v=>{
   const current=paymentActivityLedgerRow(id),amount=Number(v.amount);
   if(!current)return goldActionError('This transfer changed. Reopen it.');
-  if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100)return goldActionError('Enter a valid amount with no more than two decimals.');
+  if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)-amount*100)>0.000001)return goldActionError('Enter a valid amount with no more than two decimals.');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid date.');
   const oldAmount=Number(current.amount||0);
   if(source.type==='bank'&&amount>adjustedBankBalance(source)+oldAmount+0.001)return goldActionError('Transfer exceeds the source bank balance.');
@@ -454,6 +468,7 @@ function deleteAccountPaymentActivity(id){
   return undoOutgoingPayment(item.outgoing.id,item.month,true,item.payment.id);
  }
  if(!['bank-transfer','card-bank-transfer'].includes(row.type))return;
+ if(transferInstallmentPlan(row.id))return alert('Remove the linked installment plan first, then delete the transfer. This keeps repayment and account balances consistent.');
  if(!confirm(`Delete transfer of ${money(row.amount)} from ${accountName(row.sourceId)} to ${accountName(row.targetId)}? Account balances and card credit will update.`))return;
  Object.assign(row,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Transfer deleted by user'});
  saveLocal();syncCashFlowLedgerImmediate();refreshPaymentActivityAccount();

@@ -1829,7 +1829,7 @@ function calculatedPaymentCycleAmount(cardId,month){
 function cardLedgerSourceTransfersForMonth(cardId,month){
  const rows=liveCardTransactions();
  return financeRoundMoney((cashFlowLedger||[]).filter(h=>
-  h.type==='card-payment' && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId &&
+  ['card-payment','card-bank-transfer'].includes(h.type) && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId && !transferInstallmentPlan(h.id) &&
   (h.sourcePaymentMonth||paymentMonthForTransaction(cardId,h.date))===month
  ).reduce((sum,h)=>{
   const matched=rows.some(t=>t.account===cardId && Number(t.amount||0)<0 &&

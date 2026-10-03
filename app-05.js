@@ -233,6 +233,8 @@ function openInstallment(plan=null){
  fillCategorySelect($('instCategory'),false);
  const p=plan||{cardId:'ar-0955',description:'',category:'Housing & Utilities',subcategory:'Furniture',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0,linkedTransactionId:''};
  $('installForm').dataset.linkedTransactionId=p.linkedTransactionId||'';
+ $('installForm').dataset.linkedLedgerId=p.linkedLedgerId||'';
+ $('instCard').disabled=!!p.linkedLedgerId;$('instAmount').readOnly=!!p.linkedLedgerId;
  $('instCard').value=p.cardId;$('instDesc').value=p.description;$('instCategory').value=p.category;if(!$('instCategory').value)$('instCategory').selectedIndex=0;fillSubcategorySelect($('instSubcategory'),$('instCategory').value,p.subcategory);
  const existingCalc=plan?planCalc(p):null;
  $('instAmount').value=p.fullAmount;
@@ -513,14 +515,24 @@ $('installForm').addEventListener('submit',e=>{
  e.preventDefault();
  const id=e.currentTarget.dataset.editId||'plan-'+Date.now(),linkedTransactionId=e.currentTarget.dataset.linkedTransactionId||'';
  const oldPlan=installments.find(x=>x.id===id);
+ const linkedLedgerId=e.currentTarget.dataset.linkedLedgerId||'';
+ const linkedLedger=linkedLedgerId?paymentActivityLedgerRow(linkedLedgerId):null;
+ if(linkedLedgerId){
+  if(!canManageTransferInstallments())return alert('Edit access to transfers and installments is required.');
+  if(!linkedLedger||linkedLedger.type!=='card-bank-transfer'||account(linkedLedger.sourceId)?.type!=='card'||account(linkedLedger.targetId)?.type!=='bank')return alert('This transfer changed. Reopen it before saving.');
+  if(transferInstallmentPlan(linkedLedgerId)&&transferInstallmentPlan(linkedLedgerId).id!==id)return alert('This transfer already has an installment plan.');
+  if($('instCard').value!==linkedLedger.sourceId||Number($('instAmount').value)!==Number(linkedLedger.amount))return alert('The funding card and original amount must match the transfer. Reopen it.');
+  const remaining=Number($('instRemainingAmount').value),months=Number($('instMonths').value),paid=Number($('instPaid').value);
+  if(!Number.isFinite(remaining)||remaining<0||remaining>Number(linkedLedger.amount)||!Number.isInteger(months)||months<1||months>60||!Number.isInteger(paid)||paid<0)return alert('Enter a valid remaining principal, 1–60 remaining months and whole paid installments.');
+ }
  const remainingAmount=Math.max(0,Number($('instRemainingAmount').value||0));
  const remainingMonths=Math.max(1,Number($('instMonths').value||1));
  const paid=Math.max(0,Number($('instPaid').value||0));
- const p={...(oldPlan||{}),id,cardId:$('instCard').value,description:$('instDesc').value.trim(),category:$('instCategory').value,subcategory:$('instSubcategory').value,fullAmount:Number($('instAmount').value),months:paid+remainingMonths,remainingMonthsOverride:remainingMonths,manualRemaining:remainingAmount,startMonth:oldPlan?.startMonth||$('instStart').value,referenceMonth:$('instStart').value,paidInstallments:paid,linkedTransactionId,source:e.currentTarget.dataset.editId?(oldPlan?.source||'Manual'):(linkedTransactionId?'Converted from transaction':'Manual'),scheduleMode:'remaining-principal'};
+ const p={...(oldPlan||{}),id,cardId:$('instCard').value,description:$('instDesc').value.trim(),category:$('instCategory').value,subcategory:$('instSubcategory').value,fullAmount:Number($('instAmount').value),months:paid+remainingMonths,remainingMonthsOverride:remainingMonths,manualRemaining:remainingAmount,startMonth:oldPlan?.startMonth||$('instStart').value,referenceMonth:$('instStart').value,paidInstallments:paid,linkedTransactionId,source:e.currentTarget.dataset.editId?(oldPlan?.source||'Manual'):(linkedLedgerId?'Converted from wallet transfer':linkedTransactionId?'Converted from transaction':'Manual'),scheduleMode:'remaining-principal',linkedLedgerId};
  const ix=installments.findIndex(x=>x.id===id);if(ix>=0)installments[ix]=p;else installments.push(p);
  normalizeSabInstallmentPlan();
  cleanupSabLegacyBalanceState();
- const linkedTx=linkedTransactionId?normalizedTx(true).find(t=>t._id===linkedTransactionId):null;
+ const linkedTx=(linkedTransactionId?normalizedTx(true).find(t=>t._id===linkedTransactionId):null)||(linkedLedger?{_id:'ledger:'+linkedLedger.id,account:linkedLedger.sourceId,date:linkedLedger.date,amount:-Number(linkedLedger.amount)}:null);
  if(linkedTx){adjustCurrentStatementForInstallment(linkedTx,p);ensureMonthlyPlannerRows(p.startMonth);}
  saveLocal();closeModal('installModal');
  // V91: one installment edit recalculates every dependent card balance and monthly plan immediately.
@@ -530,7 +542,7 @@ $('installForm').addEventListener('submit',e=>{
  if(document.getElementById('accountDetail')?.classList.contains('active') && currentAccountDetailId){
   openAccount(currentAccountDetailId,accountDetailReturnPage);
  }
- if(linkedTx){
+ if(linkedTx&&!linkedLedgerId){
   const c=planCalc(p);
   setTimeout(()=>alert(`Installment plan activated.
 
@@ -900,7 +912,7 @@ function accountPaymentActivityHTML(accountId){
   const incoming=x.targetId===accountId;
   const type=x.type==='card-payment'?'Card payment':x.type==='card-bank-transfer'?'Card to bank transfer':x.type==='bank-transfer'?'Bank transfer':x.type==='outgoing-payment'?'Scheduled outgoing':x.type==='zakat-payment'?'Zakat payment':x.type==='installment-early-settlement'?'Installment settlement':'Payment';
   const counterparty=incoming?(x.sourceName||accountName(x.sourceId)||'Source not recorded'):(x.targetName||accountName(x.targetId)||x.description||'Payee not recorded');
-  return `<tr><td>${escapeHtml(String(x.date||''))}</td><td><b class="${incoming?'green':'red'}">${incoming?'Received':'Paid'}</b></td><td><b>${escapeHtml(type)}</b><div class="meta">${escapeHtml(String(x.description||''))}</div></td><td>${escapeHtml(counterparty)}</td><td class="${incoming?'green':'red'}"><b>${incoming?'+':'−'}${money(Number(x.amount||0))}</b></td><td>${!String(x.id||'').startsWith('history:')&&['bank-transfer','card-bank-transfer','outgoing-payment','card-payment'].includes(x.type)?`<button class="btn small" type="button" data-edit-payment-activity="${escapeHtml(String(x.id))}">Edit</button> <button class="btn small danger" type="button" data-delete-payment-activity="${escapeHtml(String(x.id))}">Delete</button>`:''}</td></tr>`;
+  return `<tr><td>${escapeHtml(String(x.date||''))}</td><td><b class="${incoming?'green':'red'}">${incoming?'Received':'Paid'}</b></td><td><b>${escapeHtml(type)}</b><div class="meta">${escapeHtml(String(x.description||''))}</div></td><td>${escapeHtml(counterparty)}</td><td class="${incoming?'green':'red'}"><b>${incoming?'+':'−'}${money(Number(x.amount||0))}</b></td><td>${!String(x.id||'').startsWith('history:')&&['bank-transfer','card-bank-transfer','outgoing-payment','card-payment'].includes(x.type)?`${x.type==='card-bank-transfer'&&canManageTransferInstallments()?`<button class="btn small" type="button" data-transfer-installment="${escapeHtml(String(x.id))}">${transferInstallmentPlan(x.id)?'Edit installments':'Make installments'}</button> `:''}<button class="btn small" type="button" data-edit-payment-activity="${escapeHtml(String(x.id))}">Edit</button> <button class="btn small danger" type="button" data-delete-payment-activity="${escapeHtml(String(x.id))}">Delete</button>`:''}</td></tr>`;
  }).join(''):'<tr><td colspan="6">No recorded payments or transfers for this account.</td></tr>'}</tbody></table></div></div>`;
 }
 
@@ -1299,6 +1311,7 @@ ${paymentActivity}
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();if(a.type==='card')bindCardBankHolds(id);requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
  const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.addEventListener('change',()=>{accountPaymentActivitySelection.month=activityMonth.value||'';openAccount(id,accountDetailReturnPage);});
+ document.querySelectorAll('#accountDetailContent [data-transfer-installment]').forEach(b=>b.addEventListener('click',()=>openTransferInstallment(b.dataset.transferInstallment)));
  document.querySelectorAll('#accountDetailContent [data-edit-payment-activity]').forEach(b=>b.addEventListener('click',()=>editAccountPaymentActivity(b.dataset.editPaymentActivity)));
  document.querySelectorAll('#accountDetailContent [data-delete-payment-activity]').forEach(b=>b.addEventListener('click',()=>deleteAccountPaymentActivity(b.dataset.deletePaymentActivity)));
  if($('detailAddTransaction'))$('detailAddTransaction').addEventListener('click',()=>openManualTransaction({account:id,date:new Date().toISOString().slice(0,10)}));
