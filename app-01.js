@@ -1,3 +1,11 @@
+// Capture durable records before startup migrations can change the cache.
+var financeBootCache = (() => {
+ const values={};
+ for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.startsWith('pf_'))values[key]=localStorage.getItem(key);}
+ return values;
+})();
+window.addEventListener('input', event => { if(event.isTrusted)window.financeBootUserInteracted=true; }, {capture:true});
+window.addEventListener('click', event => { if(event.isTrusted)window.financeBootUserInteracted=true; }, {capture:true});
 /* Workspace amounts are stored in the immutable workspace base currency.
    Market prices retain their native currency; conversion happens at valuation. */
 var FINANCE_CURRENCIES=['SAR','PHP','USD','EUR','GBP','AED','AUD','CAD','CHF','CNY','HKD','SGD','JPY','INR','KRW','IDR','MYR','THB','NZD','BHD','KWD','QAR','OMR','EGP','PKR','BDT','ZAR','TRY','BRL','MXN'];

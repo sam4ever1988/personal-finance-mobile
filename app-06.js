@@ -1743,6 +1743,7 @@ function syncRecordValue(value){
   ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 }
 function mergeOneRecordIntoSection(row){
+ row=JSON.parse(JSON.stringify(row));
  const section=row.section,recordId=String(row.record_id);
  // Older rental blocks used their array position as a cloud ID. The date-key
  // migration owns those legacy rows; importing them would duplicate a day.
@@ -1916,6 +1917,7 @@ function renderCurrentPageForSections(sections){
 }
 function applyRecordSyncDeltaRows(rows,{render=true}={}){
  if(!Array.isArray(rows)||!rows.length)return {changed:false,sections:[],appliedRows:[]};
+ rows=JSON.parse(JSON.stringify(rows));
  recordSyncApplying=true;
  try{
   alignInvestmentHoldingIdsWithCloud(rows);

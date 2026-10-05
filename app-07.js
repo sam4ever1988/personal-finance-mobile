@@ -10,6 +10,7 @@ function queueRecordDelete(section,recordId){
 
 function applyRecordSyncRows(rows,options={}){
  if(!Array.isArray(rows))return false;
+ rows=JSON.parse(JSON.stringify(rows));
  recordSyncApplying=true;
  try{
   if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(rows);
@@ -336,6 +337,61 @@ function queueObsoleteBankImportPlannerRows(remote){
  return queued;
 }
 
+// A verified, unchanged boot cache may discard startup-generated differences.
+// Unknown provenance or a real unsaved edit always stays protected.
+function verifiedBootFinancialRows() {
+ const cache=typeof financeBootCache==='object'?financeBootCache:null;
+ if(!cache||cache.pf_v185_authoritative_cloud_loaded!=='1')return null;
+ let baseline;try{baseline=JSON.parse(cache.pf_record_sync_baseline_v313||'null');}catch(_){return null;}
+ if(!baseline||!Object.keys(baseline).length)return null;
+ const singleton=['finance_settings','tx_overrides','transaction_actions','duplicate_decisions','merchant_rules','statement_rule','bank_balance_overrides','reset_card_ids','card_reset_history','deleted_installment_ids','custom_banks','custom_credit_cards','income_plan'];
+ const arrays=['manual_transactions','imported_transactions','cash_flow_ledger','installments','card_payment_plan','outgoings'];
+ const rows=[];
+ try {
+  for(const section of [...singleton,...arrays]) {
+   const value=cache['pf_'+section];
+   if(value==null)return null;
+   const data=JSON.parse(value);
+   if(singleton.includes(section))rows.push({section,record_id:'singleton',data});
+   else {
+    if(!Array.isArray(data))return null;
+    for(const record of data){const id=record._id??record.id;if(id==null)return null;rows.push({section,record_id:String(id),data:record});}
+   }
+  }
+  const keys=new Set(rows.map(r=>`${r.section}|${r.record_id}`));
+  const sections=new Set([...singleton,...arrays]);
+  if(Object.keys(baseline).some(key=>sections.has(key.split('|')[0])&&!keys.has(key)))return null;
+  if(rows.some(r=>{const key=`${r.section}|${r.record_id}`;return baseline[key]===undefined||syncRecordValue(r.data)!==syncRecordValue(JSON.parse(baseline[key]));}))return null;
+  return rows;
+ }catch(_){return null;}
+}
+function recoverVerifiedBootFinancialCache(remote) {
+ if(window.financeBootCacheChecked||!window.financeBootNormalizedRows)return false;
+ window.financeBootCacheChecked=true;
+ const boot=verifiedBootFinancialRows();
+ if(!boot||window.financeBootUserInteracted||financeSettingsEditing||cloudRefreshInteractionBlocked()||recordPendingDeletes.length)return false;
+ const sections=new Set(boot.map(r=>r.section));
+ const current=buildRecordSyncRowsFromState();
+ const fingerprint=rows=>syncRecordValue(rows.filter(r=>sections.has(r.section)).map(r=>({section:r.section,record_id:r.record_id,data:r.data})).sort((a,b)=>(a.section+'|'+a.record_id).localeCompare(b.section+'|'+b.record_id)));
+ if(fingerprint(current)!==fingerprint(window.financeBootNormalizedRows))return false;
+ const incoming=remote.filter(r=>sections.has(r.section));
+ if(!incoming.length)return false;
+ // A missing singleton means an incomplete/unauthorized response, not deletion.
+ if(boot.some(r=>r.record_id==='singleton'&&!incoming.some(x=>x.section===r.section&&x.record_id==='singleton'&&!x.deleted_at)))return false;
+ saveRecoverySnapshot('before-verified-clean-boot-refresh');
+ const combined=[...current.filter(r=>!sections.has(r.section)),...incoming];
+ const dirty=financeSettingsDirty;financeSettingsDirty=false;
+ if(!applyRecordSyncRows(combined,{authoritative:true})){financeSettingsDirty=dirty;return false;}
+ const baseline=recordSyncBaseline();
+ for(const key of Object.keys(baseline))if(sections.has(key.split('|')[0]))delete baseline[key];
+ localStorage.setItem(RECORD_SYNC_BASELINE_KEY,JSON.stringify(baseline));
+ rememberRemoteRecordBaseline(incoming);
+ renderCurrentPageForSections([...sections]);
+ setCloudMeta({pending:cloudHasLocalEditsSinceBaseline(),reconciliationMismatch:false});
+ window.financeVerifiedBootRefreshed=true;
+ return true;
+}
+
 async function recordPushAll(reason='edit'){
  if(recordSyncApplying)return false;
  if(!recordSyncReady||!cloudClient){
@@ -364,6 +420,7 @@ async function recordPushAll(reason='edit'){
 
   const before=(await recordFetchAll()).filter(r=>!window.financeSectionPermission||
    window.financeSectionPermission(r.section)==='edit');
+  if(typeof recoverVerifiedBootFinancialCache==='function')recoverVerifiedBootFinancialCache(before);
   queueObsoleteBankImportPlannerRows(before);
   alignOutgoingLedgerIdsWithCloud(before);
   if(typeof alignInvestmentHoldingIdsWithCloud==='function')alignInvestmentHoldingIdsWithCloud(before);
@@ -666,36 +723,13 @@ function scheduleRecordPush(reason='edit'){
 
 
 async function handleRealtimeRecordPayload(payload){
- try{
-  const row=payload?.new&&Object.keys(payload.new).length?payload.new:payload?.old;
-  if(!row?.section||row.record_id==null)return;
-  if(row.user_id!==(window.financeWorkspaceUserId||window.financeActiveUserId))return;
-
-  noteCloudUpdatedAt(row.updated_at);
-
-  // Ignore the realtime echo of this device's own very recent write.
-  if(isMutedRealtimeRecord(row.section,row.record_id))return;
-
-  // A live update must not replace an unsaved local edit on this device.
-  if(!safeIncomingRecordRows([row]).length)return;
-  const result=applyRecordSyncDeltaRows([row],{render:true});
-  if(result.changed){
-   rememberRemoteRecordBaseline(result.appliedRows);
-   setCloudMeta({
-    initialized:true,
-    deviceTrusted:true,
-    pending:getCloudMeta().pending===true,
-    lastSyncedAt:new Date(recordSyncLastCloudUpdatedAt||Date.now()).toISOString(),
-    lastAutoSyncAt:new Date().toISOString(),
-    lastAutoSyncReason:'realtime-delta'
-   });
-   cloudSetStatus(`Realtime update • ${new Date().toLocaleTimeString()}`);
-   updateCloudSyncPanel(true);
-  }
- }catch(e){
-  console.warn('Realtime delta apply failed',e);
-  cloudSetStatus('Realtime delta retry pending • '+e.message);
- }
+ const row=payload?.new&&Object.keys(payload.new).length?payload.new:payload?.old;
+ if(!row?.section||row.record_id==null||row.user_id!==(window.financeWorkspaceUserId||window.financeActiveUserId))return;
+ if(isMutedRealtimeRecord(row.section,row.record_id))return;
+ // Receive linked payment/ledger/installment changes together from a fresh read.
+ // Do not advance the cursor merely because an event arrived: it may be blocked.
+ clearTimeout(recordRealtimePullTimer);
+ recordRealtimePullTimer=setTimeout(()=>cloudAutoReconcile('realtime'),180);
 }
 
 var recordSyncStartPromise=null;
@@ -1877,8 +1911,9 @@ async function cloudAutoReconcile(reason='fallback'){
   if(!verified)return false;
   // Reopening a trusted device verifies its cache with one full read. Ordinary
   // polling remains incremental; overlapping focus/realtime checks are coalesced.
-  const refreshCache=['startup','visible','online','focus'].includes(reason);
+  const refreshCache=['startup','visible','online','focus','realtime'].includes(reason);
   const changed=refreshCache?await recordFetchAll():await recordFetchChangedSince(currentCloudCursorIso());
+  if(refreshCache&&typeof recoverVerifiedBootFinancialCache==='function')recoverVerifiedBootFinancialCache(changed);
   if(queueObsoleteBankImportPlannerRows(changed))return await recordPushAll('repair-empty-bank-import-cycles');
   if(refreshCache){
    const cloudKeys=new Set(changed.map(r=>`${r.section}|${r.record_id}`));

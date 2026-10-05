@@ -792,7 +792,10 @@ function v279HydrateActivePage(){
 }
 // Finish hydration once after initialization; late IndexedDB and cloud updates
 // already refresh their affected view when they complete.
-init().then(()=>v279HydrateActivePage()).catch(err=>{
+init().then(()=>{
+ v279HydrateActivePage();
+ window.financeBootNormalizedRows=JSON.parse(JSON.stringify(buildRecordSyncRowsFromState()));
+}).catch(err=>{
  console.error('V275 initialization failed',err);
  const u=$('execUpdated');if(u)u.textContent='Local data loaded • startup maintenance warning';
  try{if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();}catch(_){}
