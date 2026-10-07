@@ -1,6 +1,5 @@
 function financePageVisible(page){
- if(page==='bankconnections')return window.financeIsOwner===true||
-  ['view','edit'].includes(window.financeBankTestingPermission);
+ if(page==='bankconnections')return window.financeIsOwner===true&&window.financeActiveUserId==='a8b3c116-be0f-4e2c-9d9a-04643c18b689';
  return !window.financeCanViewPage||window.financeCanViewPage(page);
 }
 
@@ -30,6 +29,7 @@ function shellButton(page,icon,label){
  return '<button data-page-jump="'+page+'">'+navIcon(icon)+'<span>'+label+'</span></button>';
 }
 function canonicalTopHTML(){
+ const tests=document.getElementById('financeTestingPages');if(tests)tests.hidden=!(window.financeIsOwner===true&&window.financeActiveUserId==='a8b3c116-be0f-4e2c-9d9a-04643c18b689');
  function safeName(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
  function menu(label,icon,mainPage,items){
   const visible=items.filter(x=>financePageVisible(x[0]));
@@ -44,7 +44,7 @@ function canonicalTopHTML(){
  +shellButton('assets','assets','Personal Assets')
  +shellButton('rental','rental','Airbnb / Rental')
  +shellButton('reports','reports','Reports')
- +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['bankconnections','cash','Bank Connections'],['importstatements','import','Import Statements'],['more','more','More']])
+ +menu('Settings','settings','financeSettings',[['financeSettings','settings','Settings'],['importstatements','import','Import Statements'],['more','more','More']])
  +'</nav>'+(financePageVisible('transactions')?'<form class="canonicalSearch" id="canonicalSearchForm" role="search"><button type="button" id="canonicalSearchToggle" aria-label="Search transactions">'+navIcon('search')+'</button><input id="canonicalSearchInput" type="search" placeholder="Search transactions…" aria-label="Search transactions"></form>':'')+(window.financeWorkspaceChoices?.length>0?'<label class="canonicalWorkspace"><span class="canonicalWorkspaceLabel">Workspace</span> <select id="financeWorkspaceSwitch" aria-label="Finance workspace">'+window.financeWorkspaceChoices.map(w=>'<option value="'+safeName(w.id)+'"'+(w.id===window.financeWorkspaceUserId?' selected':'')+'>'+safeName(window.financeWorkspaceLabel?.(w)||w.name)+'</option>').join('')+'</select></label>':'')+'<div class="canonicalDate" id="canonicalDate"></div><div class="canonicalProfile" data-profile-menu><button class="canonicalAvatar" type="button" aria-label="Open profile menu" aria-expanded="false"><span>HA</span><span class="profileChevron">⌄</span></button><div class="canonicalProfileMenu"><div class="profileIdentity"><b>HA</b><span>My Finance profile</span></div><button type="button" data-profile-action="account"><span>Account</span></button><button type="button" data-profile-action="preferences"><span>Preferences</span></button><button type="button" data-profile-action="signout"><span>Sign out</span></button></div></div>';
 }
 function closeCanonicalMobileSheet(top){

@@ -2,7 +2,7 @@
 const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sar=v=>'SAR '+Number(v).toFixed(2),round=v=>Math.round((v+Number.EPSILON)*100)/100;
 let items=[],selected=null,receiptUrl='',requestVersion=0;
-const client=window.supabase?.createClient('https://qxayaygycgqwrerhrrlq.supabase.co','sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2');
+const client=window.financeGroceryClient||window.supabase?.createClient('https://qxayaygycgqwrerhrrlq.supabase.co','sb_publishable_2RIeDYaMuiPFyVs1TEG9wA_wqc8oNx2');
 function notify(message){el('feedback').textContent=message;}
 function activeItem(){return items.find(i=>i.id===selected);}
 function freshOffer(o,item){const age=Date.now()-Date.parse(o.updatedAt);return o.inStock===true&&!o.stale&&o.currency==='SAR'&&o.priceBasis===item.basis&&typeof o.price==='number'&&Number.isFinite(o.price)&&o.price>0&&Number.isFinite(age)&&age>=-300000&&age<=48*3600000&&o.city==='Riyadh';}

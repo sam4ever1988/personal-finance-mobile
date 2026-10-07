@@ -13,13 +13,13 @@ module.exports=async function handler(req,res){
  const key=process.env.MUWAZIN_API_KEY,allowed=String(process.env.GROCERY_TEST_USER_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
  const action=String(req.query?.action||'status');
  if(!['status','search','branches'].includes(action))return res.status(400).json({error:'Unknown action'});
- if(!key||!allowed.length)return res.status(action==='status'?200:503).json({configured:false,error:'Price API is not connected yet. A provider evaluation key and tester access must be configured.'});
  const token=String(req.headers?.authorization||'');
  if(!/^Bearer [A-Za-z0-9._-]+$/.test(token)||token.length>8192)return res.status(401).json({error:'Sign in to your finance account first.'});
  try{
   const auth=await fetch(AUTH_URL,{headers:{apikey:AUTH_KEY,Authorization:token},signal:AbortSignal.timeout(5000)});
   if(!auth.ok)return res.status(401).json({error:'Your session expired. Sign in again.'});
-  const user=await auth.json();if(!user.id||!allowed.includes(user.id))return res.status(403).json({error:'This price comparison API is available only to approved testers.'});
+  const user=await auth.json();if(user.id!=='a8b3c116-be0f-4e2c-9d9a-04643c18b689'||user.email?.toLowerCase()!=='sam4ever@windowslive.com')return res.status(403).json({error:'This price comparison API is available only to approved testers.'});
+  if(!key||!allowed.includes(user.id))return res.status(action==='status'?200:503).json({configured:false,error:'Price API is not connected yet. A provider evaluation key and admin access must be configured.'});
   if(action==='status')return res.status(200).json({configured:true,verified:false,city:'Riyadh',message:'Configured for testing. Run a search to verify provider access.'});
   let path;
   if(action==='search'){
