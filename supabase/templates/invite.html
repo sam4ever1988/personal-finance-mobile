@@ -1,0 +1,19 @@
+<!doctype html>
+<html><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#183044">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px"><tr><td style="padding:32px">
+<p style="color:#087f8c;font-size:14px;font-weight:bold;margin:0 0 24px">PERSONAL FINANCE</p>
+<h1 style="font-size:26px;line-height:1.3;margin:0 0 18px">You're invited to Personal Finance</h1>
+<p style="font-size:16px;line-height:1.6">{{ if .Data.finance_inviter_name }}{{ .Data.finance_inviter_name }}{{ else }}A Personal Finance user{{ end }} invited you to join.</p>
+{{ if eq .Data.finance_invitation_type "shared" }}
+<p style="font-size:16px;line-height:1.6">You have been invited to the shared workspace <strong>{{ .Data.finance_workspace_name }}</strong>.</p>
+<p style="font-size:14px;line-height:1.7;background:#edf7f7;padding:16px;border-radius:8px"><strong>Your access after acceptance</strong><br>{{ .Data.finance_access_summary }}</p>
+<p style="font-size:16px;line-height:1.6">You can also create your own private workspace to manage your finances separately.</p>
+{{ else }}
+<p style="font-size:16px;line-height:1.6">Create your account and set up your own private workspace to manage accounts, spending, payments and assets.</p>
+<p style="font-size:14px;line-height:1.6;background:#edf7f7;padding:16px;border-radius:8px">This invitation does not share the inviter's workspace or financial data with you.</p>
+{{ end }}
+<p style="margin:28px 0"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#087f8c;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:bold">{{ if eq .Data.finance_invitation_type "shared" }}Accept invitation{{ else }}Create your account{{ end }}</a></p>
+<p style="font-size:14px;line-height:1.6">Use this email address to finish setting up your account. After signing in, you can create your private workspace from your Account page.</p>
+<p style="font-size:13px;line-height:1.6;color:#64748b">If you weren't expecting this invitation, you can ignore this email. If the link expires, ask the inviter for a new invitation.</p>
+</td></tr></table></td></tr></table></body></html>
