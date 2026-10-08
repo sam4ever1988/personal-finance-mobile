@@ -1044,8 +1044,10 @@ function cardActiveCycleMonth(cardId,asOfDate=new Date()){
  const d=String(asOfDate.getDate()).padStart(2,'0');
  return paymentMonthForTransaction(cardId,`${y}-${m}-${d}`);
 }
+var financeCycleTransactionIndex=null;
 function transactionAmountForPaymentMonthAll(cardId,paymentMonth){
- return liveCardTransactions().filter(t=>{
+ const rows=financeCycleTransactionIndex?financeCycleTransactionIndex.get(JSON.stringify([cardId,paymentMonth]))||[]:liveCardTransactions();
+ return rows.filter(t=>{
   if(t.account!==cardId)return false;
   const assignedMonth=assignedTransactionPaymentMonth(cardId,t);
   if(assignedMonth!==paymentMonth)return false;
@@ -1827,11 +1829,13 @@ function calculatedPaymentCycleAmount(cardId,month){
  return financeRoundMoney((transactions+installment+transfers));
 }
 function cardLedgerSourceTransfersForMonth(cardId,month){
- const rows=liveCardTransactions();
- return financeRoundMoney((cashFlowLedger||[]).filter(h=>
+ const transfers=(cashFlowLedger||[]).filter(h=>
   ['card-payment','card-bank-transfer'].includes(h.type) && h.status!=='reversed' && h.sourceId===cardId && h.targetId!==cardId && !transferInstallmentPlan(h.id) &&
   (h.sourcePaymentMonth||paymentMonthForTransaction(cardId,h.date))===month
- ).reduce((sum,h)=>{
+ );
+ if(!transfers.length)return 0;
+ const rows=liveCardTransactions();
+ return financeRoundMoney(transfers.reduce((sum,h)=>{
   const matched=rows.some(t=>t.account===cardId && Number(t.amount||0)<0 &&
    Math.abs(Math.abs(Number(t.amount||0))-Number(h.amount||0))<0.01 &&
    String(t.date||'').slice(0,10)===String(h.date||'').slice(0,10) &&

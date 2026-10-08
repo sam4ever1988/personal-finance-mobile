@@ -301,7 +301,18 @@
   window[name]=function(...args){
    if(renderData)return original.apply(this,args);
    renderData=new Map();
-   try{return original.apply(this,args);}finally{renderData=null;}
+   const previousIndex=financeCycleTransactionIndex;
+   try{
+    if(name==='ensurePartialPaymentFields'){
+     financeCycleTransactionIndex=new Map();
+     for(const tx of liveCardTransactions()){
+      const key=JSON.stringify([tx.account,assignedTransactionPaymentMonth(tx.account,tx)]);
+      if(!financeCycleTransactionIndex.has(key))financeCycleTransactionIndex.set(key,[]);
+      financeCycleTransactionIndex.get(key).push(tx);
+     }
+    }
+    return original.apply(this,args);
+   }finally{financeCycleTransactionIndex=previousIndex;renderData=null;}
   };
  }
 })();
