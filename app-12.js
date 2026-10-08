@@ -275,7 +275,7 @@
  el('statementCompareRefresh').onclick=window.financeRenderStatementComparison;
 })();
 
-/* 3.98 / 4.13: share transaction normalization within one synchronous render
+/* 3.98: share transaction normalization within one synchronous render
    or payment-normalization pass. Payment-field updates do not alter transaction
    sources; each pass clears its snapshot before the next edit or cloud update.
    No calculated data survives navigation, edits, cloud updates or the render. */
