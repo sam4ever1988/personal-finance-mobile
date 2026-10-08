@@ -84,7 +84,9 @@ function financePopulateMonthSelect(select,blankLabel='Choose month'){
  [...months].sort().reverse().forEach(month=>{const [year,m]=month.split('-').map(Number);select.add(new Option(new Date(year,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}),month));});
  select.value=value;
 }
+var financeNativeMonthSupported=(()=>{const input=document.createElement('input');input.type='month';return input.type==='month';})();
 function financeMonthFallbacks(root=document){
+ if(financeNativeMonthSupported)return;
  root.querySelectorAll('input[type="month"]').forEach(input=>{
   if(input.type==='month'||input.dataset.monthFallback)return;
   // Safari versions without a native month picker retain the original input
@@ -103,7 +105,7 @@ function financeMonthFallbacks(root=document){
  });
 }
 financeMonthFallbacks();
-new MutationObserver(records=>{if(records.some(record=>[...record.addedNodes].some(node=>node.nodeType===1)))financeMonthFallbacks();}).observe(document.body,{childList:true,subtree:true});
+if(!financeNativeMonthSupported)new MutationObserver(records=>{const roots=new Set();for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)roots.add(node.matches?.('input[type="month"]')?node.parentElement:node);for(const root of roots)if(root)financeMonthFallbacks(root);}).observe(document.body,{childList:true,subtree:true});
 var lastMobileNavAt=0;
 const CLOUD_META_KEY='pf_cloud_sync_meta';
 var cloudAutoSaveTimer=null;

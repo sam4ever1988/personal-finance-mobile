@@ -77,14 +77,19 @@ function openCanonicalMobileSheet(top,m,b){
 }
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
- closeCanonicalMobileSheet();
- app.querySelectorAll('.sidebar,.unifiedSide,#canonicalAppSide').forEach(x=>x.remove());
- main.querySelectorAll('.topbar').forEach(x=>x.remove());
+ closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));
  var content=main.querySelector(':scope>.content');if(!content)return;
- content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
+ if(!window.financeCanonicalCleanupDone){
+  app.querySelectorAll('.sidebar,.unifiedSide,#canonicalAppSide').forEach(x=>x.remove());
+  main.querySelectorAll('.topbar').forEach(x=>x.remove());
+  content.querySelectorAll('.modernModuleTop').forEach(x=>x.remove());
+  window.financeCanonicalCleanupDone=true;
+ }
  var top=document.getElementById('canonicalAppTop');
  if(!top){top=document.createElement('header');top.id='canonicalAppTop';top.className='canonicalAppTop';app.insertBefore(top,main);}
- top.innerHTML=canonicalTopHTML();
+ const markup=canonicalTopHTML();
+ if(top.financeCanonicalMarkup===markup&&top.childElementCount)return;
+ top.innerHTML=markup;top.financeCanonicalMarkup=markup;
  top.classList.toggle('hasWorkspace',!!top.querySelector('.canonicalWorkspace'));
  const workspaceSelect=top.querySelector('#financeWorkspaceSwitch');
  if(workspaceSelect)workspaceSelect.title=window.financeWorkspaceName||workspaceSelect.selectedOptions?.[0]?.textContent||'';
@@ -1367,7 +1372,7 @@ function nav(page){
 
  const titles={financialposition:'Financial Position',executive:'Executive Dashboard',strategy:'Financial Strategy',accounts:'Accounts & Cards',transactions:'Transactions',reports:'Reports',installments:'Installment Plans',categories:'Categories',incomeplan:'Income & Payment Plan',outgoings:'Outgoings',importstatements:'Import Statements',assets:'Personal Assets',investments:'Investments',rental:'Airbnb / Rental',financeSettings:'Finance Settings',bankconnections:'Bank Connections',more:'More',accountDetail:'Account Details',auditTrail:'Audit Trail',adminAccess:'Admin Access',accessLab:'Access Test',statementCardReview:'Statement Comparison & Card Review'};
  if($('pageTitle'))$('pageTitle').textContent=titles[page]||'Personal Finance';
- if($('pageSub'))$('pageSub').textContent=page==='reports'?'Interactive filters • Real statement data':'Real statement data • Jul–Aug 2026';
+ if($('pageSub'))$('pageSub').textContent=page==='reports'?'Filter and explore your workspace transactions':'Your workspace financial data';
 
  // Intentional user navigation starts at the top. Realtime restore does NOT use nav().
  window.scrollTo({top:0,behavior:'auto'});
@@ -1433,7 +1438,7 @@ function mobileNavigate(event,page){
 
 /* V258: sidebar buttons already call mobileNavigate(). A second desktop
    listener caused two nav()/render passes for every desktop click. */
-document.querySelectorAll('[data-page-jump]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.pageJump==='dashboard'?'executive':b.dataset.pageJump)));
+document.querySelectorAll('[data-page-jump]').forEach(b=>{if(!b.closest('#canonicalAppTop'))b.addEventListener('click',()=>nav(b.dataset.pageJump==='dashboard'?'executive':b.dataset.pageJump));});
 if($('txHeroAdd'))$('txHeroAdd').addEventListener('click',()=>$('addTransaction')?.click());
 
 const mobileNavBar=document.querySelector('.sidebar');

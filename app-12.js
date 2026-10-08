@@ -279,7 +279,7 @@
    No calculated data survives navigation, edits, cloud updates or the render. */
 (function(){
  let renderData=null;
- for(const name of ['liveCardTransactions','normalizedTx']){
+ for(const name of ['liveCardTransactions','normalizedTx','possibleDuplicateGroups']){
   const original=window[name];
   window[name]=function(includeInactive=false){
    if(!renderData)return original(includeInactive);
@@ -294,7 +294,7 @@
   const original=window[name];
   window[name]=function(...args){if(renderData)renderData.clear();return original.apply(this,args);};
  }
- for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy']){
+ for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy','renderTransactions']){
   const original=window[name];
   window[name]=function(...args){
    if(renderData)return original.apply(this,args);

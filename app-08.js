@@ -48,7 +48,7 @@ function applyTableSort(table,colIndex,direction,remember=true){
 }
 
 function initializeSortableTables(root=document){
- const tables=[...root.querySelectorAll('table')];
+ const tables=root.matches?.('table')?[root]:[...root.querySelectorAll('table')];
  tables.forEach((table,index)=>{
   const headerRow=table.tHead?.rows?.[0];
   if(!headerRow)return;
@@ -92,23 +92,32 @@ function initializeSortableTables(root=document){
  });
 }
 
-function scheduleSortableTableRefresh(){
- if(tableSortRefreshTimer)return;
- // MutationObserver already runs in the browser's microtask checkpoint. Keep the
- // refresh in that same checkpoint so saved row order is restored before paint.
+var financeSortChangedTables=new Set();
+function scheduleSortableTableRefresh(tables=[]){
+ for(const table of tables)financeSortChangedTables.add(table);
+ if(tableSortRefreshTimer||!financeSortChangedTables.size)return;
  tableSortRefreshTimer=true;
  queueMicrotask(()=>{
   tableSortRefreshTimer=null;
-  initializeSortableTables(document);
+  const changed=[...financeSortChangedTables];financeSortChangedTables.clear();
+  for(const table of changed)if(table.isConnected)initializeSortableTables(table);
  });
 }
 
-// Tables are rebuilt by many render functions and by realtime sync.
-// Re-attach sorting automatically whenever table markup changes.
+// Only changed tables need rebinding. Status labels and charts need no table work.
 const sortableTableObserver=new MutationObserver(mutations=>{
- if(mutations.some(m=>m.addedNodes?.length || m.removedNodes?.length)){
-  scheduleSortableTableRefresh();
+ const tables=new Set();
+ for(const mutation of mutations){
+  if(!mutation.addedNodes?.length&&!mutation.removedNodes?.length)continue;
+  const enclosing=mutation.target.nodeType===1?mutation.target.closest?.('table'):mutation.target.parentElement?.closest('table');
+  if(enclosing)tables.add(enclosing);
+  for(const node of mutation.addedNodes||[]){
+   if(node.nodeType!==1)continue;
+   if(node.matches?.('table'))tables.add(node);
+   for(const table of node.querySelectorAll?.('table')||[])tables.add(table);
+  }
  }
+ scheduleSortableTableRefresh(tables);
 });
 
 
