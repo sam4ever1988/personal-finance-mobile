@@ -947,7 +947,7 @@ function allStatementFormats(){
 }
 function statementTemplateIsNew(f,now=Date.now()){
  const created=Date.parse(f.createdAt),until=Date.parse(f.newUntil);
- return f.shared===true&&Number.isFinite(created)&&Number.isFinite(until)&&now>=created&&now<until;
+ return (f.shared===true||f.builtIn===true)&&Number.isFinite(created)&&Number.isFinite(until)&&now>=created&&now<until;
 }
 async function refreshSharedStatementTemplates(){
  if(sharedTemplateLoading||!window.financeSupabaseClient)return;

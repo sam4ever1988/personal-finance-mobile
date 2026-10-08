@@ -1828,7 +1828,7 @@ function dedupeDashboardErrorAlerts(){
 // V194 FEATURE UPGRADE — dashboard balances, early settlement, statement format library,
 // personal gold assets and data-driven custom credit cards.
 const BUILTIN_STATEMENT_TEMPLATES=[
- {id:'fmt-snb-current',name:'SNB Current Account',accountId:'',fileType:'PDF',parser:'snb-current-pdf',mapping:'Date · Description · Transaction Type · Credit / Debit · Balance (SAR)',builtIn:true,active:true},
+ {id:'fmt-snb-current',name:'SNB Current Account',accountId:'',fileType:'PDF',parser:'snb-current-pdf',createdAt:'2026-10-08T00:00:00+03:00',newUntil:'2026-12-08T00:00:00+03:00',mapping:'Date · Description · Transaction Type · Credit / Debit · Balance (SAR)',builtIn:true,active:true},
  {id:'fmt-ar-current',name:'Al Rajhi Current Account',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
  {id:'fmt-ar-infinite',name:'Al Rajhi Visa Infinite',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
  {id:'fmt-ar-platinum',name:'Al Rajhi Visa Platinum',accountId:'',fileType:'PDF / Excel',mapping:'Built-in parser',builtIn:true,active:true},
@@ -1839,7 +1839,7 @@ function sanitizeBuiltinStatementTemplates(formats){
  const result=new Map();
  (Array.isArray(formats)?formats:BUILTIN_STATEMENT_TEMPLATES).forEach(f=>{
   const generic=BUILTIN_STATEMENT_TEMPLATES.find(t=>t.id===(legacy[f.id]||f.id));
-  const safe=generic?{...f,id:generic.id,name:generic.name,accountId:'',builtIn:!f.mappingConfig}:f;
+  const safe=generic?{...f,id:generic.id,name:generic.name,accountId:'',builtIn:!f.mappingConfig,...(generic.createdAt?{createdAt:generic.createdAt,newUntil:generic.newUntil}:{})}:f;
   result.set(safe.id,safe);
  });
  if(!result.has('fmt-snb-current'))result.set('fmt-snb-current',{...BUILTIN_STATEMENT_TEMPLATES.find(f=>f.id==='fmt-snb-current')});

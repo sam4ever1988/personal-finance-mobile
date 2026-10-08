@@ -29,6 +29,15 @@ const available = tc.sanitizeBuiltinStatementTemplates([]);
 assert.equal(available.filter(t => t.id === 'fmt-snb-current').length, 1);
 assert.equal(available[0].accountId, '');
 assert.equal(tc.sanitizeBuiltinStatementTemplates(available).length, 1);
+const badgeSource = read('app-08.js');
+vm.runInContext(badgeSource.slice(badgeSource.indexOf('function statementTemplateIsNew('), badgeSource.indexOf('async function refreshSharedStatementTemplates(')), tc);
+const migrated = tc.sanitizeBuiltinStatementTemplates([{id: 'fmt-snb-current', name: 'SNB Current Account', builtIn: true}])[0];
+assert(tc.statementTemplateIsNew(migrated, Date.parse('2026-10-08T00:00:00+03:00')));
+assert(tc.statementTemplateIsNew(migrated, Date.parse('2026-12-07T23:59:59+03:00')));
+assert(!tc.statementTemplateIsNew(migrated, Date.parse('2026-12-08T00:00:00+03:00')));
+assert(!tc.statementTemplateIsNew(migrated, Date.parse('2026-10-07T23:59:59+03:00')));
+assert(!tc.statementTemplateIsNew({...migrated, builtIn: false}, Date.parse('2026-10-09T00:00:00+03:00')));
+assert(read('app-12.js').includes("statementTemplateIsNew(f)?' • New':''"));
 (async () => {
   const pages = process.argv[2] ? JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) : [[item('STATEMENT OF ACCOUNT The Saudi National Bank', 30, 800)], page];
   c.pdfjsLib = {GlobalWorkerOptions: {}, getDocument: () => ({promise: Promise.resolve({numPages: pages.length, getPage: async p => ({getTextContent: async () => ({items: pages[p - 1]})})})})};
