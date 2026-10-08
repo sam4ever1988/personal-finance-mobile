@@ -199,3 +199,13 @@ html[data-finance-theme="light"] body .dupResolveBox .btn:not(.primary){backgrou
 
 /* V395: manual bank holds share card detail colors and responsive actions. */
 .bankHoldPanel{margin:14px 0}.bankHoldRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line)}.bankHoldRow>div:first-child{flex:1;min-width:180px}.bankHoldActions{display:flex;flex-wrap:wrap;gap:6px}.bankHoldPanel summary{cursor:pointer;color:inherit}@media(max-width:600px){.bankHoldActions{width:100%}.bankHoldPanel .splitHead{align-items:flex-start;flex-wrap:wrap}}
+
+/* 4.15: simpler overview and one focused credit-payment table. */
+#accounts .cashGridBottom{grid-template-columns:minmax(0,1fr)}
+.overviewDetails{margin-top:14px;border:1px solid #17475e;border-radius:10px;padding:14px;background:var(--panel,#082d43)}
+.overviewDetails>summary{cursor:pointer;font-weight:700;color:#eaf7ff}
+.overviewDetails .execBottom{margin-top:14px}
+
+html[data-finance-theme="light"] .overviewDetails{background:#fff;border-color:#cfdae3}
+html[data-finance-theme="light"] .overviewDetails>summary{color:#17354b}
+.overviewDetails .cashTableWrap{margin-top:14px}

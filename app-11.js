@@ -102,25 +102,13 @@
 
  };
  function rootScroll(selector){document.querySelector('#transactions '+selector)?.scrollIntoView({behavior:'smooth',block:'start'});}
- function renderCashFlow(){
-  const box=el('execCashFlow');if(!box)return;
-  const income=Number(totalIncomePlan())||0,loans=Number(totalFixedLoans())||0,other=Number(outgoingThisMonthTotal())||0,paid=Number(remainingIncomePaymentsTotal())||0,left=Number(remainingIncomeAvailable())||0;
-  const entries=[['Bank Loans',loans,'#ef5665'],['Cash / Other',other,'#f8bb35'],['Card Payments',paid,'#8a58ef']];
-  const total=entries.reduce((s,x)=>s+Math.max(0,x[1]),0)+Math.max(0,left);let cursor=0;
-  const slices=entries.concat(left>0?[['Remaining',left,'#25cda0']]:[]).filter(x=>x[1]>0).map(x=>{const start=cursor;cursor+=x[1]/Math.max(1,total)*100;return x[2]+' '+start+'% '+cursor+'%';});
-  const pct=v=>income>0?(v/income*100<.1&&v>0?'&lt;0.1':(v/income*100).toFixed(1))+'%':'—';
-  box.innerHTML='<div class="layoutFlowMonth">'+new Date().toLocaleDateString('en',{month:'short',year:'numeric'})+'</div><div class="layoutCashFlow"><div class="layoutFlowRing" style="background:'+(slices.length?'conic-gradient('+slices.join(',')+')':'#17475e')+'"><div><small>Income</small><b>'+money(income)+'</b></div></div><div class="layoutFlowRows">'+entries.map(x=>'<div class="layoutFlowRow"><span><i style="background:'+x[2]+'"></i>'+x[0]+'<b>'+money(x[1])+'</b></span><div class="layoutTrack"><i style="width:'+Math.min(100,Math.max(0,income>0?x[1]/income*100:0))+'%;background:'+x[2]+'"></i></div><strong style="color:'+x[2]+'">'+pct(x[1])+'</strong></div>').join('')+'<div class="layoutFlowRemaining"><span>Remaining</span><b class="'+(left<0?'red':'green')+'">'+money(left)+'</b></div>'+(left<0?'<small class="red">Commitments exceed income by '+money(-left)+'.</small>':'')+'</div></div>';
- }
- const originalExecutive=renderExecutiveDashboard;
- renderExecutiveDashboard=function(){originalExecutive();renderCashFlow();const box=el('execNext30');if(box){const now=new Date();now.setHours(0,0,0,0);const end=new Date(now);end.setDate(end.getDate()+30);const future=executiveUpcomingPayments(true).filter(p=>p.date>=now&&p.date<=end);box.innerHTML='<div class="layoutCompare"><div><small>Upcoming payments</small><b>'+future.length+'</b></div><div><small>Scheduled amount</small><b>'+money(future.reduce((s,p)=>s+Number(p.amount||0),0))+'</b></div></div><button class="btn primary" type="button" onclick="nav(\'incomeplan\')">Review Payment Plan</button>';}
- };
  function applyExecutiveLayout(){const main=document.querySelector('#executive .execMain');if(!main||main.dataset.layout372)return;main.dataset.layout372='1';
   const grid=main.querySelector('.execGrid'),bottom=main.querySelector('.execBottom'),columns=[...grid.children],left=columns[0],right=columns[1],narrow=columns[2];
-  const next=node('div','execPanel','<div class="execTitle">Next 30 Days</div><div id="execNext30"></div>');right.append(next);
   // Existing gold, utilization, bank and Zakat panels remain available below the primary overview.
   const extra=node('div','layoutDashboardDetails');for(const sel of ['.execGoldPanel','.execUtilPanel','.execBankPanel','.execZakatPanel'])move(main.querySelector(sel),extra);
   narrow?.remove();const position=main.querySelector('.execPositionPanel'),quick=main.querySelector('.execQuickPanel'),positionColumn=node('div','layoutDashboardColumn');bottom.prepend(positionColumn);move(position,positionColumn);move(quick,positionColumn);const remaining=[...bottom.children].filter(p=>p!==positionColumn);const assetsColumn=node('div','layoutDashboardColumn'),liabilitiesColumn=node('div','layoutDashboardColumn');bottom.append(assetsColumn,liabilitiesColumn);move(remaining[0],assetsColumn);move(remaining[1],liabilitiesColumn);move(extra.querySelector('.execBankPanel'),positionColumn);move(extra.querySelector('.execGoldPanel'),assetsColumn);move(extra.querySelector('.execUtilPanel'),liabilitiesColumn);move(extra.querySelector('.execZakatPanel'),liabilitiesColumn);const title=main.querySelector('.execHero h2');if(title)title.textContent='Executive Overview';
   main.querySelector('.execPositionPanel [data-page-jump]')?.setAttribute('data-page-jump','financialposition');
+  const details=node('details','overviewDetails');const summary=node('summary','','Asset and liability details');bottom.before(details);details.append(summary,bottom);details.addEventListener('toggle',()=>{if(details.open)renderExecutiveDashboard();});
  }
  function applyRentalLayout(){const root=el('rental');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';const layout=root.querySelector('.rentalLayout'),bottom=root.querySelector('.rentalBottom'),right=root.querySelector('.rentalRight');
   const left=node('div','layoutRentalLeft');layout.prepend(left);move(root.querySelector('.rentalCalendarPanel'),left);move(bottom?.firstElementChild,left);move(el('rentalExpenses')?.closest('.panel'),right);bottom?.remove();
