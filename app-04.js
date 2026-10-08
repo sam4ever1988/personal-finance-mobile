@@ -158,11 +158,30 @@ function transactionImportedDateCell(t){
  return `<span data-sort-value="${d.toISOString()}">${escapeHtml(d.toLocaleDateString())}<div class="meta">${escapeHtml(d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))}</div></span>`;
 }
 let financeDuplicateRowCache=null;
-function financeRenderTransactionRows(rows){
+function financeRenderTransactionRows(rows,body=null){
  const previous=financeDuplicateRowCache,groups=new Map();
  possibleDuplicateGroups(false).forEach(group=>{for(const row of [group.a,group.b])if(!groups.has(row._id))groups.set(row._id,group);});
  financeDuplicateRowCache=groups;
- try{return rows.map(txRow6).join('');}finally{financeDuplicateRowCache=previous;}
+ try{
+  if(!body)return rows.map(txRow6).join('');
+  const existing=new Map([...body.children].filter(row=>row.dataset.tx).map(row=>[row.dataset.tx,row]));
+  const next=[];
+  for(const tx of rows){
+   const markup=txRow6(tx);let row=existing.get(String(tx._id));
+   if(!row||row.financeTransactionMarkup!==markup){
+    const fragment=document.createElement('tbody');fragment.innerHTML=markup;
+    const replacement=fragment.firstElementChild;replacement.financeTransactionMarkup=markup;
+    if(row)row.replaceWith(replacement);row=replacement;
+   }
+   next.push(row);existing.delete(String(tx._id));
+  }
+  existing.forEach(row=>row.remove());
+  // Reuse unchanged rows and controls; filters and saved sorting still apply.
+  const wanted=new Set(next);[...body.children].forEach(row=>{if(!wanted.has(row))row.remove();});
+  let cursor=body.firstElementChild;
+  for(const row of next){if(row===cursor)cursor=cursor.nextElementSibling;else body.insertBefore(row,cursor);}
+  if(!next.length)body.innerHTML='<tr><td colspan="8">No matching transactions.</td></tr>';
+ }finally{financeDuplicateRowCache=previous;}
 }
 function txRow6(t){
  const group=financeDuplicateRowCache?financeDuplicateRowCache.get(t._id):possibleDuplicateGroups(false).find(g=>g.a._id===t._id||g.b._id===t._id);
@@ -982,7 +1001,7 @@ function renderTransactions(){
  if(window.financeTxReview==='manual')rows=rows.filter(t=>t.manual||t.isManual);
  if(eligiblePurchasesOnly)rows=rows.filter(t=>isEligibleInstallmentTx(t)&&!isTxLinkedToInstallment(t));
  $('eligibleOnlyBanner').style.display=eligiblePurchasesOnly?'block':'none';
- $('txBody').innerHTML=financeRenderTransactionRows(rows)||'<tr><td colspan="8">No matching transactions.</td></tr>'; bindTxRows();
+ financeRenderTransactionRows(rows,$('txBody')); bindTxRows();
  if(typeof initializeSortableTables==='function')initializeSortableTables($('transactions'));
  renderTxExecutiveInsights(rows);
  if(__bulkDraftWasActive)setTimeout(restoreBulkUpdateDraft,0);
