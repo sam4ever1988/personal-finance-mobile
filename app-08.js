@@ -810,20 +810,7 @@ init().then(()=>{
  try{if(document.getElementById('executive')?.classList.contains('active'))renderExecutiveDashboard();}catch(_){}
 });
 
-function updateV91CloudStatus(){
- const el=document.getElementById('v74CloudStatus'); if(!el)return;
- const cs=document.getElementById('cloudStatus');
- const txt=(cs?.textContent||'').toLowerCase();
- if(/signed in|connected|synced/.test(txt) && !/not connected|signed out/.test(txt)){
-  el.textContent='Connected';el.style.color='var(--green)';
- }else if(/checking/.test(txt)){
-  el.textContent='Checking…';el.style.color='';
- }else{
-  el.textContent='Not Connected / Sign In';el.style.color='var(--orange)';
- }
-}
-setInterval(updateV91CloudStatus,1200);
-setTimeout(updateV91CloudStatus,300);
+
 
 // V266: gold controls use one delegated action route.
 document.addEventListener('click',async e=>{

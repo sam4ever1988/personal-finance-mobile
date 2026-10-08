@@ -209,3 +209,18 @@ html[data-finance-theme="light"] body .dupResolveBox .btn:not(.primary){backgrou
 html[data-finance-theme="light"] .overviewDetails{background:#fff;border-color:#cfdae3}
 html[data-finance-theme="light"] .overviewDetails>summary{color:#17354b}
 .overviewDetails .cashTableWrap{margin-top:14px}
+
+/* 4.16: independent Settings accordions and compact tools. */
+#financeSettingsPanel{display:grid;gap:12px}
+.financeSettingsSection{border:1px solid #17475e;border-radius:10px;background:#082d43;padding:14px;color:#eaf7ff;min-width:0}
+.financeSettingsSection>summary{font-size:16px;font-weight:700;cursor:pointer}
+.financeSettingsSectionBody{margin-top:14px}
+#loanSettingsRows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#more{display:none}
+#more.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+#more>.panel,#more .grid2>.panel,#financeTestingPages>.panel{margin:0!important;min-width:0;height:100%;box-sizing:border-box}
+#more>.grid2,#more #financeTestingPages:not([hidden]){display:contents}
+#more #financeTestingPages[hidden]{display:none!important}
+#more .splitHead{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+html[data-finance-theme="light"] .financeSettingsSection{background:#fff;border-color:#cfdae3;color:#17354b}
+@media(max-width:760px){#more.active,#loanSettingsRows{grid-template-columns:1fr}}
