@@ -218,9 +218,19 @@ html[data-finance-theme="light"] .overviewDetails>summary{color:#17354b}
 #loanSettingsRows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #more{display:none}
 #more.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
-#more>.panel,#more .grid2>.panel,#financeTestingPages>.panel{margin:0!important;min-width:0;height:100%;box-sizing:border-box}
+#more>.panel,#more .grid2>.panel,#financeTestingPages>.panel{margin:0!important;min-width:0;height:auto!important;min-height:0!important;box-sizing:border-box}
 #more>.grid2,#more #financeTestingPages:not([hidden]){display:contents}
 #more #financeTestingPages[hidden]{display:none!important}
 #more .splitHead{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
 html[data-finance-theme="light"] .financeSettingsSection{background:#fff;border-color:#cfdae3;color:#17354b}
 @media(max-width:760px){#more.active,#loanSettingsRows{grid-template-columns:1fr}}
+
+/* 4.17: tools fit their content instead of stretching grid rows. */
+#more.active{gap:10px;align-content:start;grid-auto-rows:auto}
+#more>.panel,#more .grid2>.panel,#financeTestingPages>.panel{padding:14px!important;align-self:start}
+#more .panelTitle{margin-bottom:8px}
+#more .splitHead{gap:10px}
+#more .meta{line-height:1.45}
+#financeSettingsPanel{gap:8px}
+.financeSettingsSection{padding:10px 12px}
+.financeSettingsSection>summary{font-size:14px}
