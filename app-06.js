@@ -75,6 +75,49 @@ function applyMeemOfficialStatement(meta){
  return {updated:true,amount:Number(meta.totalDue||0),due:meta.dueDate||'',paymentMonth:payMonth};
 }
 
+// SNB current-account PDFs: use table positions, never the running balance as a payment.
+function isSNBCurrentStatement(text){
+ const value=String(text||'').normalize('NFKC');
+ return /statement\s+of\s+account/i.test(value)&&/Saudi\s+National\s+Bank|البنك\s+الأهلي\s+السعودي/i.test(value);
+}
+function parseSNBStatementPage(items,accountId,statementMonth=''){
+ const clean=s=>String(s||'').normalize('NFKC').replace(/[\u200e\u200f\u202a-\u202e]/g,'').trim();
+ const visible=items.filter(i=>clean(i.str)&&i.transform?.length>=6);
+ const headers=['Balance','Debit','Credit','Description','Transaction Type','Date'];
+ const columns=headers.map(label=>visible.find(i=>clean(i.str).toLowerCase()===label.toLowerCase()));
+ if(columns.some(i=>!i))return [];
+ const headerY=columns[0].transform[5];
+ if(columns.some(i=>Math.abs(i.transform[5]-headerY)>4)||columns.some((i,n)=>n&&i.transform[4]<=columns[n-1].transform[4]))throw Error('The SNB table layout is not recognized. Nothing was imported.');
+ const x=columns.map(i=>i.transform[4]),col=i=>{let n=0;while(n<5&&i.transform[4]>=x[n+1]-2)n++;return n;};
+ const below=visible.filter(i=>i.transform[5]<headerY-5);
+ const footer=below.filter(i=>/This statement would be considered|Page:\s*\d|OUT OF|Saudi National Bank Tower/i.test(clean(i.str)));
+ const bottom=footer.length?Math.max(...footer.map(i=>i.transform[5]))+4:0;
+ const body=below.filter(i=>i.transform[5]>bottom);
+ const dates=body.filter(i=>col(i)===5&&/^\d{2}\/\d{2}\/\d{4}$/.test(clean(i.str))).sort((a,b)=>b.transform[5]-a.transform[5]);
+ const moneyValue=(row,n)=>{
+  const values=row.filter(i=>col(i)===n&&/^-?\d[\d,]*\.\d{2}$/.test(clean(i.str))).map(i=>Number(clean(i.str).replace(/,/g,'')));
+  if(values.length>1)throw Error('An SNB row has ambiguous amounts. Nothing was imported.');
+  return values[0]??0;
+ };
+ return dates.map((anchor,n)=>{
+  const y=anchor.transform[5],next=dates[n+1]?.transform[5]??bottom;
+  const row=body.filter(i=>Math.abs(i.transform[5]-y)<=3);
+  const detail=body.filter(i=>i.transform[5]<=y+3&&i.transform[5]>next+3).sort((a,b)=>Math.abs(a.transform[5]-b.transform[5])>3?b.transform[5]-a.transform[5]:a.transform[4]-b.transform[4]);
+  const debit=moneyValue(row,1),credit=moneyValue(row,2),balance=moneyValue(row,0),date=parseImportDate(clean(anchor.str));
+  const validDate=date&&Number.isFinite(Date.parse(date+'T12:00:00Z'))&&new Date(date+'T12:00:00Z').toISOString().slice(0,10)===date;
+  if(!validDate||debit<0||credit<0||(!debit&&!credit)||(debit&&credit))throw Error('An SNB row has an invalid date or credit/debit amount. Nothing was imported.');
+  const transactionType=detail.filter(i=>col(i)===4).map(i=>clean(i.str)).join(' ');
+  const lines=detail.filter(i=>col(i)===3).map(i=>clean(i.str));
+  const description=[transactionType,...lines].filter(Boolean).join(' • ');
+  if(!lines.length)throw Error('An SNB transaction description could not be read. Nothing was imported.');
+  const amount=credit||-debit,guessed=guessImportedCategory(description);
+  const dividend=/توزيع\s+[اأإ]رباح|dividend|profit distribution/i.test(description);
+  const transfer=!dividend&&/تحويل|transfer/i.test(transactionType),kind=transfer?'transfer':credit?'income':guessed[2];
+  const referenceLine=lines.find(line=>/مرجع|reference/i.test(line)),reference=referenceLine?.match(/\d{5,}/)?.[0]||'';
+  return {account:accountId,date,posting:date,description,amount,category:transfer?'Financial Obligations':credit?'Miscellaneous':guessed[0],subcategory:transfer?'Savings / Investments':credit?'Unexpected Expenses':guessed[1],kind,needsReview:true,categoryReviewed:false,currency:'SAR',original:null,reference,bankStatementBalance:balance,bankTransactionType:transactionType,physicalCardEnding:'',physicalCardDetected:false,manual:false,imported:true,source:'SNB Current Account PDF',statementMonth:statementMonth||date.slice(0,7)};
+ });
+}
+
 async function parseStatementFile(file,accountId,statementMonth=''){
  const name=file.name.toLowerCase();
 
@@ -131,6 +174,21 @@ async function parseStatementFile(file,accountId,statementMonth=''){
   for(let pp=1;pp<=Math.min(pdf.numPages,2);pp++){
    const pg0=await pdf.getPage(pp),tc0=await pg0.getTextContent();
    firstText+=' '+tc0.items.map(x=>x.str).join(' ');
+  }
+
+  const snbDetected=isSNBCurrentStatement(firstText);
+  if($('importFormatSelect')?.value==='fmt-snb-current'&&!snbDetected)throw Error('This file does not match the SNB current-account template. Select Auto-detect for another bank.');
+  if(snbDetected){
+   if(!accountId||account(accountId)?.type!=='bank')throw Error('Select the SNB bank account before previewing this statement.');
+   importStatementMeta=null;
+   for(let p=1;p<=pdf.numPages;p++){
+    importStatus(`Reading SNB statement page ${p} of ${pdf.numPages}…`);
+    const pg=await pdf.getPage(p),tc=await pg.getTextContent();
+    out.push(...parseSNBStatementPage(tc.items,accountId,statementMonth));
+   }
+   if(!out.length)throw Error('SNB PDF detected, but no transaction rows could be read. No data was imported.');
+   if($('importAccountHint'))$('importAccountHint').textContent='SNB current-account PDF detected → '+accountName(accountId)+'. Credit/debit columns determine direction. Review categories before importing.';
+   return out;
   }
 
   // Al Rajhi •0955 official PDF:
