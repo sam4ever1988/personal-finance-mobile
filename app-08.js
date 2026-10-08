@@ -943,7 +943,7 @@ let sharedStatementTemplates=[];
 let sharedTemplateLoading=false;
 function allStatementFormats(){
  statementFormats=sanitizeBuiltinStatementTemplates(statementFormats);
- return [...statementFormats,...sharedStatementTemplates];
+ return [...statementFormats,...sharedStatementTemplates].filter(f=>f.hidden!==true);
 }
 function statementTemplateIsNew(f,now=Date.now()){
  const created=Date.parse(f.createdAt),until=Date.parse(f.newUntil);
@@ -984,7 +984,7 @@ function renderStatementFormatsV268(){
   <td><span class="badge ${f.active!==false?'active':''}">${f.active!==false?'Active':'Inactive'}</span></td>
   <td><div style="display:flex;gap:6px;flex-wrap:wrap">
    <button class="btn small" type="button" data-edit-format="${escapeHtml(f.id)}">${f.shared&&!window.financeIsOwner?'Make private copy':f.mappingConfig?'Edit / Remap':'Remap'}</button>
-   ${!f.shared||window.financeIsOwner?`<button class="btn small danger" type="button" data-delete-format-v268="${escapeHtml(f.id)}">Delete</button>`:''}
+   ${!f.shared||window.financeIsOwner?`<button class="btn small danger" type="button" data-delete-format-v268="${escapeHtml(f.id)}">${f.shared?'Delete for everyone':f.builtIn?'Hide from this workspace':'Delete from this workspace'}</button>`:''}
   </div></td></tr>`).join('');
 }
 function openStatementFormatBuilderV268(existing=null){
@@ -1063,11 +1063,11 @@ document.addEventListener('click',e=>{
  }
  const f=allStatementFormats().find(x=>x.id===del.dataset.deleteFormatV268);
  if(!f)return;
- if(confirm(`Delete statement format "${f.name}"? This removes the format definition only; imported transactions are not deleted.`)){
+ if(confirm(f.shared?`Delete shared statement format "${f.name}" for ALL users? Imported transactions will remain.`:`${f.builtIn?'Hide':'Delete'} statement format "${f.name}" from THIS workspace only? Other users and imported transactions will not be affected.`)){
   if(f.shared){
    if(!window.financeIsOwner)return;
    window.financeSupabaseClient.from('finance_statement_templates').delete().eq('id',f.id).then(({error})=>{if(error)alert(error.message);else refreshSharedStatementTemplates();});
-  }else{statementFormats=statementFormats.filter(x=>x.id!==f.id);saveV194Data();renderStatementFormatsV268();}
+  }else{statementFormats=f.builtIn?statementFormats.map(x=>x.id===f.id?{...x,hidden:true,active:false}:x):statementFormats.filter(x=>x.id!==f.id);saveV194Data();renderStatementFormatsV268();}
  }
 },true);
 openStatementFormatBuilder=openStatementFormatBuilderV268;

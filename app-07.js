@@ -1081,17 +1081,18 @@ function renderCloudReconciliation(){
  cloudReconciliationPromise=renderCloudReconciliationOnce().finally(()=>{cloudReconciliationPromise=null;});
  return cloudReconciliationPromise;
 }
+function syncRowsForAccess(rows,editOnly=false){return rows.filter(r=>!window.financeSectionPermission||(editOnly?window.financeSectionPermission(r.section)==='edit':['view','edit'].includes(window.financeSectionPermission(r.section))));}
 async function renderCloudReconciliationOnce(){
  const el=$('cloudReconciliation');
  if(!el||!cloudClient)return;
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session){el.innerHTML='<b>Local vs Cloud:</b> Sign in to compare.';return;}
  try{
-  const cloudRows=await recordFetchAll();
+  const cloudRows=syncRowsForAccess(await recordFetchAll());
   const detailScroll=$('cloudDiffDetails')?.scrollTop||0;
   const active=cloudRows.filter(r=>!r.deleted_at);
   if(!active.length){el.className='notice danger';el.innerHTML='<b>Local vs Cloud:</b> No active cloud records found.';return;}
-  const localRows=buildRecordSyncRowsFromState();
+  const localRows=syncRowsForAccess(buildRecordSyncRowsFromState());
   const key=r=>`${r.section}|${r.record_id}`;
   const localMap=new Map(localRows.map(r=>[key(r),r]));
   const cloudMap=new Map(active.map(r=>[key(r),r]));
@@ -1147,7 +1148,7 @@ async function renderCloudReconciliationOnce(){
    const sectionSummary=Object.entries(bySection).sort((a,b)=>b[1]-a[1]).map(([section,count])=>`${esc(section)}: ${count}`).join(' • ');
    el.className='notice danger';
    el.innerHTML=`<b>⚠ Local vs Cloud: DATA MISMATCH</b><div class="meta" style="margin-top:5px">${missing.length} missing • ${unexpected.length} unexpected • ${different.length} records with value differences.</div><div class="meta" style="margin-top:5px">Cloud-only records by dataset: ${sectionSummary||'none'}.</div><button type="button" class="btn" id="cloudDiffToggle" style="margin-top:10px">View Differences</button><div id="cloudDiffDetails" style="display:none;margin-top:10px;max-height:420px;overflow:auto"><div class="meta">Cloud-only records are shown for review. A deleted audit status means the transaction should not be restored as active.</div><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Date</th><th>Account</th><th>Description</th><th>Amount</th><th>Action status</th></tr></thead><tbody>${cloudOnlyRows||'<tr><td colspan="7">No cloud-only records.</td></tr>'}</tbody></table></div><ul style="margin:10px 0 10px 18px">${missingRows}${unexpectedRows}</ul><div class="tableWrap"><table class="rentalTable"><thead><tr><th>Dataset</th><th>Record</th><th>Field</th><th>This device</th><th>Cloud</th><th>Resolve</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No field-level value differences.</td></tr>'}</tbody></table></div><div class="meta" style="margin-top:8px">Balance adjustments are used to calculate the displayed account balance. Use cloud value replaces only the selected device adjustment; other local edits are kept. Showing up to 500 field differences.</div></div>`;
-   if(!window.financeSharedWorkspace&&!window.financeRestrictedOwnAccess){
+   {
     const button=document.createElement('button');button.type='button';button.className='btn primary';button.id='cloudResolveUseLatest';button.textContent='Use latest cloud on this device';
     const note=document.createElement('p');note.className='meta';note.textContent='Replace this device’s cached records together from the cloud. A recovery backup keeps your current device data; this action uploads nothing.';
     el.insertBefore(note,el.querySelector('#cloudDiffToggle'));el.insertBefore(button,el.querySelector('#cloudDiffToggle'));
@@ -1170,12 +1171,14 @@ async function renderCloudReconciliationOnce(){
 var cloudPanelReconciliationTimer=null;
 function updateCloudSyncPanel(remoteInitialized=null){
  const m=getCloudMeta();
+ const restricted=window.financeSharedWorkspace||window.financeRestrictedOwnAccess;
+ if($('recoveryCenter'))$('recoveryCenter').style.display=restricted?'none':'';
  if($('cloudInitialState'))$('cloudInitialState').textContent=(remoteInitialized===true||m.initialized)?'Completed':'Not Completed';
  if($('cloudLastSynced'))$('cloudLastSynced').textContent=m.lastSyncedAt?new Date(m.lastSyncedAt).toLocaleString():'Never';
  if($('cloudPendingState'))$('cloudPendingState').textContent=m.reconciliationMismatch?'Reconciliation needed':m.pending?'Pending':'Protected Auto Sync • Up to Date';
  if($('cloudDeviceState'))$('cloudDeviceState').textContent=m.deviceTrusted?'Verified Device • Auto Two-Way':'Protected';
  const initBtn=$('cloudInitialUpload'), syncBtn=$('cloudUpload'), loadBtn=$('cloudDownload');
- if(initBtn){initBtn.style.display=(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
+ if(initBtn){initBtn.style.display=restricted||(m.initialized&&m.deviceTrusted)?'none':'inline-flex';}
  if(syncBtn){syncBtn.disabled=!(m.initialized&&m.deviceTrusted);}
  if(loadBtn){loadBtn.disabled=remoteInitialized===false;}
  // The hidden sync page used to fetch and compare the entire database on every
@@ -2165,6 +2168,7 @@ async function cloudLoadSnapshotIfNewer(localSavedAt='',force=false){
 
 async function cloudInitialUpload(){
  try{
+  if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Initial cloud source replacement is unavailable with restricted access. Use normal Sync Now.');
   if(recoveryCloudLockActive())throw new Error('Recovery lock is active. Finish the Recovery Center workflow first.');
   $('cloudResult').textContent='Initializing realtime cloud records…';
   await cloudClaim();
@@ -2199,7 +2203,7 @@ async function cloudUploadAll(){
   const cloudRows=await recordFetchAll();
   const cc=v185ActiveCloudCounts(cloudRows);
   const s=localSyncSummary();
-  const expected=new Set(buildRecordSyncRowsFromState().map(r=>`${r.section}|${r.record_id}`));
+  const expected=new Set(syncRowsForAccess(buildRecordSyncRowsFromState(),true).map(r=>`${r.section}|${r.record_id}`));
   const actual=new Set(cloudRows.filter(r=>!r.deleted_at).map(r=>`${r.section}|${r.record_id}`));
   const missing=[...expected].filter(k=>!actual.has(k));
   if(missing.length)throw new Error(`Cloud verification failed: ${missing.length} local record(s) missing after upload.`);
@@ -2238,7 +2242,6 @@ async function initializeEmptyOwnedWorkspace(session,rows){
  return true;
 }
 async function cloudDownloadAll(){
- if(window.financeSharedWorkspace||window.financeRestrictedOwnAccess)throw new Error('Cloud recovery is available only in the administrator’s own workspace.');
  const btn=$('cloudDownload');
  const result=$('cloudResult');
  const originalLabel=btn?btn.textContent:'Load Latest Cloud Data';
@@ -2247,6 +2250,7 @@ async function cloudDownloadAll(){
   if(!cloudClient)throw new Error('Supabase client is unavailable.');
   const {data:{session}}=await cloudClient.auth.getSession();
   if(!session)throw new Error('You are not signed in.');
+  if(getCloudMeta().pending&&!confirm('Replace this device’s unsynced changes with the cloud version? A recovery copy will be saved first. Choose Cancel if this device has the correct values.'))return false;
   if(btn){btn.disabled=true;btn.textContent='Loading Complete Cloud…';}
   if(result){result.className='notice';result.textContent='Reading the complete canonical finance database. No upload will occur during this operation…';}
   const waitStarted=Date.now();
@@ -2254,7 +2258,7 @@ async function cloudDownloadAll(){
   if(recordSyncPushBusy||recordSyncApplying)throw new Error('A local save is still finishing. Try again in a few seconds.');
 
   // Full authoritative read. Never use app_state, a delta cursor, or a local snapshot here.
-  const rows=await recordFetchAll();
+  const rows=syncRowsForAccess(await recordFetchAll());
   if(await initializeEmptyOwnedWorkspace(session,rows))return true;
   if(!rows.length)throw new Error('Supabase finance_sync_records is empty. Local data was not changed.');
   const cloud=v185ActiveCloudCounts(rows);
@@ -2275,7 +2279,7 @@ async function cloudDownloadAll(){
   if((cashFlowLedger||[]).length!==cloud.cashFlowRows)mismatches.push(`cash-flow ${cashFlowLedger.length}/${cloud.cashFlowRows}`);
   if((outgoings||[]).length!==cloud.outgoings)mismatches.push(`outgoings ${outgoings.length}/${cloud.outgoings}`);
   if(mismatches.length)throw new Error('Cloud-to-device verification mismatch: '+mismatches.join(' • '));
-  rememberRecordSyncBaseline(buildRecordSyncRowsFromState());
+  rememberRecordSyncBaseline(syncRowsForAccess(buildRecordSyncRowsFromState()));
 
   rows.forEach(r=>noteCloudUpdatedAt(r.updated_at));
   const sections=[...new Set(rows.map(r=>r.section))];
