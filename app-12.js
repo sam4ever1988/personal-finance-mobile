@@ -296,7 +296,7 @@
   const original=window[name];
   window[name]=function(...args){if(renderData)renderData.clear();return original.apply(this,args);};
  }
- for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy','renderTransactions','openAccount','refreshAccountDetailFilters','ensurePartialPaymentFields']){
+ for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy','renderTransactions','openAccount','refreshAccountDetailFilters','renderSalarySavingsPlanner','salaryBudgetUpdatePreview','ensurePartialPaymentFields']){
   const original=window[name];
   window[name]=function(...args){
    if(renderData)return original.apply(this,args);
@@ -316,3 +316,94 @@
   };
  }
 })();
+
+/* 4.21: monthly salary planning. Forecasts share the income-plan sync record;
+   saving a budget never writes a transaction, ledger payment or bank balance. */
+var salaryBudgetMonth='';
+const salaryBudgetIncomeKeys=['salary','otherSalary','otherIncome'];
+function salaryBudgetSaved(month){return (incomePlan.savingsBudgets||[]).find(p=>p.month===month)||null;}
+function salaryBudgetDefault(month){
+ const p=incomePlanForMonth(month),current=month===currentIncomeMonth();
+ const base=p||(current?incomePlan:{});
+ return {month,incomes:{salary:{mode:'manual',amount:Number(base.mySalary||0)},otherSalary:{mode:'manual',amount:Number(base.wifeSalary||0)},otherIncome:{mode:'manual',amount:Number(base.otherIncome||0)+accumulatedExtraIncome(month)}},openingCash:0,savingsGoal:0,living:[{name:'Groceries',amount:0,sourceId:''},{name:'Transport',amount:0,sourceId:''},{name:'Personal spending',amount:0,sourceId:''}],commitments:[]};
+}
+function salaryBudgetIncomeTransactions(month){return normalizedTx().filter(t=>String(t.date||'').slice(0,7)===month&&Number(t.amount)>0&&txType(t)==='income'&&account(t.account)?.type==='bank');}
+function salaryBudgetIncomeAmount(line,month){
+ if(line?.mode!=='bank')return Number(line?.amount||0);
+ const t=salaryBudgetIncomeTransactions(month).find(t=>t._id===line.transactionId&&t.account===line.accountId);
+ return t?Number(t.amount):0;
+}
+function salaryBudgetObligations(month){
+ const result=[];
+ accounts.filter(a=>a.type==='card').forEach(a=>{
+  const candidates=cardPaymentPlan.filter(p=>p.accountId===a.id&&p.month===month&&!p.upcomingOnly);
+  const rank=p=>isGenuineReleasedStatementRow(p)?3:p.source==='confirmed'?2:1;
+  const p=candidates.slice().sort((a,b)=>rank(b)-rank(a)||Number(plannerAmountForRow(b))-Number(plannerAmountForRow(a)))[0];
+  const amount=Math.max(0,Number(p?plannerAmountForRow(p):calculatedPaymentCycleAmount(a.id,month))||0);
+  const paid=p?Math.min(amount,paymentPaidAmount(p)):0;
+  if(amount>0)result.push({name:accountName(a.id),kind:p&&isGenuineReleasedStatementRow(p)?'Card statement':'Card estimate',amount,paid,source:'See recorded card payments'});
+ });
+ (financeSettings.loans||[]).forEach(loan=>{
+  const due=loanInstallmentDue(loan,month),offset=loanMonthDiff(currentIncomeMonth(),month);
+  const projected=Math.max(0,Number(loan.remainingAmount||0)-offset*Number(loan.monthly||0));
+  const expected=due.paid>0?due.expected:loan.status==='closed'?0:Math.min(Number(loan.monthly||0),projected);
+  if(expected>0)result.push({name:loan.name||'Loan',kind:offset>0?'Loan estimate':'Loan',amount:expected,paid:Math.min(expected,due.paid),source:loan.defaultPaymentAccountId?accountName(loan.defaultPaymentAccountId):'Not assigned'});
+ });
+ outgoings.forEach(o=>{
+  const offset=loanMonthIndex(month)-loanMonthIndex(o.startMonth);
+  if(!Number.isFinite(offset)||offset<0||(!o.forever&&offset>=Math.max(1,Number(o.months||1))))return;
+  const payments=outgoingPaymentEntries(o,month),cardPaid=payments.filter(p=>account(p.sourceId)?.type==='card').reduce((s,p)=>s+Number(p.amount||0),0);
+  // Card-funded outgoings are covered by card dues, rather than counted twice.
+  const amount=Math.max(0,Number(o.amount||0)-cardPaid),paid=Math.min(amount,Math.max(0,outgoingPaidAmount(o,month)-cardPaid));
+  if(amount>0)result.push({name:o.description||'Scheduled payment',kind:'Scheduled payment',amount,paid,source:payments.filter(p=>account(p.sourceId)?.type!=='card').map(p=>p.sourceId==='cash-source'?'Monthly income':accountName(p.sourceId)).join(', ')||o.method||'Not assigned'});
+ });
+ return result;
+}
+function salaryBudgetSummary(plan){
+ const seen=new Set(),duplicateIncome=[];
+ const income=salaryBudgetIncomeKeys.reduce((s,key)=>{const line=plan.incomes?.[key];if(line?.mode==='bank'&&line.transactionId){if(seen.has(line.transactionId)){duplicateIncome.push(key);return s;}seen.add(line.transactionId);}return s+salaryBudgetIncomeAmount(line,plan.month);},0);
+ const obligations=salaryBudgetObligations(plan.month),extra=[...(plan.living||[]),...(plan.commitments||[])].reduce((s,x)=>s+Number(x.amount||0),0);
+ const planned=financeRoundMoney(obligations.reduce((s,x)=>s+x.amount,0)+extra),paid=financeRoundMoney(obligations.reduce((s,x)=>s+x.paid,0));
+ const surplus=financeRoundMoney(income-planned),funds=income+Number(plan.openingCash||0),afterGoal=financeRoundMoney(funds-planned-Number(plan.savingsGoal||0));
+ return {income,planned,paid,surplus,afterGoal,availableToSave:Math.max(0,surplus),shortfall:Math.max(0,-afterGoal),obligations,duplicateIncome};
+}
+function salaryBudgetAccountOptions(selected='',banksOnly=false){return '<option value="">Choose account</option>'+accounts.filter(a=>!banksOnly||a.type==='bank').map(a=>`<option value="${escapeHtml(a.id)}" ${a.id===selected?'selected':''}>${escapeHtml(accountName(a.id))}</option>`).join('');}
+function salaryBudgetReadForm(){
+ const box=$('salarySavingsPlanner'),plan={month:salaryBudgetMonth,incomes:{},living:[],commitments:[]};
+ salaryBudgetIncomeKeys.forEach(key=>{const row=box.querySelector(`[data-budget-income="${key}"]`);plan.incomes[key]={mode:row.querySelector('[data-income-mode]').value,accountId:row.querySelector('[data-income-account]').value,transactionId:row.querySelector('[data-income-transaction]').value,amount:Number(row.querySelector('[data-income-amount]').value||0)};});
+ plan.openingCash=Number($('salaryBudgetOpening').value||0);plan.savingsGoal=Number($('salaryBudgetGoal').value||0);
+ box.querySelectorAll('[data-budget-expense]').forEach(row=>plan[row.dataset.budgetExpense].push({name:row.querySelector('[data-expense-name]').value.trim(),amount:Number(row.querySelector('[data-expense-amount]').value||0),sourceId:row.querySelector('[data-expense-source]').value}));
+ return plan;
+}
+function salaryBudgetUpdatePreview(){
+ const plan=salaryBudgetReadForm(),s=salaryBudgetSummary(plan);
+ $('salaryBudgetIncomeTotal').textContent=money(s.income);$('salaryBudgetPlannedTotal').textContent=money(s.planned);$('salaryBudgetSaveTotal').textContent=money(s.availableToSave);$('salaryBudgetShortfall').textContent=money(s.shortfall);
+ const result=$('salaryBudgetResult');result.className='notice '+(s.shortfall||s.surplus<0?'danger':'success');
+ result.textContent=s.duplicateIncome.length?'An income transaction is selected twice. It is counted only once; choose a different transaction before saving.':s.shortfall?`You need ${money(s.shortfall)} more to cover this plan and savings goal.`:s.surplus<0?`Payments exceed income by ${money(-s.surplus)}. Opening cash covers the gap; no salary savings remain.`:`After your savings goal, ${money(s.afterGoal)} remains available${plan.openingCash?' (including opening cash)':''}.`;
+ $('salaryBudgetPaid').textContent=`Confirmed payments: ${money(s.paid)} of ${money(s.obligations.reduce((n,x)=>n+x.amount,0))} in linked commitments. Living budgets and additional commitments are forecasts.`;
+ return s;
+}
+function renderSalarySavingsPlanner(draft=null){
+ const box=$('salarySavingsPlanner');if(!box)return;
+ salaryBudgetMonth=salaryBudgetMonth||currentIncomeMonth();
+ const plan=draft||salaryBudgetSaved(salaryBudgetMonth)||salaryBudgetDefault(salaryBudgetMonth),s=salaryBudgetSummary(plan),transactions=salaryBudgetIncomeTransactions(salaryBudgetMonth);
+ const editable=!window.financeSectionPermission||window.financeSectionPermission('income_plan')==='edit';
+ const field=(label,id,value)=>`<label>${label}<input id="${id}" type="number" min="0" step="0.01" value="${Number(value||0)}"></label>`;
+ const expenseRows=(rows,kind)=>rows.map((x,i)=>`<div class="salaryBudgetExpense" data-budget-expense="${kind}"><input data-expense-name aria-label="Payment name" value="${escapeHtml(x.name||'')}" placeholder="Payment name"><input data-expense-amount aria-label="Planned amount" type="number" min="0" step="0.01" value="${Number(x.amount||0)}"><select data-expense-source aria-label="Planned payment source">${salaryBudgetAccountOptions(x.sourceId)}</select><button class="btn small" type="button" data-remove-budget="${kind}:${i}" aria-label="Remove planned payment">Remove</button></div>`).join('');
+ box.innerHTML=`<div class="splitHead"><div><div class="sectionTitle" style="margin-top:0">Salary & Savings Planner</div><div class="meta">Plan commitments before spending. Savings here are a goal, not a recorded transfer.</div></div><label>Planning month<input id="salaryBudgetMonth" type="month" value="${salaryBudgetMonth}"></label></div>
+ <div class="salaryBudgetKpis">${[['Income','salaryBudgetIncomeTotal'],['Planned payments','salaryBudgetPlannedTotal'],['Available to save','salaryBudgetSaveTotal'],['Shortfall incl. savings goal','salaryBudgetShortfall']].map(([label,id])=>`<div class="incomeCard"><div class="meta">${label}</div><b id="${id}"></b></div>`).join('')}</div>
+ <form id="salaryBudgetForm"><fieldset ${editable?'':'disabled'}><div class="panel"><div class="panelTitle">Expected or received income</div><div class="salaryBudgetIncomeGrid">${salaryBudgetIncomeKeys.map((key,i)=>{const line=plan.incomes?.[key]||{mode:'manual',amount:0},matches=transactions.filter(t=>t.account===line.accountId);return `<div class="incomeCard" data-budget-income="${key}"><b>${['My salary','Other salary','Other income'][i]}</b><label>Entry source<select data-income-mode><option value="manual" ${line.mode!=='bank'?'selected':''}>Manual expected income</option><option value="bank" ${line.mode==='bank'?'selected':''}>Received income from bank</option></select></label><label data-manual-income ${line.mode==='bank'?'hidden':''}>Amount (${financeBaseCurrency()})<input data-income-amount type="number" min="0" step="0.01" value="${Number(line.amount||0)}"></label><div data-bank-income ${line.mode!=='bank'?'hidden':''}><label>Bank account<select data-income-account>${salaryBudgetAccountOptions(line.accountId,true)}</select></label><label>Received income transaction<select data-income-transaction><option value="">Choose received income</option>${matches.map(t=>`<option value="${escapeHtml(t._id)}" ${line.transactionId===t._id?'selected':''}>${escapeHtml(t.date+' · '+t.description+' · '+money(t.amount))}</option>`).join('')}</select></label><div class="meta">Only income received in this month; transfers and the bank balance are excluded.</div></div></div>`;}).join('')}</div><div class="salaryBudgetIncomeGrid" style="margin-top:12px">${field('Opening cash to use (optional)','salaryBudgetOpening',plan.openingCash)}${field('Savings goal','salaryBudgetGoal',plan.savingsGoal)}</div></div>
+ <details class="overviewDetails"><summary>Linked monthly commitments · ${s.obligations.length}</summary><div class="tableWrap"><table class="summaryTable"><thead><tr><th>Commitment</th><th>Type</th><th>Planned</th><th>Confirmed paid</th><th>Remaining</th><th>Payment source</th></tr></thead><tbody>${s.obligations.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td>${x.kind}</td><td>${money(x.amount)}</td><td>${money(x.paid)}</td><td>${money(Math.max(0,x.amount-x.paid))}</td><td>${escapeHtml(x.source)}</td></tr>`).join('')||'<tr><td colspan="6">No linked commitments for this month.</td></tr>'}</tbody></table></div><p class="meta">Card estimates can change until the statement is released. Future loan amounts assume scheduled repayments. Installments are included in card dues.</p></details>
+ <div class="panel" style="margin-top:12px"><div class="panelTitle">Additional cash budgets & commitments</div><p class="meta">Add spending not already included in card dues, loans or scheduled payments. Choosing a source account plans the payment; it does not deduct money.</p><div class="salaryBudgetExpenseHead"><span>Payment / budget</span><span>Amount (${financeBaseCurrency()})</span><span>Planned source</span></div>${expenseRows(plan.living||[],'living')}${expenseRows(plan.commitments||[],'commitments')}<button type="button" class="btn" id="salaryBudgetAdd">+ Add planned payment</button></div>
+ <div id="salaryBudgetResult" role="status"></div><p class="meta" id="salaryBudgetPaid"></p><div class="salaryBudgetActions"><button type="submit" class="btn primary">Save monthly budget</button><button type="button" class="btn" id="salaryBudgetCopy">Copy previous month</button><span class="meta" id="salaryBudgetStatus" role="status"></span></div></fieldset></form>
+ <details class="overviewDetails"><summary>Next six months</summary><div class="tableWrap"><table class="summaryTable"><thead><tr><th>Month</th><th>Income</th><th>Payments</th><th>Available to save</th><th>Shortfall</th></tr></thead><tbody>${Array.from({length:6},(_,i)=>{const month=monthAdd(salaryBudgetMonth,i+1),saved=salaryBudgetSaved(month),sum=saved?salaryBudgetSummary(saved):null;return `<tr><td>${extraIncomeMonthTitle(month)}</td>${sum?`<td>${money(sum.income)}</td><td>${money(sum.planned)}</td><td>${money(sum.availableToSave)}</td><td class="${sum.shortfall?'red':''}">${money(sum.shortfall)}</td>`:'<td colspan="4">Not planned yet</td>'}</tr>`;}).join('')}</tbody></table></div></details>`;
+ $('salaryBudgetMonth').onchange=()=>{const month=$('salaryBudgetMonth').value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return;salaryBudgetMonth=month;renderSalarySavingsPlanner();};
+ box.querySelectorAll('[data-income-mode],[data-income-account]').forEach(el=>el.onchange=()=>renderSalarySavingsPlanner(salaryBudgetReadForm()));
+ box.querySelectorAll('[data-income-transaction],input[data-income-amount],#salaryBudgetOpening,#salaryBudgetGoal,[data-expense-amount]').forEach(el=>el.addEventListener('input',salaryBudgetUpdatePreview));
+ box.querySelectorAll('[data-remove-budget]').forEach(el=>el.onclick=()=>{const next=salaryBudgetReadForm(),[kind,index]=el.dataset.removeBudget.split(':');next[kind].splice(Number(index),1);renderSalarySavingsPlanner(next);});
+ $('salaryBudgetAdd').onclick=()=>{const next=salaryBudgetReadForm();next.commitments.push({name:'',amount:0,sourceId:''});renderSalarySavingsPlanner(next);};
+ $('salaryBudgetCopy').onclick=()=>{const old=salaryBudgetSaved(monthAdd(salaryBudgetMonth,-1));if(!old){$('salaryBudgetStatus').textContent='No saved budget for the previous month.';return;}if(!confirm('Replace this draft with the previous month’s income and budgets? No payments will be copied.'))return;const next=JSON.parse(JSON.stringify(old));next.month=salaryBudgetMonth;salaryBudgetIncomeKeys.forEach(key=>{next.incomes[key]={...next.incomes[key],mode:'manual',transactionId:'',amount:salaryBudgetIncomeAmount(old.incomes[key],old.month)};});renderSalarySavingsPlanner(next);$('salaryBudgetStatus').textContent='Copied as a draft. Review and save.';};
+ $('salaryBudgetForm').onsubmit=e=>{e.preventDefault();if(!editable)return;const next=salaryBudgetReadForm(),summary=salaryBudgetSummary(next),amounts=[next.openingCash,next.savingsGoal,...salaryBudgetIncomeKeys.map(k=>next.incomes[k].amount),...next.living.map(x=>x.amount),...next.commitments.map(x=>x.amount)];if(summary.duplicateIncome.length||amounts.some(x=>!Number.isFinite(x)||x<0)){ $('salaryBudgetStatus').textContent='Check amounts and duplicate income selections.';return;}if(salaryBudgetIncomeKeys.some(k=>next.incomes[k].mode==='bank'&&!transactions.some(t=>t._id===next.incomes[k].transactionId&&t.account===next.incomes[k].accountId))){$('salaryBudgetStatus').textContent='Choose a received-income transaction for each bank income line, or use manual entry.';return;}if(next.commitments.some(x=>!x.name)){ $('salaryBudgetStatus').textContent='Enter a name for each planned payment.';return;}const previous=incomePlan.savingsBudgets;incomePlan.savingsBudgets=[...(previous||[]).filter(p=>p.month!==next.month),{...next,savedAt:new Date().toISOString()}];try{saveLocal();renderSalarySavingsPlanner();$('salaryBudgetStatus').textContent='Monthly budget saved.';}catch(err){incomePlan.savingsBudgets=previous;$('salaryBudgetStatus').textContent='Could not save: '+err.message;}};
+ salaryBudgetUpdatePreview();
+}
+(function(){const original=renderIncomePlan;renderIncomePlan=function(...args){const result=original.apply(this,args);renderSalarySavingsPlanner();return result;};})();

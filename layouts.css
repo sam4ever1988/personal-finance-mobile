@@ -240,3 +240,11 @@ html[data-finance-theme="light"] .financeSettingsSection{background:#fff;border-
 .duplicateReviewFeedback.error{border-color:#ef7888;background:#4a2333}
 .duplicateReviewFeedback[hidden]{display:none}
 @media(max-width:760px){.duplicateReviewFeedback{bottom:85px;right:16px}}
+/* 4.21: compact monthly income and savings planning. */
+.salaryBudgetKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}.salaryBudgetKpis b{display:block;font-size:24px;margin-top:8px}
+#salarySavingsPlanner fieldset{border:0;padding:0;margin:0;min-width:0}.salaryBudgetIncomeGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.salaryBudgetIncomeGrid label{display:grid;gap:6px;margin-top:10px}
+#salarySavingsPlanner input,#salarySavingsPlanner select{width:100%;box-sizing:border-box;min-width:0;padding:9px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:inherit}
+.salaryBudgetExpense{display:grid;grid-template-columns:1.4fr .7fr 1.2fr auto;gap:10px;margin:9px 0;align-items:center}.salaryBudgetExpenseHead{display:grid;grid-template-columns:1.4fr .7fr 1.2fr auto;gap:10px;color:var(--muted);font-size:12px}
+.salaryBudgetActions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.salaryBudgetIncomeGrid [hidden]{display:none!important}
+#salarySavingsPlanner .tableWrap{overflow:auto;margin-top:12px}
+@media(max-width:760px){.salaryBudgetKpis{grid-template-columns:repeat(2,minmax(0,1fr))}.salaryBudgetIncomeGrid{grid-template-columns:1fr}.salaryBudgetExpense{grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);padding-bottom:10px}.salaryBudgetExpenseHead{display:none}.salaryBudgetKpis b{font-size:19px}}
