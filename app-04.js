@@ -157,8 +157,9 @@ function transactionImportedDateCell(t){
 }
 let financeDuplicateRowCache=null;
 function financeRenderTransactionRows(rows,body=null){
- const previous=financeDuplicateRowCache,groups=new Map();
- possibleDuplicateGroups(false).forEach(group=>{for(const row of [group.a,group.b])if(!groups.has(row._id))groups.set(row._id,group);});
+ const previous=financeDuplicateRowCache,groups=new Map(),counts=new Map();
+ possibleDuplicateGroups(false).forEach(group=>{for(const row of [group.a,group.b]){counts.set(row._id,(counts.get(row._id)||0)+1);if(!groups.has(row._id))groups.set(row._id,group);}});
+ for(const [id,group] of groups)groups.set(id,{...group,pendingMatches:counts.get(id)});
  financeDuplicateRowCache=groups;
  try{
   if(!body)return rows.map(txRow6).join('');
@@ -191,7 +192,8 @@ function txRow6(t){
  const linkedPlan=linkedActiveInstallment(t._id);
  const installmentBadge=(linkedPlan?`<span class="badge active" style="margin-left:6px">Installment • ${money(planCalc(linkedPlan).monthly)}/mo</span>`:'')+txBalanceStatusBadge(t);
  const diffText=group?.similarAmountReview?`<div class="meta" style="margin-top:4px">Manual vs statement • same account/card • amount difference ${money(group.amountDifference)} • review tolerance ${money(group.tolerance)}</div>`:'';
- const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
+ const comparedText=other?`<div class="meta dupComparedTransaction" style="margin-top:6px">Comparing with: <b>${escapeHtml(other.description)}</b> • ${escapeHtml(other.date)} • ${signed(other.amount)} • ${other.manual?'Manual':'Statement'}${group.pendingMatches>1?` • ${group.pendingMatches} possible matches to review`:''}</div>`:'';
+ const decisionUI=dup&&other?`<div class="dupResolveBox"><div class="meta"><b>${group.similarAmountReview?'Similar transaction review':'Possible duplicate'}:</b> compare both transactions and decide which one to keep, or mark them as Not a Duplicate.</div>${comparedText}${diffText}<div class="dupDecision"><button class="btn small primary" type="button" data-dup-keep="${t._id}" data-a="${t._id}" data-b="${other._id}">${thisLabel}</button><button class="btn small" type="button" data-dup-keep="${other._id}" data-a="${t._id}" data-b="${other._id}">${otherLabel}</button><button class="btn small" type="button" data-dup-action="not-duplicate" data-a="${t._id}" data-b="${other._id}">Not a Duplicate</button></div></div>`:'';
  return `<tr class="clickable ${selectedTxIds.has(t._id)?'txRowSelected':''}" data-tx="${t._id}"><td class="txSelectCell" data-select-cell="${t._id}" tabindex="0" role="checkbox" aria-checked="${selectedTxIds.has(t._id)?'true':'false'}" title="Select transaction"><div class="txSelectHit"><input type="checkbox" class="txSelectBox" data-select-tx="${t._id}" ${selectedTxIds.has(t._id)?'checked':''} aria-label="Select transaction"></div></td><td>${t.date}</td><td>${transactionImportedDateCell(t)}</td><td><b>${t.description}</b>${t.manual?'<span class="manualBadge">Manual</span>':''}${reviewBadge}${installmentBadge}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="statementBadge">Statement ${t.statementMonth||'Unassigned'}</span>${account(t.account)?.type==='card'?`<span class="statementBadge">${escapeHtml(physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)))}</span>`:''}</div>${decisionUI}<div style="margin-top:7px"><button class="btn small danger" type="button" data-delete-tx="${t._id}">Delete Transaction</button></div></td><td>${t.category}</td><td>${t.subcategory||'—'}</td><td>${accountName(t.account)}</td><td class="${t.amount<0?'red':'green'}"><b>${signed(t.amount)}</b></td></tr>`;
 }
 function updateTxBulkUI(){
@@ -524,8 +526,11 @@ document.addEventListener('click',e=>{
  const b=e.target?.closest?.('[data-dup-keep],[data-dup-action]');
  if(!b||b.disabled)return;
  e.preventDefault();e.stopImmediatePropagation();
- if(b.hasAttribute('data-dup-keep'))resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep);
- else setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction);
+ try{
+  if(!financeCanResolveDuplicates())throw new Error('You need transaction editing access to review duplicates.');
+  if(b.hasAttribute('data-dup-keep'))resolveDuplicate(b.dataset.a,b.dataset.b,b.dataset.dupKeep);
+  else setDuplicateDecision(b.dataset.a,b.dataset.b,b.dataset.dupAction);
+ }catch(err){financeDuplicateFeedback(err.message||'Could not save the review decision. Please try again.',true);}
 },true);
 function financeCanResolveDuplicates(){
  return (!window.financeSectionPermission||['duplicate_decisions','transaction_actions'].every(s=>window.financeSectionPermission(s)==='edit'));
@@ -801,13 +806,30 @@ function normDupText(v){return String(v||'').toLowerCase().replace(/[^a-z0-9\u06
 function dupDays(a,b){return Math.abs((new Date(a+'T00:00:00Z')-new Date(b+'T00:00:00Z'))/86400000)}
 function duplicatePairKey(a,b){return [a._id,b._id].sort().join('::')}
 function duplicateDecision(a,b){return duplicateDecisions[duplicatePairKey(a,b)]||''}
+function financeDuplicateFeedback(message,isError=false){
+ let el=document.getElementById('duplicateReviewFeedback');
+ if(!el){el=document.createElement('div');el.id='duplicateReviewFeedback';document.body.appendChild(el);}
+ el.setAttribute('role',isError?'alert':'status');el.className=isError?'duplicateReviewFeedback error':'duplicateReviewFeedback';
+ el.textContent=message;el.hidden=false;
+ clearTimeout(el.hideTimer);el.hideTimer=setTimeout(()=>{el.hidden=true;},9000);
+}
 function setDuplicateDecision(aId,bId,decision){
- if(!financeCanResolveDuplicates())return;
- const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);if(!a||!b)return;
- if(decision==='not-duplicate'){
-   duplicateDecisions[duplicatePairKey(a,b)]='not-duplicate';
-   saveLocal();refreshAfterTransactionChange(a.account);
- }
+ if(!financeCanResolveDuplicates())throw new Error('You need transaction editing access to review duplicates.');
+ const rows=normalizedTx(true),a=rows.find(x=>x._id===aId),b=rows.find(x=>x._id===bId);
+ if(!a||!b)throw new Error('This comparison is out of date. Reopen the transaction list to review the latest records.');
+ if(decision!=='not-duplicate')return;
+ const key=duplicatePairKey(a,b),previous=duplicateDecisions[key];
+ duplicateDecisions[key]='not-duplicate';
+ try{saveLocal();}catch(err){if(previous===undefined)delete duplicateDecisions[key];else duplicateDecisions[key]=previous;throw err;}
+ // A review-only decision changes no transaction, balance or payment plan.
+ // Refresh the visible comparison directly instead of rebuilding financial state.
+ const visible=activeViewId();
+ if(visible==='transactions')renderTransactions();
+ else if(visible==='reports')renderReports();
+ else if(visible==='accountDetail'&&currentAccountDetailId)openAccount(currentAccountDetailId,accountDetailReturnPage);
+ const alerts=document.getElementById('reviewAlerts');if(alerts?.closest('.view.active'))renderReviewAlerts();
+ const remaining=possibleDuplicateGroups(false).filter(g=>g.a._id===aId||g.b._id===aId).length;
+ financeDuplicateFeedback(`Marked as not duplicate: ${a.description} and ${b.description}. Both transactions kept.${remaining?` ${remaining} other possible match${remaining===1?'':'es'} for this transaction still need review.`:''}`);
 }
 function possibleDuplicateGroups(includeDecided=false){
  const rows=normalizedTx(),out=[],buckets=new Map();
