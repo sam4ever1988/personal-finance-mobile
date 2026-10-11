@@ -296,7 +296,7 @@
   const original=window[name];
   window[name]=function(...args){if(renderData)renderData.clear();return original.apply(this,args);};
  }
- for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy','renderTransactions','ensurePartialPaymentFields']){
+ for(const name of ['renderExecutiveDashboard','renderAccounts','renderReports','renderFinancialPosition','renderFinancialStrategy','renderTransactions','openAccount','refreshAccountDetailFilters','ensurePartialPaymentFields']){
   const original=window[name];
   window[name]=function(...args){
    if(renderData)return original.apply(this,args);

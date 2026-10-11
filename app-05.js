@@ -1143,6 +1143,59 @@ function bindDetailTransactionBulkActions(){
  updateTxBulkUI();
 }
 
+function bindAccountDetailPaymentActivity(id){
+ const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.onchange=()=>{accountPaymentActivitySelection.month=activityMonth.value||'';refreshAccountDetailFilters(id,true);};
+ document.querySelectorAll('#accountDetailContent [data-transfer-installment]').forEach(b=>b.onclick=()=>openTransferInstallment(b.dataset.transferInstallment));
+ document.querySelectorAll('#accountDetailContent [data-edit-payment-activity]').forEach(b=>b.onclick=()=>editAccountPaymentActivity(b.dataset.editPaymentActivity));
+ document.querySelectorAll('#accountDetailContent [data-delete-payment-activity]').forEach(b=>b.onclick=()=>deleteAccountPaymentActivity(b.dataset.deletePaymentActivity));
+}
+function refreshAccountDetailFilters(id,paymentsOnly=false){
+ const txPanel=$('accountDetailTransactions'),payments=$('accountDetailPaymentActivity');
+ if(!payments||(!paymentsOnly&&!txPanel)){openAccount(id,accountDetailReturnPage);return;}
+ if(!paymentsOnly){
+  txPanel.innerHTML=cardDetailTransactionPanelHTML(id,cardTransactionsForDetail(id));
+  const summary=$('accountDetailFilterSummary');if(summary)summary.textContent=[
+   accountDetailTxFilter.month?'Statement: '+cardMonthLabel(accountDetailTxFilter.month):'All statements',
+   accountDetailTxFilter.physicalCard?'Card: '+physicalCardLabelFor(id,accountDetailTxFilter.physicalCard):'All physical cards',
+   accountDetailTxFilter.fromDate?'From '+accountDetailTxFilter.fromDate:'',
+   accountDetailTxFilter.toDate?'To '+accountDetailTxFilter.toDate:''
+  ].filter(Boolean).join(' • ');
+  $('cardTxStatementFilter').value=accountDetailTxFilter.month;
+  $('cardTxPhysicalFilter').value=accountDetailTxFilter.physicalCard;
+  $('cardTxFromDate').value=accountDetailTxFilter.fromDate;
+  $('cardTxToDate').value=accountDetailTxFilter.toDate;
+  bindTxRows();bindDetailTransactionBulkActions();initializeSortableTables(txPanel);hardenAllActionControls(txPanel);
+ }
+ payments.innerHTML=accountPaymentActivityHTML(id);bindAccountDetailPaymentActivity(id);
+ initializeSortableTables(payments);hardenAllActionControls(payments);
+}
+function cardDetailTransactionPanelHTML(id,rows){return `<div class="panel">
+ <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
+  <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
+  <button class="btn primary" type="button" id="detailTxUpdateSelected" disabled>Update Selected</button>
+  <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
+  <span class="meta" id="detailTxSelectedCount">0 selected</span>
+ </div>
+ <div style="overflow-x:auto"><table class="txTable">
+  <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
+  <tbody>${financeRenderTransactionRows(rows)}${!rows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
+ </table></div>
+ ${(()=>{
+   const cards=accountPhysicalCards(id);
+   const grouped=cards.map(ending=>{
+    const cardRows=rows.filter(t=>transactionPhysicalCardEnding(t)===ending);
+    return {ending,count:cardRows.length,total:cardRows.reduce((sum,t)=>sum+Number(t.amount||0),0)};
+   }).filter(x=>x.count>0);
+   const unassignedRows=rows.filter(t=>!cards.includes(transactionPhysicalCardEnding(t)));
+   if(unassignedRows.length)grouped.push({ending:'',count:unassignedRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)});
+   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0);
+   return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters. Payments and transfers appear above for tracing.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
+    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${escapeHtml(g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card'))} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
+   </div>`;
+  })()}
+</div>`;}
 function openAccount(id,returnPage){
  const __detailScrollX=txSelectionScrollLock?.x??window.scrollX,__detailScrollY=txSelectionScrollLock?.y??window.scrollY;
  currentAccountDetailId=id;
@@ -1202,7 +1255,7 @@ function openAccount(id,returnPage){
 <div class="splitHead" style="margin-top:18px">
  <div>
   <div class="sectionTitle" style="margin:0">Transactions</div>
-  <div class="meta">${[
+  <div class="meta" id="accountDetailFilterSummary">${[
    accountDetailTxFilter.month?`Statement: ${cardMonthLabel(accountDetailTxFilter.month)}`:'All statements',
    accountDetailTxFilter.physicalCard?`Card: ${escapeHtml(physicalCardLabelFor(id,accountDetailTxFilter.physicalCard))}`:'All physical cards',
    accountDetailTxFilter.fromDate?`From ${accountDetailTxFilter.fromDate}`:'',
@@ -1235,42 +1288,16 @@ function openAccount(id,returnPage){
  </div>
  <div class="meta" style="margin-top:8px">Statement and date filters work together. Reset Card Month still uses only the selected statement/payment month.</div>
 </div>
-${paymentActivity}
-<div class="panel">
- <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
-  <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
-  <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
-  <button class="btn primary" type="button" id="detailTxUpdateSelected" disabled>Update Selected</button>
-  <button class="btn danger" type="button" id="detailTxDeleteSelected" disabled>Delete Selected</button>
-  <span class="meta" id="detailTxSelectedCount">0 selected</span>
- </div>
- <div style="overflow-x:auto"><table class="txTable">
-  <thead><tr><th style="width:42px"><input type="checkbox" id="detailTxMasterCheck" title="Select all visible"></th><th>Date</th><th>Imported Date</th><th>Transaction</th><th>Category</th><th>Subcategory</th><th>Account</th><th>Amount</th></tr></thead>
-  <tbody>${financeRenderTransactionRows(rows)}${!rows.length?'<tr><td colspan="8">No transactions match the selected filters.</td></tr>':''}</tbody>
- </table></div>
- ${(()=>{
-   const cards=accountPhysicalCards(id);
-   const grouped=cards.map(ending=>{
-    const cardRows=rows.filter(t=>transactionPhysicalCardEnding(t)===ending);
-    return {ending,count:cardRows.length,total:cardRows.reduce((sum,t)=>sum+Number(t.amount||0),0)};
-   }).filter(x=>x.count>0);
-   const unassignedRows=rows.filter(t=>!cards.includes(transactionPhysicalCardEnding(t)));
-   if(unassignedRows.length)grouped.push({ending:'',count:unassignedRows.length,total:unassignedRows.reduce((sum,t)=>sum+Number(t.amount||0),0)});
-   const total=rows.reduce((sum,t)=>sum+Number(t.amount||0),0);
-   return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
-    <div class="splitHead"><div><div class="panelTitle" style="margin:0">Filtered Transaction Totals</div><div class="meta" style="margin-top:4px">Totals follow the selected statement month, physical card and From/To date filters. Payments and transfers appear above for tracing.</div></div><div style="text-align:right"><div class="meta">All visible transactions • ${rows.length}</div><div style="font-size:20px;font-weight:950;margin-top:3px" class="${total<0?'red':total>0?'green':''}">${signed(total)}</div></div></div>
-    <div class="cardMetricGrid" style="margin-top:12px">${grouped.length?grouped.map(g=>`<div class="miniMetric"><span>${escapeHtml(g.label|| (g.ending?physicalCardLabelFor(id,g.ending):'Unassigned physical card'))} • ${g.count} ${g.label?'payment':'transaction'}${g.count===1?'':'s'}</span><b class="${g.total<0?'red':g.total>0?'green':''}">${signed(g.total)}</b></div>`).join(''):'<div class="meta">No transactions in the selected period.</div>'}</div>
-   </div>`;
-  })()}
-</div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
+<div id="accountDetailPaymentActivity">${paymentActivity}</div>
+<div id="accountDetailTransactions">${cardDetailTransactionPanelHTML(id,rows)}</div>`;$('detailAddPlan').addEventListener('click',()=>openInstallment({cardId:id,description:'',category:'Financial Obligations',subcategory:'Credit Card Payments',fullAmount:'',months:3,startMonth:'2026-08',paidInstallments:0}));
  if($('detailResetCard'))$('detailResetCard').addEventListener('click',()=>resetCardData(id));
  const statementFilter=$('cardTxStatementFilter');
  if(statementFilter)statementFilter.addEventListener('change',()=>{
   accountDetailTxFilter.month=statementFilter.value||'';
-  openAccount(id,accountDetailReturnPage);
+  refreshAccountDetailFilters(id);
  });
 
- const physicalCardFilter=$('cardTxPhysicalFilter');if(physicalCardFilter)physicalCardFilter.addEventListener('change',()=>{accountDetailTxFilter.physicalCard=physicalCardFilter.value||'';openAccount(id,accountDetailReturnPage);});
+ const physicalCardFilter=$('cardTxPhysicalFilter');if(physicalCardFilter)physicalCardFilter.addEventListener('change',()=>{accountDetailTxFilter.physicalCard=physicalCardFilter.value||'';refreshAccountDetailFilters(id);});
 
  const fromDateFilter=$('cardTxFromDate');
  if(fromDateFilter)fromDateFilter.addEventListener('change',()=>{
@@ -1278,7 +1305,7 @@ ${paymentActivity}
   if(accountDetailTxFilter.toDate && accountDetailTxFilter.fromDate>accountDetailTxFilter.toDate){
    accountDetailTxFilter.toDate=accountDetailTxFilter.fromDate;
   }
-  openAccount(id,accountDetailReturnPage);
+  refreshAccountDetailFilters(id);
  });
 
  const toDateFilter=$('cardTxToDate');
@@ -1287,13 +1314,13 @@ ${paymentActivity}
   if(accountDetailTxFilter.fromDate && accountDetailTxFilter.toDate<accountDetailTxFilter.fromDate){
    accountDetailTxFilter.fromDate=accountDetailTxFilter.toDate;
   }
-  openAccount(id,accountDetailReturnPage);
+  refreshAccountDetailFilters(id);
  });
 
  const clearTxFilters=$('clearCardTxFilters');
  if(clearTxFilters)clearTxFilters.addEventListener('click',()=>{
   accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
-  openAccount(id,accountDetailReturnPage);
+  refreshAccountDetailFilters(id);
  });
  document.querySelectorAll('[data-detail-plan]').forEach(b=>b.addEventListener('click',()=>editPlan(b.dataset.detailPlan)));
  document.querySelectorAll('[data-detail-delete-plan]').forEach(b=>b.addEventListener('click',()=>deleteInstallmentPlan(b.dataset.detailDeletePlan)));
@@ -1310,10 +1337,7 @@ ${paymentActivity}
 </div>`;
   const balBtn=$('setActualBankBalance');if(balBtn)balBtn.addEventListener('click',()=>{const v=prompt(`Actual balance for ${a.bank} • ${a.name}`,String(adjustedBankBalance(a)));if(v===null)return;const n=Number(v);if(!Number.isFinite(n)){alert('Enter a valid balance.');return;}setTrackedBankBalance(a.id,n);saveLocal();renderDashboard();renderAccounts();openAccount(a.id,accountDetailReturnPage);});}
  nav('accountDetail');bindTxRows();bindDetailTransactionBulkActions();if(a.type==='card')bindCardBankHolds(id);requestAnimationFrame(()=>window.scrollTo(__detailScrollX,__detailScrollY));
- const activityMonth=$('accountPaymentMonthFilter');if(activityMonth)activityMonth.addEventListener('change',()=>{accountPaymentActivitySelection.month=activityMonth.value||'';openAccount(id,accountDetailReturnPage);});
- document.querySelectorAll('#accountDetailContent [data-transfer-installment]').forEach(b=>b.addEventListener('click',()=>openTransferInstallment(b.dataset.transferInstallment)));
- document.querySelectorAll('#accountDetailContent [data-edit-payment-activity]').forEach(b=>b.addEventListener('click',()=>editAccountPaymentActivity(b.dataset.editPaymentActivity)));
- document.querySelectorAll('#accountDetailContent [data-delete-payment-activity]').forEach(b=>b.addEventListener('click',()=>deleteAccountPaymentActivity(b.dataset.deletePaymentActivity)));
+ bindAccountDetailPaymentActivity(id);
  if($('detailAddTransaction'))$('detailAddTransaction').addEventListener('click',()=>openManualTransaction({account:id,date:new Date().toISOString().slice(0,10)}));
  document.querySelectorAll('[data-balance-offer]').forEach(b=>b.addEventListener('click',()=>openBalanceOffer(b.dataset.balanceOffer)));
  if($('detailBalanceOffer'))$('detailBalanceOffer').addEventListener('click',()=>openBalanceOffer(id));
