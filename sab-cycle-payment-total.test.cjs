@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const src=fs.readFileSync(__dirname+'/app-02.js','utf8');
+const functions=src.slice(src.indexOf('function durableLedgerPaidAmountForPlan('),src.indexOf('function recordPartialPayment('));
+const p={id:'sab-oct',accountId:'sab-440880',month:'2026-10',amount:9284.25,paidAmount:6856.25};
+const context={cashFlowLedger:[],cardPaymentPlan:[p],financeRoundMoney:n=>Math.round(n*100)/100,cashFlowLedgerKey:x=>JSON.stringify(x),plannerAmountForRow:x=>x.amount,isGenuineReleasedStatementRow:()=>false,importedOfficialPlannerRow:()=>false};
+vm.createContext(context);vm.runInContext(functions,context);
+const direct={id:'first',type:'card-payment',targetId:p.accountId,referenceId:'payment:sab-oct:first',targetPaymentMonth:'2026-10',month:'2026-10',amount:6856.25};
+const remaining={id:'second',type:'card-payment',targetId:p.accountId,targetPaymentMonth:'2026-10',month:'2026-10',amount:2428};
+context.cashFlowLedger=[direct];assert.equal(context.paymentRemainingAmount(p),2428);
+context.cashFlowLedger=[direct,remaining];assert.equal(context.paymentPaidAmount(p),9284.25);assert.equal(context.paymentRemainingAmount(p),0);context.ensurePartialPaymentFields();assert.equal(p.paid,true);
+assert.equal(context.cashFlowLedger.length,2);
+context.cashFlowLedger.push({...remaining,id:'november',targetPaymentMonth:'2026-11',amount:300},{...remaining,id:'different-card',targetId:'other',amount:500},{...remaining,id:'reversed',status:'reversed',amount:800});assert.equal(context.durableLedgerPaidAmountForPlan(p),9284.25);
+context.cashFlowLedger=[direct,{...remaining,targetPaymentMonth:'',month:'2026-10'}];assert.equal(context.durableLedgerPaidAmountForPlan(p),9284.25);
+context.cashFlowLedger=[direct,{...remaining,targetPaymentMonth:'2026-11',month:'2026-10'}];assert.equal(context.durableLedgerPaidAmountForPlan(p),6856.25);
+context.cashFlowLedger=[direct,{...remaining,duePortion:1000}];assert.equal(context.durableLedgerPaidAmountForPlan(p),7856.25);
+context.cashFlowLedger=[direct,direct,remaining,remaining];assert.equal(context.durableLedgerPaidAmountForPlan(p),9284.25);
+console.log('PASS: SAB 6856.25 + 2428 = 9284.25, zero remaining and paid; direct/cycle overlap and repeated IDs counted once; other month/card and reversed payments excluded; legacy cycle supported; due portion preserved; no ledger mutation');

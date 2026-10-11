@@ -688,7 +688,9 @@ function durableLedgerPaidAmountForPlan(p){
   return !x.targetPaymentMonth && x.month===p.month;
  });
 
- const rows=exact.length?exact:byCycle;
+ // Direct planner payments and transfers assigned to this cycle both pay the statement.
+ // The ID guard below counts a row appearing in both sets only once.
+ const rows=[...exact,...byCycle];
  const seen=new Set();
  return financeRoundMoney(rows.reduce((sum,x)=>{
   const key=x.id||cashFlowLedgerKey(x);
