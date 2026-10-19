@@ -19,7 +19,7 @@ async function api(params){
  let token=await sessionToken();
  if(!token)token=await sessionToken(true);
  if(!token)throw signIn();
- const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(15000)});
+ const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+token,'X-Finance-Token':token},cache:'no-store',signal:AbortSignal.timeout(15000)});
  let response=await send();
  if(response.status===401){token=await sessionToken(true);if(!token)throw signIn();response=await send();if(response.status===401)throw signIn();}
  const data=await response.json();if(!response.ok)throw Error(data.error||'Price comparison unavailable');return data;

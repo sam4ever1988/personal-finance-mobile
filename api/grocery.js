@@ -13,11 +13,16 @@ module.exports=async function handler(req,res){
  const key=process.env.MUWAZIN_API_KEY,allowed=String(process.env.GROCERY_TEST_USER_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
  const action=String(req.query?.action||'status');
  if(!['status','search','branches'].includes(action))return res.status(400).json({error:'Unknown action'});
- const token=String(req.headers?.authorization||'');
- if(!/^Bearer [A-Za-z0-9._-]+$/.test(token)||token.length>8192)return res.status(401).json({error:'Sign in to your finance account first.'});
+ // A dedicated application header survives proxies that consume Authorization.
+ const appToken=String(req.headers?.['x-finance-token']||'');
+ const token=appToken?'Bearer '+appToken:String(req.headers?.authorization||'');
+ if(!/^Bearer [A-Za-z0-9._-]+$/.test(token)||token.length>8192)return res.status(401).json({code:'session_missing',error:'The connection request did not include a valid finance session.'});
  try{
   const auth=await fetch(AUTH_URL,{headers:{apikey:AUTH_KEY,Authorization:token},signal:AbortSignal.timeout(5000)});
-  if(!auth.ok)return res.status(401).json({error:'Your session expired. Sign in again.'});
+  if(!auth.ok){
+   if(auth.status===401||auth.status===403)return res.status(401).json({code:'session_rejected',error:'Your finance session could not be verified. Sign in again.'});
+   return res.status(503).json({code:'auth_unavailable',error:'The sign-in verification service is temporarily unavailable. Please retry; signing in again is not required.'});
+  }
   const user=await auth.json();if(user.id!=='a8b3c116-be0f-4e2c-9d9a-04643c18b689'||user.email?.toLowerCase()!=='sam4ever@windowslive.com')return res.status(403).json({error:'This price comparison API is available only to approved testers.'});
   if(!key||!allowed.includes(user.id))return res.status(action==='status'?200:503).json({configured:false,error:'Price API is not connected yet. A provider evaluation key and admin access must be configured.'});
   if(action==='status')return res.status(200).json({configured:true,verified:false,city:'Riyadh',message:'Configured for testing. Run a search to verify provider access.'});
