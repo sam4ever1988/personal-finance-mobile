@@ -44,7 +44,8 @@ module.exports=async function handler(req,res){
    else{if(q.length<2||q.length>120)return res.status(400).json({error:'Search must contain 2–120 characters.'});path='/products?'+new URLSearchParams({q,limit:'10',inStock:'true'});}
   }else{
    const id=String(req.query.id||'');if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))return res.status(400).json({error:'Invalid product identifier'});
-   path='/products/'+encodeURIComponent(id)+'/branches?city=Riyadh&inStock=true';
+   const cursor=String(req.query.cursor||'');if(cursor.length>2048)return res.status(400).json({error:'Invalid page cursor'});
+   path='/products/'+encodeURIComponent(id)+'/branches?'+new URLSearchParams({city:'Riyadh',inStock:'true',...(cursor?{cursor}:{})});
   }
   const upstream=await fetch(BASE+path,{headers:{Authorization:'Bearer '+key,Accept:'application/json'},signal:AbortSignal.timeout(7000)});
   if(!upstream.ok){const status=upstream.status;return res.status(status===404?404:status===429?429:502).json({error:status===404?'No matching product found.':status===429?'Provider usage limit reached. Please retry later.':'The price provider could not complete this request. Check the evaluation key, terms acceptance and quota in the provider console.'});}
@@ -54,6 +55,6 @@ module.exports=async function handler(req,res){
    return res.status(200).json({products:rows.slice(0,10).map(product),source:'Muwazin',city:'Riyadh'});
   }
   const rows=Array.isArray(data.items)?data.items:[];
-  return res.status(200).json({offers:rows.filter(p=>/^(riyadh|الرياض)$/i.test(String(p.store?.city||'').trim())).slice(0,200).map(branch),dataAsOf:text(data.dataAsOf,40),source:'Muwazin',city:'Riyadh',moreAvailable:!!data.nextCursor});
+  return res.status(200).json({offers:rows.filter(p=>/^(riyadh|الرياض)$/i.test(String(p.store?.city||'').trim())).slice(0,500).map(branch),dataAsOf:text(data.dataAsOf,40),source:'Muwazin',city:'Riyadh',nextCursor:data.nextCursor?text(data.nextCursor,2048):null,moreAvailable:!!data.nextCursor||rows.length>500});
  }catch(_){return res.status(503).json({error:'Price comparison is temporarily unavailable. Your shopping list has been kept on this page.'});}
 };

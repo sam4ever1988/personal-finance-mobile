@@ -1,6 +1,6 @@
 # Riyadh grocery comparison evaluation
 
-Page: `/grocery-test.html`, linked from More. Release 4.27.
+Page: `/grocery-test.html`, linked from More. Release 4.28.
 
 The initial page supports a manual shopping list, local receipt preview, reviewed manual price entry, product search/confirmation and Riyadh branch price comparison. It does not write finance data, save receipts, send receipts to providers or claim OCR. Lists are memory-only; reload clears them.
 
@@ -21,14 +21,14 @@ No secret values are committed. The existing publishable Supabase key is used so
 POST `/api/grocery?action=status`: returns configuration state. Configured does not mean the provider key has been verified.
 POST `/api/grocery?action=search&q=...`: searches up to ten products for review.
 POST `/api/grocery?action=search&barcode=...`: barcode lookup.
-POST `/api/grocery?action=branches&id=...`: Riyadh, in-stock branch offers, up to 200 returned rows. Partial pages are labelled; no complete-market claim is made.
+POST `/api/grocery?action=branches&id=...`: Riyadh, in-stock branch offers, up to 500 returned rows per page, with bounded opaque cursor forwarding. The browser follows at most 20 pages, checks for repeated cursors, then compares eligible offers by ascending price without location/distance inputs. Partial coverage is labelled; no complete-market claim is made.
 
 The browser sends the Supabase access token in a JSON body (`accessToken`), never in the URL. This supports sessions containing profile metadata larger than 8 KB without exceeding HTTP header limits. Requests are capped at 128 KB and tokens at 96 KB. The server still validates every session through Supabase and requires the exact administrator UUID/email plus tester allowlisting. Legacy GET requests with a bearer header remain supported.
 
 All paid-provider calls require a verified Supabase session and explicit tester allowlisting. Methods, queries and identifiers are bounded. Provider URL is fixed, keys stay server-side, raw upstream errors are not exposed and errors are not converted into fake prices. Usage is bounded per request; production-wide abuse/quota controls must be added before broad rollout.
 
-Prices are displayed only after product confirmation. Same price basis (item/kg), numeric positive SAR price, in stock, not stale, latest branch confirmation (`branchLastSeen`, falling back to `updatedAt`) within 48 hours and Riyadh city are required. The date of a price change is preserved separately from the latest branch confirmation, so an unchanged price checked today is not incorrectly rejected as old. Empty results explain why prices are unavailable; search results are ranked by product-name terms and still require exact brand/size review. Manual prices are separately labelled. Complete single-store recommendations are grouped by branch, never by retailer across incompatible branches. Partial savings compare only matched rows. Extra cost is applied once per store visited/delivery.
+Prices are displayed only after product confirmation. Same price basis (item/kg), numeric positive SAR price, in stock, not stale, latest branch confirmation (`branchLastSeen`, falling back to `updatedAt`) within 48 hours and Riyadh city are required. The date of a price change is preserved separately from the latest branch confirmation, so an unchanged price checked today is not incorrectly rejected as old. Empty results explain why prices are unavailable; search results are ranked by product-name terms and still require exact brand/size review. Detected single-item/multipack differences require explicit whole-pack confirmation before fetching prices. Positive savings carry a + sign; a higher comparison cost is labelled as extra cost rather than presented as savings. Manual prices are separately labelled. Complete single-store recommendations are grouped by branch, never by retailer across incompatible branches. Partial savings compare only matched rows. Extra cost is applied once per store visited/delivery.
 
 The evaluation key is configured server-side; provider access was tested separately. End-to-end verification with the administrator’s browser remains pending.
 
-Still pending: receipt OCR, durable workspace-isolated shopping lists, location/distance routing, full pagination and production rollout.
+Still pending: receipt OCR, durable workspace-isolated shopping lists, location/distance routing, production rollout.
