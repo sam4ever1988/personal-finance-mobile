@@ -20,7 +20,12 @@ module.exports=async function handler(req,res){
  try{
   const auth=await fetch(AUTH_URL,{headers:{apikey:AUTH_KEY,Authorization:token},signal:AbortSignal.timeout(5000)});
   if(!auth.ok){
-   if(auth.status===401||auth.status===403)return res.status(401).json({code:'session_rejected',error:'Your finance session could not be verified. Sign in again.'});
+   if(auth.status===400||auth.status===401||auth.status===403){
+    const detail=await auth.json().catch(()=>({}));
+    const authCode=/^[a-z0-9_]{1,80}$/.test(detail.code||'')?detail.code:'unknown';
+    console.warn('grocery_auth_verification',JSON.stringify({status:auth.status,code:authCode}));
+    return res.status(401).json({code:'session_rejected',authCode,error:'The server could not verify your finance session.'});
+   }
    return res.status(503).json({code:'auth_unavailable',error:'The sign-in verification service is temporarily unavailable. Please retry; signing in again is not required.'});
   }
   const user=await auth.json();if(user.id!=='a8b3c116-be0f-4e2c-9d9a-04643c18b689'||user.email?.toLowerCase()!=='sam4ever@windowslive.com')return res.status(403).json({error:'This price comparison API is available only to approved testers.'});

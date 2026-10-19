@@ -29,11 +29,12 @@
    if(data.user.id!=='a8b3c116-be0f-4e2c-9d9a-04643c18b689'||data.user.email?.toLowerCase()!=='sam4ever@windowslive.com'){showGate('This account does not have access to the grocery test. Use your administrator account.');return;}
    window.financeGroceryClient=client;
    window.financeGrocerySignIn=()=>showGate('Your session is missing or expired. Sign in again to reconnect. Your shopping list stays on this page.');
+   gate.hidden=true;content.hidden=false;
    if(!loaded){
-    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=424';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=425';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
     loaded=true;
    }
-   gate.hidden=true;content.hidden=false;
+   else window.dispatchEvent(new Event('finance-grocery-authenticated'));
   }catch(error){showGate(error.message||'Could not verify access. Please try again.');}
   finally{busy=false;setDisabled(false);}
  }

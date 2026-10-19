@@ -21,7 +21,16 @@ async function api(params){
  if(!token)throw signIn();
  const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+token,'X-Finance-Token':token},cache:'no-store',signal:AbortSignal.timeout(15000)});
  let response=await send();
- if(response.status===401){token=await sessionToken(true);if(!token)throw signIn();response=await send();if(response.status===401)throw signIn();}
+ if(response.status===401){
+  const renewed=await sessionToken(true);
+  if(renewed){token=renewed;response=await send();}
+  if(response.status===401){
+   const result=await client.auth.getUser();
+   if(result.error||!result.data?.user)throw signIn();
+   const detail=await response.json().catch(()=>({}));
+   throw Error('You are signed in, but the server could not verify the connection. Reference: '+(detail.authCode||detail.code||'server_session_rejected')+'. Please retry; another sign-in is not needed.');
+  }
+ }
  const data=await response.json();if(!response.ok)throw Error(data.error||'Price comparison unavailable');return data;
 }
 async function checkConnection(){el('checkConnection').disabled=true;el('connection').textContent='Checking connection…';el('connectionDetail').textContent='Verifying your session and API configuration…';try{const d=await api({action:'status'});el('connection').textContent=d.configured?'API configured for testing':'Price API not connected';el('connectionDetail').textContent=d.message||d.error||'Run a product search to verify access.';}catch(e){el('connection').textContent='Connection needs attention';el('connectionDetail').textContent=e.message;}finally{el('checkConnection').disabled=false;}}
@@ -41,4 +50,5 @@ el('searchForm').onsubmit=async e=>{e.preventDefault();const i=activeItem();if(!
 async function loadProduct(i,p){if(activeItem()!==i)return;if(p.priceBasis!==i.basis)return notify('This product uses a different price basis. Choose a matching product or correct your shopping-list item.');const version=++requestVersion;setBusy(true);notify('Checking Riyadh branch availability…');try{const d=await api({action:'branches',id:p.id});if(version!==requestVersion||activeItem()!==i)return;const quotes=d.offers.map(o=>({key:'provider:'+o.retailer+':'+o.store.code,store:o.store.name||o.retailerName||o.retailer,city:o.store.city,price:o.price,priceBasis:o.priceBasis,currency:o.currency,inStock:o.inStock,stale:o.stale,updatedAt:o.updatedAt,url:o.url,manual:false}));i.product=p;i.offers=i.offers.filter(o=>o.manual).concat(quotes);render();notify(validOffers(i).length+' usable reviewed prices found.'+(d.moreAvailable?' Provider returned a partial branch list; comparison covers only the returned branches.':''));el('connection').textContent='Provider responded · Riyadh prices';el('connectionDetail').textContent='Reviewed branch prices are shown with their collection dates. Verify availability and price at checkout.';}catch(e){if(version===requestVersion)notify(e.message);}finally{if(version===requestVersion)setBusy(false);}}
 el('quoteForm').onsubmit=e=>{e.preventDefault();const i=activeItem();if(!i)return;const store=el('quoteStore').value.trim(),price=Number(el('quotePrice').value),updatedAt=el('quoteDate').value+'T00:00:00+03:00',url=el('quoteUrl').value.trim();if(!store||!(price>0)||!Number.isFinite(price))return notify('Enter a store and a valid price.');if(url&&!/^https:\/\//i.test(url))return notify('Use an HTTPS source link.');const o={key:'manual:'+store.toLowerCase().replace(/\s+/g,' '),store,price,priceBasis:i.basis,currency:'SAR',city:'Riyadh',inStock:true,stale:false,updatedAt,url,manual:true};if(!freshOffer(o,i))return notify('Use a price checked within the last 48 hours. Future prices are not accepted.');i.offers=i.offers.filter(x=>x.key!==o.key).concat(o);render();notify('Reviewed manual price added.');};
 el('receiptFile').onchange=()=>{if(receiptUrl)URL.revokeObjectURL(receiptUrl);const f=el('receiptFile').files[0];el('receiptPreview').hidden=true;if(!f)return;if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15*1024*1024)return notify('Choose a PNG, JPG or WebP receipt up to 15 MB.');receiptUrl=URL.createObjectURL(f);el('receiptPreview').src=receiptUrl;el('receiptPreview').hidden=false;};
+window.addEventListener('finance-grocery-authenticated',checkConnection);
 el('clearList').onclick=()=>{if(items.length&&!confirm('Clear this testing list?'))return;items=[];choose(null);};el('storeCost').oninput=render;el('checkConnection').onclick=checkConnection;render();checkConnection();
