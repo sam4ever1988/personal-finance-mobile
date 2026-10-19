@@ -19,7 +19,7 @@ async function api(params){
  let token=await sessionToken();
  if(!token)token=await sessionToken(true);
  if(!token)throw signIn();
- const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+token,'X-Finance-Token':token},cache:'no-store',signal:AbortSignal.timeout(15000)});
+ const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:token}),cache:'no-store',signal:AbortSignal.timeout(15000)});
  let response=await send();
  if(response.status===401){
   const renewed=await sessionToken(true);

@@ -9,14 +9,20 @@ function product(p){return {id:text(p.id,100),barcode:text(p.barcode,20),name:na
 function branch(p){return {retailer:text(p.retailer,60),retailerName:name(p.retailerName),store:{code:text(p.store?.code,100),name:name(p.store?.name),city:'Riyadh',kind:text(p.store?.kind,30)},price:p.price,priceBasis:p.priceBasis,currency:p.currency,inStock:p.inStock===true,stale:p.stale===true,updatedAt:text(p.updatedAt,40),url:safeUrl(p.url)};}
 module.exports=async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
- if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({error:'Method not allowed'});}
+ if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return res.status(405).json({error:'Method not allowed'});}
+ let body={};
+ if(req.method==='POST'){
+  if(!/^application\/json(?:;|$)/i.test(String(req.headers?.['content-type']||'')))return res.status(415).json({error:'Use a JSON request.'});
+  try{body=typeof req.body==='string'?JSON.parse(req.body):req.body;if(!body||Array.isArray(body)||typeof body!=='object')throw Error();if(Buffer.byteLength(JSON.stringify(body))>131072)return res.status(413).json({error:'Request is too large.'});}
+  catch(_){return res.status(400).json({error:'Invalid JSON request.'});}
+ }
  const key=process.env.MUWAZIN_API_KEY,allowed=String(process.env.GROCERY_TEST_USER_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
  const action=String(req.query?.action||'status');
  if(!['status','search','branches'].includes(action))return res.status(400).json({error:'Unknown action'});
- // A dedicated application header survives proxies that consume Authorization.
- const appToken=String(req.headers?.['x-finance-token']||'');
+ // Prefer the JSON body: profile metadata can make valid JWTs exceed header limits.
+ const appToken=String(body.accessToken||req.headers?.['x-finance-token']||'');
  const token=appToken?'Bearer '+appToken:String(req.headers?.authorization||'');
- if(!/^Bearer [A-Za-z0-9._-]+$/.test(token)||token.length>8192)return res.status(401).json({code:'session_missing',error:'The connection request did not include a valid finance session.'});
+ if(!/^Bearer [A-Za-z0-9._-]+$/.test(token)||token.length>98304)return res.status(401).json({code:'session_missing',error:'The connection request did not include a valid finance session.'});
  try{
   const auth=await fetch(AUTH_URL,{headers:{apikey:AUTH_KEY,Authorization:token},signal:AbortSignal.timeout(5000)});
   if(!auth.ok){
