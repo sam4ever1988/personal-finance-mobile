@@ -1,6 +1,6 @@
 # Riyadh grocery comparison evaluation
 
-Page: `/grocery-test.html`, linked from More. Release 4.26.
+Page: `/grocery-test.html`, linked from More. Release 4.27.
 
 The initial page supports a manual shopping list, local receipt preview, reviewed manual price entry, product search/confirmation and Riyadh branch price comparison. It does not write finance data, save receipts, send receipts to providers or claim OCR. Lists are memory-only; reload clears them.
 
@@ -27,7 +27,7 @@ The browser sends the Supabase access token in a JSON body (`accessToken`), neve
 
 All paid-provider calls require a verified Supabase session and explicit tester allowlisting. Methods, queries and identifiers are bounded. Provider URL is fixed, keys stay server-side, raw upstream errors are not exposed and errors are not converted into fake prices. Usage is bounded per request; production-wide abuse/quota controls must be added before broad rollout.
 
-Prices are displayed only after product confirmation. Same price basis (item/kg), numeric positive SAR price, in stock, not stale, valid timestamp within 48 hours and Riyadh city are required. Manual prices are separately labelled. Complete single-store recommendations are grouped by branch, never by retailer across incompatible branches. Partial savings compare only matched rows. Extra cost is applied once per store visited/delivery.
+Prices are displayed only after product confirmation. Same price basis (item/kg), numeric positive SAR price, in stock, not stale, latest branch confirmation (`branchLastSeen`, falling back to `updatedAt`) within 48 hours and Riyadh city are required. The date of a price change is preserved separately from the latest branch confirmation, so an unchanged price checked today is not incorrectly rejected as old. Empty results explain why prices are unavailable; search results are ranked by product-name terms and still require exact brand/size review. Manual prices are separately labelled. Complete single-store recommendations are grouped by branch, never by retailer across incompatible branches. Partial savings compare only matched rows. Extra cost is applied once per store visited/delivery.
 
 The evaluation key is configured server-side; provider access was tested separately. End-to-end verification with the administrator’s browser remains pending.
 

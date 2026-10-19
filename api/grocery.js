@@ -5,8 +5,8 @@ const BASE='https://api.muwazin.me/v1';
 const text=(v,max=160)=>String(v??'').slice(0,max);
 const name=v=>typeof v==='object'&&v?(v.en||v.ar||''):text(v);
 function safeUrl(v){try{const u=new URL(v);return u.protocol==='https:'?u.href:'';}catch(_){return '';}}
-function product(p){return {id:text(p.id,100),barcode:text(p.barcode,20),name:name(p.name),brand:text(p.brand),size:name(p.size?.weight||p.size),priceBasis:p.priceBasis,matchConfidence:Number(p.matchConfidence)||0};}
-function branch(p){return {retailer:text(p.retailer,60),retailerName:name(p.retailerName),store:{code:text(p.store?.code,100),name:name(p.store?.name),city:'Riyadh',kind:text(p.store?.kind,30)},price:p.price,priceBasis:p.priceBasis,currency:p.currency,inStock:p.inStock===true,stale:p.stale===true,updatedAt:text(p.updatedAt,40),url:safeUrl(p.url)};}
+function product(p){return {id:text(p.id,100),barcode:text(p.barcode,20),name:name(p.name),brand:text(p.brand),size:name(p.size?.weight||p.size),priceBasis:p.priceBasis,matchConfidence:p.matchConfidence==null?null:Number(p.matchConfidence),branches:p.branches&&{total:Number(p.branches.total)||0,inStock:Number(p.branches.inStock)||0}};}
+function branch(p){return {retailer:text(p.retailer,60),retailerName:name(p.retailerName),store:{code:text(p.store?.code,100),name:name(p.store?.name),city:'Riyadh',kind:text(p.store?.kind,30)},price:p.price,priceBasis:p.priceBasis,currency:p.currency,inStock:p.inStock===true,stale:p.stale===true,updatedAt:text(p.updatedAt,40),checkedAt:text(p.branchLastSeen||p.updatedAt,40),url:safeUrl(p.url)};}
 module.exports=async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return res.status(405).json({error:'Method not allowed'});}
