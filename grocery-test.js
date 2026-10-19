@@ -10,10 +10,21 @@ function validOffers(item){return item.offers.filter(o=>freshOffer(o,item));}
 function best(item){return validOffers(item).sort((a,b)=>a.price-b.price)[0]||null;}
 function setBusy(flag){el('searchForm').querySelector('button').disabled=flag;el('products').querySelectorAll('button').forEach(b=>b.disabled=flag);}
 async function api(params){
- const headers={};if(client){const {data,error}=await client.auth.getSession();if(error)throw Error('Sign in to the finance website again.');if(data?.session?.access_token)headers.Authorization='Bearer '+data.session.access_token;}
- const response=await fetch('/api/grocery?'+new URLSearchParams(params),{headers,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw Error(data.error||'Price comparison unavailable');return data;
+ async function sessionToken(refresh=false){
+  if(!client)return null;
+  const {data,error}=await (refresh?client.auth.refreshSession():client.auth.getSession());
+  return !error?data?.session?.access_token:null;
+ }
+ function signIn(){window.financeGrocerySignIn?.();return Error('Your session needs renewing. Sign in above to reconnect. Your shopping list is kept.');}
+ let token=await sessionToken();
+ if(!token)token=await sessionToken(true);
+ if(!token)throw signIn();
+ const send=()=>fetch('/api/grocery?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(15000)});
+ let response=await send();
+ if(response.status===401){token=await sessionToken(true);if(!token)throw signIn();response=await send();if(response.status===401)throw signIn();}
+ const data=await response.json();if(!response.ok)throw Error(data.error||'Price comparison unavailable');return data;
 }
-async function checkConnection(){el('checkConnection').disabled=true;try{const d=await api({action:'status'});el('connection').textContent=d.configured?'API configured for testing':'Price API not connected';el('connectionDetail').textContent=d.message||d.error||'Run a product search to verify access.';}catch(e){el('connection').textContent='Connection needs attention';el('connectionDetail').textContent=e.message;}finally{el('checkConnection').disabled=false;}}
+async function checkConnection(){el('checkConnection').disabled=true;el('connection').textContent='Checking connection…';el('connectionDetail').textContent='Verifying your session and API configuration…';try{const d=await api({action:'status'});el('connection').textContent=d.configured?'API configured for testing':'Price API not connected';el('connectionDetail').textContent=d.message||d.error||'Run a product search to verify access.';}catch(e){el('connection').textContent='Connection needs attention';el('connectionDetail').textContent=e.message;}finally{el('checkConnection').disabled=false;}}
 function choose(id){requestVersion++;selected=id;const i=activeItem();el('searchArea').hidden=!i;el('manualArea').hidden=!i;el('noSelection').hidden=!!i;el('products').innerHTML='';el('searchQuery').value=i?.name||'';el('quoteForm').reset();el('quoteDate').value=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});notify(i?'Comparing: '+i.name:'');setBusy(false);render();}
 function render(){
  el('basket').innerHTML=items.length?items.map(i=>{const b=best(i),paid=round(i.paid*i.qty),saving=b?round((i.paid-b.price)*i.qty):null;return `<tr class="${i.id===selected?'selected':''}"><td><b>${esc(i.name)}</b><div class="muted">${i.basis==='kg'?'Price per kg':'Price per pack'}${i.product?' · Reviewed: '+esc(i.product.name):''}</div></td><td>${i.qty}${i.basis==='kg'?' kg':''}</td><td>${sar(paid)}</td><td>${b?`${sar(b.price)} each<div class="muted">${esc(b.store)} · ${b.manual?'Manual entry':'Provider price'}<br>${esc(new Date(b.updatedAt).toLocaleString('en-GB',{timeZone:'Asia/Riyadh'}))}${b.url?'<br><a href="'+esc(b.url)+'" target="_blank" rel="noopener">View price source</a>':''}</div>`:'Awaiting reviewed prices'}</td><td class="${saving!==null&&saving<0?'red':'green'}">${saving===null?'—':sar(saving)}</td><td><button data-choose="${i.id}">Compare</button><button data-remove="${i.id}">Remove</button></td></tr>`;}).join(''):'<tr><td colspan="6" class="empty">Your list is empty. Add a receipt item above.</td></tr>';

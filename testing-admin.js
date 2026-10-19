@@ -28,8 +28,9 @@
    if(error||!data?.user){showGate('Sign in here, or sign in to My Finance on this same website address and click “Check existing sign-in again”.');return;}
    if(data.user.id!=='a8b3c116-be0f-4e2c-9d9a-04643c18b689'||data.user.email?.toLowerCase()!=='sam4ever@windowslive.com'){showGate('This account does not have access to the grocery test. Use your administrator account.');return;}
    window.financeGroceryClient=client;
+   window.financeGrocerySignIn=()=>showGate('Your session is missing or expired. Sign in again to reconnect. Your shopping list stays on this page.');
    if(!loaded){
-    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=422';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=423';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
     loaded=true;
    }
    gate.hidden=true;content.hidden=false;
