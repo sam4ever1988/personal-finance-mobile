@@ -463,6 +463,7 @@ function recomputePlanPaidAmountFromHistory(p){
 }
 
 function deleteMonthlyIncomeCardPayment(ledgerId){
+ if(transferInstallmentPlan(ledgerId))return alert('Remove the linked installment plan before undoing this payment.');
  const row=(cashFlowLedger||[]).find(x=>x.id===ledgerId && x.status!=='reversed');
  if(!row || row.type!=='card-payment')return;
 
@@ -741,6 +742,7 @@ function undoLastPartialPayment(id,ledgerReferenceId=''){
  if(idx<0)return;
 
  const last=p.paymentHistory[idx];
+ if(cashFlowLedger.some(row=>row.status!=='reversed'&&row.referenceId===last.ledgerReferenceId&&transferInstallmentPlan(row.id)))return alert('Remove the linked installment plan before undoing this payment.');
  const amount=Math.max(0,Number(last.amount||0));
  const src=last.sourceId==='cash-source'?'Monthly Planned Income':accountName(last.sourceId);
 
@@ -1899,7 +1901,7 @@ function syncUpcomingNbdMazeed(){
 }
 function adjustCurrentStatementForInstallment(linkedTx,plan){
  if(!linkedTx||!plan)return;
- const cardId=linkedTx.account, originalMonth=paymentMonthForTransaction(cardId,linkedTx.date);
+ const cardId=linkedTx.account, originalMonth=linkedTx.sourcePaymentMonth||paymentMonthForTransaction(cardId,linkedTx.date);
  const purchase=Math.abs(Number(linkedTx.amount||0)); if(!purchase)return;
  cardPaymentPlan.filter(r=>r.accountId===cardId && r.month===originalMonth).forEach(r=>{
   if(!Number.isFinite(Number(r.statementOriginalAmount)))r.statementOriginalAmount=inferStatementOriginalAmount(r);

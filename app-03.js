@@ -678,6 +678,10 @@ function recordedCardPaymentCredit(cardId){
 function transferInstallmentPlan(ledgerId){
  return installments.find(p=>p.linkedLedgerId===ledgerId)||null;
 }
+function eligiblePaymentInstallment(row){
+ return !!row && row.status!=='reversed' && Number(row.amount)>0 && account(row.sourceId)?.type==='card' && row.sourceId!==row.targetId &&
+  ((row.type==='card-bank-transfer' && account(row.targetId)?.type==='bank') || (row.type==='card-payment' && account(row.targetId)?.type==='card'));
+}
 function canManageTransferInstallments(){
  return !window.financeSectionPermission||['cash_flow_ledger','installments'].every(s=>window.financeSectionPermission(s)==='edit');
 }

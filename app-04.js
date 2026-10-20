@@ -1175,7 +1175,7 @@ function renderAfterInstallmentMutation(cardId){
 function deleteInstallmentPlan(id){
  const p=installments.find(x=>x.id===id);if(!p)return;
  const c=planCalc(p),a=account(p.cardId);
- const msg=p.linkedLedgerId?`Remove the installment plan for "${p.description}"? The original transfer remains and returns to normal card repayment; the wallet balance will not change.`:`Delete "${p.description}" from ${a?.name||'this card'}?\n\nRemaining amount: ${money(c.remaining)}\n\nUse this when the installment has been fully paid/settled and should no longer be included in future installment commitments.`;
+ const msg=p.linkedLedgerId?`Remove the installment plan for "${p.description}"? The original payment remains recorded and returns to normal repayment on the funding card. No money is moved.`:`Delete "${p.description}" from ${a?.name||'this card'}?\n\nRemaining amount: ${money(c.remaining)}\n\nUse this when the installment has been fully paid/settled and should no longer be included in future installment commitments.`;
  if(!confirm(msg))return;
  const seedIds=new Set([...MEEM_SEEDED_PLANS,...REQUIRED_0955_INSTALLMENTS,...BASE.initialInstallments].map(x=>x.id));
  if(seedIds.has(id)){
