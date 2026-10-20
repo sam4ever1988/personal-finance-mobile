@@ -326,12 +326,12 @@ function addCustomBank(){openUnifiedAction({title:'Add Bank Account',subtitle:'T
 function openTransferInstallment(id){
  if(!canManageTransferInstallments())return alert('Edit access to transfers and installments is required.');
  const row=paymentActivityLedgerRow(id);
- if(!row||row.type!=='card-bank-transfer'||account(row.sourceId)?.type!=='card'||account(row.targetId)?.type!=='bank')return alert('Select an active credit-card-to-bank or wallet transfer.');
+ if(!eligiblePaymentInstallment(row))return alert('Select an active payment funded by a credit card.');
  const existing=transferInstallmentPlan(id);
  if(existing)return openInstallment(existing);
  const matched=cardFundedPaymentBreakdown(row.sourceId).find(h=>h.id===id)?.matchedTransactionId||'';
  if(matched&&installments.some(p=>p.linkedTransactionId===matched))return alert('The matching card transaction already has an installment plan. Edit that plan in Installments to avoid duplicating it.');
- openInstallment({cardId:row.sourceId,description:row.description||('Transfer to '+accountName(row.targetId)),category:'Miscellaneous',subcategory:'Unexpected Expenses',fullAmount:Number(row.amount),months:3,startMonth:paymentMonthForTransaction(row.sourceId,row.date),paidInstallments:0,linkedLedgerId:id,linkedTransactionId:matched,source:'Converted from wallet transfer'});
+ openInstallment({cardId:row.sourceId,description:row.description||('Transfer to '+accountName(row.targetId)),category:'Miscellaneous',subcategory:'Unexpected Expenses',fullAmount:Number(row.amount),months:3,startMonth:addMonths(row.sourcePaymentMonth||paymentMonthForTransaction(row.sourceId,row.date),1),paidInstallments:0,linkedLedgerId:id,linkedTransactionId:matched,source:'Converted from wallet transfer'});
 }
 function openBankTransfer(){
  const banks=accounts.filter(a=>a.type==='bank');
@@ -405,6 +405,7 @@ function paymentActivityCardHistory(row){
 }
 function editAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(transferInstallmentPlan(id))return alert('Remove the linked installment plan before changing or undoing this payment.');
  if(row.type==='card-payment'){
   const match=paymentActivityCardHistory(row);
   if(!match)return alert('This historical card payment must be managed in the payment planner.');
@@ -463,6 +464,7 @@ function editAccountPaymentActivity(id){
 }
 function deleteAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
+ if(transferInstallmentPlan(id))return alert('Remove the linked installment plan before changing or undoing this payment.');
  if(row.type==='card-payment'){
   const match=paymentActivityCardHistory(row);
   if(!match)return alert('This historical card payment must be managed in the payment planner.');

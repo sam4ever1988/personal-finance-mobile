@@ -1613,10 +1613,11 @@ function updateIncomePlanPreview(){
        : funded
          ? `<span class="amber"><b>Not from income</b></span><div class="meta">${funded.uncoveredAmount>0.005?`${money(funded.uncoveredAmount)} occupies source-card credit`:'Covered by source-card payment or statement'}</div>`
          : '<span class="green"><b>Not deducted from income</b></span>';
-     return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td><td><button class="btn small danger" type="button" data-delete-cash-ledger="${x.id}">Delete</button></td></tr>`;
+     return `<tr><td>${x.date||'—'}</td><td>${type}</td><td><b>${x.targetName||x.description||'—'}</b></td><td>${source||'—'}</td><td>${impact}</td><td class="${x.deductFromIncome?'red':''}"><b>${money(x.amount)}</b></td><td>${eligiblePaymentInstallment(x)&&canManageTransferInstallments()?`<button class="btn small" type="button" data-transfer-installment="${escapeHtml(x.id)}">${transferInstallmentPlan(x.id)?'Edit installments':'Make installments'}</button> `:''}<button class="btn small danger" type="button" data-delete-cash-ledger="${x.id}">Delete</button></td></tr>`;
     }).join('')
   : '<tr><td colspan="7">No cash-flow usage recorded for this month.</td></tr>';
 
+ document.querySelectorAll('#cashFlowLedgerBody [data-transfer-installment]').forEach(b=>b.onclick=()=>openTransferInstallment(b.dataset.transferInstallment));
  document.querySelectorAll('[data-delete-cash-ledger]').forEach(b=>b.onclick=()=>deleteCashFlowLedgerEntry(b.dataset.deleteCashLedger));
 
  accounts.filter(a=>a.type==='card').forEach(a=>{
