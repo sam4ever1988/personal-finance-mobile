@@ -597,6 +597,12 @@ function renderAccounts(){
  if($('cashPaymentBody'))$('cashPaymentBody').innerHTML=payRows.length?payRows.map(p=>{const a=account(p.accountId),eff=plannerAmountForRow(p),paid=paymentPaidAmount(p),rem=paymentRemainingAmount(p);return `<tr><td><b>${escapeHtml(a?`${a.bank} •${a.ending}`:p.accountId)}</b></td><td>${eff===null?'Awaiting statement':money(Number(eff||0))}</td><td style="color:#38e0a4">${money(paid)}</td><td>${cardPaymentSourceDisplay(p)}</td><td style="color:${Number(rem||0)>0?'#ff6f7d':'#38e0a4'}"><b>${Number.isFinite(rem)?money(rem):'—'}</b></td><td>${p.due?paymentFormatDate(p.due):'Pending'}</td><td><span class="cashPayStatus ${p.paid?'paid':Number(rem||0)>0?'due':''}">${p.paid?'PAID':paid>0?'PARTIAL':plannerAmountSource(p)}</span></td></tr>`}).join(''):'<tr><td colspan="7" class="cashEmpty">No card payment obligations for this month.</td></tr>';
  if($('cardSummaryBody'))$('cardSummaryBody').innerHTML=metrics.map(({a,m})=>`<tr><td><b>${escapeHtml(a.bank+' • '+a.name+' •'+a.ending)}</b></td><td style="color:#ff6f7d">${money(m.current)}</td><td style="color:#ffc34d">${money(m.inst)}</td><td style="color:#ff6f7d"><b>${money(m.total)}</b></td><td>${money(m.limit)}</td><td style="color:#38e0a4"><b>${money(m.available)}</b></td><td><div>${Number(m.util||0).toFixed(1)}%</div><div class="progress"><div class="progressFill" style="width:${Math.min(Number(m.util||0),100)}%"></div></div></td></tr>`).join('');
  document.querySelectorAll('[data-cash-account]').forEach(el=>el.onclick=()=>openAccount(el.dataset.cashAccount,'accounts'));
+ if($('cashPaymentTotals')){
+  const knownPlans=payRows.map(p=>plannerAmountForRow(p));
+  const pending=knownPlans.filter(v=>v===null||!Number.isFinite(Number(v))).length;
+  const planned=knownPlans.reduce((sum,v)=>sum+(v!==null&&Number.isFinite(Number(v))?Number(v):0),0);
+  $('cashPaymentTotals').innerHTML=`<tr style="background:#103b50;font-weight:900"><th scope="row" style="color:#eaf7ff;font-size:12px">Total${pending?' (known amounts)':''}</th><td>${money(planned)}</td><td style="color:#38e0a4">${money(paidThisMonth)}</td><td></td><td style="color:${currentDue>0?'#ff6f7d':'#38e0a4'};font-size:15px"><b>${money(currentDue)}</b></td><td colspan="2">${pending?`${pending} awaiting statement`:'Remaining to pay'}</td></tr>`;
+ }
  if($('cashPaymentMonth')&&!$('cashPaymentMonth').dataset.bound){$('cashPaymentMonth').dataset.bound='1';$('cashPaymentMonth').addEventListener('change',()=>renderAccounts());}
 }
 
