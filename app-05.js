@@ -567,7 +567,7 @@ function openTxEdit(id){
  $('txEditInfo').innerHTML=`<b>${escapeHtml(t.description)}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${escapeHtml(t.date)} • ${escapeHtml(accountName(t.account))} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
  $('editDescription').value=t.description||''; $('editDate').value=t.date||''; $('editAmount').value=Number(t.amount||0);
- $('editStatementMonth').value=t.statementMonth||statementMonthByRule(t.date,statementRule.cutoffDay);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
+ $('editStatementMonth').value=assignedTransactionPaymentMonth(t.account,t);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
  $('installmentEligibilityBox').style.display=eligible&&!linked?'block':'none';
  $('convertToInstallment').disabled=!eligible||linked;
  openModal('txEditModal');
@@ -594,6 +594,16 @@ $('convertToInstallment').addEventListener('click',()=>{
 });
 
 
+function refreshEditedTransactionMonth(){
+ const t=normalizedTx(true).find(x=>x._id===editingTxId);
+ if(!t||!$('editDate').value)return;
+ $('editStatementManual').checked=false;
+ $('editStatementMonth').value=paymentMonthForTransaction(t.account,$('editDate').value);
+}
+$('editDate').addEventListener('change',refreshEditedTransactionMonth);
+$('editStatementManual').addEventListener('change',()=>{
+ if(!$('editStatementManual').checked)refreshEditedTransactionMonth();
+});
 $('editStatementMonth').addEventListener('change',()=>{
  $('editStatementManual').checked=!!$('editStatementMonth').value;
 });
@@ -613,7 +623,7 @@ $('txEditForm').addEventListener('submit',e=>{
  if(!Number.isFinite(editedAmount)||editedAmount===0){alert('Enter a valid non-zero transaction amount.');return;}
  const selectedMonth=$('editStatementMonth').value;
  const autoMonth=paymentMonthForTransaction(original.account,editedDate);
- const hasManualMonth=!!selectedMonth;
+ const hasManualMonth=$('editStatementManual').checked&&!!selectedMonth;
  const newMonth=hasManualMonth?selectedMonth:autoMonth;
  const val={
   description:editedDescription,
@@ -622,15 +632,11 @@ $('txEditForm').addEventListener('submit',e=>{
   category:$('editCategory').value,
   subcategory:$('editSubcategory').value,
   physicalCardEnding:$('editPhysicalCard').value||transactionPhysicalCardEnding(original),
-  statementMonth:hasManualMonth?newMonth:'',
-  paymentMonth:hasManualMonth?newMonth:'',
+  statementMonth:newMonth,
+  paymentMonth:newMonth,
   statementMonthManual:hasManualMonth
  };
 
- if(!hasManualMonth){
-  delete val.statementMonth;
-  delete val.paymentMonth;
- }
  // A manual bank transaction already changed the live balance when created.
  // Replace that old effect with the edited amount before saving the override.
  adjustTrackedBankForTransaction(original,-1);
