@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const code=fs.readFileSync(__dirname+'/app-05.js','utf8');
+const elements={};const $=id=>elements[id]??=({value:'',checked:false,addEventListener(type,fn){this[type]=fn}});
+const original={_id:'test',account:'card',date:'2026-09-18',amount:-12,description:'Coffee',statementMonth:'2026-10',paymentMonth:'2026-10'};
+const context={$,editingTxId:'test',normalizedTx:()=>[original],transactions:[original],txOverrides:{},paymentMonthForTransaction:(_,date)=>date.slice(0,7)==='2026-10'?'2026-11':'2026-10',assignedTransactionPaymentMonth:()=> '2026-10',transactionPhysicalCardEnding:()=> '9345',adjustTrackedBankForTransaction(){},saveLocal(){},syncTransactionOverridesImmediate(){},closeModal(){},rebuildCardAfterStatementMonthMove(){},refreshAfterTransactionChange(){},renderCategories(){},alert(m){throw Error(m)}};
+vm.createContext(context);vm.runInContext(code.slice(code.indexOf('function refreshEditedTransactionMonth()'),code.indexOf('function financeCanManageBankHolds()')),context);
+$('editDate').value='2026-10-18';$('editStatementMonth').value='2026-10';$('editStatementManual').checked=true;$('editDate').change();
+assert.equal($('editStatementMonth').value,'2026-11');assert.equal($('editStatementManual').checked,false);
+$('editDescription').value='Coffee';$('editAmount').value='-12';
+const save=()=> $('txEditForm').submit({preventDefault(){}});
+save();assert.equal(context.txOverrides.test.paymentMonth,'2026-11');assert.equal(context.txOverrides.test.statementMonthManual,false);
+$('editStatementMonth').value='2026-12';$('editStatementMonth').change();save();assert.equal(context.txOverrides.test.paymentMonth,'2026-12');assert.equal(context.txOverrides.test.statementMonthManual,true);
+$('editStatementManual').checked=false;$('editStatementManual').change();save();assert.equal(context.txOverrides.test.paymentMonth,'2026-11');assert.equal(context.txOverrides.test.amount,-12);
+console.log('PASS: date resets stale manual month; auto save replaces imported month; explicit override retained; unchecked override recalculates; amount preserved');
