@@ -329,13 +329,17 @@ function isMisassignedNbdPaymentExpense(t){
    x.sourceId==='ar-0955' && x.targetId==='nbd-infinite-4411' && Math.abs(Number(x.amount||0)-11025)<0.01);
 }
 
-function rememberedMerchantCategory(description){
- const text=String(description||'').trim().toLowerCase();
- const key=Object.keys(merchantRules||{}).filter(k=>k.trim()).sort((a,b)=>b.length-a.length).find(k=>text.includes(k.toLowerCase()));
- return key?merchantRules[key]:null;
+function financeMerchantRuleIndex(){
+ return Object.keys(merchantRules||{}).filter(k=>k.trim()).sort((a,b)=>b.length-a.length).map(key=>({key,text:key.toLowerCase()}));
 }
-function applyRememberedTransactionCategory(out,override){
- const rule=rememberedMerchantCategory(out.description);
+function rememberedMerchantCategory(description,ruleIndex){
+ const text=String(description||'').trim().toLowerCase();
+ const match=(ruleIndex||financeMerchantRuleIndex()).find(rule=>text.includes(rule.text));
+ return match?merchantRules[match.key]:null;
+}
+function applyRememberedTransactionCategory(out,override,ruleIndex){
+ if(Object.prototype.hasOwnProperty.call(override||{},'category')||Object.prototype.hasOwnProperty.call(override||{},'subcategory'))return out;
+ const rule=rememberedMerchantCategory(out.description,ruleIndex);
  // Date, amount and physical-card overrides must not disable merchant memory.
  // Explicit categorization of a transaction still takes precedence.
  if(rule&&!Object.prototype.hasOwnProperty.call(override||{},'category')&&!Object.prototype.hasOwnProperty.call(override||{},'subcategory')){
@@ -344,6 +348,7 @@ function applyRememberedTransactionCategory(out,override){
  return out;
 }
 function liveCardTransactions(includeInactive=false){
+ const ruleIndex=financeMerchantRuleIndex();
  const rows=[
   ...importedTransactions.map((t,i)=>({...t,manual:false,imported:true,_id:t._id||('import'+i)})),
   ...manualTransactions.map((t,i)=>({...t,manual:true,_id:t._id||('manual'+i)}))
@@ -354,7 +359,7 @@ function liveCardTransactions(includeInactive=false){
   out.paymentMonth=out.paymentMonth||paymentMonthForTransaction(out.account,out.date);
   out.statementMonth=out.statementMonth||out.paymentMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
   if(txOverrides[t._id])Object.assign(out,txOverrides[t._id]);
-  applyRememberedTransactionCategory(out,txOverrides[t._id]);
+  applyRememberedTransactionCategory(out,txOverrides[t._id],ruleIndex);
   out.txAction=transactionActions[t._id]||null;
   if(isNbdPaymentOnSourceCard(out)){
    out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
@@ -364,12 +369,13 @@ function liveCardTransactions(includeInactive=false){
 }
 
 function normalizedTx(includeInactive=false){
+ const ruleIndex=financeMerchantRuleIndex();
  return transactions.map(t=>{
    let out={...t};
    out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
    if(txOverrides[t._id]) Object.assign(out,txOverrides[t._id]);
    out.statementMonth=out.statementMonth||statementMonthByRule(out.date,statementRule.cutoffDay);
-   applyRememberedTransactionCategory(out,txOverrides[t._id]);
+   applyRememberedTransactionCategory(out,txOverrides[t._id],ruleIndex);
    out.txAction=transactionActions[t._id]||null;
   if(isNbdPaymentOnSourceCard(out)){
    out.kind='transfer';out.category='Financial Obligations';out.subcategory='Credit Card Payments';
