@@ -31,7 +31,8 @@
    window.financeGrocerySignIn=()=>showGate('Your session is missing or expired. Sign in again to reconnect. Your shopping list stays on this page.');
    gate.hidden=true;content.hidden=false;
    if(!loaded){
-    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=428';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-test.js?v=434';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The grocery tools could not load. Check your connection and try again.'));};document.body.append(script);});
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='grocery-organizer.js?v=434';script.onload=resolve;script.onerror=()=>reject(Error('Saved grocery tools could not load. Reload to retry.'));document.body.append(script);});
     loaded=true;
    }
    else window.dispatchEvent(new Event('finance-grocery-authenticated'));
