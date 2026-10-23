@@ -75,6 +75,22 @@ function openCanonicalMobileSheet(top,m,b){
  document.body.appendChild(sheet);
  requestAnimationFrame(()=>sheet.classList.add('visible'));
 }
+function closeCanonicalProfile(){
+ document.querySelectorAll('[data-profile-menu]').forEach(profile=>{
+  profile.classList.remove('open');
+  profile.querySelector('.canonicalAvatar')?.setAttribute('aria-expanded','false');
+ });
+}
+function dismissCanonicalMenus(event){
+ const target=event.target;
+ if(!target?.closest?.('[data-profile-menu]'))closeCanonicalProfile();
+ if(target?.closest?.('#canonicalMobileNavSheet,.canonicalMenuTrigger'))return;
+ closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));
+ document.querySelectorAll('[data-nav-menu]').forEach(menu=>{
+  menu.classList.remove('open');
+  menu.querySelector('.canonicalMenuTrigger')?.setAttribute('aria-expanded','false');
+ });
+}
 function ensureCanonicalShell(){
  var app=document.querySelector('body>.app'),main=app?.querySelector(':scope>.main');if(!app||!main)return;
  closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));
@@ -112,8 +128,15 @@ function ensureCanonicalShell(){
  top.querySelectorAll('[data-nav-menu]').forEach(m=>{m.onmouseleave=()=>{if(window.matchMedia('(max-width:900px)').matches)return;m.classList.remove('open');var b=m.querySelector('.canonicalMenuTrigger');if(b)b.setAttribute('aria-expanded','false')}});
  var profile=top.querySelector('[data-profile-menu]'),avatar=profile?.querySelector('.canonicalAvatar');
  if(avatar)avatar.onclick=(e)=>{e.preventDefault();e.stopPropagation();closeCanonicalMobileSheet(top);var open=profile.classList.toggle('open');avatar.setAttribute('aria-expanded',open?'true':'false')};
- top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();var a=b.dataset.profileAction;if(a==='sync')nav('cloudSync');else if(a==='preferences')nav('preferences');else if(a==='account')nav('accountprofile');else if(a==='signout'){profile.classList.remove('open');avatar?.setAttribute('aria-expanded','false');if(typeof financeSignOutCurrentDevice==='function')financeSignOutCurrentDevice();else alert('Secure sign out is still loading. Please try again in a moment.')}});
- if(!window.__canonicalMenuOutside){window.__canonicalMenuOutside=true;document.addEventListener('click',(e)=>{if(e.target.closest('#canonicalMobileNavSheet,.canonicalMenuTrigger'))return;closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));document.querySelectorAll('[data-nav-menu]').forEach(m=>m.classList.remove('open'))});window.addEventListener('resize',()=>closeCanonicalMobileSheet(document.getElementById('canonicalAppTop')));}
+ top.querySelectorAll('[data-profile-action]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();closeCanonicalProfile();var a=b.dataset.profileAction;if(a==='sync')nav('cloudSync');else if(a==='preferences')nav('preferences');else if(a==='account')nav('accountprofile');else if(a==='signout'){profile.classList.remove('open');avatar?.setAttribute('aria-expanded','false');if(typeof financeSignOutCurrentDevice==='function')financeSignOutCurrentDevice();else alert('Secure sign out is still loading. Please try again in a moment.')}});
+ if(!window.__canonicalMenuOutside){
+  window.__canonicalMenuOutside=true;
+  // Capture outside taps before page controls can stop event propagation.
+  document.addEventListener('pointerdown',dismissCanonicalMenus,true);
+  document.addEventListener('click',dismissCanonicalMenus,true);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCanonicalProfile();closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));}});
+  window.addEventListener('resize',()=>{closeCanonicalProfile();closeCanonicalMobileSheet(document.getElementById('canonicalAppTop'));});
+ }
 }
 function syncCanonicalShell(page){
  ensureCanonicalShell();
