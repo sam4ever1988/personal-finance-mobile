@@ -619,6 +619,7 @@ renderCustomCreditCards=function(){
 }
 
 $('execAddTx')?.addEventListener('click',()=>openManualTransaction());$('execImport')?.addEventListener('click',()=>nav('importstatements'));$('execAddInst')?.addEventListener('click',()=>openInstallment());$('execAddGold')?.addEventListener('click',()=>{nav('assets');setTimeout(()=>addGoldAsset(),0)});
+function financeYieldToBrowser(){return new Promise(resolve=>setTimeout(resolve,0));}
 async function init(){
  const sessionPromise=Promise.resolve().then(()=>cloudRefreshAuth()).catch(e=>{console.warn('Cloud auth deferred',e);return null;});
  // V261: show the Executive shell immediately while local finance state restores.
@@ -636,15 +637,18 @@ async function init(){
  // V275: paint Executive immediately from the already-loaded localStorage state.
  // Then IndexedDB may enrich/replace that state and we repaint. This removes the
  // first-load dependency that previously left the dashboard empty until navigation.
+ await financeYieldToBrowser();
  const startupUi=loadSavedReviewState();
  if(!startupUi || !startupUi.page || startupUi.page==='executive'){
   try{
    rebuildTransactions();
+   await financeYieldToBrowser();
    normalizeCardPaymentPlan();
    ensureLedgerBackedPlannerRows();
    rebuildAllPlannerPaymentsFromLedger();
    reconcileRemainingPrincipalPlans();
    ensurePartialPaymentFields();
+   await financeYieldToBrowser();
    renderExecutiveDashboard();
    window.__financeFirstDataPaint=true;
   }catch(e){console.error('V275 immediate Executive paint failed',e);}
@@ -669,6 +673,7 @@ async function init(){
  }
  bindCustomAccountButtons();
 
+ await financeYieldToBrowser();
  // Auth is intentionally started in parallel after local restore; the UI does
  // not await Supabase before becoming usable.
 
@@ -678,6 +683,7 @@ async function init(){
  migrateSabAwayFromLegacySeed();
  normalizeSabInstallmentPlan();
  reconcileRemainingPrincipalPlans();
+ await financeYieldToBrowser();
  const autoExcludedDuplicates=cleanupExistingImportedStatementDuplicates();
  if(autoExcludedDuplicates)console.info(`Auto-excluded ${autoExcludedDuplicates} imported duplicate transaction(s).`);
  ensureRequiredInstallmentSeeds();
@@ -701,6 +707,7 @@ async function init(){
   }
  }));
  if(incomeBudgetMigrationChanged)saveCardPaymentPlan();
+ await financeYieldToBrowser();
  const reconciledInstallmentStatements=reconcileExistingInstallmentStatementTransfers();
  // V155: no fixed statement amount is re-applied at startup.
  if(reconciledInstallmentStatements)console.info(`Reconciled ${reconciledInstallmentStatements} existing installment transaction(s) against their original statement.`);
@@ -742,6 +749,7 @@ $('paymentDetailsBack').addEventListener('click',()=>{nav('dashboard');renderPay
  window.__financeStateInitialized=true;
  window.__financeInitComplete=true;
 
+ await financeYieldToBrowser();
  // Restore only the page the user was reviewing. A clean session renders
  // Executive Overview once. Other modules are rendered lazily by nav().
  const savedUi=startupUi||loadSavedReviewState();
