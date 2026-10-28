@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c3b4a">
-<title>Personal Finance • 4.34</title>
+<title>Personal Finance • 4.35</title>
 
 
 
 <link rel="stylesheet" href="styles.css?v=377">
 <link rel="stylesheet" href="layouts.css?v=421">
+<link rel="stylesheet" href="experience.css?v=435">
 <!-- V312 statement assignment row alignment: 2026-09-23 -->
 </head>
 <body class="execMode financeAccessLocked">
@@ -44,6 +45,7 @@
   <small>Wipe This Device removes only this account's browser cache. It never deletes cloud records.</small>
  </div>
 </div>
+<div id="financeBootProgress" class="financeBootProgress" role="status" aria-live="polite"><span class="financeBootSpinner" aria-hidden="true"></span><span data-boot-message>Opening your finance workspace…</span><button type="button" hidden>Retry loading</button></div>
 <div class="app">
 <header id="canonicalAppTop" class="canonicalAppTop"></header>
 <div id="financeDataFreshness" role="status" aria-live="polite" style="padding:6px 16px;color:var(--muted,#a8b6cd);font-size:12px">Saved device data • checking latest cloud values…</div>
@@ -55,7 +57,7 @@
 <div class="execTop"><div class="execBrand"><div class="execLogo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="trend">↗</span></div><div><b>My Finance</b><small>Control Today ・ Plan Tomorrow</small></div></div>
 <div class="execTopNav"><button class="active">▦　Dashboard</button><button data-page-jump="transactions">▱　Transactions</button><button data-page-jump="outgoings">↗　Outgoings</button><button data-page-jump="installments">▣　Installments</button><button data-page-jump="importstatements">▤　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button></div>
 <div class="execTopDate" id="execTopDate"></div><div class="execAvatar">HA</div></div>
-<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">▥　Financial Position</button><button class="execSideBtn" data-page-jump="strategy">⌁　Financial Strategy</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><button class="execSideBtn" data-page-jump="more">•••　More</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">4.34</div></aside>
+<div class="execBody"><aside class="execSide"><div class="execSideTitle">Dashboard Views</div><button class="execSideBtn active">▣　Executive Overview</button><button class="execSideBtn" data-page-jump="accounts">▤　Cash & Credit</button><button class="execSideBtn" data-page-jump="financialposition">▥　Financial Position</button><button class="execSideBtn" data-page-jump="strategy">⌁　Financial Strategy</button><div class="execSideSep"></div><div class="execSideTitle">Modules</div><button class="execSideBtn" data-page-jump="transactions">▱　Transactions</button><button class="execSideBtn" data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button class="execSideBtn" data-page-jump="installments">▣　Installments</button><button class="execSideBtn" data-page-jump="importstatements">▤　Import Statements</button><button class="execSideBtn" data-page-jump="assets">◇　Personal Assets</button><button class="execSideBtn" data-page-jump="reports">▥　Reports</button><button class="execSideBtn" data-page-jump="financeSettings">⚙　Settings</button><button class="execSideBtn" data-page-jump="more">•••　More</button><div class="execSideQuote">“ Financial peace<br>　is a plan away. ”</div><div class="execVer">4.35</div></aside>
 <main class="execMain">
  <div class="execHero"><div><h2>A. Executive Overview</h2><div class="meta">Your balances and payments at a glance</div></div><div class="execHeroRight"><span id="execUpdated"></span><span class="execQuote">❝ A clear view today<br>for a better tomorrow. ❞</span></div></div>
  <div class="execKpis" id="execKpis"></div>
@@ -101,7 +103,7 @@
 <section class="view" id="accounts">
 <div class="cashShell">
  <header class="cashTop"><div class="cashBrand"><span class="cashMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="cashNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="cashDate" id="cashDate"></div><div class="cashAvatar">HA</div></header>
- <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">4.34</div></aside>
+ <div class="cashBody"><aside class="cashSide"><div class="cashSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button class="active">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="cashSep"></div><div class="cashSideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="cashQuote">“Know what is available, what is due, and what comes next.”</div><div class="cashVer">4.35</div></aside>
  <main class="cashMain">
   <div class="cashHero"><div><h1>Cash & Credit</h1><p>Manage bank balances, credit cards and monthly payments.</p></div><div class="cashHeroActions"><button class="cashBtn" data-page-jump="incomeplan">Open Payment Plan</button><button class="cashBtn primary" data-page-jump="transactions">Review Transactions</button></div></div>
   <div class="cashKpis" id="cashKpis"></div>
@@ -116,7 +118,7 @@
 <section class="view" id="transactions">
 <div class="txExecShell">
  <header class="txExecTop"><div class="txExecBrand"><span class="txExecMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="txExecNav"><button data-page-jump="executive">⌂ Dashboard</button><button class="active">☷ Transactions</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="txExecDate" id="txExecDate"></div><div class="txExecAvatar">HA</div></header>
- <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">4.34</div></aside>
+ <div class="txExecBody"><aside class="txExecSide"><div class="txExecSideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button data-page-jump="strategy">⌁　Financial Strategy</button><div class="txExecSep"></div><div class="txExecSideTitle">Modules</div><button class="active">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="txExecQuote">“A better financial tomorrow starts with clarity today.”</div><div class="txExecVer">4.35</div></aside>
  <main class="txExecMain">
   <div class="txExecHero"><div><h2>Transactions</h2><p>Review and control your complete cash movement, spending, transfers and items that still need classification.</p></div><div class="txExecHeroActions"><select class="txDarkControl" id="txTopMonth"><option>September 2026</option></select><button class="txDarkBtn" data-page-jump="importstatements">⇩　Import Statement</button><button class="txAddBtn" id="txHeroAdd">＋ Add Transaction</button></div></div>
   <div class="txExecKpis" id="txWorkKpis"></div>
@@ -133,7 +135,7 @@
 <section class="view" id="strategy">
 <div class="strategyShell">
  <header class="strategyTop"><div class="strategyBrand"><span class="strategyBrandMark">▥</span><div><b>My Finance</b><small>Control Today • Plan Tomorrow</small></div></div><nav class="strategyTopNav"><button data-page-jump="executive">⌂ Dashboard</button><button data-page-jump="transactions">☷ Transactions</button><button data-page-jump="outgoings">↗ Outgoings</button><button data-page-jump="installments">▤ Installments</button><button data-page-jump="importstatements">⇩ Import Statements</button><button data-page-jump="investments">◈ Investments</button><button data-page-jump="assets">◇ Personal Assets</button><button data-page-jump="rental">⌂ Airbnb / Rental</button><button data-page-jump="reports">▥ Reports</button><button data-page-jump="financeSettings">⚙ Settings</button></nav><div class="strategyTopDate" id="strategyTopDate"></div><div class="strategyAvatar">HA</div></header>
- <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">4.34</div></aside>
+ <div class="strategyBody"><aside class="strategySide"><div class="strategySideTitle">Dashboard Views</div><button data-page-jump="executive">▧　Executive Overview</button><button data-page-jump="accounts">▤　Cash & Credit</button><button data-page-jump="financialposition">▥　Financial Position</button><button class="active">⌁　Financial Strategy</button><div class="strategySideSep"></div><div class="strategySideTitle">Modules</div><button data-page-jump="transactions">☷　Transactions</button><button data-page-jump="outgoings">↗　Cash & Other Outgoings</button><button data-page-jump="installments">▤　Installments</button><button data-page-jump="importstatements">▧　Import Statements</button><button data-page-jump="investments">◈　Investments</button><button data-page-jump="assets">◇　Personal Assets</button><button data-page-jump="rental">⌂　Airbnb / Rental</button><button data-page-jump="reports">▥　Reports</button><button data-page-jump="financeSettings">⚙　Settings</button><button data-page-jump="more">•••　More</button><div class="strategySideQuote">“A better financial tomorrow starts with clarity today.”</div><div class="strategySideVer">4.35</div></aside>
  <main class="strategyMain">
   <div class="strategyPageHero"><div><h2>Financial Strategy</h2><p>Turn your live income, spending, credit and loan data into a clear monthly plan.</p></div><div class="strategyHeroActions"><button class="strategyDarkBtn" type="button" data-page-jump="transactions">Review Spending</button><button class="strategyPrimaryBtn" type="button" data-page-jump="incomeplan">Open Payment Plan</button></div></div>
   <div class="strategyKpis" id="strategyKpis"></div>
@@ -527,6 +529,9 @@
  <div class="prefsPage"><div class="prefsEyebrow">PROFILE</div><h1>Account</h1><p class="prefsLead">Your finance data is linked to the verified email shown below.</p>
  <div class="panel prefsCard accountAccessNotice" id="accountAccessNotice" hidden role="status"><div class="panelTitle">Your account is ready</div><p>Your finance pages are waiting for access. An administrator can enable pages for your own private database in <b>Admin → Access → Own account page access</b>.</p><p>Once access is assigned, sign in again to see those pages and the guided tour. Your account and database remain private while you wait.</p></div>
  <div class="prefsGrid"><div class="panel prefsCard"><div class="profileLarge"><div class="profileLargeAvatar" id="accountAvatarPreview">MF</div><div><h2 id="accountNamePreview">My Finance User</h2><div class="meta" id="accountEmailPreview">Secure account</div></div></div></div>
+ <div class="panel prefsCard"><div class="panelTitle">Appearance</div><p class="meta">Your design follows your profile across workspaces.</p><div class="themeChoices profileThemeChoices"> <button type="button" data-design-choice="classic" aria-pressed="false"><span class="themePreview themeClassic"></span><b>Classic</b><small>Your original dashboard</small></button>
+ <button type="button" data-design-choice="midnight" aria-pressed="false"><span class="themePreview themeMidnight"></span><b>Midnight Premium</b><small>Deep navy · soft mint accents</small></button>
+ <button type="button" data-design-choice="bright" aria-pressed="false"><span class="themePreview themeBright"></span><b>Clean &amp; Bright</b><small>Light surfaces · clear blue accents</small></button></div><p class="meta" data-appearance-status role="status"></p><button type="button" class="btn" data-page-jump="preferences">All appearance settings</button></div>
  <div class="panel prefsCard"><div class="panelTitle">Profile Details</div><form id="accountProfileForm" class="prefsForm"><label>Display Name<input id="accountDisplayName" autocomplete="name"></label><label>Verified Login Email<input id="accountEmail" type="email" readonly></label><label>Initials<input id="accountInitials" maxlength="3" placeholder="MF"></label><label>Profile appearance<select id="accountAvatarMode"><option value="initials">Initials (default)</option><option value="picture">Profile picture</option></select></label><label id="accountAvatarUploadField" hidden>Upload picture<input id="accountAvatarUpload" type="file" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG or WebP · up to 2 MB</small></label><div id="accountProfileStatus" class="meta" role="status"></div><button class="btn primary" type="submit">Save Profile</button></form><label class="prefsForm">My Workspace Name<input id="financeWorkspaceName" maxlength="80" placeholder="e.g. Sam"></label><button class="btn primary" type="button" id="financeWorkspaceNameSave">Save Workspace Name</button><div id="financeWorkspaceNameStatus" class="meta"></div></div>
  <div class="panel prefsCard"><div class="panelTitle">Login & Security</div><p class="meta">Your verified email controls access to this private finance workspace. Use the profile menu to sign out on this device.</p><div class="prefsStatus"><span>Authentication</span><b>Email and password available</b></div><button class="btn" type="button" data-page-jump="auditTrail">My Audit Trail</button> <button class="btn" type="button" data-page-jump="accessLab">Access Test</button></div>
  <div class="panel prefsCard"><div class="panelTitle">Shared with</div><p class="meta">People you have authorized to access your workspace.</p><div id="accountSharedWith">No one has access to your workspace.</div><div class="prefsForm" style="margin-top:12px"><label>Registered user email<input id="accountShareEmail" type="email" autocomplete="off" placeholder="person@example.com"></label><label>Page<select id="accountSharePage"><option value="rental">Airbnb / Rental</option><option value="transactions">Transactions</option><option value="accounts">Cash & Credit</option><option value="investments">Investments</option><option value="assets">Personal Assets</option><option value="outgoings">Cash & Other Outgoings</option><option value="incomeplan">Income & Payment Plan</option><option value="installments">Installments</option><option value="importstatements">Import Statements</option><option value="financeSettings">Settings</option></select></label><label>Permission<select id="accountSharePermission"><option value="view">View only</option><option value="edit">View and edit</option></select></label><button type="button" class="btn primary" id="accountShareSave">Share My Workspace</button><div id="accountShareStatus" class="meta" role="status"></div></div></div>
@@ -556,13 +561,13 @@
  </div>
 </section>
 <section class="view" id="preferences">
- <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Control how My Finance looks on this device. Changes apply immediately and are saved locally.</p>
+ <div class="prefsPage"><div class="prefsEyebrow">PERSONALIZATION</div><h1>Preferences</h1><p class="prefsLead">Choose a design for your account. Changes apply immediately and sync to your profile.</p>
  <div class="prefsGrid"><div class="panel prefsCard prefsWide"><div class="panelTitle">Appearance</div><div class="themeChoices" id="themeChoices">
- <button type="button" data-theme-choice="dark"><span class="themePreview themeDark"></span><b>Dark</b><small>Current finance dashboard style</small></button>
- <button type="button" data-theme-choice="light"><span class="themePreview themeLight"></span><b>Light</b><small>Bright workspace</small></button>
- <button type="button" data-theme-choice="system"><span class="themePreview themeSystem"></span><b>System</b><small>Follow your Mac/browser appearance</small></button>
- </div></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label><div class="meta">Bank Connections is a testing feature. Available only to the administrator while testing.</div></div>
- <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Dark</b></div><div class="prefsStatus"><span>Storage</span><b>On this device</b></div></div></div></div>
+ <button type="button" data-design-choice="classic" aria-pressed="false"><span class="themePreview themeClassic"></span><b>Classic</b><small>Your original dashboard</small></button>
+ <button type="button" data-design-choice="midnight" aria-pressed="false"><span class="themePreview themeMidnight"></span><b>Midnight Premium</b><small>Deep navy · soft mint accents</small></button>
+ <button type="button" data-design-choice="bright" aria-pressed="false"><span class="themePreview themeBright"></span><b>Clean &amp; Bright</b><small>Light surfaces · clear blue accents</small></button>
+ </div><label class="classicColorControl">Classic color mode<select id="classicColorMode"><option value="dark">Original dark</option><option value="light">Original light</option><option value="system">Follow device</option></select></label></div><div class="panel prefsCard"><div class="panelTitle">Interface</div><label class="prefsToggle"><span><b>Compact navigation</b><small>Use tighter spacing when screen width is limited.</small></span><input id="prefCompactNav" type="checkbox"></label><div class="meta">Bank Connections is a testing feature. Available only to the administrator while testing.</div></div>
+ <div class="panel prefsCard"><div class="panelTitle">Saved Preference</div><div class="prefsStatus"><span>Theme</span><b id="prefThemeStatus">Classic</b></div><p class="meta" data-appearance-status role="status">Choose your appearance.</p><button type="button" class="btn" data-appearance-retry hidden>Retry profile sync</button></div></div></div>
 </section>
 
 
@@ -856,13 +861,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<script>window.APP_BUILD_VERSION='4.34';</script>
+<script src="experience.js?v=435"></script>
+<script>window.APP_BUILD_VERSION='4.35';</script>
 <script>
 /* V259 loader: application parts are compiled as one classic script so
    cross-file declarations remain available while modules are rendered lazily. */
 (async function(){
   const files=[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>'app-'+String(n).padStart(2,'0')+'.js?v='+encodeURIComponent(window.APP_BUILD_VERSION));
-  const appPartsPromise=Promise.all(files.map(async file=>{const response=await fetch(file);if(!response.ok)throw new Error('Failed to load '+file+' ('+response.status+')');return response.text();})).then(parts=>({parts}),error=>({error}));
+  const appPartsPromise=window.financeLoadAppParts(files,window.APP_BUILD_VERSION).then(parts=>({parts}),error=>({error}));
+  window.financeBootProgress('Checking your account…');
   try{
     // Resolve the authenticated account before any finance module reads localStorage.
     // Each user's browser cache has its own IndexedDB slot; switching users reloads
@@ -955,23 +962,25 @@
       sessionStorage.removeItem('finance_shared_ephemeral_v346');
       localStorage.setItem('pf_permission_epoch',String(Date.now())+'-'+Math.random().toString(36).slice(2));
     };
-    const {data:{session},error:authError}=await scoped.auth.getSession();
+    const {data:{session},error:authError}=await window.financeLoadDeadline(scoped.auth.getSession(),'Account check');
     if(authError)throw authError;
     window.financeUserEmail=session?.user?.email||'';
     window.financeUserProfile=session?.user?.user_metadata?.finance_profile||null;
+    window.financeInitAppearance(session?.user);
+    window.financeBootProgress(session?'Loading your workspaces…':'Preparing sign in…');
     if(session){
       const actor=session.user.id;
       const bankTestingPromise=scoped.from('finance_page_access').select('page,permission').eq('user_id',actor).then(result=>result,error=>({data:null,error}));
       const ownerCheckPromise=scoped.from('finance_owner').select('id').limit(1).then(result=>result,error=>({data:null,error}));
       window.financeStartupOwnerCheck={actor,promise:ownerCheckPromise};
-      const primary=await scoped.rpc('finance_ensure_primary_workspace');
+      const primary=await window.financeLoadDeadline(scoped.rpc('finance_ensure_primary_workspace'),'Workspace check');
       if(primary.error)throw primary.error;
-      const [{data:grants,error:grantError},{data:names,error:nameError},users,{data:owned,error:ownedError}]=await Promise.all([
+      const [{data:grants,error:grantError},{data:names,error:nameError},users,{data:owned,error:ownedError}]=await window.financeLoadDeadline(Promise.all([
         scoped.from('finance_workspace_grants').select('owner_user_id,page,permission').eq('member_user_id',actor),
         scoped.from('finance_workspace_profiles').select('owner_user_id,display_name'),
         Promise.resolve({data:[],error:null}),
         scoped.from('finance_workspaces').select('id,display_name,base_currency').eq('owner_user_id',actor).order('created_at',{ascending:true}).order('id',{ascending:true})
-      ]);
+      ]),'Workspace list');
       if(grantError||nameError||users.error||ownedError)throw grantError||nameError||users.error||ownedError;
       const labels=new Map((names||[]).map(row=>[row.owner_user_id,row.display_name]));
       const owners=[...new Set((grants||[]).map(g=>g.owner_user_id))].filter(id=>id!==actor).sort();
@@ -986,6 +995,7 @@
       let selected=sessionStorage.getItem(selectionKey);
       if(!window.financeWorkspaceChoices.some(x=>x.id===selected))selected=null;
       if(window.financeWorkspaceChoices.length>1&&!selected){
+        window.financeBootReady();
         selected=await new Promise(resolve=>{
           const chooser=document.createElement('div');chooser.className='financeWorkspaceChooser';
           const title=document.createElement('h2');title.textContent='Choose a finance workspace';chooser.append(title);
@@ -1000,15 +1010,16 @@
       }
       selected=selected||actor;sessionStorage.setItem(selectionKey,selected);
       window.financeWorkspaceUserId=selected;
-      const {data:workspaceCurrency,error:currencyError}=await scoped.rpc('finance_workspace_currency',{workspace_id:selected});
+      window.financeBootProgress('Preparing your workspace…');
+      const {data:workspaceCurrency,error:currencyError}=await window.financeLoadDeadline(scoped.rpc('finance_workspace_currency',{workspace_id:selected}),'Workspace settings');
       if(currencyError)throw currencyError;
       window.financeWorkspaceCurrency=workspaceCurrency||'SAR';
       window.financeWorkspaceName=window.financeWorkspaceChoices.find(x=>x.id===selected)?.name||'My Workspace';
-      const ownerCheck=await ownerCheckPromise;
+      const ownerCheck=await window.financeLoadDeadline(ownerCheckPromise,'Account permissions');
       if(ownerCheck.error)throw ownerCheck.error;
       window.financeIsOwner=!!ownerCheck.data?.length;
-      await window.financeScopeSwitch(session);
-      const {data:testingRows,error:testingError}=await bankTestingPromise;
+      await window.financeLoadDeadline(window.financeScopeSwitch(session),'Saved workspace');
+      const {data:testingRows,error:testingError}=await window.financeLoadDeadline(bankTestingPromise,'Page permissions');
       if(testingError)throw testingError;
       window.financeBankTestingPermission=window.financeIsOwner?'edit':(testingRows?.find(row=>row.page==='bankconnections')?.permission||'off');
       if(!window.financeIsOwner||window.financeSharedWorkspace){
@@ -1062,6 +1073,7 @@
         window.financePageFingerprint=fingerprint;
       }
     }
+    window.financeBootProgress('Opening your dashboard…');
     const loaded=await appPartsPromise;if(loaded.error)throw loaded.error;const parts=loaded.parts;
     if(window.financeWorkspaceCurrency&&window.financeWorkspaceCurrency!=='SAR'){
       const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(!['SCRIPT','STYLE','OPTION'].includes(node.parentElement?.tagName))node.nodeValue=node.nodeValue.replace(/\bSAR\b/g,window.financeWorkspaceCurrency);}
@@ -1071,15 +1083,11 @@
     const url=URL.createObjectURL(blob);
     const s=document.createElement('script');
     s.src=url;
-    s.onload=()=>URL.revokeObjectURL(url);
-    s.onerror=()=>{URL.revokeObjectURL(url);throw new Error('Application bundle failed to execute');};
+    s.onload=()=>{URL.revokeObjectURL(url);window.financeBootReady();};
+    s.onerror=()=>{URL.revokeObjectURL(url);window.financeBootFailure(new Error('Application bundle failed to execute'));};
     document.body.appendChild(s);
   }catch(err){
-    console.error('V256 application loader failed',err);
-    const box=document.createElement('div');
-    box.style.cssText='position:fixed;left:16px;right:16px;bottom:16px;z-index:99999;padding:14px;background:#5b1320;color:white;border-radius:10px;font:600 14px system-ui';
-    box.textContent='Application failed to load. Please refresh once. '+err.message;
-    document.body.appendChild(box);
+    window.financeBootFailure(err);
   }
 })();
 </script>

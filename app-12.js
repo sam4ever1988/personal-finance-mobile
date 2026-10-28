@@ -407,3 +407,23 @@ function renderSalarySavingsPlanner(draft=null){
  salaryBudgetUpdatePreview();
 }
 (function(){const original=renderIncomePlan;renderIncomePlan=function(...args){const result=original.apply(this,args);renderSalarySavingsPlanner();return result;};})();
+
+/* 4.35: browser Back/Forward follows workspace navigation without reloading data. */
+(function(){
+ const original=nav,scope=String(window.financeActiveUserId||'')+'|'+String(window.financeWorkspaceUserId||'');
+ let restoring=false;
+ nav=function(...args){
+  const result=original.apply(this,args),page=activeViewId();
+  window.financeSyncExperienceNav?.(page);
+  if(!restoring&&page&&history.state?.financePage!==page){
+   const state={...history.state,financePage:page,financeScope:scope};
+   if(history.state?.financeScope===scope)history.pushState(state,'');else history.replaceState(state,'');
+  }
+  return result;
+ };
+ window.addEventListener('popstate',event=>{
+  const state=event.state;if(state?.financeScope!==scope||!state.financePage||!document.getElementById(state.financePage))return;
+  restoring=true;try{nav(state.financePage);}finally{restoring=false;}
+ });
+ setTimeout(()=>{const page=activeViewId();if(page){history.replaceState({...history.state,financePage:page,financeScope:scope},'');window.financeSyncExperienceNav?.(page);}},0);
+})();

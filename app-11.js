@@ -122,7 +122,7 @@
  function applyAccountLayout(){const grid=document.querySelector('#accountprofile .prefsGrid');if(!grid||grid.dataset.layout372)return;grid.dataset.layout372='1';const cards=[...grid.children],left=node('div','layoutAccountColumn'),right=node('div','layoutAccountColumn');grid.append(left,right);
   cards.forEach((c,i)=>move(c,[0,2].includes(i)||['accountWorkspaceCard','adminAccessCard','accountOwnAccessCard'].includes(c.id)?left:right));
   const profile=el('accountProfileForm')?.closest('.panel'),label=el('financeWorkspaceName')?.closest('label'),button=el('financeWorkspaceNameSave'),status=el('financeWorkspaceNameStatus');
-  if(profile&&label){const p=node('div','panel prefsCard','<div class="panelTitle">Workspace Settings</div>');right.insertBefore(p,profile.nextSibling);move(label,p);move(button,p);move(status,p);}
+  if(profile&&label){const p=node('div','panel prefsCard','<div class="panelTitle">Workspace Settings</div>');profile.parentElement.insertBefore(p,profile.nextSibling);move(label,p);move(button,p);move(status,p);}
   const invitation=node('div','panel prefsCard','<div class="panelTitle">Invite a New User</div><p class="meta">Send a secure invitation email. Your workspace stays private unless you explicitly share it.</p><button class="btn primary" type="button" id="accountInviteOpen">Open Invitations</button>');invitation.hidden=!!window.financeSharedWorkspace;right.append(invitation);el('accountInviteOpen').onclick=()=>nav('invitations');
  }
  function applyGoldLayout(){const root=el('assets');if(!root||root.dataset.layout372)return;root.dataset.layout372='1';

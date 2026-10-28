@@ -165,18 +165,10 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
 (function(){
  const PROFILE_KEY='pf_profile_v283',PREF_KEY='pf_preferences_v283';
  const getProfile=()=>{if(window.financeUserProfile)return window.financeUserProfile;try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch(e){return {}}};
- const getPrefs=()=>{try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}};
- function effectiveTheme(t){return t==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):(t||'dark')}
+ const getPrefs=()=>{let legacy={};try{legacy=JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(_){}return window.financeGetAppearance?window.financeGetAppearance(legacy):legacy;};
  window.applyFinancePreferences=function(){
-  const p=getPrefs(),theme=p.theme||'dark',resolved=effectiveTheme(theme);
-  document.documentElement.dataset.financeTheme=resolved;
-  document.documentElement.dataset.themePreference=theme;
-  document.documentElement.style.colorScheme=resolved;
-  if(document.body)document.body.classList.toggle('compactFinanceNav',!!p.compactNav);
-  const st=document.getElementById('prefThemeStatus');if(st)st.textContent=theme[0].toUpperCase()+theme.slice(1);
-  const ck=document.getElementById('prefCompactNav');if(ck)ck.checked=!!p.compactNav;
-  document.querySelectorAll('[data-theme-choice]').forEach(b=>{const on=b.dataset.themeChoice===theme;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',on?'true':'false')});
-  try{if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'preferences'):'preferences')}catch(e){}
+  getPrefs();window.financeApplyAppearance?.();window.financeAppearanceStatus?.();
+  try{if(typeof syncCanonicalShell==='function')syncCanonicalShell(typeof activeViewId==='function'?(activeViewId()||'preferences'):'preferences')}catch(_){}
  };
  window.renderAccountProfile=function(){
   const p=getProfile(),name=p.name||(window.financeIsOwner?'Hussam Ahmad':'My Finance User'),email=window.financeUserEmail||p.email||'',initials=(p.initials||(window.financeIsOwner?'HA':'MF')).toUpperCase().slice(0,3);
@@ -213,17 +205,12 @@ setTimeout(function(){try{syncCanonicalShell(typeof activeViewId==='function'?(a
    if(share)share.disabled=!window.financeIsOwner&&!entries.some(([,permission])=>permission==='edit');
   }
  };
- document.addEventListener('click',e=>{const b=e.target.closest('[data-theme-choice]');if(!b)return;const theme=b.dataset.themeChoice;if(!['dark','light','system'].includes(theme))return;const p=getPrefs();p.theme=theme;localStorage.setItem(PREF_KEY,JSON.stringify(p));applyFinancePreferences()});
  document.addEventListener('change',e=>{
-  const key={prefCompactNav:'compactNav'}[e.target.id];
-  if(!key)return;
-  const p=getPrefs();p[key]=!!e.target.checked;
-  localStorage.setItem(PREF_KEY,JSON.stringify(p));
-  applyFinancePreferences();
- });
+  if(e.target.id==='prefCompactNav')window.financeSetAppearance?.({compactNav:!!e.target.checked});
+ },true);
  document.addEventListener('submit',async e=>{if(e.target.id!=='accountProfileForm')return;e.preventDefault();const status=document.getElementById('accountProfileStatus'),button=e.target.querySelector('[type="submit"]'),name=document.getElementById('accountDisplayName').value.trim().slice(0,80)||'My Finance User',email=window.financeUserEmail||'',initials=(document.getElementById('accountInitials').value.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'MF').toUpperCase().slice(0,3),mode=document.getElementById('accountAvatarMode').value,photo=mode==='picture'?(window.financeAvatarDraft||getProfile().photo||''):null;
   if(mode==='picture'&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)){status.textContent='Upload a picture first, or choose Initials.';return;}
-  const profile={name,email,initials,avatarMode:mode,photo};button.disabled=true;status.textContent='Saving profile…';try{const {error}=await window.financeSupabaseClient.auth.updateUser({data:{finance_profile:profile}});if(error)throw error;window.financeUserProfile=profile;window.financeAvatarDraft=null;localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));renderAccountProfile();window.financeApplyAvatar?.();status.textContent='Profile saved.';}catch(error){status.textContent='Could not save profile: '+error.message;}finally{button.disabled=false;}
+  const profile={...getProfile(),name,email,initials,avatarMode:mode,photo};button.disabled=true;status.textContent='Saving profile…';try{const {error}=await window.financeSupabaseClient.auth.updateUser({data:{finance_profile:profile}});if(error)throw error;window.financeUserProfile=profile;window.financeAvatarDraft=null;localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));renderAccountProfile();window.financeApplyAvatar?.();status.textContent='Profile saved.';}catch(error){status.textContent='Could not save profile: '+error.message;}finally{button.disabled=false;}
  });
  window.financeChooseWorkspace=async function(workspaceId){
   if(workspaceId===window.financeWorkspaceUserId)return;
