@@ -1033,7 +1033,9 @@ function renderTransactions(){
 fillGlobalPhysicalCardFilter($('txPhysicalCard'),true);fillGlobalPhysicalCardFilter($('reportPhysicalCard'),true);
 $('statementCutoffDay').value=String(statementRule.cutoffDay||24);
 $('applyStatementRule').addEventListener('click',applyStatementRuleToTransactions);
-['txSearch','txFrom','txTo','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id)?.addEventListener(id==='txSearch'?'input':'change',renderTransactions));
+let financeSearchTimer=0;
+$('txSearch')?.addEventListener('input',()=>{clearTimeout(financeSearchTimer);financeSearchTimer=setTimeout(()=>renderTransactions(),120);});
+['txFrom','txTo','txAccount','txPhysicalCard','txCategory','txType','txStatementMonth'].forEach(id=>$(id)?.addEventListener('change',()=>{clearTimeout(financeSearchTimer);renderTransactions();}));
 $('txReset').addEventListener('click',()=>{window.financeTxReview='';eligiblePurchasesOnly=false;$('txSearch').value='';if($('txFrom'))$('txFrom').value='';if($('txTo'))$('txTo').value='';$('txAccount').value='';$('txPhysicalCard').value='';$('txCategory').value='';$('txType').value='';$('txStatementMonth').value='';renderTransactions()});
 $('clearEligibleOnly').addEventListener('click',()=>{eligiblePurchasesOnly=false;renderTransactions();});
 
