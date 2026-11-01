@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const source=fs.readFileSync('app-13.js','utf8');
+let active=true,premium=true,classicRenders=0,premiumRenders=0,frames=[];
+const ctx={window:{},document:{getElementById:()=>({classList:{contains:()=>active}})},premiumSelected:()=>premium,renderPremiumNow:()=>{if(active&&premium)premiumRenders++;},requestAnimationFrame:f=>frames.push(f),renderExecutiveDashboard:()=>classicRenders++};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf(' let pendingFrame=false;'),source.lastIndexOf('})();')),ctx);
+for(let i=0;i<20;i++)ctx.renderExecutiveDashboard();
+assert.equal(classicRenders,0);assert.equal(frames.length,1);frames.shift()();assert.equal(premiumRenders,1);
+active=false;ctx.window.financeRenderPremium();assert.equal(frames.length,0);
+active=true;ctx.renderExecutiveDashboard();active=false;frames.shift()();assert.equal(premiumRenders,1);
+premium=false;ctx.renderExecutiveDashboard();assert.equal(classicRenders,1);
+active=true;premium=true;ctx.renderExecutiveDashboard();frames.shift()();assert.equal(premiumRenders,2);
+console.log('PASS: 20 refresh requests coalesce into 1 render; no hidden Classic render; off-screen work skipped; navigation cancellation; Classic fallback preserved');
