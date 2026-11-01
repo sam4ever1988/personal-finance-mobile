@@ -423,7 +423,7 @@ function salaryBudgetObligations(month){
   if(!Number.isFinite(offset)||offset<0||(!o.forever&&offset>=Math.max(1,Number(o.months||1))))return;
   const payments=outgoingPaymentEntries(o,month),cardPaid=payments.filter(p=>account(p.sourceId)?.type==='card').reduce((s,p)=>s+Number(p.amount||0),0);
   // Card-funded outgoings are covered by card dues, rather than counted twice.
-  const amount=Math.max(0,Number(o.amount||0)-cardPaid),paid=Math.min(amount,Math.max(0,outgoingPaidAmount(o,month)-cardPaid));
+  const amount=Math.max(0,Number(o.amountsByMonth?.[month]??o.amount??0)-cardPaid),paid=Math.min(amount,Math.max(0,outgoingPaidAmount(o,month)-cardPaid));
   if(amount>0)result.push({name:o.description||'Scheduled payment',kind:'Scheduled payment',amount,paid,source:payments.filter(p=>account(p.sourceId)?.type!=='card').map(p=>p.sourceId==='cash-source'?'Monthly income':accountName(p.sourceId)).join(', ')||o.method||'Not assigned'});
  });
  return result;

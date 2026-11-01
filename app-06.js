@@ -332,7 +332,7 @@ function isStatementDuplicate(candidate,existing){
  if(candidate.physicalCardDetected===true&&existing.physicalCardDetected===true&&candidateCard&&existingCard&&candidateCard!==existingCard)return false;
  if(Math.abs(Number(candidate.amount||0)-Number(existing.amount||0))>0.005)return false;
  const days=importDateDays(candidate.date,existing.date);
- if(days===0)return true; // same card + same amount + same transaction date
+ if(days===0&&(candidate.reference&&candidate.reference===existing.reference||duplicateTextSimilar(candidate.description,existing.description)))return true;
  if(days<=3 && duplicateTextSimilar(candidate.description,existing.description))return true;
  return false;
 }
@@ -713,7 +713,7 @@ function renderImportPreview(){
  const cardButton=$('openStatementCardReview');if(cardButton)cardButton.hidden=!window.financeStatementComparison&&!window.financeStatementHasCardMatches?.(dup);
  const matchedButton=$('reviewStatementMatches');if(matchedButton){matchedButton.hidden=!dup?.duplicates?.length;matchedButton.textContent='Review Matched Rows ('+(dup?.duplicates?.length||0)+')';}
  $('importPreviewMeta').textContent=importDuplicateDecision
-  ?`${dup?.found??total} transaction(s) found in ${importPreviewFileName}. ${dup?.duplicates.length||0} matched; ${total} selected for import; ${selectedStatementCardUpdates().length} card updates selected. ${reviewRows.length?`${reviewRows.length} selected row(s) need category review.`:'Selected rows are classified.'}`
+  ?`${dup?.found??total} transaction(s) found in ${importPreviewFileName}. ${dup?.autoLinks?.length||0} clear evidence links; ${dup?.duplicates.length||0} possible matches; ${total} selected for import; ${selectedStatementCardUpdates().length} card updates selected. ${reviewRows.length?`${reviewRows.length} selected row(s) need category review.`:'Selected rows are classified.'}`
   :'Choose a statement to begin.';
 
  $('importPreviewBody').innerHTML=total
@@ -842,7 +842,7 @@ function renderImportHistory(){
  if(!body)return;
  body.innerHTML=importHistory.length?importHistory.map((h,index)=>({h,index})).reverse().map(({h,index})=>{
   const n=importBatchRows(h).length;
-  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${h.updatedCardCount?`<div class="meta green">${h.updatedCardCount} existing card assignments updated</div>`:''}${Number.isFinite(Number(h.totalAmount))?`<div class="meta">Imported transaction amount: ${money(Number(h.totalAmount))}</div>`: ''}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button type="button" class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
+  return `<tr><td>${new Date(h.importedAt).toLocaleString()}</td><td><b>${h.fileName}</b></td><td>${accountName(h.accountId)}</td><td>${h.count}${h.linkedCount?`<div class="meta green">${h.linkedCount} existing transactions linked to statement evidence</div>`:''}${h.updatedCardCount?`<div class="meta green">${h.updatedCardCount} existing card assignments updated</div>`:''}${Number.isFinite(Number(h.totalAmount))?`<div class="meta">Imported transaction amount: ${money(Number(h.totalAmount))}</div>`: ''}${h.officialStatementConfirmed===true?`<div class="meta green"><b>Official statement confirmed</b> • ${money(Number(h.officialStatementAmount||0))}${h.officialStatementMonth?` • ${cardMonthLabel(h.officialStatementMonth)}`:''}</div>`:`<div class="meta">Transactions only • Official statement not confirmed</div>`}${Number(h.skipped||h.duplicateSkipped||0)>0?`<div class="meta">${Number(h.skipped||h.duplicateSkipped||0)} duplicates skipped</div>`:''}${n!==Number(h.count)?`<div class="meta">${n} currently linked</div>`:''}</td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn small" data-view-import="${index}">View</button><button type="button" class="btn small danger" data-delete-import="${index}">Delete All</button></div></td></tr>`;
  }).join(''):'<tr><td colspan="5">No statements imported yet.</td></tr>';
  document.querySelectorAll('[data-view-import]').forEach(b=>b.addEventListener('click',()=>viewImportBatch(Number(b.dataset.viewImport))));
  document.querySelectorAll('[data-delete-import]').forEach(b=>b.addEventListener('click',()=>deleteImportBatch(Number(b.dataset.deleteImport))));
@@ -889,7 +889,7 @@ $('confirmImportDuplicateReview').addEventListener('click',()=>{
 });
 function commitStatementPreviewImport(){
  if(importDuplicateDecision&&!importDuplicateDecision.decided){showStatementImportDuplicates(importDuplicateDecision);return;}
- if(!importPreviewRows.length&&!selectedStatementCardUpdates().length)return;
+ if(!importPreviewRows.length&&!selectedStatementCardUpdates().length&&!(importDuplicateDecision?.autoLinks||[]).length)return;
  let cardUpdates;try{cardUpdates=validateStatementCardUpdates();}catch(error){alert(error.message);return;}
  const reviewRows=importPreviewReviewRows();
  if(reviewRows.length){
@@ -901,6 +901,8 @@ function commitStatementPreviewImport(){
  const importedAccountId=$('importAccount').value;
  const officialCandidate=detectOfficialStatementCandidate(importedAccountId,importPreviewFileName,importPreviewRows,importStatementMeta);
  const officialConfirmed=confirmOfficialStatementCandidate(officialCandidate,importPreviewFileName);
+ try{window.financeCommitStatementLinks?.();}catch(error){alert(error.message);return;}
+ const linkedCount=(importDuplicateDecision?.autoLinks||[]).length;
  const updatedCards=applyStatementCardUpdates(cardUpdates,stamp);
 
  const importedFresh=fresh.map((t,i)=>{
@@ -929,6 +931,7 @@ function commitStatementPreviewImport(){
   accountId:importedAccountId,
   count:importedFresh.length,
   updatedCardCount:updatedCards.length,
+  linkedCount,
   updatedTransactionIds:updatedCards.map(t=>t._id),
   totalAmount:financeRoundMoney(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0)),
   skipped,
@@ -944,7 +947,7 @@ function commitStatementPreviewImport(){
  if(!importedFresh.length&&!officialConfirmed){
   saveLocal();const history=importHistory[importHistory.length-1];recordImmediateUpsert('import_history',syncStableId('import_history',history,importHistory.length-1),history,'statement-card-update');
   renderDashboard();renderAccounts();renderTransactions();renderReports();renderImportHistory();renderReviewAlerts();
-  importStatus('Updated card assignments for '+updatedCards.length+' existing transaction(s). No transactions added; amounts and balances unchanged.','success');
+  importStatus('Linked statement evidence for '+linkedCount+' transaction(s); updated '+updatedCards.length+' card assignments. No transactions added.','success');
   importPreviewRows=[];importDuplicateDecision=null;importStatementMeta=null;renderImportPreview();return;
  }
  ensureReleasedCyclePlannerRows();

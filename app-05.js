@@ -478,7 +478,7 @@ $('outgoingForm').addEventListener('submit',e=>{
  e.preventDefault();
  const id=$('outgoingEditId').value||`out-${Date.now()}`;
  const existingOutgoing=outgoings.find(x=>x.id===id);
- const o={id,description:$('outgoingDesc').value.trim(),amount:Number($('outgoingAmount').value||0),method:$('outgoingMethod').value,category:$('outgoingCategory').value,subcategory:$('outgoingSubcategory').value,startMonth:$('outgoingStart').value,months:Math.max(1,Math.min(60,Number($('outgoingMonths').value||1))),forever:$('outgoingForever').checked,notes:$('outgoingNotes').value.trim(),payments:{...(existingOutgoing?.payments||{})}};
+ const o={...(existingOutgoing||{}),id,description:$('outgoingDesc').value.trim(),amount:Number($('outgoingAmount').value||0),method:$('outgoingMethod').value,category:$('outgoingCategory').value,subcategory:$('outgoingSubcategory').value,startMonth:$('outgoingStart').value,months:Math.max(1,Math.min(60,Number($('outgoingMonths').value||1))),forever:$('outgoingForever').checked,notes:$('outgoingNotes').value.trim(),payments:{...(existingOutgoing?.payments||{})}};
  if(!o.description||o.amount<=0||!o.startMonth)return;
  const i=outgoings.findIndex(x=>x.id===id);if(i>=0)outgoings[i]=o;else outgoings.push(o);
  saveLocal();closeModal('outgoingModal');renderOutgoings();renderDashboard();renderIncomePlan();renderReports();

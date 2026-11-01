@@ -1,7 +1,7 @@
 /* Personal appearance and public-code loading. No finance records are stored here. */
 (function(){
  'use strict';
- const designs={classic:'Classic',midnight:'Midnight Premium',bright:'Clean & Bright'};
+ const designs={premium:'Premium 3D',royal:'Royal Blue',executive:'Executive Light',classic:'Classic',midnight:'Midnight Premium',bright:'Clean & Bright'};
  const keyFor=id=>'finance_appearance_'+id;
  let owner='',prefs=null,pending=false,saving=false,saveTimer=0;
  const read=key=>{try{return JSON.parse(window.localStorage.getItem(key)||'null');}catch(_){return null;}};
@@ -29,7 +29,7 @@
  };
  function apply(){
   if(!prefs)return;
-  const theme=prefs.design==='bright'?'light':prefs.design==='midnight'?'dark':prefs.theme==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):prefs.theme;
+  const theme=['bright','executive'].includes(prefs.design)?'light':['midnight','premium','royal'].includes(prefs.design)?'dark':prefs.theme==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):prefs.theme;
   document.documentElement.dataset.financeDesign=prefs.design;
   document.documentElement.dataset.financeTheme=theme;
   document.documentElement.dataset.themePreference=prefs.theme;
@@ -43,6 +43,7 @@
   const name=document.getElementById('prefThemeStatus');if(name)name.textContent=designs[prefs.design];
   const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content=prefs.design==='bright'?'#f6f7f9':prefs.design==='midnight'?'#101921':'#0c3b4a';
   window.financeSyncExperienceNav?.();
+  window.financeRenderPremium?.();
  }
  window.financeApplyAppearance=apply;
  window.financeSaveAppearance=async function(){
