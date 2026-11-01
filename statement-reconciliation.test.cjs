@@ -40,3 +40,16 @@ context.window.financeStatementOtherMonthCandidates(issues,[{...purchase,_id:'ma
 issues=[{row:purchase,type:'Only in uploaded statement',delta:-250}];context.window.financeStatementOtherMonthCandidates(issues,[{...purchase,_id:'a',statementMonth:'2026-10'},{...purchase,_id:'b',statementMonth:'2026-09'}],'2026-11');assert(!issues[0].candidate);assert.match(issues[0].type,/review required/);
 context.account=()=>({type:'bank'});assert.equal(context.statementImportSelection([payment]).eligible.length,1,'Bank deposits remain importable');
 console.log('PASS card credit exclusions, exact offset pairing, unmatched profit preservation, bank deposits, immutable evidence and ambiguous/wrong month plus amount candidates');
+context.account=()=>({type:'card',ending:'1234'});
+Object.assign(context,{cashFlowLedger:[{id:'out',type:'card-payment',sourceId:'card',targetId:'other',amount:250,date:'2026-10-01',description:'Card payment to other card',status:'active'}],transferInstallmentPlan:()=>null,paymentMonthForTransaction:()=> '2026-11'});
+const bill={...purchase,description:'Biller ID: other card payment',physicalCardEnding:'1234'};
+let ledgerRows=context.statementComparisonLedgerRows('card','2026-11',[],[bill]);assert.equal(ledgerRows.length,1);assert.equal(ledgerRows[0].amount,-250);assert.equal(ledgerRows[0].description,bill.description);
+assert.equal(context.statementComparisonLedgerRows('card','2026-11',[bill],[bill]).length,0,'No double count of ledger and transaction');
+assert.equal(context.statementComparisonLedgerRows('other','2026-11',[],[bill]).length,0,'Incoming payment is not an outgoing charge');
+assert.equal(context.statementComparisonLedgerRows('card','2026-10',[],[bill]).length,0,'Uses source statement month');
+context.transferInstallmentPlan=()=>({});assert.equal(context.statementComparisonLedgerRows('card','2026-11',[],[bill]).length,0,'Converted transfer principal is excluded');
+context.transferInstallmentPlan=()=>null;context.cashFlowLedger[0].status='reversed';assert.equal(context.statementComparisonLedgerRows('card','2026-11',[],[bill]).length,0);
+console.log('PASS outgoing ledger payments, one-to-one transaction deduplication, incoming/reversed/month guards and installment conversion exclusion');
+issues=[{row:{...purchase,description:'Sample Merchant RIYADH 101',amount:-95},type:'Only in uploaded statement',delta:-95}];
+context.window.financeStatementOtherMonthCandidates(issues,[{...purchase,description:'Sample Merchant',manual:true,_id:'manual-amount',amount:-32,statementMonth:'2026-11'}],'2026-11');assert.equal(issues[0].candidate._id,'manual-amount');assert.match(issues[0].type,/review/);assert.equal(issues[0].delta,-95,'Review hint does not silently adjust totals');
+console.log('PASS manual amount discrepancy hint preserves reconciliation arithmetic');
