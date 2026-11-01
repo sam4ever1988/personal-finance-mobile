@@ -22,3 +22,21 @@ assert.throws(()=>d.c.confirmLoanPayment(d.loan.id,{...pay(),date:'2026-02-30'},
 const e=fixture();e.c.window.financeSectionPermission=()=> 'view';assert.throws(()=>e.c.confirmLoanPayment(e.loan.id,pay(),'unauthorized'),/permission/);
 console.log('PASS: no calendar deductions, early installment assignment, default account and override, idempotent confirmation, duplicate month prevention, partial payments, undo refunds, final payoff, tracking-only, dates and permissions');
 
+
+// Reproduce a full recovery-history quota using the real backup writer.
+const recoverySource=fs.readFileSync(__dirname+'/app-07.js','utf8');
+function recoveryFn(name){const start=recoverySource.indexOf('function '+name+'('),end=recoverySource.indexOf('\nfunction ',start+1);return recoverySource.slice(start,end);}
+const q=fixture(),recoveryKey='pf_recovery_snapshots_v138';let quota=50;
+q.storage.set(recoveryKey,JSON.stringify(Array.from({length:8},()=>({data:'x'.repeat(500)}))));
+q.c.localStorage.getItem=k=>q.storage.get(k)||null;
+q.c.localStorage.setItem=(k,v)=>{if(k===recoveryKey&&v.length>quota){const error=new Error('full');error.name='QuotaExceededError';throw error;}q.storage.set(k,v);};
+q.c.rawLocalRecoveryState=()=>({financeSettings:JSON.parse(JSON.stringify(q.c.financeSettings)),data:'x'.repeat(500)});q.c.renderRecoveryStatus=()=>{};
+vm.runInContext(recoverySource.slice(recoverySource.indexOf('const RECOVERY_KEY='),recoverySource.indexOf('function rawLocalRecoveryState('))+recoveryFn('getRecoverySnapshots')+recoveryFn('saveRecoverySnapshot'),q.c);
+assert.throws(()=>q.c.confirmLoanPayment(q.loan.id,pay(),'retry-request'),/Device storage is full/);
+assert.equal(q.loan.remainingAmount,3000);assert.equal(q.balances['bank-a'],5000);assert.equal(q.c.cashFlowLedger.length,0);
+quota=1200;
+assert(q.c.confirmLoanPayment(q.loan.id,pay(),'retry-request'));
+assert(q.c.confirmLoanPayment(q.loan.id,pay(),'retry-request'));
+assert.equal(q.loan.remainingAmount,2000);assert.equal(q.balances['bank-a'],4000);assert.equal(q.c.cashFlowLedger.length,1);assert.equal(q.loan.paymentHistory.length,1);
+assert.equal(q.c.getRecoverySnapshots()[0].financeSettings.loans[0].remainingAmount,3000);
+console.log('PASS: real recovery quota blocks before payment; trimmed-backup retry records and deducts once');

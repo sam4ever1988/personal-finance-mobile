@@ -1208,6 +1208,9 @@ async function cloudInspectState(){
 
 const RECOVERY_KEY='pf_recovery_snapshots_v138';
 const RECOVERY_LIMIT=8;
+// Web Storage shares a small quota with the live workspace. Limit the history
+// by serialized UTF-16 size as well as count; always retain a complete newest copy.
+const RECOVERY_MAX_CHARS=512*1024;
 
 function rawLocalRecoveryState(reason='manual'){
  return {
@@ -1259,9 +1262,20 @@ function getRecoverySnapshots(){
 
 function saveRecoverySnapshot(reason='manual'){
  const snap=rawLocalRecoveryState(reason);
- const arr=getRecoverySnapshots();
- arr.unshift(snap);
- localStorage.setItem(RECOVERY_KEY,JSON.stringify(arr.slice(0,RECOVERY_LIMIT)));
+ const arr=[snap,...getRecoverySnapshots()].slice(0,RECOVERY_LIMIT);
+ let serialized=JSON.stringify(arr);
+ while(arr.length>1&&serialized.length>RECOVERY_MAX_CHARS){arr.pop();serialized=JSON.stringify(arr);}
+ for(;;){
+  try{localStorage.setItem(RECOVERY_KEY,serialized);break;}
+  catch(error){
+   const quota=error?.name==='QuotaExceededError'||error?.name==='NS_ERROR_DOM_QUOTA_REACHED'||error?.code===22||error?.code===1014;
+   if(!quota)throw error;
+   if(arr.length===1)throw new Error('Device storage is full and a recovery backup could not be saved. Export a backup from Cloud & Sync before freeing browser storage, then retry.');
+   // setItem is atomic: leave the existing backups intact until a smaller
+   // replacement succeeds. Never clear live finance records to make room.
+   arr.pop();serialized=JSON.stringify(arr);
+  }
+ }
  renderRecoveryStatus();
  return snap;
 }
