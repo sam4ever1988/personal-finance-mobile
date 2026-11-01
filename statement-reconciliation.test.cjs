@@ -25,3 +25,18 @@ const row={account:'card',date:'2026-10-01',description:'Purchase',amount:-100,p
 let result=context.window.financeCompareStatement([row],[{...row,physicalCardEnding:'5678'}]);assert.equal(result.matched,0);assert.equal(result.issues.length,2);
 result=context.window.financeCompareStatement([row],[row,{...row,_id:'duplicate'}]);assert.equal(result.matched,1);assert.equal(result.difference,100);assert.equal(result.explained,100);
 console.log('PASS cross-card mismatch is visible; duplicate rows reconcile one-to-one');
+const purchase={...row,amount:-250,statementBillingAmount:-250};
+const refund={...row,amount:50,statementBillingAmount:50,description:'Murabaha Refund Instalment #1 - 25 October26'};
+const profit={...refund,amount:-50,statementBillingAmount:-50,description:'Murabaha Profit Instalment #1 - 25 October26'};
+const payment={...row,amount:500,statementBillingAmount:500,description:'Card payment'};
+let selected=context.statementImportSelection([purchase,refund,profit,payment]);assert.equal(selected.eligible.length,1);assert.equal(selected.excluded.length,3);assert.equal(selected.eligible[0],purchase);
+selected=context.statementImportSelection([profit]);assert.equal(selected.eligible.length,1,'Never exclude unoffset profit');
+selected=context.statementImportSelection([refund,{...profit,statementBillingAmount:-51}]);assert.equal(selected.eligible.length,1,'Unequal profit must remain');
+const before=JSON.stringify([purchase,refund,profit,payment]);context.statementImportSelection([purchase,refund,profit,payment]);assert.equal(JSON.stringify([purchase,refund,profit,payment]),before);
+context.assignedTransactionPaymentMonth=(id,r)=>r.statementMonth;
+vm.runInContext(app12.slice(app12.indexOf(' window.financeStatementOtherMonthCandidates='),app12.indexOf(' window.financeSetStatementComparison=')),context);
+let issues=[{row:purchase,type:'Only in uploaded statement',delta:-250}];
+context.window.financeStatementOtherMonthCandidates(issues,[{...purchase,_id:'manual1',manual:true,amount:-260,statementMonth:'2026-10'}],'2026-11');assert.equal(issues[0].type,'Possible wrong statement month and amount');assert.equal(issues[0].delta,-250);assert.equal(issues[0].candidate._id,'manual1');
+issues=[{row:purchase,type:'Only in uploaded statement',delta:-250}];context.window.financeStatementOtherMonthCandidates(issues,[{...purchase,_id:'a',statementMonth:'2026-10'},{...purchase,_id:'b',statementMonth:'2026-09'}],'2026-11');assert(!issues[0].candidate);assert.match(issues[0].type,/review required/);
+context.account=()=>({type:'bank'});assert.equal(context.statementImportSelection([payment]).eligible.length,1,'Bank deposits remain importable');
+console.log('PASS card credit exclusions, exact offset pairing, unmatched profit preservation, bank deposits, immutable evidence and ambiguous/wrong month plus amount candidates');
