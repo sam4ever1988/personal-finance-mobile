@@ -1859,3 +1859,27 @@ function readStatementReconciliation(wb,accountId){
  }
  return null;
 }
+
+// Import exclusions preserve the complete upload for statement evidence.
+function statementImportSelection(rows){
+ const excluded=[],eligible=[];
+ const credit=r=>Number(r.statementBillingAmount??r.amount)>0;
+ const refund=r=>/murabaha\s+refund\s+instalments?/i.test(r.description||'');
+ const profit=r=>/murabaha\s+profit\s+instalments?/i.test(r.description||'');
+ const pairKey=r=>String(r.description||'').toLowerCase().replace(/murabaha\s+(refund|profit)/,'murabaha').replace(/\s+/g,' ').trim();
+ const used=new Set(),paired=new Set();
+ rows.filter(r=>account(r.account)?.type==='card'&&refund(r)&&credit(r)).forEach(r=>{
+  const matches=rows.filter(p=>!used.has(p)&&p.account===r.account&&String(p.physicalCardEnding||'')===String(r.physicalCardEnding||'')&&profit(p)&&pairKey(p)===pairKey(r)&&financeRoundMoney(Math.abs(Number(p.statementBillingAmount??p.amount)))===financeRoundMoney(Math.abs(Number(r.statementBillingAmount??r.amount))));
+  if(matches.length===1){used.add(matches[0]);paired.add(matches[0]);}
+ });
+ rows.forEach(r=>{
+  let reason='';
+  if(account(r.account)?.type==='card'){
+   if(refund(r))reason='Murabaha refund — excluded from import';
+   else if(credit(r))reason='Positive amount / credit — excluded from import';
+   else if(paired.has(r))reason='Murabaha profit fully offset by matching refund';
+  }
+  if(reason)excluded.push({row:r,reason});else eligible.push(r);
+ });
+ return {eligible,excluded};
+}
