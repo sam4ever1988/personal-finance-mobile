@@ -1547,13 +1547,14 @@ function outgoingPaymentRecord(outgoingId,month){
 }
 function outgoingPaymentEntries(o,month){
  const stored=o?.payments?.[month];
- return Array.isArray(stored)?stored:stored?[stored]:[];
+ const entries=Array.isArray(stored)?stored:stored?[stored]:[];
+ return entries.filter(p=>!p.linkedExisting||liveCardTransactions().some(r=>r._id===p.existingTransactionId&&r.account===p.sourceId&&r.date===p.date&&Math.abs(Number(r.amount)+Number(p.amount))<.005));
 }
 function outgoingPaidAmount(o,month){
  return financeRoundMoney(outgoingPaymentEntries(o,month).reduce((sum,p)=>sum+Number(p.amount||0),0));
 }
 function outgoingRemaining(o,month){
- return Math.max(0,financeRoundMoney((Number(o.amount||0)-outgoingPaidAmount(o,month))));
+ return Math.max(0,financeRoundMoney((Number(o.amountsByMonth?.[month]??o.amount??0)-outgoingPaidAmount(o,month))));
 }
 function outgoingOccurrencePaid(x){
  const o=outgoings.find(o=>o.id===x.outgoingId);
@@ -1609,7 +1610,7 @@ function outgoingOccurrences(o,horizon=120){
  return Array.from({length:n},(_,i)=>{
   const month=monthAdd(o.startMonth,i);
   const payment=outgoingPaymentRecord(o.id,month);
-  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-01`,description:o.description,amount:Number(o.amount||0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||'',payment,paid:outgoingRemaining(o,month)<=0.005};
+  return {id:`${o.id}-${i+1}`,outgoingId:o.id,month,date:`${month}-${String(Math.min(o.smartRecurring?.dueDay||1,new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate())).padStart(2,'0')}`,description:o.description,amount:Number(o.amountsByMonth?.[month]??o.amount??0),category:o.category,subcategory:o.subcategory,method:o.method||'Cash',occurrence:i+1,total:o.forever?null:n,forever:!!o.forever,notes:o.notes||'',payment,paid:outgoingRemaining(o,month)<=0.005};
  });
 }
 function allOutgoingOccurrences(horizon=120){return outgoings.flatMap(o=>outgoingOccurrences(o,horizon))}
@@ -1647,6 +1648,7 @@ function outgoingPaymentSourceOptions(){
 function openOutgoingPayment(outgoingId,month,paymentId=''){
  const o=outgoings.find(x=>x.id===outgoingId);if(!o)return;
  const existing=outgoingPaymentEntries(o,month).find(p=>p.id===paymentId);
+ if(existing?.linkedExisting){alert('This payment is linked to an existing transaction. Edit that transaction on the Transactions page.');return;}
  const remaining=outgoingRemaining(o,month);
  if(!existing && remaining<=0.005)return;
  $('outgoingPaymentOutgoingId').value=outgoingId;
@@ -1764,6 +1766,12 @@ function undoOutgoingPayment(outgoingId,month,refresh=true,paymentId=''){
  const entries=outgoingPaymentEntries(o,month);
  const p=entries.find(x=>x.id===paymentId)||(!paymentId&&entries.length===1?entries[0]:null);
  if(!p)return false;
+ if(p.linkedExisting){
+  o.smartUnlinked=[...new Set([...(o.smartUnlinked||[]),p.existingTransactionId])];
+  const remaining=entries.filter(x=>x!==p);if(remaining.length)o.payments[month]=remaining;else delete o.payments[month];
+  if(o.amountsByMonth)delete o.amountsByMonth[month];
+  saveLocal();if(refresh)refreshAfterOutgoingPayment();return true;
+ }
  reverseCashFlowLedgerByReference(`outgoing:${p.id}`);
  // Historic single payments used a month-level reference, even after a later
  // partial payment converted the month into a list.
