@@ -1129,11 +1129,39 @@ var accountDetailReturnPage='accounts';
 var currentAccountDetailId=null;
 var accountDetailTxFilter={month:'',fromDate:'',toDate:'',physicalCard:''};
 
+function accountTransactionExportCSV(rows){
+ const cell=value=>{
+  if(typeof value==='number')return Number.isFinite(value)?String(value):'';
+  let text=String(value??'');
+  // Keep descriptions/references as text when opened in spreadsheet software.
+  if(/^[\s\u0000-\u001f]*[=+@-]/.test(text)||/^[\t\r\n]/.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+ };
+ const headers=['Date','Posting Date','Imported Date','Transaction','Category','Subcategory','Account','Physical Card','Statement / Payment Month','Amount','Currency','Source','Reference'];
+ const data=rows.map(t=>[
+  t.date||'',t.posting||t.date||'',t.manual?'Manual entry':transactionImportedAt(t)||(t.imported?'Import date unavailable':'Historical'),
+  t.description||'',t.category||'',t.subcategory||'',accountName(t.account),physicalCardLabelFor(t.account,transactionPhysicalCardEnding(t)),
+  cardTransactionStatementMonth(t.account,t),Number(t.amount||0),financeBaseCurrency(),t.manual?'Manual':t.source||(t.imported?'Statement Import':'Historical'),t.reference||''
+ ]);
+ return '\uFEFF'+[headers,...data].map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n';
+}
+function exportAccountFilteredTransactions(){
+ const id=currentAccountDetailId;if(!id)return;
+ const rows=cardTransactionsForDetail(id);
+ if(!rows.length){alert('No transactions match the selected filters.');return;}
+ const a=account(id),filter=accountDetailTxFilter;
+ const filename=['transactions',a?.ending||id,filter.month||'all-statements',filter.physicalCard?'card-'+filter.physicalCard:'all-cards',filter.fromDate?'from-'+filter.fromDate:'',filter.toDate?'to-'+filter.toDate:''].filter(Boolean).join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.csv';
+ const url=URL.createObjectURL(new Blob([accountTransactionExportCSV(rows)],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);
+ try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+}
+
 function bindDetailTransactionBulkActions(){
  const root=$('accountDetailContent');
  if(!root)return;
 
  const visible=()=>[...root.querySelectorAll('[data-select-tx]')];
+ if($('detailTxExportFiltered'))$('detailTxExportFiltered').onclick=exportAccountFilteredTransactions;
 
  if($('detailTxSelectAllVisible'))$('detailTxSelectAllVisible').onclick=()=>{
   visible().forEach(c=>setTransactionSelected(c.dataset.selectTx,true,c));
@@ -1181,6 +1209,7 @@ function refreshAccountDetailFilters(id,paymentsOnly=false){
 }
 function cardDetailTransactionPanelHTML(id,rows){return `<div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn" type="button" id="detailTxExportFiltered" ${rows.length?'':'disabled'}>Export filtered transactions (CSV)</button>
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
   <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
   <button class="btn primary" type="button" id="detailTxUpdateSelected" disabled>Update Selected</button>
@@ -1337,6 +1366,7 @@ function openAccount(id,returnPage){
  document.querySelectorAll('[data-open-installments-page]').forEach(b=>b.addEventListener('click',()=>{renderInstallments();nav('installments');window.scrollTo({top:0,behavior:'smooth'});}));}
  else{$('accountDetailContent').innerHTML=`<div class="panel"><div class="splitHead"><div><div class="sectionTitle" style="margin:0">${a.bank} • ${a.name}</div><div class="kpiValue ${adjustedBankBalance(a)<0?'red':'green'}">${balanceMoney(adjustedBankBalance(a))}</div><div class="meta">${bankStatementBalanceEnabled(a.id)?'Tracked balance • statement imports, payments and manual transactions included':'Live tracked balance • payments and manual transactions included'}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="detailAddTransaction">+ Add Transaction</button><button class="btn" id="setActualBankBalance">Set Actual Balance</button></div></div></div>${paymentActivity}<div class="sectionTitle">Transactions</div><div class="panel">
  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn" type="button" id="detailTxExportFiltered" ${rows.length?'':'disabled'}>Export filtered transactions (CSV)</button>
   <button class="btn" type="button" id="detailTxSelectAllVisible">Select All Visible</button>
   <button class="btn" type="button" id="detailTxClearSelection">Clear Selection</button>
   <button class="btn primary" type="button" id="detailTxUpdateSelected" disabled>Update Selected</button>
