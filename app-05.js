@@ -1883,3 +1883,19 @@ function statementImportSelection(rows){
  });
  return {eligible,excluded};
 }
+
+function statementComparisonLedgerRows(cardId,month,existing,bankRows){
+ const transferText=r=>/payment|transfer|biller|sadad/i.test(r.description||'');
+ const sameAmountDate=(r,h)=>Number(r.amount)<0&&financeRoundMoney(Math.abs(Number(r.amount)))===financeRoundMoney(Number(h.amount))&&String(r.date||'').slice(0,10)===String(h.date||'').slice(0,10);
+ const usedExisting=new Set(),usedBank=new Set(),added=[];
+ (cashFlowLedger||[]).filter(h=>['card-payment','card-bank-transfer'].includes(h.type)&&h.status!=='reversed'&&h.sourceId===cardId&&h.targetId!==cardId&&!transferInstallmentPlan(h.id)&&(h.sourcePaymentMonth||paymentMonthForTransaction(cardId,h.date))===month).forEach(h=>{
+  // Reserve one transaction per ledger entry, including differently named bank billers.
+  const candidates=existing.filter(r=>!usedExisting.has(r)&&sameAmountDate(r,h)&&transferText(r));
+  if(candidates.length){usedExisting.add(candidates[0]);return;}
+  const bankCandidates=bankRows.filter(r=>!usedBank.has(r)&&sameAmountDate({...r,amount:r.statementBillingAmount??r.amount},h)&&transferText(r));
+  const bank=bankCandidates.length===1?bankCandidates[0]:null;
+  if(bank)usedBank.add(bank);
+  added.push({_id:'ledger:'+h.id,account:cardId,date:h.date,amount:-Math.abs(Number(h.amount)),description:bank?.description||h.description||'Outgoing card-funded payment',reference:bank?.reference||'',physicalCardEnding:bank?.physicalCardEnding||h.physicalCardEnding||account(cardId)?.ending||'',statementMonth:month,statementMonthManual:true,currency:financeBaseCurrency(),kind:'transfer',comparisonLedger:true,comparisonLedgerDescription:h.description||h.targetName||'',comparisonEvidence:bank?'Ledger matched by amount, date and payment description':'Ledger payment without a unique statement match'});
+ });
+ return added;
+}
