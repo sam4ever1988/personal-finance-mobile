@@ -1421,8 +1421,14 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
  const debit=Number(String(pick('debit','withdrawal','debit amount')).replace(/[,\s]/g,'')),credit=Number(String(pick('credit','deposit','credit amount')).replace(/[,\s]/g,''));
  if(Number.isFinite(debit)&&debit>0)amount=-Math.abs(debit);else if(Number.isFinite(credit)&&credit>0)amount=Math.abs(credit);
  if(!date||!description||!Number.isFinite(amount)||!amount)return null;
- const statementTransactionAmount=amount;const billingKey=Object.keys(low).find(k=>/^billing amount(?:\s*\(sar\))?$/.test(k));const billingText=billingKey?String(low[billingKey]??'').trim():'';const billed=Number(billingText.replace(/SAR/ig,'').replace(/[,\s]/g,'').replace(/\(([^)]+)\)/,'-$1'));const statementBillingAmount=billingText&&Number.isFinite(billed)?billed:null;
+ const billingKey=Object.keys(low).find(k=>/^billing amount(?:\s*\(sar\))?$/.test(k));
+ const billingText=billingKey?String(low[billingKey]??'').trim():'';
+ const creditMarked=/\bCR\b/i.test(billingText);
+ const billed=Number(billingText.replace(/SAR|CR|DR/ig,'').replace(/[,\s]/g,'').replace(/\(([^)]+)\)/,'-$1'));
+ const statementBillingAmount=billingText&&Number.isFinite(billed)?(billed===0?0:creditMarked?Math.abs(billed):-Math.abs(billed)):null;
  const [category,subcategory,kind,needsReview]=guessImportedCategory(description);if(kind==='expense'&&amount>0)amount=-amount;if(kind==='transfer'&&account(accountId)?.type==='card')amount=Math.abs(amount);
+ if(creditMarked)amount=Math.abs(amount);
+ const statementTransactionAmount=amount;
  const detectedPhysicalCardEnding=
   String(raw?.['Physical Card Ending']||raw?.physicalCardEnding||'').replace(/\D/g,'') ||
   detectPhysicalCardEndingFromRaw(raw,accountId);
@@ -1827,4 +1833,29 @@ function parseMeemOfficialStatementMeta(text,fileName=''){
   dueDate,totalDue,minimumDue,closingBalance,
   plans
  };
+}
+
+// Read-only Al Rajhi statement evidence; missing fields stay unknown.
+function readStatementReconciliation(wb,accountId){
+ const number=v=>{const t=String(v??'').replace(/[,\s]/g,'');return t!==''&&Number.isFinite(Number(t))?Number(t):null;};
+ const clean=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
+ for(const name of wb.SheetNames){
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false});
+  let due=null,dueDate='',printedMonth='',plans=[],spend=null,fees=null;
+  for(let i=0;i<rows.length;i++){
+   const row=rows[i],next=rows[i+1]||[],headers=row.map(clean);
+   const dueCol=headers.indexOf('total amount due');if(dueCol>=0){due=number(next[dueCol]);const dc=headers.indexOf('payment due date');if(dc>=0)dueDate=parseImportDate(next[dc]);}
+   const sc=headers.indexOf('total spend');if(sc>=0){spend=number(next[sc]);const fc=headers.indexOf('fees');if(fc>=0)fees=number(next[fc]);}
+   const mc=headers.indexOf('statement month');if(mc>0)printedMonth=String(row[mc-1]||'');
+   const bill=headers.indexOf('total installments amount'),original=headers.indexOf('transaction amount'),merchant=headers.indexOf('merchant');
+   if(bill>=0&&original>=0&&merchant>=0){
+    for(let j=i+1;j<rows.length;j++){
+     const r=rows[j],amount=number(r[bill]),fullAmount=number(r[original]);if(amount===null||fullAmount===null||!r[merchant])break;
+     plans.push({amount,fullAmount,merchant:String(r[merchant]),remainingCount:number(r[headers.indexOf('remaining installments')]),remainingAmount:number(r[headers.indexOf('remaining amount')]),reference:String(r[headers.indexOf('sr. number')]||'')});
+    }
+   }
+  }
+  if(due!==null&&plans.length)return {type:'alrajhi-reconciliation',accountId,totalDue:due,dueDate,paymentMonth:dueDate?dueDate.slice(0,7):'',printedMonth,spend,fees,installments:plans};
+ }
+ return null;
 }

@@ -1499,11 +1499,10 @@ function manualCardAmountForPaymentMonth(cardId,paymentMonth){
   return true;
  }).reduce((sum,t)=>sum+Math.abs(Number(t.amount||0)),0);
 }
-function installmentAmountForPaymentMonth(cardId,paymentMonth){
- const plans=installments.filter(p=>p.cardId===cardId && !p.completedConfirmed);
- return plans.reduce((sum,p)=>{
+function installmentPlanAmountForPaymentMonth(p,paymentMonth){
+ if(p.completedConfirmed)return 0;
   const releasedSlice=installmentReleasedSlices(p).find(row=>row.month===paymentMonth);
-  if(releasedSlice)return sum+Number(releasedSlice.amount||0);
+  if(releasedSlice)return Number(releasedSlice.amount||0);
   // Once an installment has been billed into a statement it is no longer part
   // of the future reserve, but it must stay inside that statement's payment.
   // Keep the billed slice in its original payment month so completing a plan
@@ -1514,12 +1513,12 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
   const billedIndex=billedStartIdx!==null&&paymentIdx!==null?paymentIdx-billedStartIdx:-1;
   if(billedIndex>=0&&billedIndex<billedCount){
    const originalSchedule=planMonthly({fullAmount:Number(p.fullAmount||0),months:Math.max(1,Number(p.months||1))});
-   return sum+Number(originalSchedule[Math.min(billedIndex,originalSchedule.length-1)]||0);
+   return Number(originalSchedule[Math.min(billedIndex,originalSchedule.length-1)]||0);
   }
   const c=planCalc(p);
   const ref=p.referenceMonth||p.startMonth||currentYearMonth();
   const refIdx=monthIndex(ref),payIdx=monthIndex(paymentMonth);
-  if(refIdx!==null&&payIdx!==null&&payIdx<refIdx)return sum;
+  if(refIdx!==null&&payIdx!==null&&payIdx<refIdx)return 0;
 
   // User-edited plans use remaining principal / remaining months as the source of truth.
   // This is the critical V91 fix: changing remaining amount or months immediately changes
@@ -1531,20 +1530,22 @@ function installmentAmountForPaymentMonth(cardId,paymentMonth){
    if(billedCount>0 && billedIndex>=billedCount && billedIndex<Number(p.months||0)){
     const original=planMonthly({fullAmount:Number(p.fullAmount||0),months:Number(p.months||1)});
     const originalRemaining=financeRoundMoney(original.slice(billedCount).reduce((v,n)=>v+n,0));
-    if(Math.abs(originalRemaining-Number(c.remaining||0))<0.011)return sum+Number(original[billedIndex]||0);
+    if(Math.abs(originalRemaining-Number(c.remaining||0))<0.011)return Number(original[billedIndex]||0);
    }
    const elapsed=(refIdx!==null&&payIdx!==null)?Math.max(0,payIdx-refIdx):0;
    const releasedOffset=Math.max(0,Number(c.releasedStatementPaid||0));
    const remainingIndex=elapsed-releasedOffset;
-   if(remainingIndex<0||remainingIndex>=Number(c.remainingCount||0))return sum;
-   return sum+Number(c.schedule?.[remainingIndex]??c.monthly??0);
+   if(remainingIndex<0||remainingIndex>=Number(c.remainingCount||0))return 0;
+   return Number(c.schedule?.[remainingIndex]??c.monthly??0);
   }
 
   const idx=Math.max(0,Number(p.paidInstallments||0)+elapsedMonths(ref,paymentMonth));
-  if(idx>=Number(p.months||1))return sum;
+  if(idx>=Number(p.months||1))return 0;
   const schedule=planMonthly(p);
-  return sum+Number(schedule[idx]||0);
- },0);
+  return Number(schedule[idx]||0);
+}
+function installmentAmountForPaymentMonth(cardId,paymentMonth){
+ return installments.filter(p=>p.cardId===cardId).reduce((sum,p)=>sum+installmentPlanAmountForPaymentMonth(p,paymentMonth),0);
 }
 function provisionalPaymentForMonth(cardId,paymentMonth){
  if(cardId==='meem-7102'){

@@ -144,6 +144,8 @@ async function parseStatementFile(file,accountId,statementMonth=''){
    }
   }
 
+  const reconciliation=readStatementReconciliation(wb,accountId);
+  if(reconciliation)importStatementMeta=reconciliation;
   const rows=workbookRows(wb,accountId);
   const normalized=rows
    .map(r=>normalizeImportedRow(r,accountId,statementMonth))
