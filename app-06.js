@@ -129,7 +129,7 @@ async function parseStatementFile(file,accountId,statementMonth=''){
 
  if(name.endsWith('.xlsx')||name.endsWith('.xls')){
   if(typeof XLSX==='undefined')await financeLoadStatementLibrary('excel');
-  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  const wb=XLSX.read(statementWorkbookBytes(await file.arrayBuffer()),{type:'array',cellDates:true});
   const detected=detectWorkbookAccount(wb,accountId);
   accountId=detected.accountId||accountId;
   if($('importAccount'))$('importAccount').value=accountId;

@@ -1436,6 +1436,31 @@ function isAlRajhiTransactionHeaderRow(row){
         vals.some(v=>v==='transaction date');
 }
 
+function statementWorkbookBytes(input){
+ const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
+ if(bytes.length<22)return bytes;
+ const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+ const u16=p=>view.getUint16(p,true),u32=p=>view.getUint32(p,true);
+ if(u32(0)!==0x04034b50)return bytes; // Leave legacy XLS and other formats alone.
+ // Some bank downloads append a repeated buffer after a complete XLSX archive.
+ // Ignore that tail only when an intact, single-disk ZIP directory proves where
+ // the workbook ends. Never reconstruct missing entries or modify cell data.
+ for(let end=bytes.length-22;end>=Math.max(0,bytes.length-65557);end--){
+  if(u32(end)!==0x06054b50)continue;
+  const archiveEnd=end+22+u16(end+20),count=u16(end+10),size=u32(end+12),offset=u32(end+16);
+  if(archiveEnd>bytes.length||u16(end+4)||u16(end+6)||!count||count===65535||u16(end+8)!==count||offset+size!==end)continue;
+  let cursor=offset,valid=true;
+  for(let i=0;i<count;i++){
+   if(cursor+46>end||u32(cursor)!==0x02014b50){valid=false;break;}
+   const local=u32(cursor+42),compressed=u32(cursor+20);
+   if(u16(cursor+34)||local+30>offset||u32(local)!==0x04034b50||local+30+u16(local+26)+u16(local+28)+compressed>offset){valid=false;break;}
+   cursor+=46+u16(cursor+28)+u16(cursor+30)+u16(cursor+32);
+  }
+  if(valid&&cursor===end)return archiveEnd===bytes.length?bytes:bytes.slice(0,archiveEnd);
+ }
+ return bytes; // Let the Excel reader report genuinely incomplete/corrupt files.
+}
+
 function workbookRows(wb,accountId=''){
  const all=[];
 
