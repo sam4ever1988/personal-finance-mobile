@@ -140,10 +140,31 @@
  }
  function renderGoldTabs(){document.querySelectorAll('[data-gold-tab]').forEach(p=>p.hidden=p.dataset.goldTab!==goldTab);el('goldAssetTabs')?.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.mode===goldTab));}
  function marketStatus(){const age=Date.now()-Date.parse(goldMarket.updatedAt||'');return goldMarket.manual?'Manual override':goldError?'Saved quote • automatic retry pending':Number.isFinite(age)&&age<180000?'Live quote':Number(goldMarket.price24k)>0?'Last market quote • may be delayed':'Waiting for market price';}
+ // Secondary PHP display only; asset valuations stay in the workspace currency.
+ let goldPesoBusy=null,goldPesoAttempt=0,goldPesoPair='';
+ function renderGoldPesoPrices(){
+  const base=financeBaseCurrency(),quote=financeFxQuotes.get(base+'|PHP');
+  const valid=base==='PHP'||quote&&Date.now()-quote.loaded<3600000;
+  el('goldPriceGrid')?.querySelectorAll('[data-gold-peso]').forEach(label=>{
+   const price=goldPricePerGram(Number(label.dataset.goldPeso));
+   label.textContent=base==='PHP'?'':valid&&price>0?'≈ '+financeNativeMoney(price*Number(quote.rate),'PHP')+' / gram':'PHP price unavailable';
+  });
+  let note=el('goldPesoRateMeta');if(!note&&el('goldPriceGrid')){note=node('div','meta');note.id='goldPesoRateMeta';el('goldPriceGrid').after(note);}
+  if(note)note.textContent=base==='PHP'?'':valid?'PHP conversion: 1 '+base+' = '+Number(quote.rate).toFixed(4)+' PHP • Rate date: '+quote.date+' • '+quote.source:'PHP conversion temporarily unavailable. The workspace price remains available.';
+ }
+ function loadGoldPesoPrices(){
+  const base=financeBaseCurrency(),pair=base+'|PHP',quote=financeFxQuotes.get(pair);
+  if(base==='PHP'||quote&&Date.now()-quote.loaded<1800000){renderGoldPesoPrices();return;}
+  if(goldPesoBusy||goldPesoPair===pair&&Date.now()-goldPesoAttempt<30000)return;
+  goldPesoPair=pair;goldPesoAttempt=Date.now();
+  el('goldPriceGrid')?.querySelectorAll('[data-gold-peso]').forEach(label=>label.textContent='Loading PHP price…');
+  goldPesoBusy=financeFetchRate(base,'PHP').then(()=>{if(financeBaseCurrency()===base)renderGoldPesoPrices();}).catch(()=>{if(financeBaseCurrency()===base)renderGoldPesoPrices();}).finally(()=>{goldPesoBusy=null;if(financeBaseCurrency()!==base)loadGoldPesoPrices();});
+ }
  const originalGold=renderGoldAssets;
  renderGoldAssets=function(){originalGold();applyGoldLayout();const active=goldAssets.filter(a=>activeGoldWeight(a)>.0001),value=active.reduce((s,a)=>s+goldAssetValue(a),0),cost=active.reduce((s,a)=>s+Number(a.purchasePrice||0)*activeGoldWeight(a)/Math.max(.0001,Number(a.weight||0)),0),due=active.filter(goldZakatDue).reduce((s,a)=>s+goldAssetValue(a)*.025,0),next=goldNisabReached()?active.map(goldNextDue).filter(Boolean).sort()[0]:null;
   el('goldKpis').innerHTML=[kpiHTML('Total Gold Weight',MONEY.format(active.reduce((s,a)=>s+activeGoldWeight(a),0))+' g',active.length+' active assets'),kpiHTML('Current Market Value',money(value),'Spot-value estimate','green'),kpiHTML('Unrealized Gain / Loss',money(value-cost),'Current value less remaining purchase cost',value-cost>=0?'green':'red'),kpiHTML('Gold Zakat',goldNisabReached()?(next||'—'):'Below Nisab',MONEY.format(active.reduce((s,a)=>s+goldPureWeight(a),0))+' / 85 g pure gold • Due now: '+money(due),due>0?'amber':'green')].join('');
-  el('goldPriceGrid').innerHTML=[24,22,21,18].map(k=>kpiHTML(k+'K / gram',Number(goldMarket.price24k)>0?money(goldPricePerGram(k)):'—',goldMarket.manual?'Manual price':k===24?'Spot reference':'Derived by purity')).join('');
+  el('goldPriceGrid').innerHTML=[24,22,21,18].map(k=>kpiHTML(k+'K / gram',Number(goldMarket.price24k)>0?money(goldPricePerGram(k)):'—',(goldMarket.manual?'Manual price':k===24?'Spot reference':'Derived by purity')+(financeBaseCurrency()==='PHP'?'':'<div data-gold-peso="'+k+'" style="margin-top:8px;font-size:15px;font-weight:600">Loading PHP price…</div>'))).join('');
+  renderGoldPesoPrices();loadGoldPesoPrices();
   el('refreshGoldPrice').textContent=goldMarket.manual?'Use Live Price':'Refresh Price';
   el('goldPriceMeta').textContent=marketStatus()+' • '+(goldMarket.updatedAt?new Date(goldMarket.updatedAt).toLocaleString():'No quote yet')+' • Source: '+(goldMarket.source||'—');
   el('goldHoldingsSummary').innerHTML=active.length?'<div class="layoutCompare"><div><small>Purchase cost</small><b>'+money(cost)+'</b></div><div><small>Market value</small><b>'+money(value)+'</b></div></div>':'<p class="meta">Add gold to track its value against purchase cost.</p>';
