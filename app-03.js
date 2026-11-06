@@ -689,19 +689,24 @@ function recordedCardPaymentCredit(cardId){
     // across subsequent open cycles. Cap this path to the installment due;
     // explicit overpayments are carried by extraCredit below.
     const installmentDue=Math.max(0,Number(installmentAmountForPaymentMonth(cardId,p.month)||0));
-    const paid=Math.max(0,Number(paymentPaidAmount(p)||0));
+    const paid=Math.max(0,Number(typeof paymentActualAmount==='function'?paymentActualAmount(p):paymentPaidAmount(p)||0));
+    const due=typeof plannerAmountForRow==='function'?Math.max(0,Number(plannerAmountForRow(p)||0)):paid;
+    const appliedPayment=Math.min(paid,due);
+    const cycleSettled=typeof cardPaymentCarryForward==='function'?due>0&&paid>=due-0.005:p.paid===true;
     // Once a paid cycle advances installment principal, crediting that same
     // installment payment again would inflate available credit.
     // Source-card transfer usage already subtracts this payment's coverage.
     // Applying the full payment again would restore that credit twice.
-    if(liveUsage>0)credit+=p.paid===true?Math.min(liveUsage,paid):Math.max(0,paid-Number(transferCoverageByMonth[p.month]||0));
-    else if(installmentDue>0 && p.paid!==true)credit+=Math.min(installmentDue,paid);
+    if(liveUsage>0)credit+=cycleSettled?Math.min(liveUsage,paid):Math.max(0,appliedPayment-Number(transferCoverageByMonth[p.month]||0));
+    else if(installmentDue>0 && !cycleSettled)credit+=Math.min(installmentDue,paid);
    }
-   (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{
-    credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));
-   });
+   if(typeof cardPaymentCarryForward!=='function')(p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));});
   });
 
+ if(typeof cardPaymentCarryForward==='function'){
+  const rows=cardPaymentPlan.filter(p=>p.accountId===cardId&&!p.upcomingOnly).sort((a,b)=>String(b.month).localeCompare(String(a.month)));
+  if(rows.length)credit+=cardPaymentCarryForward(rows[0]).balanceCredit;
+ }
  return financeRoundMoney(credit);
 }
 
@@ -887,7 +892,7 @@ function cardCycleFullyPaid(cardId,month){
 
  if(!rows.length)return false;
  const canonical=rows[0];
- return paymentRemainingAmount(canonical)<=0.005 || canonical.paid===true;
+ return Number(typeof paymentActualAmount==='function'?paymentActualAmount(canonical):paymentPaidAmount(canonical)||0)>=Number(plannerAmountForRow(canonical))-0.005;
 }
 
 function liveUnreleasedTransactionRows(cardId){
