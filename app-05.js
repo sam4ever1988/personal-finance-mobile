@@ -238,6 +238,7 @@ function openInstallment(plan=null){
  $('instCard').value=p.cardId;$('instDesc').value=p.description;$('instCategory').value=p.category;if(!$('instCategory').value)$('instCategory').selectedIndex=0;fillSubcategorySelect($('instSubcategory'),$('instCategory').value,p.subcategory);
  const existingCalc=plan?planCalc(p):null;
  $('instAmount').value=p.linkedLedgerId?(paymentActivityLedgerRow(p.linkedLedgerId)?.amount??p.originalPaymentAmount??p.fullAmount):p.fullAmount;
+ $('instConversionFee').value=Number(p.conversionFee||0);$('instFeeMonth').value=p.feeStatementMonth||p.referenceMonth||p.startMonth||currentMonthInput();
  $('instFeesField').hidden=!p.linkedLedgerId;$('instFees').value=Number(p.bankFees||0);$('instFees').dataset.previous=String(Number(p.bankFees||0));
  $('instRemainingAmount').value=plan?Number(p.manualRemaining!=null?p.manualRemaining:(existingCalc?.remaining??p.fullAmount)).toFixed(2):Number(p.fullAmount||0).toFixed(2);
  $('instMonths').value=plan?Number(p.remainingMonthsOverride!=null?p.remainingMonthsOverride:(existingCalc?.remainingCount??p.months)):p.months;
@@ -505,13 +506,13 @@ $('outgoingPaymentForm').addEventListener('submit',e=>{
 $('installmentBankFilter').addEventListener('change',renderInstallments);
 $('addInstallment').addEventListener('click',()=>openInstallment());$('quickInstallment')?.addEventListener('click',()=>openInstallment());
 $('instCategory').addEventListener('change',()=>fillSubcategorySelect($('instSubcategory'),$('instCategory').value));
-['instAmount','instRemainingAmount','instMonths','instPaid','instStart'].forEach(id=>$(id).addEventListener('input',updateInstallPreview));
+['instAmount','instRemainingAmount','instMonths','instPaid','instStart','instConversionFee','instFeeMonth'].forEach(id=>$(id).addEventListener('input',updateInstallPreview));
 $('instFees').addEventListener('input',()=>{const fees=Number($('instFees').value),previous=Number($('instFees').dataset.previous||0);if(!Number.isFinite(fees)||fees<0)return;$('instRemainingAmount').value=financeRoundMoney(Number($('instRemainingAmount').value||0)+fees-previous);$('instFees').dataset.previous=String(fees);updateInstallPreview();});
 function updateInstallPreview(){
  const full=Number($('instAmount').value||0),remaining=Math.max(0,Number($('instRemainingAmount').value||0)),remainingMonths=Math.max(1,Number($('instMonths').value||1));
  if(!full){$('instPreview').textContent='Enter the original amount, remaining amount, and remaining months.';return}
  const monthly=financeRoundMoney((remaining/remainingMonths));
- $('instPreview').innerHTML=`Remaining principal: <b>${money(remaining)}</b> • Remaining months: <b>${remainingMonths}</b> • Recalculated monthly installment: <b>${money(monthly)}</b>. Changing the months changes the monthly payment, not the remaining principal.`;
+ $('instPreview').innerHTML=`Remaining principal: <b>${money(remaining)}</b> • Remaining months: <b>${remainingMonths}</b> • Recalculated monthly installment: <b>${money(monthly)}</b>. Changing the months changes the monthly payment, not the remaining principal.${Number($('instConversionFee').value)>0?`<br>One-time fee: <b>${money(Number($('instConversionFee').value))}</b> in <b>${escapeHtml($('instFeeMonth').value)}</b>. Added once as a separate card charge; not spread across installments.`:''}`;
 }
 $('installForm').addEventListener('submit',e=>{
  e.preventDefault();
@@ -519,6 +520,10 @@ $('installForm').addEventListener('submit',e=>{
  const oldPlan=installments.find(x=>x.id===id);
  const linkedLedgerId=e.currentTarget.dataset.linkedLedgerId||'';
  const linkedLedger=linkedLedgerId?paymentActivityLedgerRow(linkedLedgerId):null;
+ const conversionFee=Number($('instConversionFee').value||0),feeStatementMonth=$('instFeeMonth').value;
+ if(!Number.isFinite(conversionFee)||conversionFee<0||Math.abs(conversionFee*100-Math.round(conversionFee*100))>0.000001)return alert('Enter a valid installment fee with up to two decimals, or 0.');
+ if(conversionFee>0&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(feeStatementMonth))return alert('Choose the statement month for the fee.');
+ if((conversionFee>0||oldPlan?.feeTransactionId)&&window.financeSectionPermission&&['manual_transactions','tx_overrides'].some(section=>window.financeSectionPermission(section)!=='edit'))return alert('Edit access to transactions is required to record or change an installment fee.');
  const bankFees=linkedLedgerId?Number($('instFees').value):0;
  if(!Number.isFinite(bankFees)||bankFees<0||Math.abs(bankFees*100-Math.round(bankFees*100))>0.000001)return alert('Enter valid bank fees with up to two decimals.');
  if(linkedLedgerId){
@@ -533,6 +538,8 @@ $('installForm').addEventListener('submit',e=>{
  const remainingMonths=Math.max(1,Number($('instMonths').value||1));
  const paid=Math.max(0,Number($('instPaid').value||0));
  const p={...(oldPlan||{}),id,cardId:$('instCard').value,description:$('instDesc').value.trim(),category:$('instCategory').value,subcategory:$('instSubcategory').value,fullAmount:financeRoundMoney(Number($('instAmount').value)+bankFees),bankFees,originalPaymentAmount:linkedLedger?Number(linkedLedger.amount):undefined,months:paid+remainingMonths,remainingMonthsOverride:remainingMonths,manualRemaining:remainingAmount,startMonth:oldPlan?.startMonth||$('instStart').value,referenceMonth:$('instStart').value,paidInstallments:paid,linkedTransactionId,source:e.currentTarget.dataset.editId?(oldPlan?.source||'Manual'):(linkedLedgerId?'Converted from existing payment':linkedTransactionId?'Converted from transaction':'Manual'),scheduleMode:'remaining-principal',linkedLedgerId};
+ p.conversionFee=conversionFee;p.feeStatementMonth=feeStatementMonth;
+ syncInstallmentConversionFee(p);
  const ix=installments.findIndex(x=>x.id===id);if(ix>=0)installments[ix]=p;else installments.push(p);
  normalizeSabInstallmentPlan();
  cleanupSabLegacyBalanceState();
@@ -559,6 +566,39 @@ Remaining installment principal: ${money(c.remaining)}
 The original purchase and installment are not double-counted.`),50);
  }
 });
+// A one-time fee is an ordinary statement charge, so existing payment,
+// import matching and released-statement accounting count it only once.
+function syncInstallmentConversionFee(plan){
+ const amount=financeRoundMoney(Number(plan.conversionFee||0));
+ const previous=plan.feeTransactionId?manualTransactions.find(t=>t._id===plan.feeTransactionId):null;
+ if(!amount){
+  if(previous){
+   manualTransactions=manualTransactions.filter(t=>t._id!==previous._id);
+   delete txOverrides[previous._id];
+   if(typeof recordImmediateDelete==='function')recordImmediateDelete('manual_transactions',previous._id,'installment-fee-removed');
+   if(typeof syncTransactionOverridesImmediate==='function')syncTransactionOverridesImmediate();
+  }
+  plan.feeTransactionId='';rebuildTransactions();return;
+ }
+ const id=previous?previous._id:'installment-fee-'+plan.id+'-'+Date.now();
+ const month=plan.feeStatementMonth;
+ const tx={...(previous||{}),_id:id,account:plan.cardId,physicalCardEnding:String(account(plan.cardId)?.ending||''),date:month+'-01',posting:month+'-01',
+  description:'Installment conversion fee',amount:-amount,category:'Financial Obligations',subcategory:'Bank Fees',kind:'expense',
+  currency:financeBaseCurrency(),manual:true,original:null,statementMonth:month,paymentMonth:month,statementMonthManual:true,installmentFeePlanId:plan.id};
+ if(previous){
+  // Preserve an unchanged matched/excluded fee. Explicit edits to amount or month
+  // clear stale amount/date overrides but do not restore excluded transactions.
+  if(previous.amount!==tx.amount||previous.statementMonth!==month||previous.account!==tx.account){
+   const overrides=txOverrides[id];
+   if(overrides){['amount','date','posting','account','statementMonth','paymentMonth','statementMonthManual'].forEach(key=>delete overrides[key]);}
+  }
+  manualTransactions[manualTransactions.indexOf(previous)]=tx;
+ }else manualTransactions.push(tx);
+ plan.feeTransactionId=id;
+ rebuildTransactions();
+ if(typeof syncManualTransactionImmediate==='function')syncManualTransactionImmediate(tx);
+ if(typeof syncTransactionOverridesImmediate==='function')syncTransactionOverridesImmediate();
+}
 function editPlan(id){openInstallment(installments.find(p=>p.id===id))}
 
 function openTxEdit(id){

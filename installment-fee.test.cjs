@@ -1,0 +1,30 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const s=fs.readFileSync('app-05.js','utf8'),s2=fs.readFileSync('app-02.js','utf8');
+function fn(src,name){const start=src.indexOf('function '+name+'('),end=src.indexOf('\nfunction ',start+1);assert(start>=0);return src.slice(start,end<0?undefined:end);}
+const writes=[],deletes=[];
+const c={manualTransactions:[],txOverrides:{},financeRoundMoney:n=>Math.round(n*100)/100,account:()=>({ending:'7102'}),financeBaseCurrency:()=> 'SAR',rebuildTransactions(){},syncManualTransactionImmediate:t=>writes.push({...t}),syncTransactionOverridesImmediate(){},recordImmediateDelete:(section,id)=>deletes.push(id),financeCycleTransactionIndex:null,assignedTransactionPaymentMonth:(_,t)=>t.statementMonth,txType:t=>t.kind,isCreditCardPaymentTx:()=>false,linkedPaymentCycleClosedForTx:()=>false,linkedActiveInstallment:()=>false,isTopUpPaymentDescription:()=>false};
+c.liveCardTransactions=()=>c.manualTransactions;
+vm.createContext(c);vm.runInContext(fn(s,'syncInstallmentConversionFee'),c);vm.runInContext(fn(s2,'transactionAmountForPaymentMonthAll'),c);
+const p={id:'test',cardId:'meem',description:'Credit Card Payment',conversionFee:70,feeStatementMonth:'2026-11',fullAmount:2845,manualRemaining:2845};
+c.syncInstallmentConversionFee(p);const id=p.feeTransactionId;
+assert.equal(c.manualTransactions.length,1);assert.equal(c.transactionAmountForPaymentMonthAll('meem','2026-11'),70);assert.equal(c.transactionAmountForPaymentMonthAll('meem','2026-12'),0);assert.equal(c.transactionAmountForPaymentMonthAll('other','2026-11'),0);assert.equal(p.manualRemaining,2845);assert.equal(p.fullAmount,2845);
+for(let i=0;i<3;i++)c.syncInstallmentConversionFee(p);
+assert.equal(c.manualTransactions.length,1);assert.equal(p.feeTransactionId,id);
+const reloaded=JSON.parse(JSON.stringify(p));c.syncInstallmentConversionFee(reloaded);assert.equal(c.manualTransactions.length,1);
+c.txOverrides[id]={amount:-70,statementMonth:'2026-11',category:'Financial Obligations'};
+p.conversionFee=80;p.feeStatementMonth='2026-12';c.syncInstallmentConversionFee(p);
+assert.equal(c.manualTransactions.length,1);assert.equal(c.transactionAmountForPaymentMonthAll('meem','2026-11'),0);assert.equal(c.transactionAmountForPaymentMonthAll('meem','2026-12'),80);assert.equal(c.txOverrides[id].amount,undefined);assert.equal(c.txOverrides[id].category,'Financial Obligations');
+p.conversionFee=0;c.syncInstallmentConversionFee(p);assert.equal(c.manualTransactions.length,0);assert.equal(deletes[0],id);assert.equal(p.feeTransactionId,'');
+assert.equal(c.financeRoundMoney(3976.92-2845+70),1201.92);
+console.log('PASS one-time fee: month/account isolation, card-payment description counts, edit, repeated save, reload, zero removal, principal unchanged, November arithmetic');
+// Exercise the actual Save Plan event, including fee validation and persistence.
+const elements={},$=id=>elements[id]??={value:'',dataset:{},addEventListener(event,handler){this[event]=handler}};
+const alerts=[];Object.assign(c,{$,installments:[],window:{financeSectionPermission:()=> 'edit'},alert:m=>alerts.push(m),normalizedTx:()=>[],normalizeSabInstallmentPlan(){},cleanupSabLegacyBalanceState(){},saveLocal(){},closeModal(){},renderInstallments(){},renderTransactions(){},renderReports(){},renderAccounts(){},renderDashboard(){},renderPaymentPlanner(){},renderIncomePlan(){},renderImportPage(){},ensureMonthlyPlannerRows(){},currentYearMonth:()=> '2026-11',addMonthsToYM:()=> '2026-12',document:{getElementById:()=>null}});
+vm.runInContext(s.slice(s.indexOf("$('installForm').addEventListener('submit'"),s.indexOf('// A one-time fee is an ordinary statement charge')),c);
+Object.entries({instConversionFee:'70',instFeeMonth:'2026-11',instRemainingAmount:'2845',instMonths:'3',instPaid:'0',instCard:'meem',instDesc:'Credit Card Payment',instCategory:'Financial Obligations',instSubcategory:'Card Payments',instAmount:'2845',instStart:'2026-11'}).forEach(([id,value])=>$(id).value=value);
+const save=()=> $('installForm').submit({preventDefault(){},currentTarget:$('installForm')});
+save();assert.equal(alerts.length,0);assert.equal(c.installments.length,1);assert.equal(c.installments[0].fullAmount,2845);assert.equal(c.installments[0].conversionFee,70);assert.equal(c.manualTransactions.length,1);
+$('installForm').dataset.editId=c.installments[0].id;save();assert.equal(c.manualTransactions.length,1);
+$('instConversionFee').value='-1';save();assert.equal(alerts.length,1);assert.equal(c.installments[0].conversionFee,70);
+$('instConversionFee').value='0';save();assert.equal(c.manualTransactions.length,0);assert.equal(c.installments[0].conversionFee,0);
+console.log('PASS actual Save Plan: creation, repeated edit, negative fee rejected, zero removes charge');
