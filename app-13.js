@@ -34,7 +34,7 @@ function financeStrongStatementMatches(upload,existing,monthFor){
  const candidatesFor=row=>existing.filter(old=>{
   if(old.account!==row.account||(old.currency||'SAR')!==(row.currency||'SAR')||!old._id)return false;
   const c=String(row.physicalCardEnding||''),d=String(old.physicalCardEnding||'');if(c!==d)return false;
-  if(Math.abs(Number(row.amount)-Number(old.amount))>.005||importDateDays(row.date,old.date)>3||monthFor(row)!==monthFor(old))return false;
+  if(Math.abs(Number(row.amount)-Number(old.amount))>.005||importDateDays(row.date,old.date)!==0||monthFor(row)!==monthFor(old))return false;
   if(row.reference&&old.reference)return row.reference===old.reference;
   const key=financeMerchantKey(row.description),aliases=(old.statementEvidence||[]).map(e=>financeMerchantKey(e.description));
   const remembered=learned.get([row.account,old.physicalCardEnding||'',key].join('|'));
