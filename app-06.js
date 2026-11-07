@@ -333,7 +333,7 @@ function isStatementDuplicate(candidate,existing){
  if(Math.abs(Number(candidate.amount||0)-Number(existing.amount||0))>0.005)return false;
  const days=importDateDays(candidate.date,existing.date);
  if(days===0&&(candidate.reference&&candidate.reference===existing.reference||duplicateTextSimilar(candidate.description,existing.description)))return true;
- if(days<=3 && duplicateTextSimilar(candidate.description,existing.description))return true;
+
  return false;
 }
 // Updated statements may identify a physical card that the earlier file omitted.
@@ -345,8 +345,8 @@ function statementCardMatch(row,old){
  if(row.account!==old.account||!Number.isFinite(Number(row.amount))||!Number.isFinite(Number(old.amount))||financeRoundMoney(Number(row.amount))!==financeRoundMoney(Number(old.amount)))return false;
  if(row.currency&&old.currency&&row.currency!==old.currency)return false;
  const a=String(row.reference||'').trim(),b=String(old.reference||'').trim();
- if(a&&b)return a===b&&importDateDays(row.date,old.date)<=3;
- return importDateDays(row.date,old.date)<=3&&duplicateTextSimilar(row.description,old.description);
+ if(a&&b)return a===b&&importDateDays(row.date,old.date)===0;
+ return importDateDays(row.date,old.date)===0&&duplicateTextSimilar(row.description,old.description);
 }
 function splitFreshStatementRows(previewRows,existingRows){
  const used=new Set(),fresh=[],duplicates=[];

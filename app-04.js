@@ -845,8 +845,7 @@ function possibleDuplicateGroups(includeDecided=false){
  for(let i=0;i<rows.length;i++){
   const bucket=buckets.get(JSON.stringify([rows[i].account,!rows[i].manual]));if(!bucket)continue;
   const candidates=[];
-  if(Number.isFinite(days[i])){for(let day=days[i]-7;day<=days[i]+7;day++)candidates.push(...(bucket.get(day)||[]));candidates.push(...(bucket.get('invalid')||[]));}
-  else for(const indices of bucket.values())candidates.push(...indices);
+  if(Number.isFinite(days[i]))candidates.push(...(bucket.get(days[i])||[]));
   candidates.sort((a,b)=>a-b);
   for(const j of candidates){
   if(j<=i)continue;
@@ -872,9 +871,8 @@ function possibleDuplicateGroups(includeDecided=false){
   const nearAmount=diff<=nearTolerance;
   if(!nearAmount)continue;
 
-  // Allow nearby posting dates because manual entry and bank posting
-  // can differ by several days.
-  if(Math.abs(days[i]-days[j])>7)continue;
+  // Only the same transaction calendar date can be a duplicate.
+  if(!Number.isFinite(days[i])||days[i]!==days[j])continue;
 
   const ad=description(i),bd=description(j);
   const descMatch=ad===bd||(ad.length>6&&bd.length>6&&(ad.includes(bd)||bd.includes(ad)));
