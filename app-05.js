@@ -607,7 +607,7 @@ function openTxEdit(id){
  $('txEditInfo').innerHTML=`<b>${escapeHtml(t.description)}</b>${eligible?'<span class="eligibleTag">> SAR 1,000</span>':''}<div class="meta">${escapeHtml(t.date)} • ${escapeHtml(accountName(t.account))} • ${signed(t.amount)}${linked?' • Installment plan linked':''}</div>`;
  fillCategorySelect($('editCategory'),false);$('editCategory').value=t.category;if(!$('editCategory').value)$('editCategory').selectedIndex=0;fillSubcategorySelect($('editSubcategory'),$('editCategory').value,t.subcategory);$('rememberMerchant').checked=false;
  $('editDescription').value=t.description||''; $('editDate').value=t.date||''; $('editAmount').value=Number(t.amount||0);
- $('editStatementMonth').value=assignedTransactionPaymentMonth(t.account,t);$('editStatementManual').checked=txOverrides[id]?.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
+ $('editStatementMonth').value=assignedTransactionPaymentMonth(t.account,t);$('editStatementManual').checked=t.statementMonthManual===true;fillPhysicalCardSelect($('editPhysicalCard'),t.account,false,transactionPhysicalCardEnding(t));
  $('installmentEligibilityBox').style.display=eligible&&!linked?'block':'none';
  $('convertToInstallment').disabled=!eligible||linked;
  openModal('txEditModal');
@@ -1474,7 +1474,7 @@ function normalizeImportedRow(raw,accountId,forcedStatementMonth=''){
   detectPhysicalCardEndingFromRaw(raw,accountId);
  const physicalCardEnding=detectedPhysicalCardEnding ||
   String(account(accountId)?.ending||'');
- return {account:accountId,date,posting,description,amount,statementTransactionAmount,statementBillingAmount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',reference:cleanImportText(pick('transaction reference','reference','reference number','bank reference','transaction id')),physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonth:resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):(forcedStatementMonth||statementMonthByRule(date,statementRule.cutoffDay))}
+ return {account:accountId,date,posting,description,amount,statementTransactionAmount,statementBillingAmount,category,subcategory,kind,needsReview,categoryReviewed:!needsReview,currency:financeBaseCurrency(),original:null,manual:false,imported:true,source:'Statement Import',reference:cleanImportText(pick('transaction reference','reference','reference number','bank reference','transaction id')),physicalCardEnding,physicalCardDetected:raw?.physicalCardDetected===false?false:!!detectedPhysicalCardEnding,statementMonthManual:!!forcedStatementMonth,paymentMonth:forcedStatementMonth||(resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):statementMonthByRule(date,statementRule.cutoffDay)),statementMonth:forcedStatementMonth||(resetCardIds.has(accountId)?paymentMonthForTransaction(accountId,date):statementMonthByRule(date,statementRule.cutoffDay))}
 }
 function parseCsvRows(text){
  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)return[];
