@@ -12,3 +12,29 @@ save();assert.equal(context.txOverrides.test.paymentMonth,'2026-11');assert.equa
 $('editStatementMonth').value='2026-12';$('editStatementMonth').change();save();assert.equal(context.txOverrides.test.paymentMonth,'2026-12');assert.equal(context.txOverrides.test.statementMonthManual,true);
 $('editStatementManual').checked=false;$('editStatementManual').change();save();assert.equal(context.txOverrides.test.paymentMonth,'2026-11');assert.equal(context.txOverrides.test.amount,-12);
 console.log('PASS: date resets stale manual month; auto save replaces imported month; explicit override retained; unchecked override recalculates; amount preserved');
+// Import preview: explicit month survives category edits, import construction and JSON round-trip.
+const importCode=fs.readFileSync(__dirname+'/app-06.js','utf8');
+vm.runInContext(importCode.slice(importCode.indexOf('function importPreviewMonthAssignment('),importCode.indexOf('function updateImportPreviewEditCycle(')),context);
+const selected={account:'card',date:'2026-11-11',statementMonth:'2026-12',paymentMonth:'2026-12',statementMonthManual:true,amount:-57.50};
+assert.equal(context.importPreviewMonthAssignment(selected,'card',selected.date).statementMonth,'2026-12');
+assert.equal(context.importPreviewMonthAssignment(selected,'card',selected.date).statementMonthManual,true);
+assert.equal(context.importPreviewMonthAssignment(selected,'card','2026-10-18').statementMonth,'2026-11');
+assert.equal(context.importPreviewMonthAssignment(selected,'other',selected.date).statementMonthManual,false);
+Object.assign(context,{importPreviewRows:[{...selected}],account:id=>({id,ending:'0955'}),accountName:id=>id,renderImportPreview(){},cardMonthLabel:m=>m,escapeHtml:x=>x,importStatus(){}});
+vm.runInContext(importCode.slice(importCode.indexOf('function applyImportPreviewAssignment('),importCode.indexOf('function importPreviewMonthAssignment(')),context);
+$('importPreviewBulkAccount').value='card';$('importPreviewBulkMonth').value='2026-12';context.applyImportPreviewAssignment();
+assert.equal(context.importPreviewRows[0].statementMonthManual,true);
+const construction=importCode.slice(importCode.indexOf(' const importedFresh=fresh.map'),importCode.indexOf(' importedFresh.forEach'));
+Object.assign(context,{fresh:context.importPreviewRows,stamp:1,batchId:'batch',importedAccountId:'card'});
+vm.runInContext(construction+';globalThis.savedImport=JSON.parse(JSON.stringify(importedFresh));',context);
+assert.equal(context.savedImport[0].statementMonth,'2026-12');assert.equal(context.savedImport[0].paymentMonth,'2026-12');assert.equal(context.savedImport[0].statementMonthManual,true);
+Object.assign(context,{cardCycleSetting:()=>({statementDay:1})});
+vm.runInContext(code.slice(code.indexOf('function assignedTransactionPaymentMonth('),code.indexOf('function cardTransactionStatementMonth(')),context);
+assert.equal(context.assignedTransactionPaymentMonth('card',context.savedImport[0]),'2026-12');
+$('importPreviewBulkMonth').value='';context.applyImportPreviewAssignment();assert.equal(context.importPreviewRows[0].statementMonthManual,false);
+// Explicit file-level month also takes precedence on reset cards.
+Object.assign(context,{parseImportDate:x=>x,cleanImportText:x=>x,guessImportedCategory:()=>['Utilities','Phone','expense',false],detectPhysicalCardEndingFromRaw:()=>'',financeBaseCurrency:()=> 'SAR',resetCardIds:new Set(['card']),statementRule:{cutoffDay:1},statementMonthByRule:()=> '2026-11'});
+vm.runInContext(code.slice(code.indexOf('function normalizeImportedRow('),code.indexOf('function parseCsvRows(')),context);
+const parsed=context.normalizeImportedRow({'transaction date':'2026-11-11',description:'Mobily',amount:-57.5},'card','2026-12');
+assert.equal(parsed.statementMonth,'2026-12');assert.equal(parsed.paymentMonth,'2026-12');assert.equal(parsed.statementMonthManual,true);
+console.log('PASS explicit import month: bulk assignment, edit preservation, date/account reset, persistence, effective cycle and reset-card parsing');

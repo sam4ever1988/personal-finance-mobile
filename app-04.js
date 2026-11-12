@@ -638,7 +638,7 @@ function applyStatementRuleToTransactions(){
  const cutoff=Math.max(1,Math.min(31,Number($('statementCutoffDay').value||24)));
  statementRule.cutoffDay=cutoff;
  normalizedTx().forEach(t=>{
-   if(txOverrides[t._id]?.statementMonthManual===true)return;
+   if(t.statementMonthManual===true)return;
    txOverrides[t._id]=txOverrides[t._id]||{};
    txOverrides[t._id].statementMonth=statementMonthByRule(t.date,cutoff);
    txOverrides[t._id].statementMonthManual=false;

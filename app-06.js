@@ -563,6 +563,7 @@ function applyImportPreviewAssignment(){
    account:accountId,
    paymentMonth:assignedMonth,
    statementMonth:assignedMonth,
+   statementMonthManual:!!statementMonth,
    physicalCardEnding:String(selectedAccount.ending||''),
    previewEdited:true
   });
@@ -575,6 +576,12 @@ function applyImportPreviewAssignment(){
  importStatus(`Statement assignment corrected for ${importPreviewRows.length} transaction(s). Review the preview before importing.`,'success');
 }
 
+function importPreviewMonthAssignment(row,accountId,date){
+ const keepManual=row?.statementMonthManual===true&&row.account===accountId&&row.date===date&&!!row.statementMonth;
+ const month=keepManual?row.statementMonth:paymentMonthForTransaction(accountId,date);
+ return {paymentMonth:month,statementMonth:month,statementMonthManual:keepManual};
+}
+
 function updateImportPreviewEditCycle(){
  const accountId=$('importPreviewEditAccount')?.value||'';
  const date=$('importPreviewEditDate')?.value||'';
@@ -584,7 +591,8 @@ function updateImportPreviewEditCycle(){
   box.textContent='Choose an account/card and date to calculate the payment/statement cycle.';
   return;
  }
- const month=paymentMonthForTransaction(accountId,date);
+ const row=importPreviewRows[Number($('importPreviewEditIndex')?.value)];
+ const month=importPreviewMonthAssignment(row,accountId,date).statementMonth;
  box.innerHTML=`This transaction will be assigned to <b>${cardMonthLabel(month)}</b> payment/statement cycle.`;
 }
 
@@ -664,7 +672,7 @@ $('importPreviewEditForm').addEventListener('submit',e=>{
  if(['expense','fee','obligation'].includes(type))amount=-absAmount;
  else if(['income','transfer'].includes(type))amount=absAmount;
 
- const paymentMonth=paymentMonthForTransaction(accountId,date);
+ const monthAssignment=importPreviewMonthAssignment(row,accountId,date);
 
  Object.assign(row,{
   account:accountId,
@@ -675,8 +683,7 @@ $('importPreviewEditForm').addEventListener('submit',e=>{
   category,
   subcategory,
   kind:type,
-  paymentMonth,
-  statementMonth:paymentMonth,
+  ...monthAssignment,
   previewEdited:true,
   needsReview:false,
   categoryReviewed:true
@@ -978,7 +985,7 @@ function commitStatementPreviewImport(){
   accountDetailTxFilter.month='';
   openAccount(importedAccountId,accountDetailReturnPage);
  }
- importStatus(`Updated ${updatedCards.length} existing card assignment(s). Imported ${importedFresh.length} transaction(s), total ${money(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0))}${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${officialConfirmed&&officialCandidate?` Official statement CONFIRMED: ${money(officialCandidate.amount)}${officialCandidate.due?` due ${paymentFormatDate(officialCandidate.due)}`:''}.`:officialCandidate?` Transactions imported only. Official statement was NOT confirmed and remains ${money(0)}.`:plannerUpdate.updated?' Transactions imported and the payment estimate was recalculated from transaction dates.':''}`,'success');
+ importStatus(`Updated ${updatedCards.length} existing card assignment(s). Imported ${importedFresh.length} transaction(s), total ${money(importedFresh.reduce((sum,row)=>sum+Math.abs(Number(row.amount||0)),0))}${skipped?`; skipped ${skipped} duplicate transaction(s) already in the database.`:'.'}${officialConfirmed&&officialCandidate?` Official statement CONFIRMED: ${money(officialCandidate.amount)}${officialCandidate.due?` due ${paymentFormatDate(officialCandidate.due)}`:''}.`:officialCandidate?` Transactions imported only. Official statement was NOT confirmed and remains ${money(0)}.`:plannerUpdate.updated?' Transactions imported and the payment estimate was recalculated using the assigned statement months.':''}`,'success');
  importPreviewRows=[];importDuplicateDecision=null;importStatementMeta=null;renderImportPreview()
 }
 const importDrop=$('importDrop');['dragenter','dragover'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>importDrop.addEventListener(ev,e=>{e.preventDefault();importDrop.classList.remove('drag')}));importDrop.addEventListener('drop',e=>handleStatementFile(e.dataTransfer.files?.[0]));
