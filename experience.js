@@ -131,7 +131,15 @@
   const cacheName='finance-public-code-v1',cacheURL=new URL('/__finance_code__/'+encodeURIComponent(version),location.href).href;
   let cache=null;
   try{
-   if(window.caches){cache=await window.financeLoadDeadline(caches.open(cacheName),'Code cache',1200);const hit=await window.financeLoadDeadline(cache.match(cacheURL),'Code cache',1200);if(hit){const parts=await hit.json();if(Array.isArray(parts)&&parts.length===files.length&&parts.every(p=>typeof p==='string'&&p.trim()))return parts;}}
+   if(window.caches){
+    // A blocked cache must not delay starting network downloads for seconds.
+    // Bound the whole lookup (open, match and decode), not each step separately.
+    const parts=await window.financeLoadDeadline((async()=>{
+     cache=await caches.open(cacheName);
+     const hit=await cache.match(cacheURL);return hit?await hit.json():null;
+    })(),'Code cache',150);
+    if(Array.isArray(parts)&&parts.length===files.length&&parts.every(p=>typeof p==='string'&&p.trim()))return parts;
+   }
   }catch(_){cache=null;}
   const parts=await Promise.all(files.map(async file=>{
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
