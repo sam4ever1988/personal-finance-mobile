@@ -90,17 +90,37 @@ function applyRecordSyncRows(rows,options={}){
  }
 }
 
-async function recordFetchAll(){
+// Read every page before callers replace local state or reconcile uploads.
+async function recordFetchPages(since=null){
  if(!cloudClient)return [];
  const {data:{session}}=await cloudClient.auth.getSession();
  if(!session||session.user.id!==window.financeActiveUserId)return [];
- const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
-   .select('section,record_id,data,updated_at,deleted_at')
-   .eq('user_id',window.financeWorkspaceUserId||session.user.id)
-   .order('updated_at',{ascending:true});
- if(error)throw error;
- return data||[];
+ const workspace=window.financeWorkspaceUserId||session.user.id;
+ for(let attempt=0;attempt<3;attempt++){
+  const rows=[],keys=new Set();let total=null,changed=false;
+  for(let offset=0;;){
+   let query=cloudClient.from(RECORD_SYNC_TABLE)
+    .select('section,record_id,data,updated_at,deleted_at',{count:'exact'})
+    .eq('user_id',workspace);
+   if(since!==null)query=query.gt('updated_at',since);
+   const {data,error,count}=await query.order('section',{ascending:true})
+    .order('record_id',{ascending:true}).range(offset,offset+499);
+   if(error)throw error;
+   if(window.financeActiveUserId!==session.user.id||(window.financeWorkspaceUserId||session.user.id)!==workspace)throw new Error('Workspace changed during cloud load.');
+   if(!Number.isInteger(count)||count<0)throw new Error('Cloud record count could not be verified.');
+   if(total===null)total=count;
+   if(total!==count){changed=true;break;}
+   const page=data||[];
+   for(const row of page){const key=JSON.stringify([row.section,row.record_id]);if(keys.has(key)){changed=true;break;}keys.add(key);rows.push(row);}
+   if(changed)break;
+   offset+=page.length;
+   if(offset===total)return rows;
+   if(!page.length||offset>total)throw new Error('Incomplete cloud response. Local data was not replaced.');
+  }
+ }
+ throw new Error('Cloud records changed during loading. Please retry.');
 }
+async function recordFetchAll(){return recordFetchPages();}
 
 async function recordFetchLatestUpdatedAt(){
  if(!cloudClient)return 0;
@@ -115,18 +135,7 @@ async function recordFetchLatestUpdatedAt(){
  const t=new Date(data?.[0]?.updated_at||0).getTime();
  return Number.isFinite(t)?t:0;
 }
-async function recordFetchChangedSince(iso){
- if(!cloudClient)return [];
- const {data:{session}}=await cloudClient.auth.getSession();
- if(!session||session.user.id!==window.financeActiveUserId)return [];
- const {data,error}=await cloudClient.from(RECORD_SYNC_TABLE)
-  .select('section,record_id,data,updated_at,deleted_at')
-  .eq('user_id',window.financeWorkspaceUserId||session.user.id)
-  .gt('updated_at',iso)
-  .order('updated_at',{ascending:true});
- if(error)throw error;
- return data||[];
-}
+async function recordFetchChangedSince(iso){return recordFetchPages(iso);}
 
 
 async function recordSeedFromLegacyCloudIfNeeded(){
