@@ -1072,9 +1072,61 @@ function excelCardAccounting(a){
   creditLimitInvariant:Math.abs((available+total-overCredit)-limit)<0.02
  };
 }
+function verifiedStatementCardPosition(a,asOf=new Date().toISOString().slice(0,10)){
+ // A statement's total due is not its total outstanding balance. Only use a
+ // closing balance explicitly verified to include the full installment debt.
+ const statement=cardPaymentPlan.filter(p=>p.accountId===a.id &&
+  p.statementBalanceVerified===true && officialStatementImportMatches(p) &&
+  /^\d{4}-\d{2}-\d{2}$/.test(p.statementEnd||'') && p.statementEnd<=asOf &&
+  typeof p.statementClosingBalance==='number' && Number.isFinite(p.statementClosingBalance))
+  .sort((x,y)=>y.statementEnd.localeCompare(x.statementEnd))[0];
+ if(!statement)return null;
+ const after=date=>String(date||'').slice(0,10)>statement.statementEnd && String(date||'').slice(0,10)<=asOf;
+ const movements=(cashFlowLedger||[]).filter(h=>h.status!=='reversed' &&
+  ['card-payment','card-bank-transfer'].includes(h.type) && after(h.date) &&
+  (h.sourceId===a.id||h.targetId===a.id)).map(h=>({
+   ...h,signedAmount:(h.targetId===a.id?1:-1)*Number(h.amount||0)
+  }));
+ const used=new Set();
+ const rows=liveCardTransactions().filter(t=>t.account===a.id && after(t.posting||t.postingDate||t.postedDate||t.date));
+ let transactionDelta=0;
+ rows.forEach(t=>{
+  // Match one statement payment row to one ledger movement, never all rows
+  // with a coincidentally equal amount. Ordinary purchases remain distinct.
+  const index=movements.findIndex((h,i)=>!used.has(i) &&
+   Math.abs(Number(t.amount)-h.signedAmount)<0.005 &&
+   ((t.linkedLedgerId&&t.linkedLedgerId===h.id)||(t.ledgerId&&t.ledgerId===h.id)||
+    (String(t.date).slice(0,10)===String(h.date).slice(0,10) &&
+     (txType(t)==='transfer'||/payment received|sadad bill payment|card payment|credit card payment|bank transfer/i.test(t.description||'')))));
+  if(index>=0){used.add(index);return;}
+  transactionDelta-=Number(t.amount||0);
+ });
+ const ledgerDelta=-movements.reduce((sum,h)=>sum+h.signedAmount,0);
+ const netPosition=financeRoundMoney(statement.statementClosingBalance+transactionDelta+ledgerDelta);
+ const limit=Math.max(0,Number(a.extra?.['Credit Limit']||0));
+ const observation=statement.bankAvailabilityObservation;
+ // This is an observed availability discrepancy, not a fabricated fee or a
+ // confirmed hold. Keep it separate from posted debt and known bank holds.
+ const bankAvailabilityDifference=observation && observation.date>=statement.statementEnd && observation.date<=asOf &&
+  typeof observation.outstanding==='number' && typeof observation.available==='number'
+  ?Math.max(0,financeRoundMoney(limit-observation.outstanding-observation.available-Number(observation.knownHolds||0))):0;
+ return {statementId:statement.id,statementEnd:statement.statementEnd,closingBalance:statement.statementClosingBalance,
+  transactionDelta:financeRoundMoney(transactionDelta),ledgerDelta:financeRoundMoney(ledgerDelta),netPosition,
+  total:Math.max(0,netPosition),available:Math.max(0,financeRoundMoney(limit-netPosition)),bankAvailabilityDifference};
+}
 function cardMetricsBeforeBankHolds(a){
  const excel=excelCardAccounting(a);
- if(excel)return excel;
+ if(excel){
+  const verified=verifiedStatementCardPosition(a);
+  if(!verified)return excel;
+  const total=verified.total,available=verified.available,util=excel.limit?total/excel.limit*100:0;
+  return {...excel,total,totalObligation:total,bankUtilized:total,netPosition:verified.netPosition,
+   available,bankAvailable:available,availableBeforeInstallments:available,util,utilization:util,
+   verifiedStatementPosition:verified,bankAvailabilityDifference:verified.bankAvailabilityDifference,
+   normalNonInstallmentUtilized:Math.max(0,financeRoundMoney(total-Math.min(total,excel.inst))),
+   installmentIncludedInUtilized:Math.min(total,excel.inst),
+   creditLimitInvariant:Math.abs(available+verified.netPosition-excel.limit)<0.02};
+ }
  const limit=Number(a.extra?.['Credit Limit']||0);
  return {
   limit,currentBalance:0,remainingInstallments:0,totalObligation:0,
@@ -1092,13 +1144,14 @@ function cardBankReserve(cardId){return financeRoundMoney(cardBankHolds(cardId).
 function cardMetrics(a){
  const m=cardMetricsBeforeBankHolds(a),bankReserve=cardBankReserve(a.id);
  const availableBeforeBankHolds=m.available;
- const available=Math.max(0,financeRoundMoney(availableBeforeBankHolds-bankReserve));
+ const availabilityDifference=Number(m.bankAvailabilityDifference||0);
+ const available=Math.max(0,financeRoundMoney(availableBeforeBankHolds-bankReserve-availabilityDifference));
  // A hold occupies credit but is not posted debt, income, or spending.
  // Keep the liability fields intact for net worth and payment planning.
  return {...m,bankReserve,availableBeforeBankHolds,available,bankAvailable:available,
-  availableBeforeInstallments:Math.max(0,financeRoundMoney(m.availableBeforeInstallments-bankReserve)),
-  creditOccupied:financeRoundMoney(m.total+bankReserve),
-  creditLimitInvariant:m.creditLimitInvariant!==false&&Math.abs(available-(Math.max(0,availableBeforeBankHolds-bankReserve)))<0.02};
+  availableBeforeInstallments:Math.max(0,financeRoundMoney(m.availableBeforeInstallments-bankReserve-availabilityDifference)),
+  creditOccupied:financeRoundMoney(m.total+bankReserve+availabilityDifference),
+  creditLimitInvariant:m.creditLimitInvariant!==false&&Math.abs(available-(Math.max(0,availableBeforeBankHolds-bankReserve-availabilityDifference)))<0.02};
 }
 
 
