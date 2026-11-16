@@ -6,7 +6,7 @@ const statement={id:'official',accountId:'card',statementBalanceVerified:true,st
  statementEnd:'2026-11-02',statementClosingBalance:9076.42,amount:1201.92,paidAmount:1201.92,
  bankAvailabilityObservation:{date:'2026-11-16',outstanding:7874.50,available:2115.50,knownHolds:0}};
 let tx=[],holds=0;
-const c={cardPaymentPlan:[statement],cashFlowLedger:[{id:'paid',type:'card-payment',targetId:'card',sourceId:'bank',date:'2026-11-11',amount:1201.92,status:'active'}],
+const c={importHistory:[],cardPaymentPlan:[statement],cashFlowLedger:[{id:'paid',type:'card-payment',targetId:'card',sourceId:'bank',date:'2026-11-11',amount:1201.92,status:'active'}],
  financeRoundMoney:n=>Math.round((n+Number.EPSILON)*100)/100,officialStatementImportMatches:p=>p.statementOfficial===true,
  liveCardTransactions:()=>tx,txType:t=>t.kind||'spend',cardBankReserve:()=>holds,
  excelCardAccounting:()=>({limit:10000,total:5898.49,available:4101.51,inst:6057.16,availableBeforeInstallments:4101.51})};
@@ -38,4 +38,7 @@ holds=50;m=c.cardMetrics(a);assert.equal(m.available,2065.50);assert.equal(m.tot
 // A newer verified closing balance absorbs old movements, not a second credit.
 c.cardPaymentPlan.push({...statement,id:'next',statementEnd:'2026-11-15',statementClosingBalance:7874.50,bankAvailabilityObservation:null});
 assert.equal(position().total,7874.50);assert.equal(position().ledgerDelta,0);
+// Persist balance evidence independently of planner rebuilds / old device rows.
+c.importHistory=[{...statement,id:'evidence',officialStatementConfirmed:true,officialStatementMonth:'2026-11',fileName:'statement.pdf'}];
+c.cardPaymentPlan=[];assert.equal(position().total,7874.50);
 console.log('PASS verified closing balance: separate due, historic credits, payments once, refunds, transfers, future dates, holds, availability discrepancy and next statement');
