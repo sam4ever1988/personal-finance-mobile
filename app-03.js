@@ -1075,7 +1075,10 @@ function excelCardAccounting(a){
 function verifiedStatementCardPosition(a,asOf=new Date().toISOString().slice(0,10)){
  // A statement's total due is not its total outstanding balance. Only use a
  // closing balance explicitly verified to include the full installment debt.
- const statement=cardPaymentPlan.filter(p=>p.accountId===a.id &&
+ // Import evidence survives rebuilding/resetting the monthly planner rows.
+ const evidence=(typeof importHistory==='undefined'?[]:importHistory).filter(h=>h.officialStatementConfirmed===true)
+  .map(h=>({...h,month:h.officialStatementMonth,statementOfficial:true,statementFileName:h.fileName}));
+ const statement=[...evidence,...cardPaymentPlan].filter(p=>p.accountId===a.id &&
   p.statementBalanceVerified===true && officialStatementImportMatches(p) &&
   /^\d{4}-\d{2}-\d{2}$/.test(p.statementEnd||'') && p.statementEnd<=asOf &&
   typeof p.statementClosingBalance==='number' && Number.isFinite(p.statementClosingBalance))
