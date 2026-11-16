@@ -804,7 +804,9 @@ function cardPositionHero(a,m){
     <div class="cardMetricBox"><span>Bank Reserves / Holds</span><b class="amber">${money(m.bankReserve||0)}</b></div>
     <div class="cardMetricBox"><span>Future Reserved Installments</span><b class="amber">${money(m.inst)}</b></div>
     <div class="cardMetricBox"><span>Outstanding / Utilized</span><b class="red">${money(m.total)}</b></div>
+    ${m.bankAvailabilityDifference?`<div class="cardMetricBox"><span>Bank availability difference · Needs review</span><b class="amber">${money(m.bankAvailabilityDifference)}</b></div>`:''}
    </div>
+   ${m.verifiedStatementPosition?`<div class="cardDetailSub">Balance reconciled from statement closing balance ${money(m.verifiedStatementPosition.closingBalance)} as of ${escapeHtml(m.verifiedStatementPosition.statementEnd)}, plus subsequent transactions and payments. Installment principal is already included. ${m.bankAvailabilityDifference?'The availability difference is unclassified; it is not recorded as spending or a confirmed bank hold.':''}</div>`:''}
    
    
    <div class="physicalCardsBox">
