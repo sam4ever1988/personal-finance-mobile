@@ -395,44 +395,60 @@ function paymentActivityOutgoing(row){
  return payment?{outgoing,month,payment}:null;
 }
 function paymentActivityCardHistory(row){
- if(row.type!=='card-payment'||!row.referenceId)return null;
- for(const plan of cardPaymentPlan||[]){
+ if(row.type!=='card-payment')return null;
+ for(const plan of [...(cardPaymentPlan||[])].sort((a,b)=>releasedPaymentRowPriority(b)-releasedPaymentRowPriority(a))){
   const history=Array.isArray(plan.paymentHistory)?plan.paymentHistory:[];
-  const entry=history.find(h=>h.mirrored!==true&&h.ledgerReferenceId===row.referenceId);
+  const entry=history.find(h=>h.mirrored!==true&&cardPaymentHistoryMatchesLedger(plan,h,row));
   if(entry)return {plan,entry};
  }
  return null;
+}
+function syncEditedCardPaymentActivity(row,values){
+ // The ledger is authoritative even when no planner history survives.
+ Object.assign(row,values);
+ cardPaymentPlan.forEach(plan=>{
+  (plan.paymentHistory||[]).forEach(h=>{
+   if(cardPaymentHistoryMatchesLedger(plan,h,row))Object.assign(h,values,{budgetMonth:values.month,ledgerId:row.id,ledgerReferenceId:row.referenceId});
+  });
+  if(plan.accountId===row.targetId){plan.paidAmount=paymentActualAmount(plan);plan.paid=paymentRemainingAmount(plan)<=0.005;}
+ });
+}
+function reverseCardPaymentActivity(row){
+ if(row.status==='reversed')return false;
+ const source=account(row.sourceId),before=source?.type==='bank'?adjustedBankBalance(source):null;
+ Object.assign(row,{status:'reversed',reversedAt:new Date().toISOString(),reversalReason:'Payment deleted by user from account activity'});
+ cardPaymentPlan.forEach(plan=>{
+  plan.paymentHistory=(plan.paymentHistory||[]).filter(h=>!cardPaymentHistoryMatchesLedger(plan,h,row));
+  // Clear stale totals before recomputing so an orphan ledger deletion does
+  // not fall back to the former paidAmount when the last payment is removed.
+  if(plan.accountId===row.targetId){plan.paidAmount=0;plan.paidAmount=paymentActualAmount(plan);plan.paid=paymentRemainingAmount(plan)<=0.005;}
+ });
+ if(source?.type==='bank'&&Number.isFinite(before))setTrackedBankBalance(source.id,financeRoundMoney(before+Number(row.amount||0)));
+ return true;
 }
 function editAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
  if(transferInstallmentPlan(id))return alert('Remove the linked installment plan before changing or undoing this payment.');
  if(row.type==='card-payment'){
-  const match=paymentActivityCardHistory(row);
-  if(!match)return alert('This historical card payment must be managed in the payment planner.');
-  const {plan,entry}=match,source=entry.sourceId==='cash-source'?null:account(entry.sourceId);
-  openUnifiedAction({title:'Edit Card Payment',subtitle:accountName(plan.accountId)+' • Paid from '+(entry.sourceName||accountName(entry.sourceId)),save:'Save Payment',fields:[
-   {name:'amount',label:('Amount ('+financeBaseCurrency()+')'),type:'number',step:'0.01',min:'0.01',value:Number(entry.amount||0),required:true,full:false},
-   {name:'date',label:'Payment Date',type:'date',value:entry.date||row.date,required:true,full:false}
+  const source=row.sourceId==='cash-source'?null:account(row.sourceId);
+  const original=JSON.stringify(row);
+  openUnifiedAction({title:'Edit Card Payment',subtitle:accountName(row.targetId)+' • Paid from '+(row.sourceName||accountName(row.sourceId))+' • '+row.id,save:'Save Payment',fields:[
+   {name:'amount',label:('Amount ('+financeBaseCurrency()+')'),type:'number',step:'0.01',min:'0.01',value:Number(row.amount||0),required:true,full:false},
+   {name:'date',label:'Payment Date',type:'date',value:row.date,required:true,full:false}
   ],submit:v=>{
-   const current=paymentActivityLedgerRow(id),linked=current&&paymentActivityCardHistory(current),amount=Number(v.amount);
-   if(!linked||linked.entry!==entry)return goldActionError('This card payment changed. Reopen it.');
+   const current=paymentActivityLedgerRow(id),amount=Number(v.amount);
+   if(!current||JSON.stringify(current)!==original)return goldActionError('This card payment changed. Reopen it.');
    if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)-amount*100)>0.000001)return goldActionError('Enter a valid amount with no more than two decimals.');
    if(!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date+'T12:00:00')))return goldActionError('Enter a valid payment date.');
    const sourceBankBalanceBefore=source?.type==='bank'?adjustedBankBalance(source):null;
-   const previous=Number(entry.amount||0),difference=amount-previous;
+   const previous=Number(current.amount||0),difference=amount-previous;
    if(source?.type==='bank'&&difference>adjustedBankBalance(source)+0.001)return goldActionError('Payment exceeds the source bank balance.');
-   const remaining=Math.max(0,Number(paymentRemainingAmount(plan)||0));
-   const duePortion=Math.min(amount,remaining+Number(entry.duePortion??previous));
+   const match=paymentActivityCardHistory(current);
+   const remaining=match?Math.max(0,Number(paymentRemainingAmount(match.plan)||0)):0;
+   const duePortion=match?Math.min(amount,remaining+Number(current.duePortion??previous)):amount;
    const extraCredit=Math.max(0,amount-duePortion);
-   Object.assign(entry,{amount,date:v.date,budgetMonth:v.date.slice(0,7),duePortion,extraCredit});
-   Object.assign(current,{amount,date:v.date,month:v.date.slice(0,7),duePortion,extraCredit});
+   syncEditedCardPaymentActivity(current,{amount,date:v.date,month:v.date.slice(0,7),duePortion,extraCredit});
    if(source?.type==='bank'&&Number.isFinite(sourceBankBalanceBefore))setTrackedBankBalance(source.id,sourceBankBalanceBefore-difference);
-   plan.paidAmount=financeRoundMoney(plan.paymentHistory.filter(h=>!h.mirrored).reduce((sum,h)=>sum+Number(h.duePortion??h.amount??0),0));
-   plan.paid=paymentRemainingAmount(plan)<=0.005;
-   cardPaymentPlan.forEach(other=>{
-    if(other===plan||!Array.isArray(other.paymentHistory))return;
-    other.paymentHistory.forEach(h=>{if(h.mirrored&&h.recordedAt===entry.recordedAt)Object.assign(h,{amount,date:v.date,budgetMonth:v.date.slice(0,7),duePortion,extraCredit});});
-   });
    saveCardPaymentPlan();saveLocal();syncCardPaymentPlanImmediate();syncCashFlowLedgerImmediate();refreshPaymentActivityAccount();return true;
   }});
   return;
@@ -466,9 +482,9 @@ function deleteAccountPaymentActivity(id){
  const row=paymentActivityLedgerRow(id);if(!row)return alert('This payment changed. Reload the account and try again.');
  if(transferInstallmentPlan(id))return alert('Remove the linked installment plan before changing or undoing this payment.');
  if(row.type==='card-payment'){
-  const match=paymentActivityCardHistory(row);
-  if(!match)return alert('This historical card payment must be managed in the payment planner.');
-  undoLastPartialPayment(match.plan.id,row.referenceId);
+  if(!confirm(`Delete this payment of ${money(row.amount)} dated ${row.date}?\nFrom ${accountName(row.sourceId)} to ${accountName(row.targetId)}\nRecord: ${row.id}\nThe selected payment will be reversed and its linked planner history updated. Other payments will remain.`))return;
+  reverseCardPaymentActivity(row);
+  saveCardPaymentPlan();saveLocal();syncCardPaymentPlanImmediate();syncCashFlowLedgerImmediate();
   refreshPaymentActivityAccount();
   return;
  }

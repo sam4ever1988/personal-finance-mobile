@@ -351,14 +351,26 @@ function reverseCashFlowLedgerByReference(referenceId,fallback={}){
  if(changed)try{localStorage.setItem('pf_cash_flow_ledger',JSON.stringify(cashFlowLedger));}catch(_){}
  return changed;
 }
+function cardPaymentHistoryMatchesLedger(plan,history,row){
+ if(row.type!=='card-payment'||(plan.accountId!==row.targetId&&history.mirrored!==true))return false;
+ if(history.ledgerId)return history.ledgerId===row.id;
+ const reference=history.ledgerReferenceId||history.referenceId;
+ return !!reference && reference===row.referenceId;
+}
 function migrateCashFlowLedger(){
  let added=0;
 
  // Rebuild ledger from any surviving card-payment history.
  cardPaymentPlan.forEach(p=>{
   (p.paymentHistory||[]).filter(h=>!h.mirrored).forEach((h,i)=>{
+   // A history restored into another planner row is still the same payment.
+   // Preserve durable identity, including reversals; never regenerate a new
+   // payment reference merely because the statement row or amount changed.
+   const linked=cashFlowLedger.find(row=>cardPaymentHistoryMatchesLedger(p,h,row));
+   if(linked)return;
+   if(h.restoredFromLedger&&(h.ledgerId||h.ledgerReferenceId||h.referenceId))return;
    const before=cashFlowLedger.length;
-   addCashFlowLedgerEntry({
+   const ledger=addCashFlowLedgerEntry({
     type:'card-payment',
     date:h.date||String(h.recordedAt||'').slice(0,10),
     month:paymentBudgetMonth(h),
@@ -370,10 +382,11 @@ function migrateCashFlowLedger(){
     targetName:accountName(p.accountId),
     targetPaymentMonth:p.month,
     deductFromIncome:h.sourceId==='cash-source'||h.deductFromIncome===true,
-    referenceId:`payment:${p.id}:${h.recordedAt||h.date||i}:${Number(h.amount||0).toFixed(2)}`,
+    referenceId:h.ledgerReferenceId||h.referenceId||`payment:${p.id}:${h.recordedAt||h.date||i}:${Number(h.amount||0).toFixed(2)}`,
     referenceType:'card-payment-history',
     createdAt:h.recordedAt||new Date().toISOString()
    },false);
+   h.ledgerId=ledger.id;h.ledgerReferenceId=ledger.referenceId;
    if(cashFlowLedger.length>before)added++;
   });
  });
