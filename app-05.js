@@ -1440,6 +1440,13 @@ function parseImportDate(v){
  m=x.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);if(m){let y=m[3];if(y.length===2)y='20'+y;return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`};return ''
 }
 function guessImportedCategory(desc){
+ const guessed=guessImportedCategoryDefault(desc);
+ const rule=rememberedMerchantCategory(desc);
+ if(rule&&categories[rule.category]?.includes(rule.subcategory))
+  return [rule.category,rule.subcategory,guessed[2],false];
+ return guessed;
+}
+function guessImportedCategoryDefault(desc){
  const d=String(desc||'').toLowerCase();
  if((/advance payment|payment received|card payment/.test(d)||isTopUpPaymentDescription(d)))return ['Financial Obligations','Credit Card Payments','transfer',false];
  if(/loan|installment deduction/.test(d))return ['Financial Obligations','Loan Payments','obligation',false];

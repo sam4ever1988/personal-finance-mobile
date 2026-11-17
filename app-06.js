@@ -481,6 +481,7 @@ function openImportBulkReview(focusIndex=null){
  if(!rows.length){alert('All statement transactions are already classified.');return;}
  $('importBulkReviewMeta').textContent=`${rows.length} transaction(s) need Category/Subcategory review.`;
  $('importBulkReviewStatus').textContent='Review every row, then save all changes together.';
+ $('importBulkReviewBody').dataset.workspace=window.financeWorkspaceUserId||window.financeActiveUserId||'';
  $('importBulkReviewBody').innerHTML=rows.map(({row,index},position)=>{
   const category=categories[row.category]?row.category:'';
   const subcategory=(categories[category]||[]).includes(row.subcategory)?row.subcategory:'';
@@ -491,6 +492,7 @@ function openImportBulkReview(focusIndex=null){
    <td class="${Number(row.amount||0)<0?'red':'green'}"><b>${signed(Number(row.amount||0))}</b></td>
    <td><select data-import-review-category="${index}">${importReviewCategoryOptions(category)}</select></td>
    <td><select data-import-review-subcategory="${index}">${importReviewSubcategoryOptions(category,subcategory)}</select></td>
+   <td><label><input type="checkbox" data-import-review-remember="${index}" ${window.financeSectionPermission&&window.financeSectionPermission('merchant_rules')!=='edit'?'disabled':''}> Remember merchant</label><div class="meta">Future transactions only</div></td>
   </tr>`;
  }).join('');
  $('importBulkReviewBody').querySelectorAll('[data-import-review-category]').forEach(select=>{
@@ -504,9 +506,11 @@ function openImportBulkReview(focusIndex=null){
  if(focusIndex!==null)requestAnimationFrame(()=>$('importBulkReviewBody').querySelector(`[data-import-review-row="${focusIndex}"]`)?.scrollIntoView({block:'center'}));
 }
 function saveImportBulkReview(){
+ if($('importBulkReviewBody').dataset.workspace!==(window.financeWorkspaceUserId||window.financeActiveUserId||''))return;
  const rows=[...$('importBulkReviewBody').querySelectorAll('[data-import-review-row]')];
  if(!rows.length)return;
  const updates=[];
+ const remembered=new Map();
  for(const tr of rows){
   const index=Number(tr.dataset.importReviewRow);
   const category=tr.querySelector('[data-import-review-category]')?.value||'';
@@ -518,6 +522,18 @@ function saveImportBulkReview(){
    return;
   }
   tr.classList.remove('importBulkInvalid');
+  if(tr.querySelector('[data-import-review-remember]')?.checked){
+   if(window.financeSectionPermission&&window.financeSectionPermission('merchant_rules')!=='edit'){
+    $('importBulkReviewStatus').textContent='You do not have permission to save merchant rules.';return;
+   }
+   const description=String(importPreviewRows[index]?.description||'').trim();
+   const key=description.toLowerCase();
+   const prior=remembered.get(key);
+   if(!key||prior&&(prior.category!==category||prior.subcategory!==subcategory)){
+    $('importBulkReviewStatus').textContent='Choose one saved classification per merchant, or uncheck Remember merchant.';return;
+   }
+   remembered.set(key,{description,category,subcategory});
+  }
   updates.push({index,category,subcategory});
  }
  updates.forEach(({index,category,subcategory})=>{
@@ -525,9 +541,14 @@ function saveImportBulkReview(){
   if(!row)return;
   Object.assign(row,{category,subcategory,needsReview:false,categoryReviewed:true,previewEdited:true});
  });
+ remembered.forEach(({description,category,subcategory})=>{
+  const key=Object.keys(merchantRules).find(k=>k.trim().toLowerCase()===description.toLowerCase())||description;
+  merchantRules[key]={category,subcategory,futureOnly:true};
+ });
+ if(remembered.size)saveLocal();
  closeModal('importBulkReviewModal');
  renderImportPreview();
- importStatus(`${updates.length} transaction(s) reviewed. All classifications are ready for import.`,'success');
+ importStatus(`${updates.length} transaction(s) reviewed. ${remembered.size} merchant classification(s) saved for future transactions. All classifications are ready for import.`,'success');
 }
 
 function syncImportPreviewAssignmentControls(){

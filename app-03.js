@@ -364,6 +364,8 @@ function rememberedMerchantCategory(description,ruleIndex){
 function applyRememberedTransactionCategory(out,override,ruleIndex){
  if(Object.prototype.hasOwnProperty.call(override||{},'category')||Object.prototype.hasOwnProperty.call(override||{},'subcategory'))return out;
  const rule=rememberedMerchantCategory(out.description,ruleIndex);
+ // Import-review rules classify new entries at creation, not saved history.
+ if(rule?.futureOnly)return out;
  // Date, amount and physical-card overrides must not disable merchant memory.
  // Explicit categorization of a transaction still takes precedence.
  if(rule&&!Object.prototype.hasOwnProperty.call(override||{},'category')&&!Object.prototype.hasOwnProperty.call(override||{},'subcategory')){
