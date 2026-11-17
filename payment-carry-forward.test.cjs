@@ -38,3 +38,27 @@ assert.equal(c.recordedCardPaymentCredit('meem'),4046.92);
 const official=row('2026-11',1201.92);official.official=true;c.cardPaymentPlan=[oct,official,dec];
 assert.equal(c.recordedCardPaymentCredit('meem'),0);
 console.log('PASS utilization credits: October surplus and November cash counted once; official net statement absorbs old credit');
+// A card-to-bank transfer entered after an explicit overpayment consumes the
+// planner surplus, but the same cash must still offset ledger utilization.
+const funded=row('2027-01',0,8000);
+funded.paymentHistory=[{amount:8000,duePortion:0,extraCredit:8000}];
+funded.paidAmount=0;c.cardPaymentPlan=[funded];c.cashFlowLedger=[];
+c.liveUnreleasedTransactionRows=()=>[];c.installmentAmountForPaymentMonth=()=>0;
+c.transactionAmountForPaymentMonthAll=()=>0;
+let transferred=0,covered=0;
+c.cardFundedPaymentBreakdown=()=>transferred?[{effectivePaymentMonth:'2027-01',amount:transferred,coveredBySourcePayment:covered,sourceCycleStillOpen:true,matchedInTransactionFeed:false}]:[];
+const occupied=()=>transferred-covered-c.recordedCardPaymentCredit('meem');
+const originalPosition=occupied();assert.equal(originalPosition,-8000);
+for(const amount of [1500,3000,9000,1500,0]){
+ transferred=amount;funded.amount=amount;
+ assert.equal(occupied()-originalPosition,amount,'new/edit/reversed transfer occupies credit once');
+ assert.equal(c.paymentRemainingAmount(funded),Math.max(0,amount-8000));
+}
+// Payments already applied by transfer coverage must not receive another credit.
+transferred=1500;funded.amount=1500;covered=1500;
+funded.paidAmount=8000;funded.paymentHistory=[{amount:8000,duePortion:8000,extraCredit:0}];
+assert.equal(occupied()-originalPosition,1500);
+// A confirmed statement absorbs historical surplus.
+const laterStatement=row('2027-02',100);laterStatement.official=true;
+c.cardPaymentPlan.push(laterStatement);assert.equal(c.recordedCardPaymentCredit('meem'),0);
+console.log('PASS transfer after overpayment: create/edit/reverse, above-credit transfer, covered payment and official statement');
