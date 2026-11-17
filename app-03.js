@@ -663,9 +663,12 @@ function activeManualCardBalanceDelta(cardId){
 function recordedCardPaymentCredit(cardId){
  let credit=0;
  const transferCoverageByMonth={};
+ const transferUsageByMonth={};
  cardFundedPaymentBreakdown(cardId).forEach(row=>{
   const month=row.effectivePaymentMonth;
   transferCoverageByMonth[month]=financeRoundMoney((transferCoverageByMonth[month]||0)+Number(row.coveredBySourcePayment||0));
+  if(row.sourceCycleStillOpen&&!row.matchedInTransactionFeed)
+   transferUsageByMonth[month]=financeRoundMoney((transferUsageByMonth[month]||0)+Number(row.amount||0));
  });
 
  // V228: a payment against an unreleased/current calculated card cycle must
@@ -699,6 +702,15 @@ function recordedCardPaymentCredit(cardId){
     // Applying the full payment again would restore that credit twice.
     if(liveUsage>0)credit+=cycleSettled?Math.min(liveUsage,paid):Math.max(0,appliedPayment-Number(transferCoverageByMonth[p.month]||0));
     else if(installmentDue>0 && !cycleSettled)credit+=Math.min(installmentDue,paid);
+    // A later transfer can consume a payment previously recorded as surplus.
+    // Carry-forward then reduces that surplus, while the transfer still occupies
+    // credit in the ledger. Restore the applied payment exactly once here, unless
+    // live purchases already received it above or transfer coverage removed it.
+    if(liveUsage<=0&&Number(transferUsageByMonth[p.month]||0)>0){
+     const ordinaryDue=Math.max(0,Number(transactionAmountForPaymentMonthAll(cardId,p.month)||0))+installmentDue;
+     const transferApplied=Math.min(Number(transferUsageByMonth[p.month]||0),Math.max(0,appliedPayment-ordinaryDue));
+     credit+=Math.max(0,transferApplied-Number(transferCoverageByMonth[p.month]||0));
+    }
    }
    if(typeof cardPaymentCarryForward!=='function')(p.paymentHistory||[]).filter(h=>!h.mirrored).forEach(h=>{credit+=Math.max(0,Number(h.extraCredit??h.extraPortion??0));});
   });
